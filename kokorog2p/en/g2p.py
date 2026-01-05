@@ -85,7 +85,7 @@ class EnglishG2P(G2PBase):
 
     @property
     def nlp(self) -> object:
-        """Lazily initialize spaCy."""
+        """Lazily initialize spaCy with custom tokenizer rules for contractions."""
         if self._nlp is None:
             import spacy
 
@@ -93,7 +93,61 @@ class EnglishG2P(G2PBase):
             if not spacy.util.is_package(name):
                 spacy.cli.download(name)  # type: ignore[attr-defined]
             self._nlp = spacy.load(name, enable=["tok2vec", "tagger"])
+
+            # Add tokenizer exceptions for contractions in our lexicon
+            # This prevents spaCy from splitting contractions
+            # like "don't" -> "do" + "n't"
+            self._add_contraction_exceptions()
+
         return self._nlp
+
+    def _add_contraction_exceptions(self) -> None:
+        """Add tokenizer exceptions for contractions found in the lexicon.
+
+        This tells spaCy to treat contractions as single tokens instead of
+        splitting them, which allows us to look them up correctly in the lexicon.
+        """
+        # Get all words from lexicon that contain apostrophes (contractions)
+        contractions = set()
+
+        # Iterate through lexicon to find all contractions
+        # Include ALL words with apostrophes, regardless of phoneme quality
+        for word in self.lexicon.golds.keys():
+            if "'" in word:
+                contractions.add(word)
+                # Also add case variations
+                contractions.add(word.capitalize())
+                contractions.add(word.upper())
+
+        if self.lexicon.silvers:
+            for word in self.lexicon.silvers.keys():
+                if "'" in word:
+                    contractions.add(word)
+                    contractions.add(word.capitalize())
+                    contractions.add(word.upper())
+
+        # Build potential contractions from common patterns
+        # This catches cases like "should've", "would've" that may have
+        # poor lexicon entries
+        bases = ["should", "would", "could", "might", "must", "ought"]
+        for base in bases:
+            for suffix in ["'ve", "'d", "'ll", "n't"]:
+                contractions.add(base + suffix)
+                contractions.add(base.capitalize() + suffix)
+
+        # Add special cases
+        contractions.update(["y'all", "Y'all", "ain't", "Ain't"])
+
+        # Add special cases to spaCy tokenizer
+        for contraction in contractions:
+            # Normalize apostrophes before adding exception
+            normalized = contraction.replace("\u2019", "'")
+            normalized = normalized.replace("\u2018", "'")
+            normalized = normalized.replace("`", "'")
+            normalized = normalized.replace("\u00b4", "'")
+
+            # Add as a special case (single token)
+            self._nlp.tokenizer.add_special_case(normalized, [{"ORTH": normalized}])  # type: ignore
 
     def __call__(self, text: str) -> list[GToken]:
         """Convert text to a list of tokens with phonemes.
@@ -147,15 +201,10 @@ class EnglishG2P(G2PBase):
         return tokens
 
     def _tokenize_spacy(self, text: str) -> list[GToken]:
-        """Tokenize text using spaCy with lexicon-aware contraction handling.
+        """Tokenize text using spaCy with custom contraction handling.
 
-        This method uses a two-step approach:
-        1. Pre-tokenize to find contractions that exist in the lexicon
-        2. Use spaCy Doc with pre-tokenization to preserve those contractions
-
-        This is more robust than post-processing merging because we check
-        the lexicon BEFORE spaCy splits, preventing issues where split
-        tokens might get phonemized incorrectly.
+        SpaCy is configured with tokenizer exceptions for all contractions
+        in our lexicon, so they won't be split during tokenization.
 
         Args:
             text: Input text.
@@ -163,60 +212,17 @@ class EnglishG2P(G2PBase):
         Returns:
             List of GToken objects.
         """
-        import re
-
-        from spacy.tokens import Doc
-
         # Normalize apostrophes to standard straight apostrophe (U+0027)
-        # This ensures lexicon lookups work correctly
+        # This ensures tokenizer exceptions and lexicon lookups work correctly
         text = text.replace("\u2019", "'")  # Right single quotation mark
         text = text.replace("\u2018", "'")  # Left single quotation mark
         text = text.replace("`", "'")  # Grave accent
         text = text.replace("\u00b4", "'")  # Acute accent
 
-        # Step 1: Check if we have any punctuation+quote combinations
-        # If so, use spaCy's default tokenization to handle them correctly
-        # This includes: !' ?" ." etc.
-        has_punct_quote = re.search(r'[^\w\s]["\']|["\'][^\w\s]', text)
+        # Use spaCy's tokenization (with our custom exceptions for contractions)
+        doc = self.nlp(text)  # type: ignore
 
-        if has_punct_quote:
-            # Use spaCy's default tokenization
-            doc = self.nlp(text)  # type: ignore
-        else:
-            # Step 1: Pre-tokenize to identify contractions in lexicon
-            # Pattern matches: contractions (word+apostrophe+suffix), words, punctuation
-            pre_tokens = []
-            spaces = []
-
-            # Simple pattern now that apostrophes are normalized
-            # Support double contractions like "I'd've" with multiple apostrophes
-            for match in re.finditer(r"\w+(?:'\w+)+|\w+|[^\w\s]+|\s+", text):
-                word = match.group()
-                if word.isspace():
-                    # Mark whitespace for previous token
-                    if spaces:
-                        spaces[-1] = True
-                    continue
-
-                # Check if this contraction exists in lexicon
-                # This prevents spaCy from splitting words we already know
-                if "'" in word:
-                    result, _ = self.lexicon.lookup(word)
-                    # If in lexicon, use as-is; otherwise let spaCy handle it
-
-                pre_tokens.append(word)
-                spaces.append(False)  # Will be updated if whitespace follows
-
-            # Step 2: Create spaCy Doc with our pre-tokenization
-            # This prevents spaCy from re-splitting contractions
-            doc = Doc(self.nlp.vocab, words=pre_tokens, spaces=spaces)  # type: ignore
-
-            # Apply the full pipeline to get POS tags
-            # We need both tok2vec and tagger for accurate tagging
-            for _name, proc in self.nlp.pipeline:  # type: ignore
-                doc = proc(doc)
-
-        # Step 3: Convert to GToken objects
+        # Convert to GToken objects
         tokens: list[GToken] = []
 
         for tk in doc:
@@ -226,8 +232,11 @@ class EnglishG2P(G2PBase):
                 whitespace=tk.whitespace_,
             )
 
-            # Handle punctuation
-            if tk.tag_ in (
+            # Handle punctuation by tag OR by content
+            # (for cases where spaCy mistagged)
+            # Check if it's a punctuation tag OR if the text consists
+            # only of punctuation
+            is_punct_tag = tk.tag_ in (
                 ".",
                 ",",
                 "-LRB-",
@@ -239,7 +248,11 @@ class EnglishG2P(G2PBase):
                 "$",
                 "#",
                 "NFP",
-            ):
+            )
+            # Check if text is only punctuation/quotes (not alphanumeric)
+            is_punct_text = tk.text and not any(c.isalnum() for c in tk.text)
+
+            if is_punct_tag or is_punct_text:
                 token.phonemes = self._get_punct_phonemes(tk.text, tk.tag_)
                 token.set("rating", 4)
 

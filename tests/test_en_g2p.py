@@ -876,6 +876,59 @@ class TestContractionRobustness:
         # Alternative bug signature (split tokens)
         assert not ("dˈu" in result and "ˈɛnt" in result)
 
+    def test_dont_in_quoted_dialogue(self, g2p_spacy):
+        """Test 'don't' in quoted dialogue with punctuation.
+
+        Regression test for: 'I don't mind at all,' said Totho.
+        The contraction should not be split by spaCy.
+        Tests various quote characters commonly used in ebooks.
+        """
+        # Test with various quote characters used in ebooks
+        test_cases = [
+            "'I don't mind at all,' said Totho.",  # Straight quotes
+            # Curly single quotes (U+2018/U+2019)
+            "\u2018I don\u2019t mind at all,\u2019 said Totho.",
+            '"I don\'t mind at all," said Totho.',  # Straight double quotes
+            # Curly double quotes (U+201C/U+201D)
+            "\u201cI don\u2019t mind at all,\u201d said Totho.",
+            # Single guillemets (U+2039/U+203A)
+            "\u2039I don\u2019t mind at all,\u203a said Totho.",
+            # Double guillemets (U+00AB/U+00BB)
+            "\u00abI don\u2019t mind at all,\u00bb said Totho.",
+        ]
+
+        for text in test_cases:
+            tokens = g2p_spacy(text)
+
+            # Find the don't token
+            dont_tokens = [t for t in tokens if "don't" == t.text]
+            assert (
+                len(dont_tokens) == 1
+            ), f"Expected 1 'don't' token in {repr(text)}, found {len(dont_tokens)}"
+
+            # Should have correct phonemes
+            assert (
+                dont_tokens[0].phonemes == "dˈOnt"
+            ), f"Expected 'dˈOnt', got '{dont_tokens[0].phonemes}' in {repr(text)}"
+
+            # Verify the full phonemized result
+            result = g2p_spacy.phonemize(text)
+            assert (
+                "dˈOnt" in result
+            ), f"Expected 'dˈOnt' in result for {repr(text)}, got: {result}"
+
+            # Should NOT be split into separate tokens
+            word_texts = [t.text for t in tokens if t.is_word]
+            assert (
+                "don't" in word_texts
+            ), f"'don't' not found in {word_texts} for {repr(text)}"
+            # Should not have separate "do"
+            do_count = word_texts.count("do")
+            assert do_count == 0, (
+                f"Found {do_count} 'do' tokens (should be 0) "
+                f"in {word_texts} for {repr(text)}"
+            )
+
 
 class TestGoruutFallback:
     """Test goruut fallback functionality for English G2P."""
