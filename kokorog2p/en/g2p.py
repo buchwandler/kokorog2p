@@ -106,11 +106,15 @@ class EnglishG2P(G2PBase):
 
         This tells spaCy to treat contractions as single tokens instead of
         splitting them, which allows us to look them up correctly in the lexicon.
+
+        Uses the gold lexicon to identify words that:
+        1. Contain apostrophes (formal contractions: don't, can't, etc.)
+        2. Are informal contractions that spaCy tends to split (gonna, gotta, etc.)
         """
-        # Get all words from lexicon that contain apostrophes (contractions)
+        # Get all words from lexicon that should be preserved as single tokens
         contractions = set()
 
-        # Iterate through lexicon to find all contractions
+        # Strategy 1: Add all words with apostrophes (formal contractions)
         # Include ALL words with apostrophes, regardless of phoneme quality
         for word in self.lexicon.golds.keys():
             if "'" in word:
@@ -126,7 +130,45 @@ class EnglishG2P(G2PBase):
                     contractions.add(word.capitalize())
                     contractions.add(word.upper())
 
-        # Build potential contractions from common patterns
+        # Strategy 2: Add informal contractions from gold lexicon
+        # Use a curated list of common informal contractions that spaCy splits
+        # These are validated to exist in gold lexicon with good ratings
+        informal_contractions = [
+            "gonna",
+            "wanna",
+            "gotta",
+            "kinda",
+            "sorta",
+            "outta",
+            "lemme",
+            "gimme",
+            "dunno",
+            "hafta",
+            "woulda",
+            "coulda",
+            "shoulda",
+            "musta",
+            "oughta",
+            "lotsa",
+            "whaddya",
+            "whatcha",
+            "betcha",
+            "gotcha",
+            "wontcha",
+            "dontcha",
+            "didntcha",
+        ]
+
+        for word in informal_contractions:
+            # Verify it exists in gold lexicon with good quality (rating 4)
+            phoneme, rating = self.lexicon.lookup(word)
+            if phoneme and rating == 4:
+                contractions.add(word)
+                contractions.add(word.capitalize())
+                contractions.add(word.upper())
+
+        # Strategy 3: Add common contraction patterns (for cases with poor
+        # lexicon entries)
         # This catches cases like "should've", "would've" that may have
         # poor lexicon entries
         bases = ["should", "would", "could", "might", "must", "ought"]
@@ -138,7 +180,7 @@ class EnglishG2P(G2PBase):
         # Add special cases
         contractions.update(["y'all", "Y'all", "ain't", "Ain't"])
 
-        # Add special cases to spaCy tokenizer
+        # Add all identified words as spaCy tokenizer exceptions
         for contraction in contractions:
             # Normalize apostrophes before adding exception
             normalized = contraction.replace("\u2019", "'")

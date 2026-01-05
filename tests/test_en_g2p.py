@@ -876,6 +876,60 @@ class TestContractionRobustness:
         # Alternative bug signature (split tokens)
         assert not ("dˈu" in result and "ˈɛnt" in result)
 
+    def test_informal_contractions(self, g2p_spacy):
+        """Test that informal contractions are not split by spaCy.
+
+        Informal contractions like "gonna", "gotta", "wanna" should be
+        treated as single tokens and phonemized using their lexicon entries,
+        not split into separate parts.
+
+        Regression test for: "Gonna try." being split into "Gon" + "na"
+        """
+        # Test cases: (text, word, expected_phoneme)
+        test_cases = [
+            ("Gonna try.", "gonna", "ɡˈʌnə"),
+            ("I wanna go.", "wanna", "wˈɑnə"),
+            ("Gotta run.", "gotta", "ɡˈɑɾə"),
+            ("It's kinda nice.", "kinda", "kˈIndə"),
+            ("Sorta cool.", "sorta", "sˈɔɹɾə"),
+            ("Get outta here.", "outta", "ˈWɾə"),
+            ("Lemme see.", "lemme", "lˈɛmi"),
+            ("Gimme that.", "gimme", "ɡˈɪmi"),
+            ("I dunno.", "dunno", "dənˈO"),
+        ]
+
+        for text, word, expected_phoneme in test_cases:
+            tokens = g2p_spacy(text)
+
+            # Find the informal contraction token
+            # Check both lowercase and capitalized versions
+            word_tokens = [t for t in tokens if t.text.lower() == word.lower()]
+
+            assert len(word_tokens) == 1, (
+                f"Expected 1 '{word}' token in {repr(text)}, "
+                f"found {len(word_tokens)}. "
+                f"Tokens: {[t.text for t in tokens if t.is_word]}"
+            )
+
+            # Check it has correct phonemes from lexicon
+            actual_phoneme = word_tokens[0].phonemes
+            assert actual_phoneme == expected_phoneme, (
+                f"For '{word}' in {repr(text)}: "
+                f"expected '{expected_phoneme}', got '{actual_phoneme}'"
+            )
+
+            # Verify it wasn't split
+            word_texts = [t.text.lower() for t in tokens if t.is_word]
+            # Common split patterns
+            if word == "gonna":
+                assert (
+                    "gon" not in word_texts
+                ), f"'{word}' was split into parts: {word_texts}"
+            elif word == "gotta":
+                assert (
+                    "got" not in word_texts
+                ), f"'{word}' was split into parts: {word_texts}"
+
     def test_dont_in_quoted_dialogue(self, g2p_spacy):
         """Test 'don't' in quoted dialogue with punctuation.
 
