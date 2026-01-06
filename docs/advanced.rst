@@ -273,7 +273,47 @@ Convert phonemes to IDs for model input:
 Punctuation Handling
 --------------------
 
-Control punctuation normalization:
+Automatic Normalization
+~~~~~~~~~~~~~~~~~~~~~~~
+
+kokorog2p automatically normalizes punctuation variants to ensure consistency with Kokoro TTS vocabulary:
+
+.. code-block:: python
+
+   from kokorog2p import get_g2p
+
+   g2p = get_g2p("en-us")
+
+   # Ellipsis variants → single ellipsis character (…)
+   tokens = g2p("Wait... really?")      # ... → …
+   tokens = g2p("Wait. . . really?")    # . . . → …
+   tokens = g2p("Wait.. really?")       # .. → …
+   tokens = g2p("Wait…really?")         # … preserved
+
+   # Dash variants → em dash (—)
+   tokens = g2p("Wait - what?")         # spaced hyphen → em dash
+   tokens = g2p("Wait -- what?")        # double hyphen → em dash
+   tokens = g2p("Wait – what?")         # en dash → em dash
+   tokens = g2p("Wait — what?")         # em dash preserved
+   tokens = g2p("Wait ― what?")         # horizontal bar → em dash
+   tokens = g2p("Wait ‒ what?")         # figure dash → em dash
+   tokens = g2p("Wait − what?")         # minus sign → em dash
+
+   # Compound words preserve hyphens (no normalization)
+   tokens = g2p("well-known")           # hyphen removed, words joined
+   tokens = g2p("state-of-the-art")     # hyphens removed, words joined
+
+**Normalization Rules:**
+
+* **Ellipsis**: All variants (``...``, ``. . .``, ``..``, ``....``) → ``…`` (U+2026)
+* **Em dash**: All dash types when spaced (``-``, ``--``, ``–``, ``—``, ``―``, ``‒``, ``−``) → ``—`` (U+2014)
+* **Hyphens in compound words**: Preserved during tokenization, then removed in phoneme output
+* **Apostrophes**: All variants (``'``, ``'``, ``'``, ````, ``´``, etc.) → ``'`` (U+0027)
+
+Manual Normalization
+~~~~~~~~~~~~~~~~~~~~
+
+Control punctuation normalization manually:
 
 .. code-block:: python
 
@@ -292,7 +332,8 @@ Control punctuation normalization:
    # Check if punctuation is valid
    from kokorog2p import is_kokoro_punctuation
    print(is_kokoro_punctuation("!"))   # True
-   print(is_kokoro_punctuation("…"))   # False
+   print(is_kokoro_punctuation("…"))   # True (normalized automatically)
+   print(is_kokoro_punctuation("‼"))   # False
 
 Word Mismatch Detection
 -----------------------

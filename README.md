@@ -22,6 +22,7 @@ provides:
   - Disable both: saves ~50+ MB for ultra-fast initialization
 - **espeak-ng integration** as a fallback for out-of-vocabulary words
 - **Automatic IPA to Kokoro phoneme conversion**
+- **Automatic punctuation normalization** (ellipsis, dashes, apostrophes)
 - **Number and currency handling** for supported languages
 - **Stress assignment** based on linguistic rules
 
@@ -120,6 +121,13 @@ tokens = g2p_minimal("Hello world!")
 # load_gold=True, load_silver=False: Common words only, faster
 # load_gold=False, load_silver=True: Extended vocabulary only (unusual)
 # load_gold=False, load_silver=False: No dictionaries, espeak only (fastest)
+
+# Automatic punctuation normalization
+g2p = get_g2p("en-us")
+tokens = g2p("Wait... really?")       # ... → … (ellipsis)
+tokens = g2p("Wait - what?")          # - → — (em dash when spaced)
+tokens = g2p("don't worry")           # All apostrophe variants → '
+tokens = g2p("well-known topic")      # Hyphens in compounds preserved
 
 # German with lexicon and number handling
 g2p_de = get_g2p("de")

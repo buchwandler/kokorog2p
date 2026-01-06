@@ -261,6 +261,26 @@ class EnglishG2P(G2PBase):
         text = text.replace("`", "'")  # Grave accent
         text = text.replace("\u00b4", "'")  # Acute accent
 
+        # Normalize ellipsis variants to single ellipsis character (U+2026)
+        # This ensures consistent handling in vocab (ID 10)
+        # Order matters: replace longer sequences first
+        text = text.replace("....", "…")  # Four dots (typo variant)
+        text = text.replace(". . .", "…")  # Spaced dots
+        text = text.replace("...", "…")  # Three dots
+        text = text.replace("..", "…")  # Two dots (typo variant)
+
+        # Normalize dash variants to em dash (U+2014)
+        # This ensures consistent handling in vocab (ID 9: " —")
+        # Order matters: do space-surrounded replacements first
+        text = text.replace(" - ", " — ")  # Spaced hyphen (used as em dash)
+        text = text.replace(" -- ", " — ")  # Spaced double hyphen
+        text = text.replace("--", "—")  # Double hyphen (common in typing)
+        text = text.replace("\u2013", "—")  # En dash (–)
+        text = text.replace("\u2015", "—")  # Horizontal bar (―)
+        text = text.replace("\u2012", "—")  # Figure dash (‒)
+        text = text.replace("\u2212", "—")  # Minus sign (−)
+        # Note: Single hyphen (-) without spaces is kept for compound words
+
         # Use spaCy's tokenization (with our custom exceptions for contractions)
         doc = self.nlp(text)  # type: ignore
 
