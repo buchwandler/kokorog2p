@@ -125,12 +125,12 @@ class TestPunctuationNormalization:
 
     # Quotes
     def test_normalize_single_quotes_to_double(self, punct):
-        """Single quotes should become double quotes."""
-        assert punct.normalize("'Hello'") == '"Hello"'
+        """Single quotes remain as apostrophes (for contractions)."""
+        assert punct.normalize("'Hello'") == "'Hello'"
 
     def test_normalize_curly_single_quotes(self, punct):
-        """Curly single quotes should become double quotes."""
-        assert punct.normalize("'Hello'") == '"Hello"'
+        """Curly single quotes normalize to straight apostrophe."""
+        assert punct.normalize("'Hello'") == "'Hello'"
 
     def test_normalize_guillemets(self, punct):
         """Guillemets should become double quotes."""
@@ -446,9 +446,9 @@ class TestPunctuationEdgeCases:
         assert '"' in result
 
     def test_apostrophe_in_word(self, punct):
-        """Apostrophe in contraction becomes quote."""
+        """Apostrophe in contraction is normalized to straight apostrophe."""
         result = punct.normalize("don't")
-        assert '"' in result or result == 'don"t'
+        assert result == "don't"
 
     # Mixed scripts
     def test_mixed_cjk_punctuation(self, punct):

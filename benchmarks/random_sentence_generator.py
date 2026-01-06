@@ -353,7 +353,11 @@ class SentenceGenerator:
         words1 = self._random_words(2)
         words2 = self._random_words(2)
         quoted = f"{contraction1} {words1[0]}"
-        text = f"{contraction2.capitalize()} {words1[1]}, {left_quote}{quoted}{right_quote} {words2[0]} {words2[1]}{punct}"
+        text = (
+            f"{contraction2.capitalize()} {words1[1]}, "
+            f"{left_quote}{quoted}{right_quote} "
+            f"{words2[0]} {words2[1]}{punct}"
+        )
         return TestCase(
             text=text,
             category="complex_mixed",
@@ -372,9 +376,15 @@ class SentenceGenerator:
         quoted_words = self._random_words(2)
         quoted = " ".join(quoted_words)
         if self.rng.random() < 0.5:
-            text = f"{' '.join(words[:2])}, {left_quote}{quoted}{punct}{right_quote} {words[2]}."
+            text = (
+                f"{' '.join(words[:2])}, "
+                f"{left_quote}{quoted}{punct}{right_quote} {words[2]}."
+            )
         else:
-            text = f"{' '.join(words[:2])}, {left_quote}{quoted}{right_quote}{punct} {words[2]}."
+            text = (
+                f"{' '.join(words[:2])}, "
+                f"{left_quote}{quoted}{right_quote}{punct} {words[2]}."
+            )
         return TestCase(
             text=text.capitalize(),
             category="punctuation_adjacent_quotes",
@@ -525,17 +535,17 @@ if __name__ == "__main__":
 
         # Show key parameters
         if "apostrophe_char" in test_case.params:
-            print(
-                f"   Apostrophe used: {repr(test_case.params['apostrophe_char'])} ({test_case.params.get('apostrophe_type', 'unknown')})"
-            )
+            apos_char = repr(test_case.params["apostrophe_char"])
+            apos_type = test_case.params.get("apostrophe_type", "unknown")
+            print(f"   Apostrophe used: {apos_char} ({apos_type})")
         if "quote_type" in test_case.params:
             print(f"   Quote type: {test_case.params['quote_type']}")
         if "punctuation" in test_case.params:
             print(f"   Punctuation: {repr(test_case.params['punctuation'])}")
         if "dash_char" in test_case.params:
-            print(
-                f"   Dash used: {repr(test_case.params['dash_char'])} ({test_case.params['dash_type']})"
-            )
+            dash_char = repr(test_case.params["dash_char"])
+            dash_type = test_case.params["dash_type"]
+            print(f"   Dash used: {dash_char} ({dash_type})")
         print()
 
     print("\nGenerating batch of 100 test cases...")

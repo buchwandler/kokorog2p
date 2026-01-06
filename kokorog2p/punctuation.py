@@ -53,21 +53,27 @@ DEFAULT_MARKS: Final[str] = ';:,.!?—…"()""'
 
 # Map various Unicode punctuation to Kokoro-compatible equivalents
 PUNCTUATION_NORMALIZATION: Final[dict[str, str]] = {
+    # Apostrophes → ASCII apostrophe (for contractions)
+    "\u2019": "'",  # ' right single quotation mark (most common)
+    "\u2018": "'",  # ' left single quotation mark
+    "`": "'",  # ` grave accent (common typo)
+    "\u00b4": "'",  # ´ acute accent (common typo)
+    "\u02b9": "'",  # ʹ modifier letter prime
+    "\u2032": "'",  # ′ prime (mathematical)
+    "\uff07": "'",  # ＇ fullwidth apostrophe
     # Dashes and hyphens → em-dash
-    "–": "—",  # en-dash
-    "−": "—",  # minus sign
-    "‐": "-",  # hyphen (remove, not in vocab)
-    "‑": "-",  # non-breaking hyphen
-    "―": "—",  # horizontal bar
-    "⸺": "—",  # two-em dash
-    "⸻": "—",  # three-em dash
-    # Ellipsis variations
-    "...": "…",
-    "..": "…",
+    "\u2013": "—",  # – en-dash
+    "\u2212": "—",  # − minus sign
+    "\u2015": "—",  # ― horizontal bar
+    "\u2012": "—",  # ‒ figure dash
+    "\u2e3a": "—",  # ⸺ two-em dash
+    "\u2e3b": "—",  # ⸻ three-em dash
+    # Note: Single hyphen (-) and double hyphen (--) are handled in normalize()
+    # Ellipsis variations → ellipsis character
+    # Note: Multi-char sequences (..., .., ...., . . .) handled in normalize()
     "．．．": "…",  # fullwidth
     "・・・": "…",  # Japanese
-    # Quotes → straight quote or curly
-    "'": '"',  # left single quote
+    # Quotes → curly quotes (keep as-is) or normalize exotic ones to double quote
     "‚": '"',  # single low-9 quote
     "‛": '"',  # single high-reversed-9 quote
     "„": '"',  # double low-9 quote
@@ -248,21 +254,27 @@ class Punctuation:
             '"Hello," she said.'
             >>> punct.normalize("Wait...what?!")
             'Wait…what?!'
+            >>> punct.normalize("don't worry")
+            "don't worry"
+            >>> punct.normalize("Wait - now")
+            'Wait — now'
         """
         result = []
         i = 0
         while i < len(text):
             char = text[i]
 
-            # Check for multi-character normalizations first
-            # ASCII ellipsis
-            if i + 2 < len(text) and text[i : i + 3] == "...":
+            # Multi-character sequences: check longest first
+            # Spaced ellipsis (. . .)
+            if i + 4 < len(text) and text[i : i + 5] == ". . .":
                 result.append("…")
-                i += 3
+                i += 5
                 continue
-            if i + 1 < len(text) and text[i : i + 2] == "..":
+
+            # Four dots (....)
+            if i + 3 < len(text) and text[i : i + 4] == "....":
                 result.append("…")
-                i += 2
+                i += 4
                 continue
 
             # Fullwidth ellipsis (．．．)
@@ -275,6 +287,36 @@ class Punctuation:
             if i + 2 < len(text) and text[i : i + 3] == "・・・":
                 result.append("…")
                 i += 3
+                continue
+
+            # Three dots (...)
+            if i + 2 < len(text) and text[i : i + 3] == "...":
+                result.append("…")
+                i += 3
+                continue
+
+            # Spaced double hyphen ( -- )
+            if i + 3 < len(text) and text[i : i + 4] == " -- ":
+                result.append(" — ")
+                i += 4
+                continue
+
+            # Double hyphen (--)
+            if i + 1 < len(text) and text[i : i + 2] == "--":
+                result.append("—")
+                i += 2
+                continue
+
+            # Spaced hyphen ( - )
+            if i + 2 < len(text) and text[i : i + 3] == " - ":
+                result.append(" — ")
+                i += 3
+                continue
+
+            # Two dots (..)
+            if i + 1 < len(text) and text[i : i + 2] == "..":
+                result.append("…")
+                i += 2
                 continue
 
             # Single character normalization

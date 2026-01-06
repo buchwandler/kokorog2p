@@ -14,17 +14,16 @@ consistent, correct output. It reports failures categorized by type.
 import json
 import sys
 import time
-from collections import defaultdict, Counter
-from dataclasses import dataclass, field, asdict
+from collections import Counter, defaultdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
 # Add parent directory to path to import modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from kokorog2p.en import EnglishG2P
 from benchmarks.random_sentence_generator import SentenceGenerator, TestCase
-
+from kokorog2p.en import EnglishG2P
 
 # =============================================================================
 # Result Data Structures
@@ -267,7 +266,7 @@ class QuotesContractionsBenchmark:
             BenchmarkResults with full analysis.
         """
         print(f"\n{'=' * 70}")
-        print(f"English Quotes/Contractions/Punctuation Benchmark")
+        print("English Quotes/Contractions/Punctuation Benchmark")
         print(f"{'=' * 70}")
         print(f"Language: {self.language}")
         print(f"Total Tests: {self.num_tests}")
@@ -352,9 +351,8 @@ class QuotesContractionsBenchmark:
         print("Category Results:")
         for category, stats in sorted(results.category_stats.items()):
             status = "✓" if stats.pass_rate >= 95 else "✗"
-            print(
-                f"  {status} {category}: {stats.passed}/{stats.total} ({stats.pass_rate:.1f}%)"
-            )
+            pct = stats.pass_rate
+            print(f"  {status} {category}: {stats.passed}/{stats.total} ({pct:.1f}%)")
         print()
 
         # Failure analysis
@@ -413,7 +411,9 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Benchmark English G2P quotes, contractions, and punctuation handling"
+        description=(
+            "Benchmark English G2P quotes, contractions, and punctuation handling"
+        )
     )
     parser.add_argument(
         "--language",
