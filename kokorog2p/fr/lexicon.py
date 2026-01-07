@@ -172,7 +172,8 @@ class FrenchLexicon:
 
         # Load gold dictionary if requested
         if load_gold:
-            with importlib.resources.open_text(data, "fr_gold.json") as r:
+            files = importlib.resources.files(data)
+            with (files / "fr_gold.json").open("r") as r:
                 self.golds = self._grow_dictionary(json.load(r))
 
         # Silver dictionary not yet available for French

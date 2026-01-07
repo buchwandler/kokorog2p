@@ -227,12 +227,14 @@ class Lexicon:
 
         # Only load gold tier if requested
         if load_gold:
-            with importlib.resources.open_text(data, f"{prefix}_gold.json") as r:
+            files = importlib.resources.files(data)
+            with (files / f"{prefix}_gold.json").open("r") as r:
                 self.golds = self._grow_dictionary(json.load(r))
 
         # Only load silver tier if requested
         if load_silver:
-            with importlib.resources.open_text(data, f"{prefix}_silver.json") as r:
+            files = importlib.resources.files(data)
+            with (files / f"{prefix}_silver.json").open("r") as r:
                 self.silvers = self._grow_dictionary(json.load(r))
 
         # Validate vocabulary (only if gold dictionary is loaded)
