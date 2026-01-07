@@ -23,7 +23,7 @@ def _load_gold_dictionary(load_gold: bool = True) -> dict[str, str]:
     if not load_gold:
         return {}
     files = importlib.resources.files(data)
-    with (files / "de_gold.json").open("r") as f:
+    with (files / "de_gold.json").open("r", encoding="utf-8") as f:
         return json.load(f)
 
 
