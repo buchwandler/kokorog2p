@@ -84,7 +84,7 @@ When validating phonemes, specify the target model:
 
    # For base model (IPA output from legacy version)
    is_valid, invalid = validate_for_kokoro(phonemes, model="base")
-   
+
    # For v1.1-zh model (Zhuyin output from version 1.1)
    is_valid, invalid = validate_for_kokoro(phonemes, model="v1.1-zh")
 
