@@ -33,3 +33,26 @@ def get_kokoro_vocab() -> dict[str, int]:
     """
     config = load_kokoro_config()
     return config["vocab"]
+
+
+def load_kokoro_v11_zh_config() -> dict[str, Any]:
+    """Load the Kokoro v1.1-zh model configuration.
+
+    This is the Chinese-specific model that uses Zhuyin (Bopomofo)
+    notation instead of IPA.
+
+    Returns:
+        Dictionary containing the model configuration including vocabulary.
+    """
+    config_file = files(__package__).joinpath("kokoro_config_v1.1_zh.json")
+    return json.loads(config_file.read_text(encoding="utf-8"))
+
+
+def get_kokoro_v11_zh_vocab() -> dict[str, int]:
+    """Get the Kokoro v1.1-zh vocabulary mapping.
+
+    Returns:
+        Dictionary mapping tokens (Zhuyin, tone numbers, punctuation) to indices.
+    """
+    config = load_kokoro_v11_zh_config()
+    return config["vocab"]

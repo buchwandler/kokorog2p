@@ -32,7 +32,7 @@ class ChineseG2P(G2PBase):
         self,
         language: str = "zh",
         use_espeak_fallback: bool = True,
-        version: str = "1.1",
+        version: str | None = "1.1",
         unk: str = "",
         en_callable=None,
         load_silver: bool = True,
@@ -258,3 +258,11 @@ class ChineseG2P(G2PBase):
 
     def __repr__(self) -> str:
         return f"ChineseG2P(language={self.language!r}, version={self.version!r})"
+
+    def get_target_model(self) -> str:
+        """Get the target Kokoro model variant for this G2P instance.
+
+        Returns:
+            Model identifier: "v1.1-zh" for version 1.1, "base" otherwise.
+        """
+        return "v1.1-zh" if self.version == "1.1" else "base"

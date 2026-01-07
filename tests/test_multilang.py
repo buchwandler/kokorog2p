@@ -235,6 +235,49 @@ class TestChineseG2P:
         g2p = get_g2p("chinese")
         assert isinstance(g2p, ChineseG2P)
 
+    def test_chinese_v11_validation(self):
+        """Test that Chinese v1.1 output validates against v1.1-zh model."""
+        from kokorog2p import clear_cache, get_g2p
+        from kokorog2p.vocab import validate_for_kokoro
+
+        # Test version 1.1 (Zhuyin output)
+        clear_cache()
+        g2p_11 = get_g2p("zh", version="1.1")
+        result = g2p_11.phonemize("你好")
+
+        # Should be invalid for base model
+        is_valid_base, _ = validate_for_kokoro(result, model="base")
+        assert not is_valid_base, "Zhuyin should be invalid for base model"
+
+        # Should be valid for v1.1-zh model
+        is_valid_v11, invalid = validate_for_kokoro(result, model="v1.1-zh")
+        assert is_valid_v11, (
+            f"Zhuyin should be valid for v1.1-zh model. Invalid: {set(invalid)}"
+        )
+
+        # Test legacy version (IPA output)
+        clear_cache()
+        g2p_legacy = get_g2p("zh", version=None)
+        result_legacy = g2p_legacy.phonemize("你好")
+
+        # Should be valid for base model
+        is_valid_legacy, invalid_legacy = validate_for_kokoro(
+            result_legacy, model="base"
+        )
+        assert is_valid_legacy, (
+            f"IPA should be valid for base model. Invalid: {set(invalid_legacy)}"
+        )
+
+    def test_chinese_get_target_model(self):
+        """Test that ChineseG2P reports correct target model."""
+        from kokorog2p.zh import ChineseG2P
+
+        g2p_11 = ChineseG2P(version="1.1")
+        assert g2p_11.get_target_model() == "v1.1-zh"
+
+        g2p_legacy = ChineseG2P(version=None)
+        assert g2p_legacy.get_target_model() == "base"
+
 
 # =============================================================================
 # Japanese G2P Tests

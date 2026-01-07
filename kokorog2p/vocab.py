@@ -32,6 +32,20 @@ def _load_vocab_reverse() -> dict[int, str]:
 
 
 @lru_cache(maxsize=1)
+def _load_vocab_v11_zh() -> dict[str, int]:
+    """Load and cache the Kokoro v1.1-zh vocabulary."""
+    from kokorog2p.data import get_kokoro_v11_zh_vocab
+
+    return get_kokoro_v11_zh_vocab()
+
+
+@lru_cache(maxsize=1)
+def _load_vocab_reverse_v11_zh() -> dict[int, str]:
+    """Load and cache the reverse v1.1-zh vocabulary mapping."""
+    return {v: k for k, v in _load_vocab_v11_zh().items()}
+
+
+@lru_cache(maxsize=1)
 def _load_config() -> dict:
     """Load and cache the full Kokoro config."""
     return load_kokoro_config()
@@ -42,21 +56,33 @@ def _load_config() -> dict:
 # =============================================================================
 
 
-def get_vocab() -> dict[str, int]:
+def get_vocab(model: str = "base") -> dict[str, int]:
     """Get the Kokoro vocabulary mapping (token -> index).
+
+    Args:
+        model: Model variant to load vocab for:
+            - "base": Base multilingual Kokoro model (default)
+            - "v1.1-zh": Chinese-specific Kokoro v1.1 model with Zhuyin
 
     Returns:
         Dictionary mapping tokens to their indices.
     """
+    if model == "v1.1-zh":
+        return _load_vocab_v11_zh()
     return _load_vocab()
 
 
-def get_vocab_reverse() -> dict[int, str]:
+def get_vocab_reverse(model: str = "base") -> dict[int, str]:
     """Get the reverse Kokoro vocabulary mapping (index -> token).
+
+    Args:
+        model: Model variant to load vocab for (same options as get_vocab).
 
     Returns:
         Dictionary mapping indices to their tokens.
     """
+    if model == "v1.1-zh":
+        return _load_vocab_reverse_v11_zh()
     return _load_vocab_reverse()
 
 
@@ -217,12 +243,13 @@ PUNCTUATION: Final[frozenset[str]] = frozenset(
 # =============================================================================
 
 
-def encode(text: str, add_spaces: bool = True) -> list[int]:
+def encode(text: str, add_spaces: bool = True, model: str = "base") -> list[int]:
     """Convert a phoneme string to token indices.
 
     Args:
         text: Phoneme string to encode.
         add_spaces: Whether to include space tokens (default True).
+        model: Model variant to encode for (default: "base").
 
     Returns:
         List of token indices.
@@ -231,7 +258,7 @@ def encode(text: str, add_spaces: bool = True) -> list[int]:
         >>> encode("hˈɛlO")
         [50, 156, 86, 54, 31]
     """
-    vocab = get_vocab()
+    vocab = get_vocab(model=model)
     indices = []
     for char in text:
         if char == " " and not add_spaces:
@@ -242,12 +269,13 @@ def encode(text: str, add_spaces: bool = True) -> list[int]:
     return indices
 
 
-def decode(indices: list[int], skip_special: bool = True) -> str:
+def decode(indices: list[int], skip_special: bool = True, model: str = "base") -> str:
     """Convert token indices back to a phoneme string.
 
     Args:
         indices: List of token indices.
         skip_special: Whether to skip padding/unknown tokens.
+        model: Model variant to decode from (default: "base").
 
     Returns:
         Phoneme string.
@@ -256,7 +284,7 @@ def decode(indices: list[int], skip_special: bool = True) -> str:
         >>> decode([50, 156, 86, 54, 31])
         'hˈɛlO'
     """
-    vocab_reverse = get_vocab_reverse()
+    vocab_reverse = get_vocab_reverse(model=model)
     chars = []
     for idx in indices:
         if skip_special and idx == PAD_IDX:
@@ -267,11 +295,14 @@ def decode(indices: list[int], skip_special: bool = True) -> str:
     return "".join(chars)
 
 
-def validate_for_kokoro(text: str) -> tuple[bool, list[str]]:
+def validate_for_kokoro(text: str, model: str = "base") -> tuple[bool, list[str]]:
     """Validate that all characters in text are in Kokoro vocabulary.
 
     Args:
         text: Phoneme string to validate.
+        model: Model variant to validate against:
+            - "base": Base multilingual model (default)
+            - "v1.1-zh": Chinese-specific model with Zhuyin
 
     Returns:
         Tuple of (is_valid, list_of_invalid_chars).
@@ -281,8 +312,10 @@ def validate_for_kokoro(text: str) -> tuple[bool, list[str]]:
         (True, [])
         >>> validate_for_kokoro("hˈɛlO§")
         (False, ['§'])
+        >>> validate_for_kokoro("ㄋㄧ2ㄏㄠ3", model="v1.1-zh")
+        (True, [])
     """
-    vocab = get_vocab()
+    vocab = get_vocab(model=model)
     invalid = []
     for char in text:
         if char not in vocab:
@@ -290,12 +323,13 @@ def validate_for_kokoro(text: str) -> tuple[bool, list[str]]:
     return len(invalid) == 0, invalid
 
 
-def filter_for_kokoro(text: str, replacement: str = "") -> str:
+def filter_for_kokoro(text: str, replacement: str = "", model: str = "base") -> str:
     """Remove characters not in Kokoro vocabulary.
 
     Args:
         text: Phoneme string to filter.
         replacement: String to replace invalid characters with.
+        model: Model variant to filter for (same options as validate_for_kokoro).
 
     Returns:
         Filtered phoneme string.
@@ -304,7 +338,7 @@ def filter_for_kokoro(text: str, replacement: str = "") -> str:
         >>> filter_for_kokoro("hˈɛlO§")
         'hˈɛlO'
     """
-    vocab = get_vocab()
+    vocab = get_vocab(model=model)
     return "".join(char if char in vocab else replacement for char in text)
 
 
@@ -339,13 +373,14 @@ def is_valid_english_phoneme(char: str, british: bool = False) -> bool:
     return char in vocab or char in PUNCTUATION or char == " "
 
 
-def phonemes_to_ids(phonemes: str) -> list[int]:
+def phonemes_to_ids(phonemes: str, model: str = "base") -> list[int]:
     """Convert phoneme string to model input IDs.
 
     This is the main function used to prepare text for the Kokoro model.
 
     Args:
         phonemes: Phoneme string from G2P conversion.
+        model: Model variant to encode for (default: "base").
 
     Returns:
         List of token IDs ready for model input.
@@ -354,14 +389,15 @@ def phonemes_to_ids(phonemes: str) -> list[int]:
         >>> phonemes_to_ids("hˈɛlO wˈɜɹld!")
         [50, 156, 86, 54, 31, 16, 65, 156, 87, 123, 54, 46, 5]
     """
-    return encode(phonemes, add_spaces=True)
+    return encode(phonemes, add_spaces=True, model=model)
 
 
-def ids_to_phonemes(ids: list[int]) -> str:
+def ids_to_phonemes(ids: list[int], model: str = "base") -> str:
     """Convert model output IDs back to phoneme string.
 
     Args:
         ids: List of token IDs from model.
+        model: Model variant to decode from (default: "base").
 
     Returns:
         Phoneme string.
@@ -370,7 +406,7 @@ def ids_to_phonemes(ids: list[int]) -> str:
         >>> ids_to_phonemes([50, 156, 86, 54, 31])
         'hˈɛlO'
     """
-    return decode(ids, skip_special=True)
+    return decode(ids, skip_special=True, model=model)
 
 
 # =============================================================================
