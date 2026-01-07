@@ -189,6 +189,8 @@ class GermanG2P(G2PBase):
         strip_stress: bool = True,
         load_silver: bool = True,
         load_gold: bool = True,
+        version: str = "1.0",
+        **kwargs,
     ) -> None:
         """Initialize the German G2P converter.
 
@@ -218,6 +220,7 @@ class GermanG2P(G2PBase):
             )
 
         super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
+        self.version = version
         self._lexicon: GermanLexicon | None = None  # noqa: F823
         self._fallback = None
         self._strip_stress = strip_stress
@@ -626,3 +629,11 @@ class GermanG2P(G2PBase):
         """
         tokens = self(text)
         return " ".join(t.phonemes or "" for t in tokens if t.phonemes)
+
+    def get_target_model(self) -> str:
+        """Get the target Kokoro model variant for this G2P instance.
+
+        Returns:
+            Model identifier: version string ("1.1" or "1.0").
+        """
+        return self.version

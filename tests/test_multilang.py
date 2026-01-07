@@ -246,23 +246,23 @@ class TestChineseG2P:
         result = g2p_11.phonemize("你好")
 
         # Should be invalid for base model
-        is_valid_base, _ = validate_for_kokoro(result, model="base")
+        is_valid_base, _ = validate_for_kokoro(result, model="1.0")
         assert not is_valid_base, "Zhuyin should be invalid for base model"
 
         # Should be valid for v1.1-zh model
-        is_valid_v11, invalid = validate_for_kokoro(result, model="v1.1-zh")
+        is_valid_v11, invalid = validate_for_kokoro(result, model="1.1")
         assert (
             is_valid_v11
-        ), f"Zhuyin should be valid for v1.1-zh model. Invalid: {set(invalid)}"
+        ), f"Zhuyin should be valid for 1.1 model. Invalid: {set(invalid)}"
 
         # Test legacy version (IPA output)
         clear_cache()
-        g2p_legacy = get_g2p("zh", version=None)
+        g2p_legacy = get_g2p("zh", version="1.0")
         result_legacy = g2p_legacy.phonemize("你好")
 
         # Should be valid for base model
         is_valid_legacy, invalid_legacy = validate_for_kokoro(
-            result_legacy, model="base"
+            result_legacy, model="1.0"
         )
         assert (
             is_valid_legacy
@@ -273,10 +273,10 @@ class TestChineseG2P:
         from kokorog2p.zh import ChineseG2P
 
         g2p_11 = ChineseG2P(version="1.1")
-        assert g2p_11.get_target_model() == "v1.1-zh"
+        assert g2p_11.get_target_model() == "1.1"
 
-        g2p_legacy = ChineseG2P(version=None)
-        assert g2p_legacy.get_target_model() == "base"
+        g2p_legacy = ChineseG2P(version="1.0")
+        assert g2p_legacy.get_target_model() == "1.0"
 
 
 # =============================================================================
@@ -299,7 +299,7 @@ class TestJapaneseG2P:
 
         g2p = JapaneseG2P(language="ja")
         assert g2p.language == "ja"
-        assert g2p.version == "pyopenjtalk"
+        assert g2p.backend == "pyopenjtalk"
 
     def test_repr(self):
         """Test string representation."""

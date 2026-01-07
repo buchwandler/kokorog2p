@@ -251,6 +251,8 @@ class CzechG2P(G2PBase):
         unk: str = "?",
         load_silver: bool = True,
         load_gold: bool = True,
+        version: str = "1.0",
+        **kwargs,
     ) -> None:
         """Initialize the Czech G2P converter.
 
@@ -280,6 +282,7 @@ class CzechG2P(G2PBase):
             )
 
         super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
+        self.version = version
         self.unk = unk
         self.load_silver = load_silver
         self.load_gold = load_gold
@@ -481,3 +484,11 @@ class CzechG2P(G2PBase):
             Phoneme string.
         """
         return self._word_to_phonemes(word)
+
+    def get_target_model(self) -> str:
+        """Get the target Kokoro model variant for this G2P instance.
+
+        Returns:
+            Model identifier: version string ("1.1" or "1.0").
+        """
+        return self.version

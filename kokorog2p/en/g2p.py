@@ -29,6 +29,8 @@ class EnglishG2P(G2PBase):
         unk: str = "❓",
         load_silver: bool = True,
         load_gold: bool = True,
+        version: str = "1.0",
+        **kwargs,
     ) -> None:
         """Initialize the English G2P converter.
 
@@ -44,6 +46,9 @@ class EnglishG2P(G2PBase):
             load_gold: If True, load gold tier dictionary (~170k common words).
                 Defaults to True for maximum quality and coverage.
                 Set to False when only silver tier or no dictionaries needed.
+            version: Model version ("1.1" for multilingual model, "1.0" for legacy).
+                Defaults to "1.1".
+            **kwargs: Additional arguments for future compatibility.
 
         Raises:
             ValueError: If both use_espeak_fallback and use_goruut_fallback are True.
@@ -58,6 +63,7 @@ class EnglishG2P(G2PBase):
 
         super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
 
+        self.version = version
         self.unk = unk
         self.use_spacy = use_spacy
         self.use_goruut_fallback = use_goruut_fallback
@@ -418,3 +424,14 @@ class EnglishG2P(G2PBase):
         """
         ps, _ = self.lexicon(word, tag, None, None)
         return ps
+
+    def __repr__(self) -> str:
+        return f"EnglishG2P(language={self.language!r}, version={self.version!r})"
+
+    def get_target_model(self) -> str:
+        """Get the target Kokoro model variant for this G2P instance.
+
+        Returns:
+            Model identifier: version string ("1.1" or "1.0").
+        """
+        return self.version

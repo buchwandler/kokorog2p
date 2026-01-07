@@ -85,6 +85,8 @@ class PortugueseG2P(G2PBase):
         use_espeak_fallback: bool = False,
         mark_stress: bool = True,
         affricate_ti_di: bool = True,  # Affricate t/d before i (Brazilian feature)
+        version: str = "1.0",
+        **kwargs,
     ) -> None:
         """Initialize the Brazilian Portuguese G2P converter.
 
@@ -95,6 +97,7 @@ class PortugueseG2P(G2PBase):
             affricate_ti_di: Whether to affricate /t d/ before /i/ (Brazilian feature).
         """
         super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
+        self.version = version
         self.mark_stress = mark_stress
         self.affricate_ti_di = affricate_ti_di
 
@@ -673,3 +676,11 @@ class PortugueseG2P(G2PBase):
             if token.phonemes:
                 result.append(token.phonemes)
         return " ".join(result)
+
+    def get_target_model(self) -> str:
+        """Get the target Kokoro model variant for this G2P instance.
+
+        Returns:
+            Model identifier: version string ("1.1" or "1.0").
+        """
+        return self.version

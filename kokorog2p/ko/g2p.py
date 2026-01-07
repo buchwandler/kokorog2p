@@ -41,6 +41,7 @@ class KoreanG2P(G2PBase):
         use_dict: bool = True,
         group_vowels: bool = False,
         to_syl: bool = False,
+        version: str = "1.0",
         **kwargs,
     ) -> None:
         """Initialize the Korean G2P.
@@ -62,6 +63,7 @@ class KoreanG2P(G2PBase):
             **kwargs: Additional arguments.
         """
         super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
+        self.version = version
         self.load_silver = load_silver
         self.load_gold = load_gold
         self.use_dict = use_dict
@@ -173,3 +175,11 @@ class KoreanG2P(G2PBase):
         token.rating = "ko" if ipa_phonemes else None
 
         return ipa_phonemes, [token] if ipa_phonemes else None
+
+    def get_target_model(self) -> str:
+        """Get the target Kokoro model variant for this G2P instance.
+
+        Returns:
+            Model identifier: version string ("1.1" or "1.0").
+        """
+        return self.version

@@ -140,6 +140,7 @@ class MixedLanguageG2P(G2PBase):
         allowed_languages: list[str] | None = None,
         confidence_threshold: float = 0.7,
         enable_detection: bool = True,
+        version: str = "1.0",
         **kwargs: Any,
     ) -> None:
         """
@@ -155,6 +156,7 @@ class MixedLanguageG2P(G2PBase):
                 primary_language. Default: 0.7 (recommended for balanced accuracy).
             enable_detection: If False, always uses primary_language (useful for
                 debugging or when lingua-py is not available).
+            version: Model version to pass to individual G2P instances (default: "1.0").
             **kwargs: Additional arguments passed to individual G2P instances
                 (e.g., use_espeak_fallback, load_silver, load_gold).
 
@@ -164,6 +166,7 @@ class MixedLanguageG2P(G2PBase):
                 is not installed (will warn and disable detection instead).
         """
         super().__init__(language=primary_language)
+        self.version = version
 
         if allowed_languages is None or len(allowed_languages) == 0:
             raise ValueError(

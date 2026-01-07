@@ -260,10 +260,11 @@ class JapaneseG2P(G2PBase):
         self,
         language: str = "ja",
         use_espeak_fallback: bool = True,
-        version: str = "pyopenjtalk",
+        backend: str = "pyopenjtalk",
         unk: str = "",
         load_silver: bool = True,
         load_gold: bool = True,
+        version: str = "1.0",
         **kwargs,
     ) -> None:
         """Initialize the Japanese G2P.
@@ -271,7 +272,7 @@ class JapaneseG2P(G2PBase):
         Args:
             language: Language code (e.g., 'ja', 'ja-jp').
             use_espeak_fallback: Whether to use espeak for unknown words.
-            version: Backend to use ("pyopenjtalk" or "cutlet").
+            backend: Backend to use ("pyopenjtalk" or "cutlet").
             unk: Unknown token placeholder.
             load_silver: If True, load silver tier dictionary if available.
                 Currently Japanese doesn't use dictionary system, so this
@@ -281,9 +282,12 @@ class JapaneseG2P(G2PBase):
                 Currently Japanese doesn't use dictionary system, so this
                 parameter is reserved for future use and consistency.
                 Defaults to True for consistency.
+            version: Model version ("1.0" for base, "1.1" for multilingual).
+                Default: "1.0".
             **kwargs: Additional arguments.
         """
         super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
+        self.backend = backend
         self.version = version
         self.unk = unk
         self.load_silver = load_silver
@@ -303,7 +307,7 @@ class JapaneseG2P(G2PBase):
     @property
     def cutlet(self):
         """Lazy initialization of Cutlet backend."""
-        if self._cutlet is None and self.version == "cutlet":
+        if self._cutlet is None and self.backend == "cutlet":
             from kokorog2p.ja.cutlet import Cutlet
 
             self._cutlet = Cutlet()
@@ -507,4 +511,12 @@ class JapaneseG2P(G2PBase):
         return result
 
     def __repr__(self) -> str:
-        return f"JapaneseG2P(language={self.language!r}, version={self.version!r})"
+        return f"JapaneseG2P(language={self.language!r}, backend={self.backend!r})"
+
+    def get_target_model(self) -> str:
+        """Get the target Kokoro model variant for this G2P instance.
+
+        Returns:
+            Model identifier: version string ("1.1" or "1.0").
+        """
+        return self.version

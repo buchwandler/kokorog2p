@@ -123,6 +123,7 @@ def get_g2p(
     multilingual_mode: bool = False,
     allowed_languages: list[str] | None = None,
     language_confidence_threshold: float = 0.7,
+    version: str = "1.0",
     **kwargs: Any,
 ) -> G2PBase:
     """Get a G2P instance for the specified language.
@@ -159,6 +160,12 @@ def get_g2p(
         language_confidence_threshold: Minimum confidence (0.0-1.0) for
             language detection in multilingual mode. Words with lower confidence
             fall back to the primary language. Default: 0.7 (recommended).
+        version: Model version to use. Default: "1.0" (base model).
+            - "1.0": Base model
+            - "1.1": Chinese/English model
+            Different languages may have different behavior:
+            - Chinese: "1.0" = IPA output, "1.1" = Zhuyin output
+            - Other languages: Generally use "1.0" for multilingual support
         **kwargs: Additional arguments passed to the G2P constructor.
 
     Returns:
@@ -166,7 +173,8 @@ def get_g2p(
 
     Raises:
         ValueError: If the language is not supported and no fallback is available,
-            or if multilingual_mode=True but allowed_languages is not specified.
+            or if multilingual_mode=True but allowed_languages is not specified,
+            or if version is not "1.0" or "1.1".
         ImportError: If backend="goruut" but pygoruut is not installed.
 
     Example:
@@ -195,12 +203,19 @@ def get_g2p(
     # Normalize language code
     lang = language.lower().replace("_", "-")
 
+    # Validate version parameter
+    if version not in ("1.0", "1.1"):
+        raise ValueError(
+            f"Invalid version '{version}'. "
+            "Must be '1.0' (multilngual) or '1.1' (chinese)."
+        )
+
     # Check cache (include all relevant parameters in cache key)
     # Convert allowed_languages list to sorted tuple for hashable cache key
     allowed_langs_key = tuple(sorted(allowed_languages)) if allowed_languages else None
     cache_key = (
         f"{lang}:{use_espeak_fallback}:{use_spacy}:{backend}:{load_silver}:{load_gold}"
-        f":{multilingual_mode}:{allowed_langs_key}:{language_confidence_threshold}"
+        f":{multilingual_mode}:{allowed_langs_key}:{language_confidence_threshold}:{version}"
     )
     if cache_key in _g2p_cache:
         return _g2p_cache[cache_key]
@@ -218,6 +233,7 @@ def get_g2p(
             use_spacy=use_spacy,
             load_silver=load_silver,
             load_gold=load_gold,
+            version=version,
             **kwargs,
         )
         _g2p_cache[cache_key] = g2p
@@ -230,7 +246,7 @@ def get_g2p(
         # Use goruut backend for all languages
         from kokorog2p.goruut_g2p import GoruutOnlyG2P
 
-        g2p = GoruutOnlyG2P(language=language, **kwargs)
+        g2p = GoruutOnlyG2P(language=language, version=version, **kwargs)
     elif lang.startswith("en"):
         from kokorog2p.en import EnglishG2P
 
@@ -240,19 +256,28 @@ def get_g2p(
             use_spacy=use_spacy,
             load_silver=load_silver,
             load_gold=load_gold,
+            version=version,
             **kwargs,
         )
     elif lang in ("zh", "zh-cn", "zh-tw", "cmn", "chinese"):
         from kokorog2p.zh import ChineseG2P
 
         g2p = ChineseG2P(
-            language=language, load_silver=load_silver, load_gold=load_gold, **kwargs
+            language=language,
+            load_silver=load_silver,
+            load_gold=load_gold,
+            version=version,
+            **kwargs,
         )
     elif lang in ("ja", "ja-jp", "jpn", "japanese"):
         from kokorog2p.ja import JapaneseG2P
 
         g2p = JapaneseG2P(
-            language=language, load_silver=load_silver, load_gold=load_gold, **kwargs
+            language=language,
+            load_silver=load_silver,
+            load_gold=load_gold,
+            version=version,
+            **kwargs,
         )
     elif lang in ("fr", "fr-fr", "fra", "french"):
         from kokorog2p.fr import FrenchG2P
@@ -262,13 +287,18 @@ def get_g2p(
             use_espeak_fallback=use_espeak_fallback,
             load_silver=load_silver,
             load_gold=load_gold,
+            version=version,
             **kwargs,
         )
     elif lang in ("cs", "cs-cz", "ces", "czech"):
         from kokorog2p.cs import CzechG2P
 
         g2p = CzechG2P(
-            language=language, load_silver=load_silver, load_gold=load_gold, **kwargs
+            language=language,
+            load_silver=load_silver,
+            load_gold=load_gold,
+            version=version,
+            **kwargs,
         )
     elif lang in ("de", "de-de", "de-at", "de-ch", "deu", "german"):
         from kokorog2p.de import GermanG2P
@@ -278,6 +308,7 @@ def get_g2p(
             use_espeak_fallback=use_espeak_fallback,
             load_silver=load_silver,
             load_gold=load_gold,
+            version=version,
             **kwargs,
         )
     elif lang in ("ko", "ko-kr", "kor", "korean"):
@@ -288,6 +319,7 @@ def get_g2p(
             use_espeak_fallback=use_espeak_fallback,
             load_silver=load_silver,
             load_gold=load_gold,
+            version=version,
             **kwargs,
         )
     elif lang in ("he", "he-il", "heb", "hebrew"):
@@ -298,13 +330,14 @@ def get_g2p(
             use_espeak_fallback=use_espeak_fallback,
             load_silver=load_silver,
             load_gold=load_gold,
+            version=version,
             **kwargs,
         )
     else:
         # Fallback to espeak-only G2P for other languages
         from kokorog2p.espeak_g2p import EspeakOnlyG2P
 
-        g2p = EspeakOnlyG2P(language=language, **kwargs)
+        g2p = EspeakOnlyG2P(language=language, version=version, **kwargs)
 
     _g2p_cache[cache_key] = g2p
     return g2p

@@ -89,6 +89,8 @@ class SpanishG2P(G2PBase):
         use_espeak_fallback: bool = False,
         mark_stress: bool = True,
         dialect: str = "es",  # "es" for European, "la" for Latin American
+        version: str = "1.0",
+        **kwargs,
     ) -> None:
         """Initialize the Spanish G2P converter.
 
@@ -99,6 +101,7 @@ class SpanishG2P(G2PBase):
             dialect: "es" for European Spanish (with θ), "la" for Latin American (θ→s).
         """
         super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
+        self.version = version
         self.mark_stress = mark_stress
         self.dialect = dialect
 
@@ -508,4 +511,15 @@ class SpanishG2P(G2PBase):
         return "".join(result).rstrip()
 
     def __repr__(self) -> str:
-        return f"SpanishG2P(language={self.language!r}, dialect={self.dialect!r})"
+        return (
+            f"SpanishG2P(language={self.language!r}, "
+            f" dialect={self.dialect!r}, version={self.version!r})"
+        )
+
+    def get_target_model(self) -> str:
+        """Get the target Kokoro model variant for this G2P instance.
+
+        Returns:
+            Model identifier: version string ("1.1" or "1.0").
+        """
+        return self.version

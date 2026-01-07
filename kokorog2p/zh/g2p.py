@@ -32,7 +32,7 @@ class ChineseG2P(G2PBase):
         self,
         language: str = "zh",
         use_espeak_fallback: bool = True,
-        version: str | None = "1.1",
+        version: str = "1.1",
         unk: str = "",
         en_callable=None,
         load_silver: bool = True,
@@ -44,7 +44,8 @@ class ChineseG2P(G2PBase):
         Args:
             language: Language code (e.g., 'zh', 'zh-cn').
             use_espeak_fallback: Whether to use espeak for English words.
-            version: Version of the G2P ("1.1" for ZHFrontend, None for legacy).
+            version: Version of the G2P ("1.0" for base model,
+                "1.1" for ZHFrontend multilingual). Default: "1.1".
             unk: Unknown token placeholder.
             en_callable: Callable for English word phonemization.
             load_silver: If True, load silver tier dictionary if available.
@@ -210,7 +211,7 @@ class ChineseG2P(G2PBase):
         # Map punctuation
         text = self.map_punctuation(text)
 
-        if self.frontend is None:
+        if self.version == "1.0":
             return self.legacy_call(text), None
 
         # Use ZHFrontend for version 1.1
@@ -263,6 +264,6 @@ class ChineseG2P(G2PBase):
         """Get the target Kokoro model variant for this G2P instance.
 
         Returns:
-            Model identifier: "v1.1-zh" for version 1.1, "base" otherwise.
+            Model identifier: "1.1" for version 1.1, "1.0" otherwise.
         """
-        return "v1.1-zh" if self.version == "1.1" else "base"
+        return self.version

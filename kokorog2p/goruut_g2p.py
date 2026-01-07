@@ -30,6 +30,7 @@ class GoruutOnlyG2P(G2PBase):
         self,
         language: str = "en-us",
         use_espeak_fallback: bool = False,  # Not used for this class
+        version: str = "1.0",
         **kwargs,
     ) -> None:
         """Initialize the goruut-only G2P.
@@ -37,9 +38,11 @@ class GoruutOnlyG2P(G2PBase):
         Args:
             language: Language code (e.g., 'fr', 'de', 'en-us').
             use_espeak_fallback: Ignored (always uses goruut).
+            version: Model version (default: "1.0").
             **kwargs: Additional arguments (ignored).
         """
         super().__init__(language=language, use_espeak_fallback=False)
+        self.version = version
         self._goruut_backend = None
 
     @property

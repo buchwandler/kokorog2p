@@ -32,7 +32,7 @@ Model Versions
 
 The Chinese G2P supports two versions with different output formats:
 
-Legacy Version (version=None)
+Legacy Version (version="1.0")
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Uses pypinyin + IPA transcription
@@ -46,7 +46,7 @@ Uses pypinyin + IPA transcription
    from kokorog2p import get_g2p
 
    # Create legacy Chinese G2P
-   g2p = get_g2p("zh", version=None)
+   g2p = get_g2p("zh", version="1.0")
    phonemes = g2p.phonemize("你好")
    # Output: 'ni↓xau↓'
 
@@ -70,7 +70,7 @@ Uses ZHFrontend with Zhuyin (Bopomofo) notation
    # Output: 'ㄋㄧ2ㄏㄠ3'
 
    # Validate against v1.1-zh model
-   is_valid, invalid = validate_for_kokoro(phonemes, model="v1.1-zh")
+   is_valid, invalid = validate_for_kokoro(phonemes, model="1.1")
    assert is_valid
 
 Model Selection for Validation
@@ -83,10 +83,10 @@ When validating phonemes, specify the target model:
    from kokorog2p.vocab import validate_for_kokoro
 
    # For base model (IPA output from legacy version)
-   is_valid, invalid = validate_for_kokoro(phonemes, model="base")
+   is_valid, invalid = validate_for_kokoro(phonemes, model="1.0")
 
    # For v1.1-zh model (Zhuyin output from version 1.1)
-   is_valid, invalid = validate_for_kokoro(phonemes, model="v1.1-zh")
+   is_valid, invalid = validate_for_kokoro(phonemes, model="1.1")
 
 Features
 --------

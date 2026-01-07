@@ -89,6 +89,8 @@ class ItalianG2P(G2PBase):
         use_espeak_fallback: bool = False,
         mark_stress: bool = True,
         mark_gemination: bool = True,
+        version: str = "1.0",
+        **kwargs,
     ) -> None:
         """Initialize the Italian G2P converter.
 
@@ -99,6 +101,7 @@ class ItalianG2P(G2PBase):
             mark_gemination: Whether to mark double consonants with ː.
         """
         super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
+        self.version = version
         self.mark_stress = mark_stress
         self.mark_gemination = mark_gemination
 
@@ -606,4 +609,12 @@ class ItalianG2P(G2PBase):
         return "".join(result).rstrip()
 
     def __repr__(self) -> str:
-        return f"ItalianG2P(language={self.language!r})"
+        return f"ItalianG2P(language={self.language!r}, version={self.version!r})"
+
+    def get_target_model(self) -> str:
+        """Get the target Kokoro model variant for this G2P instance.
+
+        Returns:
+            Model identifier: version string ("1.1" or "1.0").
+        """
+        return self.version

@@ -37,6 +37,7 @@ class HebrewG2P(G2PBase):
         load_gold: bool = True,
         preserve_punctuation: bool = True,
         preserve_stress: bool = True,
+        version: str = "1.0",
         **kwargs,
     ) -> None:
         """Initialize the Hebrew G2P.
@@ -56,6 +57,7 @@ class HebrewG2P(G2PBase):
             **kwargs: Additional arguments passed to phonikud.phonemize().
         """
         super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
+        self.version = version
         self.load_silver = load_silver
         self.load_gold = load_gold
         self.preserve_punctuation = preserve_punctuation
@@ -181,3 +183,11 @@ class HebrewG2P(G2PBase):
         token.rating = "he" if phonemes else None
 
         return phonemes or "", [token] if phonemes else None
+
+    def get_target_model(self) -> str:
+        """Get the target Kokoro model variant for this G2P instance.
+
+        Returns:
+            Model identifier: version string ("1.1" or "1.0").
+        """
+        return self.version
