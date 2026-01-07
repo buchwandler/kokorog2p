@@ -2,6 +2,7 @@
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/kokorog2p)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/kokorog2p)
 [![codecov](https://codecov.io/gh/holgern/kokorog2p/graph/badge.svg?token=iCHXwbjAXG)](https://codecov.io/gh/holgern/kokorog2p)
+
 # kokorog2p
 
 A unified multi-language G2P (Grapheme-to-Phoneme) library for Kokoro TTS.
