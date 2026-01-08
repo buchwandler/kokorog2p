@@ -264,8 +264,30 @@ class EnglishG2P(G2PBase):
         # This ensures tokenizer exceptions and lexicon lookups work correctly
         text = text.replace("\u2019", "'")  # Right single quotation mark
         text = text.replace("\u2018", "'")  # Left single quotation mark
-        text = text.replace("`", "'")  # Grave accent
-        text = text.replace("\u00b4", "'")  # Acute accent
+        text = text.replace("\u02b9", "'")  # Modifier letter prime
+        text = text.replace("\uff07", "'")  # Fullwidth apostrophe
+
+        # Smart normalization for backtick/acute: normalize to apostrophe ONLY
+        # when inside words (contractions), keep as backtick for standalone quotes
+        # Pattern: word-char + backtick/acute + word-char = contraction
+        import re
+
+        text = re.sub(r"(\w)`(\w)", r"\1'\2", text)  # don`t → don't
+        text = re.sub(r"(\w)\u00b4(\w)", r"\1'\2", text)  # don´t → don't
+
+        # Normalize quote variants to straight quotes BEFORE spacy
+        # This allows spacy to properly tag them as `` (opening) or '' (closing)
+        # We'll convert to curly quotes after tokenization based on spacy's tags
+        # Standalone backtick and acute accent are treated as quotes
+        text = text.replace("\u00b4", "`")  # Acute accent (´) → backtick (`)
+        text = text.replace("\u2033", '"')  # Double prime (″) → "
+        text = text.replace("\uff02", '"')  # Fullwidth quotation mark (＂) → "
+        text = text.replace("\u00ab", '"')  # Left guillemet («) → "
+        text = text.replace("\u00bb", '"')  # Right guillemet (») → "
+        text = text.replace("\u2039", '"')  # Single left-pointing angle (‹) → "
+        text = text.replace("\u203a", '"')  # Single right-pointing angle (›) → "
+        text = text.replace("\u201c", '"')  # Left curly quote (present) → "
+        text = text.replace("\u201d", '"')  # Right curly quote (present) → "
 
         # Normalize ellipsis variants to single ellipsis character (U+2026)
         # This ensures consistent handling in vocab (ID 10)
@@ -274,6 +296,9 @@ class EnglishG2P(G2PBase):
         text = text.replace(". . .", "…")  # Spaced dots
         text = text.replace("...", "…")  # Three dots
         text = text.replace("..", "…")  # Two dots (typo variant)
+        text = text.replace(" … ", "…")  # Two dots (typo variant)
+        text = text.replace(" …", "…")  # Two dots (typo variant)
+        text = text.replace("… ", "…")  # Two dots (typo variant)
 
         # Normalize dash variants to em dash (U+2014)
         # This ensures consistent handling in vocab (ID 9: " —")
@@ -326,6 +351,28 @@ class EnglishG2P(G2PBase):
 
             tokens.append(token)
 
+        # Post-process: Handle backticks that spacy may have mistagged
+        # Some backticks get tagged as `` (opening) correctly, but others
+        # may get tagged as . or other tags. We need to fix those.
+        backtick_indices = [
+            i for i, t in enumerate(tokens) if t.text == "`" and t.phonemes != "\u201c"
+        ]
+
+        for idx in backtick_indices:
+            # Check if this should be opening or closing based on alternation
+            # Count how many curly quotes we've seen so far
+            quotes_before = sum(
+                1
+                for i, t in enumerate(tokens[:idx])
+                if (t.phonemes and t.phonemes in "\u201c\u201d")
+                or (t.text == "`" and i in backtick_indices)
+            )
+            # If even number of quotes before, this is opening; else closing
+            if quotes_before % 2 == 0:
+                tokens[idx].phonemes = "\u201c"  # Opening
+            else:
+                tokens[idx].phonemes = "\u201d"  # Closing
+
         return tokens
 
     def _tokenize_simple(self, text: str) -> list[GToken]:
@@ -342,17 +389,36 @@ class EnglishG2P(G2PBase):
         # Normalize apostrophes to standard straight apostrophe (U+0027)
         text = text.replace("\u2019", "'")  # Right single quotation mark
         text = text.replace("\u2018", "'")  # Left single quotation mark
-        text = text.replace("`", "'")  # Grave accent
-        text = text.replace("\u00b4", "'")  # Acute accent
+        text = text.replace("\u02b9", "'")  # Modifier letter prime
+        text = text.replace("\uff07", "'")  # Fullwidth apostrophe
+
+        # Smart normalization for backtick/acute: normalize to apostrophe ONLY
+        # when inside words (contractions), keep as backtick for standalone quotes
+        text = re.sub(r"(\w)`(\w)", r"\1'\2", text)  # don`t → don't
+        text = re.sub(r"(\w)\u00b4(\w)", r"\1'\2", text)  # don´t → don't
+
+        # Normalize quote variants to straight quotes (for simple tokenizer)
+        # We'll convert to curly quotes after direction determination
+        # Backtick (`) is kept as-is (can't distinguish context like spacy)
+        # Acute accent (´) → backtick for consistency
+        text = text.replace("\u00b4", "`")  # Acute accent (´) → backtick (`)
+        text = text.replace("\u201c", '"')  # Left curly quote → "
+        text = text.replace("\u201d", '"')  # Right curly quote → "
+        text = text.replace("\u2033", '"')  # Double prime (″) → "
+        text = text.replace("\uff02", '"')  # Fullwidth quotation mark (＂) → "
+        text = text.replace("\u00ab", '"')  # Left guillemet («) → "
+        text = text.replace("\u00bb", '"')  # Right guillemet (») → "
+        text = text.replace("\u2039", '"')  # Single left-pointing angle (‹) → "
+        text = text.replace("\u203a", '"')  # Single right-pointing angle (›) → "
 
         tokens: list[GToken] = []
         # Tokenize with support for contractions (e.g., I've, we're, don't)
         # Pattern matches:
         # 1. Words with apostrophes (contractions): \w+'\w+
         # 2. Regular words: \w+
-        # 3. Punctuation sequences: [^\w\s]+
+        # 3. Single punctuation: [^\w\s] (split punct sequences)
         # 4. Whitespace: \s+
-        for match in re.finditer(r"(\w+'\w+|\w+|[^\w\s]+|\s+)", text):
+        for match in re.finditer(r"(\w+'\w+|\w+|[^\w\s]|\s+)", text):
             word = match.group()
             if word.isspace():
                 if tokens:
@@ -363,10 +429,29 @@ class EnglishG2P(G2PBase):
 
             # Handle punctuation (but not contractions with apostrophes)
             if not word.isalnum() and "'" not in word:
-                token.phonemes = word if word in ".,;:!?-—…" else ""
+                # Mark quotes/backticks for later (convert to curly quotes)
+                token.phonemes = word if word in '.,;:!?-—…"`' else ""
                 token.set("rating", 4)
 
             tokens.append(token)
+
+        # Post-process: Handle quote directionality (left " vs right ")
+        # For simple tokenizer without spacy, use basic alternation
+        # NOTE: Doesn't handle nested quotes (e.g., "outer "inner" text")
+        # For proper nesting, ensure spacy is installed (uses `` and '')
+        # Simple alternation: 1st=L, 2nd=R, 3rd=L, 4th=R, etc.
+
+        quote_indices = [
+            i for i, t in enumerate(tokens) if t.phonemes and t.phonemes in '"`'
+        ]
+
+        for idx_in_list, token_idx in enumerate(quote_indices):
+            if idx_in_list % 2 == 0:
+                # Even position: opening quote
+                tokens[token_idx].phonemes = "\u201c"  # Left curly quote
+            else:
+                # Odd position: closing quote
+                tokens[token_idx].phonemes = "\u201d"  # Right curly quote
 
         return tokens
 
@@ -383,8 +468,8 @@ class EnglishG2P(G2PBase):
         if tag in punct_map:
             return punct_map[tag]
 
-        # Keep common punctuation
-        puncts = frozenset(';:,.!?—…"""')
+        # Keep common punctuation and backticks (quotes)
+        puncts = frozenset(';:,.!?—…"""`')
         return "".join(c for c in text if c in puncts)
 
     def _update_context(

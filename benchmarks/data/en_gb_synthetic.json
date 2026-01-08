@@ -22,7 +22,7 @@
     {
       "id": 1,
       "text": "The cat sat on a hot mat.",
-      "phonemes": "ðˌə kˈat sˈat ˌɒn ˈA hˈɒt mˈat .",
+      "phonemes": "ðˌə kˈat sˈat ˌɒn ˈA hˈɒt mˈat.",
       "category": "gb_specific",
       "difficulty": "basic",
       "word_count": 7,
@@ -32,7 +32,7 @@
     {
       "id": 2,
       "text": "Go show Joe the boat.",
-      "phonemes": "ɡˌQ ʃˈQ ʤˈQ ðə bˈQt .",
+      "phonemes": "ɡˌQ ʃˈQ ʤˈQ ðə bˈQt.",
       "category": "gb_specific",
       "difficulty": "basic",
       "word_count": 5,
@@ -42,7 +42,7 @@
     {
       "id": 3,
       "text": "Cars are far from the bar.",
-      "phonemes": "kˈɑːz ɑː fˈɑː fɹɒm ðə bˈɑː .",
+      "phonemes": "kˈɑːz ɑː fˈɑː fɹɒm ðə bˈɑː.",
       "category": "gb_specific",
       "difficulty": "basic",
       "word_count": 6,
@@ -52,7 +52,7 @@
     {
       "id": 4,
       "text": "Stop! Got a hot pot of cod.",
-      "phonemes": "stˈɒp ! ɡˌɒt ˈA hˈɒt pˈɒt ɒv kˈɒd .",
+      "phonemes": "stˈɒp! ɡˌɒt ˈA hˈɒt pˈɒt ɒv kˈɒd.",
       "category": "gb_specific",
       "difficulty": "basic",
       "word_count": 7,
@@ -62,7 +62,7 @@
     {
       "id": 5,
       "text": "Bath path laugh staff.",
-      "phonemes": "bˈɑːθ pˈɑːθ lˈɑːf stˈɑːf .",
+      "phonemes": "bˈɑːθ pˈɑːθ lˈɑːf stˈɑːf.",
       "category": "gb_specific",
       "difficulty": "intermediate",
       "word_count": 4,
@@ -72,7 +72,7 @@
     {
       "id": 6,
       "text": "That bad lad had a black hat.",
-      "phonemes": "ðˌat bˈad lˈad had ˈA blˈak hˈat .",
+      "phonemes": "ðˌat bˈad lˈad had ˈA blˈak hˈat.",
       "category": "gb_specific",
       "difficulty": "basic",
       "word_count": 7,
@@ -82,7 +82,7 @@
     {
       "id": 7,
       "text": "More door for four.",
-      "phonemes": "mˈɔː dˈɔː fɔː fˈɔː .",
+      "phonemes": "mˈɔː dˈɔː fɔː fˈɔː.",
       "category": "gb_specific",
       "difficulty": "basic",
       "word_count": 4,
@@ -92,7 +92,7 @@
     {
       "id": 8,
       "text": "No snow blow slow.",
-      "phonemes": "nˈQ snˈQ blˈQ slˈQ .",
+      "phonemes": "nˈQ snˈQ blˈQ slˈQ.",
       "category": "gb_specific",
       "difficulty": "basic",
       "word_count": 4,
@@ -102,7 +102,7 @@
     {
       "id": 9,
       "text": "On top not lot.",
-      "phonemes": "ˌɒn tˈɒp nˌɒt lˈɒt .",
+      "phonemes": "ˌɒn tˈɒp nˌɒt lˈɒt.",
       "category": "gb_specific",
       "difficulty": "basic",
       "word_count": 4,
@@ -112,7 +112,7 @@
     {
       "id": 10,
       "text": "Start the car in the dark park.",
-      "phonemes": "stˈɑːt ðə kˈɑː ˈɪn ðə dˈɑːk pˈɑːk .",
+      "phonemes": "stˈɑːt ðə kˈɑː ˈɪn ðə dˈɑːk pˈɑːk.",
       "category": "gb_specific",
       "difficulty": "basic",
       "word_count": 7,
@@ -122,7 +122,7 @@
     {
       "id": 11,
       "text": "Man can ran than.",
-      "phonemes": "mˈan kan ɹˈan ðən .",
+      "phonemes": "mˈan kan ɹˈan ðən.",
       "category": "gb_specific",
       "difficulty": "basic",
       "word_count": 4,
@@ -132,7 +132,7 @@
     {
       "id": 12,
       "text": "Go home alone stone bone.",
-      "phonemes": "ɡˌQ hˈQm əlˈQn stˈQn bˈQn .",
+      "phonemes": "ɡˌQ hˈQm əlˈQn stˈQn bˈQn.",
       "category": "gb_specific",
       "difficulty": "basic",
       "word_count": 5,
@@ -142,7 +142,7 @@
     {
       "id": 13,
       "text": "How now brown cow?",
-      "phonemes": "hˌW nˈW bɹˈWn kˈW ?",
+      "phonemes": "hˌW nˈW bɹˈWn kˈW?",
       "category": "diphthongs",
       "difficulty": "basic",
       "word_count": 4,
@@ -152,7 +152,7 @@
     {
       "id": 14,
       "text": "The boy enjoys his toy.",
-      "phonemes": "ðˌə bˈY ɪnʤˈYz hɪz tˈY .",
+      "phonemes": "ðˌə bˈY ɪnʤˈYz hɪz tˈY.",
       "category": "diphthongs",
       "difficulty": "basic",
       "word_count": 5,
@@ -162,7 +162,7 @@
     {
       "id": 15,
       "text": "I might try my best tonight.",
-      "phonemes": "ˈI mˌIt tɹˈI mI bˈɛst tənˈIt .",
+      "phonemes": "ˈI mˌIt tɹˈI mI bˈɛst tənˈIt.",
       "category": "diphthongs",
       "difficulty": "basic",
       "word_count": 6,
@@ -172,7 +172,7 @@
     {
       "id": 16,
       "text": "Say hey to May today.",
-      "phonemes": "sˈA hˈA tə mˈA tədˈA .",
+      "phonemes": "sˈA hˈA tə mˈA tədˈA.",
       "category": "diphthongs",
       "difficulty": "basic",
       "word_count": 5,
@@ -182,7 +182,7 @@
     {
       "id": 17,
       "text": "Joy boy toy annoy.",
-      "phonemes": "ʤˈY bˈY tˈY ənˈY .",
+      "phonemes": "ʤˈY bˈY tˈY ənˈY.",
       "category": "diphthongs",
       "difficulty": "basic",
       "word_count": 4,
@@ -192,7 +192,7 @@
     {
       "id": 18,
       "text": "High fly sky bye.",
-      "phonemes": "hˈI flˈI skˈI bˈI .",
+      "phonemes": "hˈI flˈI skˈI bˈI.",
       "category": "diphthongs",
       "difficulty": "basic",
       "word_count": 4,
@@ -202,7 +202,7 @@
     {
       "id": 19,
       "text": "Out loud sound found.",
-      "phonemes": "ˈWt lˈWd sˈWnd fˈWnd .",
+      "phonemes": "ˈWt lˈWd sˈWnd fˈWnd.",
       "category": "diphthongs",
       "difficulty": "basic",
       "word_count": 4,
@@ -212,7 +212,7 @@
     {
       "id": 20,
       "text": "Day way say play.",
-      "phonemes": "dˈA wˈA sˈA plˈA .",
+      "phonemes": "dˈA wˈA sˈA plˈA.",
       "category": "diphthongs",
       "difficulty": "basic",
       "word_count": 4,
@@ -222,7 +222,7 @@
     {
       "id": 21,
       "text": "Don't you won't!",
-      "phonemes": "dˈQnt juː wˈQnt !",
+      "phonemes": "dˈQnt juː wˈQnt!",
       "category": "contractions",
       "difficulty": "basic",
       "word_count": 3,
@@ -232,7 +232,7 @@
     {
       "id": 22,
       "text": "I'm going where we're meeting.",
-      "phonemes": "ˌIm ɡˈQɪŋ wˌɛː wɪə mˈiːtɪŋ .",
+      "phonemes": "ˌIm ɡˈQɪŋ wˌɛː wɪə mˈiːtɪŋ.",
       "category": "contractions",
       "difficulty": "basic",
       "word_count": 5,
@@ -242,7 +242,7 @@
     {
       "id": 23,
       "text": "They'll see we've been there.",
-      "phonemes": "ðˌAl sˈiː wiːv biːn ðˈɛː .",
+      "phonemes": "ðˌAl sˈiː wiːv biːn ðˈɛː.",
       "category": "contractions",
       "difficulty": "basic",
       "word_count": 5,
@@ -252,7 +252,7 @@
     {
       "id": 24,
       "text": "She's said it's his.",
-      "phonemes": "ʃˌiːz sˈɛd ɪts hˌɪz .",
+      "phonemes": "ʃˌiːz sˈɛd ɪts hˌɪz.",
       "category": "contractions",
       "difficulty": "basic",
       "word_count": 4,
@@ -262,7 +262,7 @@
     {
       "id": 25,
       "text": "Wouldn't shouldn't couldn't.",
-      "phonemes": "wˈʊdᵊnt ʃˈʊdᵊnt kˈʊdᵊnt .",
+      "phonemes": "wˈʊdᵊnt ʃˈʊdᵊnt kˈʊdᵊnt.",
       "category": "contractions",
       "difficulty": "basic",
       "word_count": 3,
@@ -272,7 +272,7 @@
     {
       "id": 26,
       "text": "You're what you are.",
-      "phonemes": "jˌɔː wˌɒt juː ɑː .",
+      "phonemes": "jˌɔː wˌɒt juː ɑː.",
       "category": "contractions",
       "difficulty": "basic",
       "word_count": 4,
@@ -282,7 +282,7 @@
     {
       "id": 27,
       "text": "Isn't aren't wasn't weren't.",
-      "phonemes": "ˈɪzᵊnt ˌɑːnt wˈɒzᵊnt wˌɜːnt .",
+      "phonemes": "ˈɪzᵊnt ˌɑːnt wˈɒzᵊnt wˌɜːnt.",
       "category": "contractions",
       "difficulty": "intermediate",
       "word_count": 4,
@@ -292,7 +292,7 @@
     {
       "id": 28,
       "text": "Haven't hasn't hadn't.",
-      "phonemes": "hˈavᵊnt hˈazᵊnt hˈadᵊnt .",
+      "phonemes": "hˈavᵊnt hˈazᵊnt hˈadᵊnt.",
       "category": "contractions",
       "difficulty": "intermediate",
       "word_count": 3,
@@ -302,7 +302,7 @@
     {
       "id": 29,
       "text": "Can't won't don't didn't.",
-      "phonemes": "kˈɑːnt wQnt dˈQnt dˈɪdᵊnt .",
+      "phonemes": "kˈɑːnt wQnt dˈQnt dˈɪdᵊnt.",
       "category": "contractions",
       "difficulty": "basic",
       "word_count": 4,
@@ -312,7 +312,7 @@
     {
       "id": 30,
       "text": "Let's see who's there.",
-      "phonemes": "lˈɛts sˈiː hˌuːz ðˈɛː .",
+      "phonemes": "lˈɛts sˈiː hˌuːz ðˈɛː.",
       "category": "contractions",
       "difficulty": "basic",
       "word_count": 4,
@@ -322,7 +322,7 @@
     {
       "id": 31,
       "text": "She sells seashells by the seashore.",
-      "phonemes": "ʃˌiː sˈɛlz sˈiːʃɛlz bI ðə sˈiːʃɔː .",
+      "phonemes": "ʃˌiː sˈɛlz sˈiːʃɛlz bI ðə sˈiːʃɔː.",
       "category": "phoneme_coverage",
       "difficulty": "basic",
       "word_count": 6,
@@ -332,7 +332,7 @@
     {
       "id": 32,
       "text": "Thin thick thought through.",
-      "phonemes": "θˈɪn θˈɪk θˈɔːt θɹˈuː .",
+      "phonemes": "θˈɪn θˈɪk θˈɔːt θɹˈuː.",
       "category": "phoneme_coverage",
       "difficulty": "basic",
       "word_count": 4,
@@ -342,7 +342,7 @@
     {
       "id": 33,
       "text": "This that these those.",
-      "phonemes": "ðˌɪs ðat ðiːz ðˈQz .",
+      "phonemes": "ðˌɪs ðat ðiːz ðˈQz.",
       "category": "phoneme_coverage",
       "difficulty": "basic",
       "word_count": 4,
@@ -352,7 +352,7 @@
     {
       "id": 34,
       "text": "Ring sing thing bring.",
-      "phonemes": "ɹˈɪŋ sˈɪŋ θˈɪŋ bɹˈɪŋ .",
+      "phonemes": "ɹˈɪŋ sˈɪŋ θˈɪŋ bɹˈɪŋ.",
       "category": "phoneme_coverage",
       "difficulty": "basic",
       "word_count": 4,
@@ -372,7 +372,7 @@
     {
       "id": 36,
       "text": "Church charm chair child.",
-      "phonemes": "ʧˈɜːʧ ʧˈɑːm ʧˈɛː ʧˈIld .",
+      "phonemes": "ʧˈɜːʧ ʧˈɑːm ʧˈɛː ʧˈIld.",
       "category": "phoneme_coverage",
       "difficulty": "basic",
       "word_count": 4,
@@ -382,7 +382,7 @@
     {
       "id": 37,
       "text": "Vision measure pleasure treasure.",
-      "phonemes": "vˈɪʒᵊn mˈɛʒə plˈɛʒə tɹˈɛʒə .",
+      "phonemes": "vˈɪʒᵊn mˈɛʒə plˈɛʒə tɹˈɛʒə.",
       "category": "phoneme_coverage",
       "difficulty": "intermediate",
       "word_count": 4,
@@ -392,7 +392,7 @@
     {
       "id": 38,
       "text": "Ship shop show sharp.",
-      "phonemes": "ʃˈɪp ʃˈɒp ʃˈQ ʃˈɑːp .",
+      "phonemes": "ʃˈɪp ʃˈɒp ʃˈQ ʃˈɑːp.",
       "category": "phoneme_coverage",
       "difficulty": "basic",
       "word_count": 4,
@@ -402,7 +402,7 @@
     {
       "id": 39,
       "text": "Her work bird nurse.",
-      "phonemes": "hˌɜː wˈɜːk bˈɜːd nˈɜːs .",
+      "phonemes": "hˌɜː wˈɜːk bˈɜːd nˈɜːs.",
       "category": "phoneme_coverage",
       "difficulty": "basic",
       "word_count": 4,
@@ -412,7 +412,7 @@
     {
       "id": 40,
       "text": "Law taught caught thought.",
-      "phonemes": "lˈɔː tˈɔːt kˈɔːt θˈɔːt .",
+      "phonemes": "lˈɔː tˈɔːt kˈɔːt θˈɔːt.",
       "category": "phoneme_coverage",
       "difficulty": "basic",
       "word_count": 4,
@@ -422,7 +422,7 @@
     {
       "id": 41,
       "text": "About around sofa pizza.",
-      "phonemes": "əbˈWt əɹˈWnd sˈQfə pˈiːtsə .",
+      "phonemes": "əbˈWt əɹˈWnd sˈQfə pˈiːtsə.",
       "category": "phoneme_coverage",
       "difficulty": "basic",
       "word_count": 4,
@@ -432,7 +432,7 @@
     {
       "id": 42,
       "text": "Happen apple little bottle.",
-      "phonemes": "hˈapᵊn ˈapᵊl lˈɪtᵊl bˈɒtᵊl .",
+      "phonemes": "hˈapᵊn ˈapᵊl lˈɪtᵊl bˈɒtᵊl.",
       "category": "phoneme_coverage",
       "difficulty": "intermediate",
       "word_count": 4,
@@ -442,7 +442,7 @@
     {
       "id": 43,
       "text": "Put foot book could should would.",
-      "phonemes": "pˌʊt fˈʊt bˈʊk kʊd ʃˌʊd wˈʊd .",
+      "phonemes": "pˌʊt fˈʊt bˈʊk kʊd ʃˌʊd wˈʊd.",
       "category": "phoneme_coverage",
       "difficulty": "basic",
       "word_count": 6,
@@ -452,7 +452,7 @@
     {
       "id": 44,
       "text": "Bit beat bet bat but.",
-      "phonemes": "bˈɪt bˈiːt bˈɛt bˈat bˌʌt .",
+      "phonemes": "bˈɪt bˈiːt bˈɛt bˈat bˌʌt.",
       "category": "minimal_pairs",
       "difficulty": "intermediate",
       "word_count": 5,
@@ -462,7 +462,7 @@
     {
       "id": 45,
       "text": "Boot boat bought bout.",
-      "phonemes": "bˈuːt bˈQt bˈɔːt bˈWt .",
+      "phonemes": "bˈuːt bˈQt bˈɔːt bˈWt.",
       "category": "minimal_pairs",
       "difficulty": "intermediate",
       "word_count": 4,
@@ -472,7 +472,7 @@
     {
       "id": 46,
       "text": "Pit kit bit hit sit.",
-      "phonemes": "pˈɪt kˈɪt bˈɪt hˈɪt sˈɪt .",
+      "phonemes": "pˈɪt kˈɪt bˈɪt hˈɪt sˈɪt.",
       "category": "minimal_pairs",
       "difficulty": "basic",
       "word_count": 5,
@@ -482,7 +482,7 @@
     {
       "id": 47,
       "text": "Fat that sat cat mat.",
-      "phonemes": "fˈat ðat sˈat kˈat mˈat .",
+      "phonemes": "fˈat ðat sˈat kˈat mˈat.",
       "category": "minimal_pairs",
       "difficulty": "basic",
       "word_count": 5,
@@ -492,7 +492,7 @@
     {
       "id": 48,
       "text": "Ship chip sip dip tip.",
-      "phonemes": "ʃˈɪp ʧˈɪp sˈɪp dˈɪp tˈɪp .",
+      "phonemes": "ʃˈɪp ʧˈɪp sˈɪp dˈɪp tˈɪp.",
       "category": "minimal_pairs",
       "difficulty": "intermediate",
       "word_count": 5,
@@ -502,7 +502,7 @@
     {
       "id": 49,
       "text": "Full fool fall foil.",
-      "phonemes": "fˈʊl fˈuːl fˈɔːl fˈYl .",
+      "phonemes": "fˈʊl fˈuːl fˈɔːl fˈYl.",
       "category": "minimal_pairs",
       "difficulty": "intermediate",
       "word_count": 4,
@@ -512,7 +512,7 @@
     {
       "id": 50,
       "text": "Primary stress on the first syllable.",
-      "phonemes": "pɹˈIməɹi stɹˈɛs ˌɒn ðə fˈɜːst sˈɪləbᵊl .",
+      "phonemes": "pɹˈIməɹi stɹˈɛs ˌɒn ðə fˈɜːst sˈɪləbᵊl.",
       "category": "stress_patterns",
       "difficulty": "advanced",
       "word_count": 6,
@@ -522,7 +522,7 @@
     {
       "id": 51,
       "text": "Understanding pronunciation requires practice.",
-      "phonemes": "ˌʌndəstˈandɪŋ pɹənˌʌnsɪˈAʃᵊn ɹɪkwˈIəz pɹˈaktɪs .",
+      "phonemes": "ˌʌndəstˈandɪŋ pɹənˌʌnsɪˈAʃᵊn ɹɪkwˈIəz pɹˈaktɪs.",
       "category": "stress_patterns",
       "difficulty": "advanced",
       "word_count": 4,
@@ -532,7 +532,7 @@
     {
       "id": 52,
       "text": "Information technology development.",
-      "phonemes": "ˌɪnfəmˈAʃᵊn tɛknˈɒləʤi dɪvˈɛləpmᵊnt .",
+      "phonemes": "ˌɪnfəmˈAʃᵊn tɛknˈɒləʤi dɪvˈɛləpmᵊnt.",
       "category": "stress_patterns",
       "difficulty": "advanced",
       "word_count": 3,
@@ -542,7 +542,7 @@
     {
       "id": 53,
       "text": "Photography photographer photographic.",
-      "phonemes": "fətˈɒɡɹəfi fətˈɒɡɹəfə fˌQtəɡɹˈafɪk .",
+      "phonemes": "fətˈɒɡɹəfi fətˈɒɡɹəfə fˌQtəɡɹˈafɪk.",
       "category": "stress_patterns",
       "difficulty": "advanced",
       "word_count": 3,
@@ -552,7 +552,7 @@
     {
       "id": 54,
       "text": "Economic economy economical.",
-      "phonemes": "ˌiːkənˈɒmɪk ɪkˈɒnəmi ˌiːkənˈɒmɪkᵊl .",
+      "phonemes": "ˌiːkənˈɒmɪk ɪkˈɒnəmi ˌiːkənˈɒmɪkᵊl.",
       "category": "stress_patterns",
       "difficulty": "advanced",
       "word_count": 3,
@@ -562,7 +562,7 @@
     {
       "id": 55,
       "text": "Absolutely definitely completely.",
-      "phonemes": "ˈabsəluːtli dˈɛfɪnɪtli kəmplˈiːtli .",
+      "phonemes": "ˈabsəluːtli dˈɛfɪnɪtli kəmplˈiːtli.",
       "category": "stress_patterns",
       "difficulty": "intermediate",
       "word_count": 3,
@@ -572,7 +572,7 @@
     {
       "id": 56,
       "text": "The restaurant serves delicious food.",
-      "phonemes": "ðˌə ɹˈɛstəɹɒnt sˈɜːvz dɪlˈɪʃəs fˈuːd .",
+      "phonemes": "ðˌə ɹˈɛstəɹɒnt sˈɜːvz dɪlˈɪʃəs fˈuːd.",
       "category": "common_words",
       "difficulty": "basic",
       "word_count": 5,
@@ -582,7 +582,7 @@
     {
       "id": 57,
       "text": "Thank you very much.",
-      "phonemes": "θˈaŋk juː vˈɛɹi mˈʌʧ .",
+      "phonemes": "θˈaŋk juː vˈɛɹi mˈʌʧ.",
       "category": "common_words",
       "difficulty": "basic",
       "word_count": 4,
@@ -592,7 +592,7 @@
     {
       "id": 58,
       "text": "What time is it?",
-      "phonemes": "wˌɒt tˈIm ɪz ɪt ?",
+      "phonemes": "wˌɒt tˈIm ɪz ɪt?",
       "category": "common_words",
       "difficulty": "basic",
       "word_count": 4,
@@ -602,7 +602,7 @@
     {
       "id": 59,
       "text": "Where are you going?",
-      "phonemes": "wˌɛː ɑː juː ɡˈQɪŋ ?",
+      "phonemes": "wˌɛː ɑː juː ɡˈQɪŋ?",
       "category": "common_words",
       "difficulty": "basic",
       "word_count": 4,
@@ -612,7 +612,7 @@
     {
       "id": 60,
       "text": "Hello! How are you? I'm fine, thanks.",
-      "phonemes": "həlˈQ ! hˌW ɑː juː ? ˌIm fˈIn , θˈaŋks .",
+      "phonemes": "həlˈQ ! hˌW ɑː juː? ˌIm fˈIn, θˈaŋks.",
       "category": "common_words",
       "difficulty": "basic",
       "word_count": 7,

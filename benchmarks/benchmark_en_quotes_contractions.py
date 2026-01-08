@@ -192,15 +192,8 @@ class QuotesContractionsBenchmark:
         # Initialize components
         self.generator = SentenceGenerator(seed=seed)
 
-        # G2P for generating expected phonemes (ground truth)
+        # G2P for testing
         print(f"Initializing G2P for {language} (with spaCy)...")
-        self.g2p_reference = EnglishG2P(
-            language=language,
-            use_espeak_fallback=True,
-            use_spacy=True,  # Normal usage mode
-        )
-
-        # G2P for testing (same config, fresh instance)
         self.g2p_test = EnglishG2P(
             language=language, use_espeak_fallback=True, use_spacy=True
         )
@@ -210,17 +203,99 @@ class QuotesContractionsBenchmark:
         self.category_stats: dict[str, CategoryStats] = defaultdict(CategoryStats)
         self.analyzer = FailureAnalyzer()
 
-    def generate_expected_phonemes(self, text: str) -> str:
-        """Generate expected phonemes using reference G2P.
+    def validate_output(self, test_case: TestCase, phonemes: str) -> tuple[bool, str]:
+        """Validate phoneme output against ground truth expectations.
 
         Args:
-            text: Input text.
+            test_case: The test case
+            phonemes: The generated phonemes
 
         Returns:
-            Expected phoneme string.
+            Tuple of (passed, expected_description)
         """
-        tokens = self.g2p_reference(text)
-        return " ".join(t.phonemes for t in tokens if t.phonemes)
+        import re
+
+        text = test_case.text
+        issues = []
+
+        # Rule 1: Contractions should NOT be split into individual letters
+        # Examples: don't → dˈOnt (GOOD), not dˈi ˈO ˈɛn tˈi (BAD - spelled out)
+        contraction_chars = ["'", "'", "`", "´", "ʹ", "ʻ", "ʼ", "ʽ"]
+        for word in text.split():
+            # Check if word contains a contraction character
+            if any(char in word for char in contraction_chars):
+                # Common patterns for spelled-out letters (indicates the contraction
+                # was not recognized and letters were spelled individually)
+                spelled_patterns = [
+                    # "d o n t" pattern
+                    "dˈi ˈO ˈɛn",  # "d o n"
+                    # Single letter spellings (with spaces around to
+                    # avoid false positives)
+                    " tˈi ",  # " t " (standalone)
+                    " ˈɛs ",  # " s "
+                    " ˈɛm ",  # " m "
+                    " ˈɑɹ ",  # " r "
+                    " ˈvi ",  # " v "
+                    " ˈɛl ",  # " l "
+                    # Common contraction parts spelled out
+                    "ˈɑɹ ˈi",  # "r e" (from "you're", "we're")
+                    "ˈɛl ˈɛl",  # "l l" (from "I'll", "we'll")
+                ]
+                for pattern in spelled_patterns:
+                    if pattern in phonemes:
+                        issues.append(
+                            f"Contraction '{word}' may be spelled out "
+                            f"(found pattern: {pattern.strip()})"
+                        )
+                        break
+
+        # Rule 2: Quote-like characters should be converted to curly quotes
+        # We need to distinguish between quotes and contractions.
+        # Backtick/acute inside words (\w`\w) = contraction, otherwise = quote
+        quote_chars_in_text = ['"', "«", "»", "‹", "›"]
+        has_quotes = any(char in text for char in quote_chars_in_text)
+
+        # Check for standalone backticks/acutes (used as quotes, not contractions)
+        # Standalone = present but NOT between word characters
+        has_backtick = "`" in text
+        has_acute = "´" in text
+        backtick_in_contraction = bool(re.search(r"\w`\w", text))
+        acute_in_contraction = bool(re.search(r"\w´\w", text))
+
+        standalone_backtick = has_backtick and not backtick_in_contraction
+        standalone_acute = has_acute and not acute_in_contraction
+
+        if has_quotes or standalone_backtick or standalone_acute:
+            # Should have curly quotes in output
+            if "\u201c" not in phonemes and "\u201d" not in phonemes:
+                issues.append(
+                    'Quotes should be converted to curly quotes ("\u201c \u201d)'
+                )
+
+        # Rule 3: No straight quotes in output (should be curly)
+        if '"' in phonemes:
+            issues.append(
+                'Output contains straight quotes ("), should be curly ("\u201c \u201d)'
+            )
+
+        # Rule 4: No guillemets or other quote variants in output
+        if any(char in phonemes for char in ["«", "»", "‹", "›"]):
+            issues.append(
+                "Output contains guillemets (« »), "
+                'should be curly quotes ("\u201c \u201d)'
+            )
+
+        if issues:
+            return False, "; ".join(issues)
+        return True, "OK"
+
+    def generate_expected_phonemes(self, text: str) -> str:
+        """Generate description of expected output.
+
+        This is NOT generating phonemes, but rather a description
+        of what the output should satisfy.
+        """
+        return "Valid phonemes with correct quote/contraction handling"
 
     def test_case(self, test_id: int, test_case: TestCase) -> TestResult:
         """Test a single case.
@@ -232,17 +307,21 @@ class QuotesContractionsBenchmark:
         Returns:
             TestResult.
         """
-        # Generate expected phonemes
-        expected = self.generate_expected_phonemes(test_case.text)
-
         # Run G2P
         tokens = self.g2p_test(test_case.text)
-        actual = " ".join(t.phonemes for t in tokens if t.phonemes)
 
-        # Compare
-        passed = expected == actual
+        # Join with whitespace preservation (matching TTS output format)
+        actual = "".join(
+            (t.phonemes or "") + (" " if t.whitespace else "") for t in tokens
+        ).strip()
+
+        # Validate against rules
+        passed, validation_msg = self.validate_output(test_case, actual)
+
+        # Expected is now a description, not exact phonemes
+        expected = validation_msg if not passed else "All validation rules passed"
+
         failure_type = None
-
         if not passed:
             failure_type = self.analyzer.analyze_failure(test_case, expected, actual)
 
