@@ -23,6 +23,7 @@ import unicodedata
 from typing import Final
 
 from kokorog2p.base import G2PBase
+from kokorog2p.pt.normalizer import PortugueseNormalizer
 from kokorog2p.token import GToken
 
 # =============================================================================
@@ -85,21 +86,37 @@ class PortugueseG2P(G2PBase):
         use_espeak_fallback: bool = False,
         mark_stress: bool = True,
         affricate_ti_di: bool = True,  # Affricate t/d before i (Brazilian feature)
+        expand_abbreviations: bool = True,
+        enable_context_detection: bool = True,
+        dialect: str = "br",  # "br" for Brazilian, "pt" for European
         version: str = "1.0",
         **kwargs,
     ) -> None:
-        """Initialize the Brazilian Portuguese G2P converter.
+        """Initialize the Portuguese G2P converter.
 
         Args:
             language: Language code (default: 'pt-br').
             use_espeak_fallback: Reserved for future espeak integration.
             mark_stress: Whether to mark primary stress with ˈ.
             affricate_ti_di: Whether to affricate /t d/ before /i/ (Brazilian feature).
+            expand_abbreviations: Whether to expand common abbreviations.
+            enable_context_detection: Context-aware abbreviation expansion.
+            dialect: "br" for Brazilian, "pt" for European Portuguese.
+                     Affects number pronunciation (dezesseis vs dezasseis)
+            version: Target model version.
         """
         super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
         self.version = version
         self.mark_stress = mark_stress
         self.affricate_ti_di = affricate_ti_di
+        self.dialect = dialect
+
+        # Initialize normalizer with dialect support
+        self._normalizer = PortugueseNormalizer(
+            expand_abbreviations=expand_abbreviations,
+            enable_context_detection=enable_context_detection,
+            dialect=dialect,
+        )
 
     def __call__(self, text: str) -> list[GToken]:
         """Convert text to a list of tokens with phonemes.
@@ -151,7 +168,10 @@ class PortugueseG2P(G2PBase):
         # Normalize Unicode
         text = unicodedata.normalize("NFC", text)
 
-        # Normalize punctuation
+        # Apply normalizer (abbreviations, temperature, etc.)
+        text = self._normalizer(text)
+
+        # Normalize punctuation (keep for legacy compatibility)
         for old, new in self._PUNCT_MAP.items():
             text = text.replace(old, new)
 

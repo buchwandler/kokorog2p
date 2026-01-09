@@ -3,6 +3,9 @@
 from kokorog2p.base import G2PBase
 from kokorog2p.en.fallback import EspeakFallback, GoruutFallback
 from kokorog2p.en.lexicon import Lexicon, TokenContext
+from kokorog2p.en.normalizer import EnglishNormalizer
+from kokorog2p.pipeline.models import PhonemeSource, ProcessedText
+from kokorog2p.pipeline.tokenizer import RegexTokenizer, SpacyTokenizer
 from kokorog2p.token import GToken
 
 
@@ -26,6 +29,8 @@ class EnglishG2P(G2PBase):
         use_espeak_fallback: bool = True,
         use_goruut_fallback: bool = False,
         use_spacy: bool = True,
+        expand_abbreviations: bool = True,
+        enable_context_detection: bool = True,
         unk: str = "❓",
         load_silver: bool = True,
         load_gold: bool = True,
@@ -39,6 +44,8 @@ class EnglishG2P(G2PBase):
             use_espeak_fallback: Whether to use espeak for OOV words.
             use_goruut_fallback: Whether to use goruut for OOV words.
             use_spacy: Whether to use spaCy for tokenization and POS tagging.
+            expand_abbreviations: Whether to expand common abbreviations.
+            enable_context_detection: Context-aware abbreviation expansion.
             unk: Character to use for unknown words when fallback is disabled.
             load_silver: If True, load silver tier dictionary (~100k extra entries).
                 Defaults to True for backward compatibility and maximum coverage.
@@ -46,8 +53,9 @@ class EnglishG2P(G2PBase):
             load_gold: If True, load gold tier dictionary (~170k common words).
                 Defaults to True for maximum quality and coverage.
                 Set to False when only silver tier or no dictionaries needed.
-            version: Model version ("1.1" for multilingual model, "1.0" for legacy).
-                Defaults to "1.1".
+            version: Model version ("1.0" for multilingual model, "1.1" for
+            Chinese model).
+                Defaults to "1.0".
             **kwargs: Additional arguments for future compatibility.
 
         Raises:
@@ -61,12 +69,18 @@ class EnglishG2P(G2PBase):
                 "use_goruut_fallback to True."
             )
 
-        super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
+        super().__init__(
+            language=language,
+            use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
+        )
 
         self.version = version
         self.unk = unk
         self.use_spacy = use_spacy
         self.use_goruut_fallback = use_goruut_fallback
+        self.expand_abbreviations = expand_abbreviations
+        self.enable_context_detection = enable_context_detection
 
         # Initialize lexicon
         self.lexicon = Lexicon(
@@ -78,6 +92,11 @@ class EnglishG2P(G2PBase):
 
         # Initialize spaCy (lazy)
         self._nlp: object | None = None
+
+        # Initialize pipeline components (lazy)
+        self._normalizer: EnglishNormalizer | None = None
+        self._regex_tokenizer: RegexTokenizer | None = None
+        self._spacy_tokenizer: SpacyTokenizer | None = None
 
     @property
     def fallback(self) -> EspeakFallback | GoruutFallback | None:
@@ -106,6 +125,35 @@ class EnglishG2P(G2PBase):
             self._add_contraction_exceptions()
 
         return self._nlp
+
+    @property
+    def normalizer(self) -> EnglishNormalizer:
+        """Lazily initialize the English text normalizer."""
+        if self._normalizer is None:
+            self._normalizer = EnglishNormalizer(
+                track_changes=False,
+                expand_abbreviations=self.expand_abbreviations,
+                enable_context_detection=self.enable_context_detection,
+            )
+        return self._normalizer
+
+    @property
+    def regex_tokenizer(self) -> RegexTokenizer:
+        """Lazily initialize the regex tokenizer."""
+        if self._regex_tokenizer is None:
+            self._regex_tokenizer = RegexTokenizer(
+                track_positions=True, use_bracket_matching=True
+            )
+        return self._regex_tokenizer
+
+    @property
+    def spacy_tokenizer(self) -> SpacyTokenizer:
+        """Lazily initialize the spaCy tokenizer."""
+        if self._spacy_tokenizer is None:
+            self._spacy_tokenizer = SpacyTokenizer(
+                nlp=self.nlp, track_positions=True, use_bracket_matching=True
+            )
+        return self._spacy_tokenizer
 
     def _add_contraction_exceptions(self) -> None:
         """Add tokenizer exceptions for contractions found in the lexicon.
@@ -246,13 +294,113 @@ class EnglishG2P(G2PBase):
             if token.phonemes is None:
                 token.phonemes = self.unk
 
+        # Strip whitespace around punctuation for phoneme output
+        self._strip_punctuation(tokens)
+
         return tokens
+
+    def process_with_debug(self, text: str) -> ProcessedText:
+        """Process text with full debugging information.
+
+        This method provides detailed provenance tracking showing:
+        - All normalization steps applied
+        - Token positions in original text
+        - Phoneme source (gold/silver/espeak/etc.) for each token
+        - Quote nesting depths
+
+        Args:
+            text: Input text to process
+
+        Returns:
+            ProcessedText object with full debugging information
+
+        Example:
+            >>> g2p = EnglishG2P()
+            >>> result = g2p.process_with_debug("I'm here")
+            >>> print(result.render_debug())
+        """
+        if not text.strip():
+            return ProcessedText(
+                original=text,
+                normalized=text,
+                tokens=[],
+                normalization_log=[],
+            )
+
+        # Create normalizer with tracking enabled
+        normalizer = EnglishNormalizer(track_changes=True)
+        normalized_text, norm_steps = normalizer.normalize(text)
+
+        # Tokenize
+        if self.use_spacy:
+            processing_tokens = self.spacy_tokenizer.tokenize(normalized_text)
+        else:
+            processing_tokens = self.regex_tokenizer.tokenize(normalized_text)
+
+        # Process tokens for phonemization (reuse existing logic)
+        ctx = TokenContext()
+        for i in range(len(processing_tokens) - 1, -1, -1):
+            token = processing_tokens[i]
+
+            # Skip if already has phoneme (punctuation)
+            if token.phoneme is not None:
+                ctx = self._update_context(ctx, token.phoneme, None)
+                continue
+
+            # Check if this is punctuation by content
+            is_punct = (
+                token.text
+                and not any(c.isalnum() for c in token.text)
+                and "'" not in token.text
+            )
+
+            if is_punct:
+                token.phoneme = (
+                    token.text if token.text in '.,;:!?-—…"\u201c\u201d' else ""
+                )
+                token.phoneme_source = PhonemeSource.PUNCTUATION
+                token.phoneme_rating = 4
+                ctx = self._update_context(ctx, token.phoneme, None)
+                continue
+
+            # Try lexicon lookup
+            ps, rating = self.lexicon(token.text, token.pos_tag, None, ctx)
+
+            if ps is not None:
+                token.phoneme = ps
+                token.phoneme_source = PhonemeSource.from_rating(rating)
+                token.phoneme_rating = rating
+            elif self.fallback is not None:
+                # Try fallback
+                ps, rating = self.fallback(token.text)
+                if ps is not None:
+                    token.phoneme = ps
+                    if self.use_goruut_fallback:
+                        token.phoneme_source = PhonemeSource.GORUUT
+                    else:
+                        token.phoneme_source = PhonemeSource.ESPEAK
+                    token.phoneme_rating = rating
+
+            # Update context
+            ctx = self._update_context(ctx, token.phoneme, None)
+
+        # Handle remaining unknown words
+        for token in processing_tokens:
+            if token.phoneme is None:
+                token.phoneme = self.unk
+                token.phoneme_source = PhonemeSource.UNKNOWN
+
+        return ProcessedText(
+            original=text,
+            normalized=normalized_text,
+            tokens=processing_tokens,
+            normalization_log=norm_steps,
+        )
 
     def _tokenize_spacy(self, text: str) -> list[GToken]:
         """Tokenize text using spaCy with custom contraction handling.
 
-        SpaCy is configured with tokenizer exceptions for all contractions
-        in our lexicon, so they won't be split during tokenization.
+        Now uses the pipeline normalizer and tokenizer for consistency.
 
         Args:
             text: Input text.
@@ -260,76 +408,23 @@ class EnglishG2P(G2PBase):
         Returns:
             List of GToken objects.
         """
-        # Normalize apostrophes to standard straight apostrophe (U+0027)
-        # This ensures tokenizer exceptions and lexicon lookups work correctly
-        text = text.replace("\u2019", "'")  # Right single quotation mark
-        text = text.replace("\u2018", "'")  # Left single quotation mark
-        text = text.replace("\u02b9", "'")  # Modifier letter prime
-        text = text.replace("\uff07", "'")  # Fullwidth apostrophe
+        # Normalize text
+        normalized_text = self.normalizer(text)
 
-        # Smart normalization for backtick/acute: normalize to apostrophe ONLY
-        # when inside words (contractions), keep as backtick for standalone quotes
-        # Pattern: word-char + backtick/acute + word-char = contraction
-        import re
+        # Tokenize using spaCy tokenizer
+        processing_tokens = self.spacy_tokenizer.tokenize(normalized_text)
 
-        text = re.sub(r"(\w)`(\w)", r"\1'\2", text)  # don`t → don't
-        text = re.sub(r"(\w)\u00b4(\w)", r"\1'\2", text)  # don´t → don't
-
-        # Normalize quote variants to straight quotes BEFORE spacy
-        # This allows spacy to properly tag them as `` (opening) or '' (closing)
-        # We'll convert to curly quotes after tokenization based on spacy's tags
-        # Standalone backtick and acute accent are treated as quotes
-        text = text.replace("\u00b4", "`")  # Acute accent (´) → backtick (`)
-        text = text.replace("\u2033", '"')  # Double prime (″) → "
-        text = text.replace("\uff02", '"')  # Fullwidth quotation mark (＂) → "
-        text = text.replace("\u00ab", '"')  # Left guillemet («) → "
-        text = text.replace("\u00bb", '"')  # Right guillemet (») → "
-        text = text.replace("\u2039", '"')  # Single left-pointing angle (‹) → "
-        text = text.replace("\u203a", '"')  # Single right-pointing angle (›) → "
-        text = text.replace("\u201c", '"')  # Left curly quote (present) → "
-        text = text.replace("\u201d", '"')  # Right curly quote (present) → "
-
-        # Normalize ellipsis variants to single ellipsis character (U+2026)
-        # This ensures consistent handling in vocab (ID 10)
-        # Order matters: replace longer sequences first
-        text = text.replace("....", "…")  # Four dots (typo variant)
-        text = text.replace(". . .", "…")  # Spaced dots
-        text = text.replace("...", "…")  # Three dots
-        text = text.replace("..", "…")  # Two dots (typo variant)
-        text = text.replace(" … ", "…")  # Two dots (typo variant)
-        text = text.replace(" …", "…")  # Two dots (typo variant)
-        text = text.replace("… ", "…")  # Two dots (typo variant)
-
-        # Normalize dash variants to em dash (U+2014)
-        # This ensures consistent handling in vocab (ID 9: " —")
-        # Order matters: do space-surrounded replacements first
-        text = text.replace(" - ", " — ")  # Spaced hyphen (used as em dash)
-        text = text.replace(" -- ", " — ")  # Spaced double hyphen
-        text = text.replace("--", "—")  # Double hyphen (common in typing)
-        text = text.replace("\u2013", "—")  # En dash (–)
-        text = text.replace("\u2015", "—")  # Horizontal bar (―)
-        text = text.replace("\u2012", "—")  # Figure dash (‒)
-        text = text.replace("\u2212", "—")  # Minus sign (−)
-        # Note: Single hyphen (-) without spaces is kept for compound words
-
-        # Use spaCy's tokenization (with our custom exceptions for contractions)
-        doc = self.nlp(text)  # type: ignore
-
-        # Convert to GToken objects
+        # Convert ProcessingToken to GToken and handle punctuation
         tokens: list[GToken] = []
-
-        for tk in doc:
-            token = GToken(
-                text=tk.text,
-                tag=tk.tag_,
-                whitespace=tk.whitespace_,
+        for ptoken in processing_tokens:
+            gtoken = GToken(
+                text=ptoken.text,
+                tag=ptoken.pos_tag,
+                whitespace=ptoken.whitespace,
             )
 
-            # Handle punctuation by tag OR by content
-            # (for cases where spaCy mistagged)
-            # Check if it's a punctuation tag OR if the text consists
-            # only of punctuation
-            is_punct_tag = tk.tag_ in (
+            # Handle punctuation
+            is_punct_tag = ptoken.pos_tag in (
                 ".",
                 ",",
                 "-LRB-",
@@ -342,41 +437,20 @@ class EnglishG2P(G2PBase):
                 "#",
                 "NFP",
             )
-            # Check if text is only punctuation/quotes (not alphanumeric)
-            is_punct_text = tk.text and not any(c.isalnum() for c in tk.text)
+            is_punct_text = ptoken.text and not any(c.isalnum() for c in ptoken.text)
 
             if is_punct_tag or is_punct_text:
-                token.phonemes = self._get_punct_phonemes(tk.text, tk.tag_)
-                token.set("rating", 4)
+                gtoken.phonemes = self._get_punct_phonemes(ptoken.text, ptoken.pos_tag)
+                gtoken.set("rating", 4)
 
-            tokens.append(token)
-
-        # Post-process: Handle backticks that spacy may have mistagged
-        # Some backticks get tagged as `` (opening) correctly, but others
-        # may get tagged as . or other tags. We need to fix those.
-        backtick_indices = [
-            i for i, t in enumerate(tokens) if t.text == "`" and t.phonemes != "\u201c"
-        ]
-
-        for idx in backtick_indices:
-            # Check if this should be opening or closing based on alternation
-            # Count how many curly quotes we've seen so far
-            quotes_before = sum(
-                1
-                for i, t in enumerate(tokens[:idx])
-                if (t.phonemes and t.phonemes in "\u201c\u201d")
-                or (t.text == "`" and i in backtick_indices)
-            )
-            # If even number of quotes before, this is opening; else closing
-            if quotes_before % 2 == 0:
-                tokens[idx].phonemes = "\u201c"  # Opening
-            else:
-                tokens[idx].phonemes = "\u201d"  # Closing
+            tokens.append(gtoken)
 
         return tokens
 
     def _tokenize_simple(self, text: str) -> list[GToken]:
         """Simple tokenization without spaCy.
+
+        Now uses the pipeline normalizer and regex tokenizer for consistency.
 
         Args:
             text: Input text.
@@ -384,96 +458,79 @@ class EnglishG2P(G2PBase):
         Returns:
             List of GToken objects.
         """
-        import re
+        # Normalize text
+        normalized_text = self.normalizer(text)
 
-        # Normalize apostrophes to standard straight apostrophe (U+0027)
-        text = text.replace("\u2019", "'")  # Right single quotation mark
-        text = text.replace("\u2018", "'")  # Left single quotation mark
-        text = text.replace("\u02b9", "'")  # Modifier letter prime
-        text = text.replace("\uff07", "'")  # Fullwidth apostrophe
+        # Tokenize using regex tokenizer
+        processing_tokens = self.regex_tokenizer.tokenize(normalized_text)
 
-        # Smart normalization for backtick/acute: normalize to apostrophe ONLY
-        # when inside words (contractions), keep as backtick for standalone quotes
-        text = re.sub(r"(\w)`(\w)", r"\1'\2", text)  # don`t → don't
-        text = re.sub(r"(\w)\u00b4(\w)", r"\1'\2", text)  # don´t → don't
-
-        # Normalize quote variants to straight quotes (for simple tokenizer)
-        # We'll convert to curly quotes after direction determination
-        # Backtick (`) is kept as-is (can't distinguish context like spacy)
-        # Acute accent (´) → backtick for consistency
-        text = text.replace("\u00b4", "`")  # Acute accent (´) → backtick (`)
-        text = text.replace("\u201c", '"')  # Left curly quote → "
-        text = text.replace("\u201d", '"')  # Right curly quote → "
-        text = text.replace("\u2033", '"')  # Double prime (″) → "
-        text = text.replace("\uff02", '"')  # Fullwidth quotation mark (＂) → "
-        text = text.replace("\u00ab", '"')  # Left guillemet («) → "
-        text = text.replace("\u00bb", '"')  # Right guillemet (») → "
-        text = text.replace("\u2039", '"')  # Single left-pointing angle (‹) → "
-        text = text.replace("\u203a", '"')  # Single right-pointing angle (›) → "
-
+        # Convert ProcessingToken to GToken and handle punctuation
         tokens: list[GToken] = []
-        # Tokenize with support for contractions (e.g., I've, we're, don't)
-        # Pattern matches:
-        # 1. Words with apostrophes (contractions): \w+'\w+
-        # 2. Regular words: \w+
-        # 3. Single punctuation: [^\w\s] (split punct sequences)
-        # 4. Whitespace: \s+
-        for match in re.finditer(r"(\w+'\w+|\w+|[^\w\s]|\s+)", text):
-            word = match.group()
-            if word.isspace():
-                if tokens:
-                    tokens[-1].whitespace = word
-                continue
-
-            token = GToken(text=word, tag="", whitespace="")
+        for ptoken in processing_tokens:
+            gtoken = GToken(
+                text=ptoken.text,
+                tag="",  # No POS tags in simple tokenizer
+                whitespace=ptoken.whitespace,
+            )
 
             # Handle punctuation (but not contractions with apostrophes)
-            if not word.isalnum() and "'" not in word:
-                # Mark quotes/backticks for later (convert to curly quotes)
-                token.phonemes = word if word in '.,;:!?-—…"`' else ""
-                token.set("rating", 4)
+            if not ptoken.text.isalnum() and "'" not in ptoken.text:
+                # Assign phoneme for known punctuation
+                gtoken.phonemes = (
+                    ptoken.text if ptoken.text in '.,;:!?-—…"\u201c\u201d' else ""
+                )
+                gtoken.set("rating", 4)
 
-            tokens.append(token)
-
-        # Post-process: Handle quote directionality (left " vs right ")
-        # For simple tokenizer without spacy, use basic alternation
-        # NOTE: Doesn't handle nested quotes (e.g., "outer "inner" text")
-        # For proper nesting, ensure spacy is installed (uses `` and '')
-        # Simple alternation: 1st=L, 2nd=R, 3rd=L, 4th=R, etc.
-
-        quote_indices = [
-            i for i, t in enumerate(tokens) if t.phonemes and t.phonemes in '"`'
-        ]
-
-        for idx_in_list, token_idx in enumerate(quote_indices):
-            if idx_in_list % 2 == 0:
-                # Even position: opening quote
-                tokens[token_idx].phonemes = "\u201c"  # Left curly quote
-            else:
-                # Odd position: closing quote
-                tokens[token_idx].phonemes = "\u201d"  # Right curly quote
+            tokens.append(gtoken)
 
         return tokens
 
     @staticmethod
     def _get_punct_phonemes(text: str, tag: str) -> str:
-        """Get phonemes for punctuation tokens."""
+        """Get phonemes for punctuation tokens.
+
+        For quotes, we use the text itself (which has been converted to curly
+        quotes by the tokenizer) rather than relying on spaCy tags which can
+        be unreliable for simple alternating quotes.
+        """
+        # For non-quote punctuation tags, use the tag mapping
         punct_map = {
             "-LRB-": "(",
             "-RRB-": ")",
-            "``": chr(8220),  # Left double quote
-            '""': chr(8221),  # Right double quote
-            "''": chr(8221),  # Right double quote
         }
         if tag in punct_map:
             return punct_map[tag]
 
-        # Keep common punctuation and backticks (quotes)
-        puncts = frozenset(';:,.!?—…"""`')
+        # For all other punctuation (including quotes), use the text itself
+        # The tokenizer has already converted quotes to curly quotes with
+        # correct directionality
+        puncts = frozenset(';:,.!?—…"""`\u201c\u201d')
         return "".join(c for c in text if c in puncts)
 
+    @staticmethod
+    def _strip_punctuation(tokens: list[GToken]) -> None:
+        """Remove whitespace around punctuation tokens in phoneme output.
+
+        This removes spaces around punctuation like commas and periods
+        in phoneme output.
+
+        Args:
+            tokens: List of GToken objects to modify in-place
+        """
+        for i, token in enumerate(tokens):
+            if token.text in [
+                ",",
+                "—",
+                "…",
+            ]:
+                # Remove trailing whitespace from previous token
+                if i > 0:
+                    tokens[i - 1].whitespace = ""
+                # Remove trailing whitespace from em dash itself
+                token.whitespace = ""
+
     def _update_context(
-        self, ctx: TokenContext, phonemes: str | None, token: GToken
+        self, ctx: TokenContext, phonemes: str | None, token: GToken | None
     ) -> TokenContext:
         """Update context based on processed token."""
         from kokorog2p.en.lexicon import CONSONANTS, VOWELS
@@ -493,7 +550,11 @@ class EnglishG2P(G2PBase):
                     future_vowel = None
                     break
 
-        future_to = token.text.lower() in ("to",) and token.tag in ("TO", "IN", "")
+        future_to = (
+            token.text.lower() in ("to",) and token.tag in ("TO", "IN", "")
+            if token is not None
+            else False
+        )
 
         return TokenContext(future_vowel=future_vowel, future_to=future_to)
 
@@ -509,6 +570,97 @@ class EnglishG2P(G2PBase):
         """
         ps, _ = self.lexicon(word, tag, None, None)
         return ps
+
+    def add_abbreviation(
+        self,
+        abbreviation: str,
+        expansion: str | dict[str, str],
+        description: str = "",
+        case_sensitive: bool = False,
+    ) -> None:
+        """Add or update a custom abbreviation.
+
+        This method allows users to add custom abbreviations or override existing ones.
+        Changes persist across all uses of this G2P instance and affect the singleton
+        abbreviation expander (shared across all instances).
+
+        Args:
+            abbreviation: The abbreviation string (e.g., "Dr.", "Tech.")
+            expansion: Either a simple string expansion or a dict mapping context
+                names to expansions. For dict, use context names like:
+                "default", "title", "place", "time", "academic", "religious"
+            description: Optional description of the abbreviation
+            case_sensitive: Whether matching should be case-sensitive
+
+        Examples:
+            >>> g2p = get_g2p("en-us")
+            >>> # Simple expansion
+            >>> g2p.add_abbreviation("Tech.", "Technology")
+            >>> # Context-aware expansion
+            >>> g2p.add_abbreviation(
+            ...     "Dr.",
+            ...     {"default": "Drive", "title": "Doctor"},
+            ...     "Doctor or Drive (context-dependent)"
+            ... )
+            >>> g2p.phonemize("I live on Main Dr.")
+            'aɪ lˈɪv ɒn mˈeɪn dɹˈaɪv.'
+        """
+        self.normalizer.add_abbreviation(
+            abbreviation, expansion, description, case_sensitive
+        )
+
+    def remove_abbreviation(
+        self, abbreviation: str, case_sensitive: bool = False
+    ) -> bool:
+        """Remove an abbreviation.
+
+        Args:
+            abbreviation: The abbreviation to remove (e.g., "Dr.")
+            case_sensitive: Whether to match case-sensitively
+
+        Returns:
+            True if the abbreviation was found and removed, False otherwise
+
+        Example:
+            >>> g2p = get_g2p("en-us")
+            >>> g2p.remove_abbreviation("Dr.")
+            True
+            >>> # Now "Dr." won't be expanded
+            >>> g2p.phonemize("Dr. Smith")
+            'd r. smˈɪθ'
+        """
+        return self.normalizer.remove_abbreviation(abbreviation, case_sensitive)
+
+    def has_abbreviation(self, abbreviation: str, case_sensitive: bool = False) -> bool:
+        """Check if an abbreviation exists.
+
+        Args:
+            abbreviation: The abbreviation to check (e.g., "Dr.")
+            case_sensitive: Whether to match case-sensitively
+
+        Returns:
+            True if the abbreviation exists, False otherwise
+
+        Example:
+            >>> g2p = get_g2p("en-us")
+            >>> g2p.has_abbreviation("Dr.")
+            True
+        """
+        return self.normalizer.has_abbreviation(abbreviation, case_sensitive)
+
+    def list_abbreviations(self) -> list[str]:
+        """Get a list of all registered abbreviations.
+
+        Returns:
+            List of abbreviation strings
+
+        Example:
+            >>> g2p = get_g2p("en-us")
+            >>> abbrevs = g2p.list_abbreviations()
+            >>> "Dr." in abbrevs
+            True
+        """
+        return self.normalizer.list_abbreviations()
 
     def __repr__(self) -> str:
         return f"EnglishG2P(language={self.language!r}, version={self.version!r})"

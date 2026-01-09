@@ -1,0 +1,341 @@
+"""Portuguese text normalization for kokorog2p.
+
+This module provides Portuguese-specific text normalization including:
+- Temperature normalization (°C, °F)
+- Number-to-words conversion (with European/Brazilian dialect support)
+- Quote normalization
+- Abbreviation expansion
+
+Supports both European Portuguese (pt-PT) and Brazilian Portuguese (pt-BR).
+"""
+
+import re
+
+from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
+from kokorog2p.pt.abbreviations import get_expander
+
+
+def portuguese_number_to_words(n: int, dialect: str = "br") -> str:
+    """Convert a number (0-999) to Portuguese words.
+
+    Args:
+        n: Integer from 0 to 999.
+        dialect: "br" for Brazilian Portuguese, "pt" for European Portuguese.
+
+    Returns:
+        Portuguese word representation of the number.
+    """
+    if n == 0:
+        return "zero"
+
+    # Ones
+    ones = [
+        "",
+        "um",
+        "dois",
+        "três",
+        "quatro",
+        "cinco",
+        "seis",
+        "sete",
+        "oito",
+        "nove",
+        "dez",
+        "onze",
+        "doze",
+        "treze",
+        "catorze",  # or "quatorze" in European Portuguese
+        "quinze",
+        "dezesseis",  # Brazilian: dezesseis, European: dezasseis
+        "dezessete",  # Brazilian: dezessete, European: dezassete
+        "dezoito",
+        "dezenove",  # Brazilian: dezenove, European: dezanove
+    ]
+
+    # European Portuguese variants for teens
+    if dialect == "pt":
+        ones[14] = "catorze"  # or quatorze
+        ones[16] = "dezasseis"
+        ones[17] = "dezassete"
+        ones[19] = "dezanove"
+
+    if 0 <= n < 20:
+        return ones[n]
+
+    # Tens
+    tens = [
+        "",
+        "",
+        "vinte",
+        "trinta",
+        "quarenta",
+        "cinquenta",
+        "sessenta",
+        "setenta",
+        "oitenta",
+        "noventa",
+    ]
+
+    # Hundreds
+    hundreds = [
+        "",
+        "cento",
+        "duzentos",
+        "trezentos",
+        "quatrocentos",
+        "quinhentos",
+        "seiscentos",
+        "setecentos",
+        "oitocentos",
+        "novecentos",
+    ]
+
+    if n < 100:
+        tens_digit = n // 10
+        ones_digit = n % 10
+        if ones_digit == 0:
+            return tens[tens_digit]
+        else:
+            return f"{tens[tens_digit]} e {ones[ones_digit]}"
+
+    if n < 1000:
+        hundreds_digit = n // 100
+        remainder = n % 100
+
+        # Special case: 100 is "cem", not "cento"
+        if n == 100:
+            return "cem"
+
+        if remainder == 0:
+            # Multiples of 100
+            if hundreds_digit == 1:
+                return "cem"
+            return hundreds[hundreds_digit]
+
+        # Build compound number
+        if remainder < 20:
+            return f"{hundreds[hundreds_digit]} e {ones[remainder]}"
+        else:
+            tens_digit = remainder // 10
+            ones_digit = remainder % 10
+            if ones_digit == 0:
+                return f"{hundreds[hundreds_digit]} e {tens[tens_digit]}"
+            else:
+                h = hundreds[hundreds_digit]
+                t = tens[tens_digit]
+                o = ones[ones_digit]
+                return f"{h} e {t} e {o}"
+
+    return str(n)  # Fallback for numbers > 999
+
+
+class PortugueseNormalizer(TextNormalizer):
+    """Portuguese text normalizer with abbreviation expansion and dialect support."""
+
+    def __init__(
+        self,
+        track_changes: bool = False,
+        expand_abbreviations: bool = True,
+        enable_context_detection: bool = True,
+        dialect: str = "br",  # "br" for Brazilian, "pt" for European
+    ) -> None:
+        """Initialize the Portuguese normalizer.
+
+        Args:
+            track_changes: Whether to track normalization changes for debugging.
+            expand_abbreviations: Whether to expand abbreviations.
+            enable_context_detection: Context-aware abbreviation expansion.
+            dialect: "br" for Brazilian Portuguese, "pt" for European Portuguese.
+        """
+        self.expand_abbreviations = expand_abbreviations
+        self.dialect = dialect
+        self.abbrev_expander = (
+            get_expander(enable_context_detection=enable_context_detection)
+            if expand_abbreviations
+            else None
+        )
+
+        # Store dialect for temperature normalization
+        self._dialect = dialect
+
+        super().__init__(track_changes=track_changes)
+
+    def _normalize_temperature(self, match: re.Match) -> str:
+        """Normalize temperature expressions to Portuguese words.
+
+        Converts patterns like "25°C" to "vinte e cinco graus Celsius"
+        and "98°F" to "noventa e oito graus Fahrenheit".
+
+        Args:
+            match: Regex match object containing the temperature.
+
+        Returns:
+            Normalized temperature string in Portuguese.
+        """
+        temp_str = match.group(1)
+        unit = match.group(2)
+
+        # Handle negative temperatures
+        is_negative = temp_str.startswith("-")
+        if is_negative:
+            temp_str = temp_str[1:]
+
+        # Convert to integer
+        try:
+            temp = int(temp_str)
+        except ValueError:
+            return match.group(0)  # Return original if conversion fails
+
+        # Convert number to words (using dialect)
+        temp_words = portuguese_number_to_words(abs(temp), dialect=self._dialect)
+
+        # Add "menos" for negative temperatures
+        if is_negative:
+            temp_words = f"menos {temp_words}"
+
+        # Choose unit name
+        unit_name = "Celsius" if unit.upper() == "C" else "Fahrenheit"
+
+        # "grau" or "graus" based on number
+        degree_word = "grau" if abs(temp) == 1 else "graus"
+
+        return f"{temp_words} {degree_word} {unit_name}"
+
+    def _initialize_rules(self) -> None:
+        """Initialize Portuguese-specific normalization rules.
+
+        Order matters:
+        1. Temperature (before number normalization)
+        2. Apostrophes
+        3. Portuguese quotes (« »)
+        4. Ellipsis
+        5. Dashes
+        """
+        # Temperature normalization (must come before other number processing)
+        # Matches: 25°C, -10°F, 37°c, etc.
+        # NOTE: Cannot use \b at the start due to minus sign
+        self.add_rule(
+            NormalizationRule(
+                name="temperature",
+                pattern=r"(-?\d+)\s*°\s*([CFcf])(?=\s|$|[,.;:!?])",
+                replacement=self._normalize_temperature,
+                description="Normalize temperature expressions",
+            )
+        )
+
+        # Apostrophe normalization
+        # Convert curly apostrophes to straight apostrophes
+        self.add_rule(
+            NormalizationRule(
+                name="apostrophe_right",
+                pattern="\u2019",  # Right single quotation mark (')
+                replacement="'",
+                description="Normalize right single quotation mark",
+            )
+        )
+
+        # Portuguese quotation marks (guillemets)
+        # Convert « and » to regular quotes
+        self.add_rule(
+            NormalizationRule(
+                name="quote_guillemet_left",
+                pattern="\u00ab",  # Left guillemet («)
+                replacement="\u201c",  # Left curly quote (")
+                description="Normalize left guillemet to left curly quote",
+            )
+        )
+
+        self.add_rule(
+            NormalizationRule(
+                name="quote_guillemet_right",
+                pattern="\u00bb",  # Right guillemet (»)
+                replacement="\u201d",  # Right curly quote (")
+                description="Normalize right guillemet to right curly quote",
+            )
+        )
+
+        # Note: We preserve curly quotes (U+201C, U+201D) from source text
+
+        self.add_rule(
+            NormalizationRule(
+                name="quote_left_single",
+                pattern="\u2018",  # Left single quotation mark (')
+                replacement="'",
+                description="Normalize left single quotation mark",
+            )
+        )
+
+        # Ellipsis normalization
+        self.add_rule(
+            NormalizationRule(
+                name="ellipsis",
+                pattern="\u2026",  # Horizontal ellipsis (…)
+                replacement="...",
+                description="Normalize ellipsis character",
+            )
+        )
+
+        # Dash normalization (em-dash and en-dash to hyphen)
+        self.add_rule(
+            NormalizationRule(
+                name="dash_em",
+                pattern="\u2014",  # Em dash (—)
+                replacement="-",
+                description="Normalize em-dash",
+            )
+        )
+
+        self.add_rule(
+            NormalizationRule(
+                name="dash_en",
+                pattern="\u2013",  # En dash (–)
+                replacement="-",
+                description="Normalize en-dash",
+            )
+        )
+
+    def normalize(self, text: str) -> tuple[str, list]:
+        """Normalize Portuguese text expanding abbreviations then applying rules.
+
+        Normalization order:
+        1. Expand abbreviations (if enabled)
+        2. Apply other normalization rules (temperature, quotes, etc.)
+
+        Args:
+            text: Input text to normalize.
+
+        Returns:
+            Tuple of (normalized_text, list of all normalization steps)
+        """
+        if not text:
+            return text, []
+
+        # Import NormalizationStep here to avoid circular import
+        from kokorog2p.pipeline.normalizer import NormalizationStep
+
+        all_steps: list[NormalizationStep] = []
+
+        # Phase 0: Expand abbreviations FIRST
+        if self.expand_abbreviations and self.abbrev_expander:
+            expanded = self.abbrev_expander.expand(text)
+            if expanded != text and self.track_changes:
+                # Track abbreviation expansions
+                all_steps.append(
+                    NormalizationStep(
+                        rule_name="abbreviation_expansion",
+                        position=0,
+                        original=text,
+                        normalized=expanded,
+                        context="Expand abbreviations to full forms",
+                    )
+                )
+            text = expanded
+
+        # Phase 1+: Apply all other normalization rules
+        result, rule_steps = super().normalize(text)
+
+        # Combine all steps
+        if self.track_changes:
+            all_steps.extend(rule_steps)
+
+        return result, all_steps

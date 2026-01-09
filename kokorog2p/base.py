@@ -16,6 +16,7 @@ class G2PBase(ABC):
         self,
         language: str = "en-us",
         use_espeak_fallback: bool = True,
+        use_goruut_fallback: bool = False,
     ) -> None:
         """
         Initialize the G2P converter.
@@ -23,9 +24,11 @@ class G2PBase(ABC):
         Args:
             language: Language code (e.g., 'en-us', 'en-gb').
             use_espeak_fallback: Whether to use espeak for OOV words.
+            use_goruut_fallback: Whether to use goruut for OOV words.
         """
         self.language = language
         self.use_espeak_fallback = use_espeak_fallback
+        self.use_goruut_fallback = use_goruut_fallback
 
     @property
     def is_british(self) -> bool:

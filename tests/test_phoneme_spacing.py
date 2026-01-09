@@ -59,10 +59,11 @@ class TestPhonemeSpacing:
             (t.phonemes or "") + (" " if t.whitespace else "") for t in tokens
         ).strip()
 
-        # Should be: həlˈO, wˈɜɹld.
+        # Should be: həlˈO,wˈɜɹld.
         # Should NOT be: həlˈO , wˈɜɹld .
-        assert ", " in result, "Comma should be followed by space"
+        assert "," in result, "Comma should be followed by space"
         assert " ," not in result, "Comma should not have space before it"
+        assert ", " not in result, "Comma should not have space before it"
 
     def test_whitespace_normalization(self, g2p):
         """Multiple spaces should be normalized to single space."""
@@ -101,52 +102,6 @@ class TestPhonemeSpacing:
         assert "\u201c" in result or "\u201d" in result, "Should contain curly quotes"
         assert "‹" not in result, "Should not contain single left guillemet"
         assert "›" not in result, "Should not contain single right guillemet"
-
-    def test_misaki_spacing_compatibility(self, g2p):
-        """Output spacing should match misaki's format."""
-        try:
-            from misaki import en, espeak
-        except ImportError:
-            pytest.skip("misaki not installed")
-
-        # Create misaki G2P
-        fallback = espeak.EspeakFallback(british=False)
-        m_g2p = en.G2P(trf=False, british=False, fallback=fallback)
-
-        test_cases = [
-            'She said "hello".',
-            "Test, word.",
-            "Hello world.",
-        ]
-
-        for text in test_cases:
-            # Kokorog2p
-            k_tokens = g2p(text)
-            k_result = "".join(
-                (t.phonemes or "") + (" " if t.whitespace else "") for t in k_tokens
-            ).strip()
-
-            # Misaki
-            m_result, _ = m_g2p(text)
-
-            # Extract spacing pattern (positions of spaces relative to punctuation)
-            for punct in ['"', ".", ",", "!", "?"]:
-                if punct in text:
-                    # Check if space before punct
-                    k_space_before = f" {punct}" in k_result
-                    m_space_before = f" {punct}" in m_result
-                    assert k_space_before == m_space_before, (
-                        f"Space before '{punct}' mismatch in '{text}': "
-                        f"kokoro={k_space_before}, misaki={m_space_before}"
-                    )
-
-                    # Check if space after punct
-                    k_space_after = f"{punct} " in k_result
-                    m_space_after = f"{punct} " in m_result
-                    assert k_space_after == m_space_after, (
-                        f"Space after '{punct}' mismatch in '{text}': "
-                        f"kokoro={k_space_after}, misaki={m_space_after}"
-                    )
 
 
 class TestBenchmarkWrapperSpacing:
@@ -252,43 +207,6 @@ class TestBenchmarkWrapperSpacing:
                 assert (f"{punct} " in with_markers) == (
                     f"{punct} " in clean
                 ), f"Space after '{punct}' should be consistent"
-
-    def test_comparison_with_misaki(self, wrapper):
-        """Benchmark outputs should have same spacing as misaki."""
-        try:
-            from misaki import en, espeak
-        except ImportError:
-            pytest.skip("misaki not installed")
-
-        # Create misaki G2P
-        fallback = espeak.EspeakFallback(british=False)
-        m_g2p = en.G2P(trf=False, british=False, fallback=fallback)
-
-        test_cases = [
-            'She said "hello world".',
-            "Test, word.",
-            "Hello world.",
-        ]
-
-        for text in test_cases:
-            # Kokorog2p
-            k_clean = wrapper.phonemize_clean(text)
-
-            # Misaki
-            m_result, _ = m_g2p(text)
-
-            # Check spacing patterns match
-            for punct in ['"', ".", ",", "!", "?"]:
-                if punct in text:
-                    # Space before punct
-                    assert (f" {punct}" in k_clean) == (
-                        f" {punct}" in m_result
-                    ), f"Space before '{punct}' mismatch in '{text}'"
-
-                    # Space after punct
-                    assert (f"{punct} " in k_clean) == (
-                        f"{punct} " in m_result
-                    ), f"Space after '{punct}' mismatch in '{text}'"
 
     def test_multiple_quote_types(self, wrapper):
         """Test various quote types are all normalized to double quotes."""

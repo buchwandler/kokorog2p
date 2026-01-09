@@ -36,6 +36,7 @@ class KoreanG2P(G2PBase):
         self,
         language: str = "ko",
         use_espeak_fallback: bool = False,
+        use_goruut_fallback: bool = False,
         load_silver: bool = True,
         load_gold: bool = True,
         use_dict: bool = True,
@@ -50,6 +51,8 @@ class KoreanG2P(G2PBase):
             language: Language code (e.g., 'ko', 'ko-kr').
             use_espeak_fallback: Whether to use espeak for unknown words.
                 Not typically used for Korean. Defaults to False.
+            use_goruut_fallback: Whether to use goruut for unknown words.
+                Not typically used for Korean. Defaults to False.
             load_silver: Reserved for API consistency. Korean doesn't use
                 dictionary tiers. Defaults to True.
             load_gold: Reserved for API consistency. Korean doesn't use
@@ -62,7 +65,11 @@ class KoreanG2P(G2PBase):
                 Defaults to False (returns decomposed jamo).
             **kwargs: Additional arguments.
         """
-        super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
+        super().__init__(
+            language=language,
+            use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
+        )
         self.version = version
         self.load_silver = load_silver
         self.load_gold = load_gold

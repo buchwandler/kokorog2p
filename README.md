@@ -28,6 +28,8 @@ provides:
 - **espeak-ng integration** as a fallback for out-of-vocabulary words
 - **Automatic IPA to Kokoro phoneme conversion**
 - **Automatic punctuation normalization** (ellipsis, dashes, apostrophes)
+- **Context-aware abbreviation expansion** (e.g., "St." → "Street" or "Saint" based on
+  context)
 - **Number and currency handling** for supported languages
 - **Stress assignment** based on linguistic rules
 
@@ -133,6 +135,14 @@ tokens = g2p("Wait... really?")       # ... → … (ellipsis)
 tokens = g2p("Wait - what?")          # - → — (em dash when spaced)
 tokens = g2p("don't worry")           # All apostrophe variants → '
 tokens = g2p("well-known topic")      # Hyphens in compounds preserved
+
+# Context-aware abbreviation expansion (English)
+# "St." intelligently expands to "Street" or "Saint" based on context
+g2p = get_g2p("en-us", expand_abbreviations=True, enable_context_detection=True)
+tokens = g2p("123 Main St.")          # St. → Street (house number pattern)
+tokens = g2p("St. Patrick's Day")     # St. → Saint (saint name recognized)
+tokens = g2p("Visit St. Louis")       # St. → Saint (city name recognized)
+tokens = g2p("Born in 1850, St. Peter")  # St. → Saint (distant number ignored)
 
 # German with lexicon and number handling
 g2p_de = get_g2p("de")

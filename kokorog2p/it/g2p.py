@@ -20,6 +20,7 @@ import unicodedata
 from typing import Final
 
 from kokorog2p.base import G2PBase
+from kokorog2p.it.normalizer import ItalianNormalizer
 from kokorog2p.token import GToken
 
 # =============================================================================
@@ -87,8 +88,11 @@ class ItalianG2P(G2PBase):
         self,
         language: str = "it-it",
         use_espeak_fallback: bool = False,
+        use_goruut_fallback: bool = False,
         mark_stress: bool = True,
         mark_gemination: bool = True,
+        expand_abbreviations: bool = True,
+        enable_context_detection: bool = True,
         version: str = "1.0",
         **kwargs,
     ) -> None:
@@ -99,11 +103,24 @@ class ItalianG2P(G2PBase):
             use_espeak_fallback: Reserved for future espeak integration.
             mark_stress: Whether to mark primary stress with ˈ.
             mark_gemination: Whether to mark double consonants with ː.
+            expand_abbreviations: Whether to expand common abbreviations.
+            enable_context_detection: Context-aware abbreviation expansion.
+            version: Target model version.
         """
-        super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
+        super().__init__(
+            language=language,
+            use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
+        )
         self.version = version
         self.mark_stress = mark_stress
         self.mark_gemination = mark_gemination
+
+        # Initialize normalizer
+        self._normalizer = ItalianNormalizer(
+            expand_abbreviations=expand_abbreviations,
+            enable_context_detection=enable_context_detection,
+        )
 
     def __call__(self, text: str) -> list[GToken]:
         """Convert text to a list of tokens with phonemes.
@@ -155,7 +172,10 @@ class ItalianG2P(G2PBase):
         # Normalize Unicode
         text = unicodedata.normalize("NFC", text)
 
-        # Normalize punctuation
+        # Apply normalizer (abbreviations, temperature, etc.)
+        text = self._normalizer(text)
+
+        # Normalize punctuation (keep for legacy compatibility)
         for old, new in self._PUNCT_MAP.items():
             text = text.replace(old, new)
 

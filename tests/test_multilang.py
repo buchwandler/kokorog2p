@@ -99,7 +99,7 @@ class TestGetG2PFallback:
         from kokorog2p.espeak_g2p import EspeakOnlyG2P
 
         clear_cache()
-        g2p = get_g2p("es-es")  # Spanish - not yet implemented
+        g2p = get_g2p("sw-sw", backend="espeak")  # Swahili - not yet implemented
         assert isinstance(g2p, EspeakOnlyG2P)
 
     def test_french_uses_french_g2p(self):

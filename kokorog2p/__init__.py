@@ -36,61 +36,54 @@ Example:
 
 from typing import Any, Literal, Optional, Union
 
-# Core classes
-from kokorog2p.token import GToken
 from kokorog2p.base import G2PBase
+
+# Markdown annotation support
+from kokorog2p.markdown import (
+    LINK_REGEX,
+    apply_markdown_features,
+    phonemize_with_markdown,
+    preprocess_markdown,
+    remove_markdown,
+)
 from kokorog2p.phonemes import (
-    US_VOCAB,
+    CONSONANTS,
     GB_VOCAB,
+    US_VOCAB,
+    VOWELS,
     from_espeak,
     from_goruut,
+    get_vocab,
     to_espeak,
     validate_phonemes,
-    get_vocab,
-    VOWELS,
-    CONSONANTS,
-)
-
-# Vocabulary encoding/decoding for Kokoro model
-from kokorog2p.vocab import (
-    encode,
-    decode,
-    phonemes_to_ids,
-    ids_to_phonemes,
-    validate_for_kokoro,
-    filter_for_kokoro,
-    get_vocab as get_kokoro_vocab,
-    get_config as get_kokoro_config,
-    N_TOKENS,
-    PAD_IDX,
 )
 
 # Punctuation handling
 from kokorog2p.punctuation import (
+    KOKORO_PUNCTUATION,
     Punctuation,
-    normalize_punctuation,
     filter_punctuation,
     is_kokoro_punctuation,
-    KOKORO_PUNCTUATION,
+    normalize_punctuation,
 )
+
+# Core classes
+from kokorog2p.token import GToken
+
+# Vocabulary encoding/decoding for Kokoro model
+from kokorog2p.vocab import N_TOKENS, PAD_IDX, decode, encode, filter_for_kokoro
+from kokorog2p.vocab import get_config as get_kokoro_config
+from kokorog2p.vocab import get_vocab as get_kokoro_vocab
+from kokorog2p.vocab import ids_to_phonemes, phonemes_to_ids, validate_for_kokoro
 
 # Word mismatch detection
 from kokorog2p.words_mismatch import (
-    MismatchMode,
     MismatchInfo,
+    MismatchMode,
     MismatchStats,
-    detect_mismatches,
     check_word_alignment,
     count_words,
-)
-
-# Markdown annotation support
-from kokorog2p.markdown import (
-    phonemize_with_markdown,
-    preprocess_markdown,
-    apply_markdown_features,
-    remove_markdown,
-    LINK_REGEX,
+    detect_mismatches,
 )
 
 # Version info
@@ -110,14 +103,15 @@ except ImportError:
     MixedLanguageG2P = None  # type: ignore
 
 # Backend type hint
-BackendType = Literal["espeak", "goruut"]
+BackendType = Literal["kokorog2p", "espeak", "goruut"]
 
 
 def get_g2p(
     language: str = "en-us",
     use_espeak_fallback: bool = True,
+    use_goruut_fallback: bool = False,
     use_spacy: bool = True,
-    backend: BackendType = "espeak",
+    backend: BackendType = "kokorog2p",
     load_silver: bool = True,
     load_gold: bool = True,
     multilingual_mode: bool = False,
@@ -135,9 +129,11 @@ def get_g2p(
         language: Language code (e.g., 'en-us', 'en-gb', 'zh', 'ja', 'fr', etc.).
         use_espeak_fallback: Whether to use espeak for out-of-vocabulary words
             (only applies when backend="espeak").
+        use_goruut_fallback: Whether to use goruut for out-of-vocabulary words
+            (only applies when backend="espeak").
         use_spacy: Whether to use spaCy for tokenization and POS tagging
             (only applies to English).
-        backend: Phonemization backend to use: "espeak" (default) or "goruut".
+        backend: Phonemization backend to use: "kokorog2p", "espeak", "goruut".
             The goruut backend requires pygoruut to be installed.
         load_silver: If True, load silver tier dictionary (~100k extra entries).
             Defaults to True for backward compatibility and maximum coverage.
@@ -214,7 +210,7 @@ def get_g2p(
     # Convert allowed_languages list to sorted tuple for hashable cache key
     allowed_langs_key = tuple(sorted(allowed_languages)) if allowed_languages else None
     cache_key = (
-        f"{lang}:{use_espeak_fallback}:{use_spacy}:{backend}:{load_silver}:{load_gold}"
+        f"{lang}:{use_espeak_fallback}:{use_goruut_fallback}:{use_spacy}:{backend}:{load_silver}:{load_gold}"
         f":{multilingual_mode}:{allowed_langs_key}:{language_confidence_threshold}:{version}"
     )
     if cache_key in _g2p_cache:
@@ -230,6 +226,7 @@ def get_g2p(
             confidence_threshold=language_confidence_threshold,
             enable_detection=True,
             use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
             use_spacy=use_spacy,
             load_silver=load_silver,
             load_gold=load_gold,
@@ -247,12 +244,19 @@ def get_g2p(
         from kokorog2p.goruut_g2p import GoruutOnlyG2P
 
         g2p = GoruutOnlyG2P(language=language, version=version, **kwargs)
+    elif backend == "espeak":
+        # Use espeak backend for all languages
+        from kokorog2p.espeak_g2p import EspeakOnlyG2P
+
+        g2p = EspeakOnlyG2P(language=language, version=version, **kwargs)
+
     elif lang.startswith("en"):
         from kokorog2p.en import EnglishG2P
 
         g2p = EnglishG2P(
             language=language,
             use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
             use_spacy=use_spacy,
             load_silver=load_silver,
             load_gold=load_gold,
@@ -285,6 +289,7 @@ def get_g2p(
         g2p = FrenchG2P(
             language=language,
             use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
             load_silver=load_silver,
             load_gold=load_gold,
             version=version,
@@ -306,6 +311,7 @@ def get_g2p(
         g2p = GermanG2P(
             language=language,
             use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
             load_silver=load_silver,
             load_gold=load_gold,
             version=version,
@@ -317,6 +323,7 @@ def get_g2p(
         g2p = KoreanG2P(
             language=language,
             use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
             load_silver=load_silver,
             load_gold=load_gold,
             version=version,
@@ -328,16 +335,17 @@ def get_g2p(
         g2p = HebrewG2P(
             language=language,
             use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
             load_silver=load_silver,
             load_gold=load_gold,
             version=version,
             **kwargs,
         )
     else:
-        # Fallback to espeak-only G2P for other languages
-        from kokorog2p.espeak_g2p import EspeakOnlyG2P
-
-        g2p = EspeakOnlyG2P(language=language, version=version, **kwargs)
+        raise ValueError(
+            f"Unsupported language '{language}' for kokorog2p backend. "
+            "Use 'espeak' or 'goruut' backend for more languages."
+        )
 
     _g2p_cache[cache_key] = g2p
     return g2p
@@ -347,8 +355,9 @@ def phonemize(
     text: str,
     language: str = "en-us",
     use_espeak_fallback: bool = True,
+    use_goruut_fallback: bool = False,
     use_spacy: bool = True,
-    backend: BackendType = "espeak",
+    backend: BackendType = "kokorog2p",
 ) -> str:
     """Convert text to phonemes.
 
@@ -360,9 +369,11 @@ def phonemize(
         language: Language code (e.g., 'en-us', 'en-gb').
         use_espeak_fallback: Whether to use espeak for out-of-vocabulary words
             (only applies when backend="espeak").
+        use_goruut_fallback: Whether to use goruut for out-of-vocabulary words
+            (only applies when backend="goruut").
         use_spacy: Whether to use spaCy for tokenization and POS tagging
             (only applies to English with espeak backend).
-        backend: Phonemization backend to use: "espeak" (default) or "goruut".
+        backend: Phonemization backend to use: "kokorog2p", "espeak", "goruut".
             The goruut backend requires pygoruut to be installed.
 
     Returns:
@@ -378,6 +389,7 @@ def phonemize(
     g2p = get_g2p(
         language=language,
         use_espeak_fallback=use_espeak_fallback,
+        use_goruut_fallback=use_goruut_fallback,
         use_spacy=use_spacy,
         backend=backend,
     )
@@ -388,8 +400,9 @@ def tokenize(
     text: str,
     language: str = "en-us",
     use_espeak_fallback: bool = True,
+    use_goruut_fallback: bool = False,
     use_spacy: bool = True,
-    backend: BackendType = "espeak",
+    backend: BackendType = "kokorog2p",
 ) -> list[GToken]:
     """Convert text to a list of tokens with phonemes.
 
@@ -398,9 +411,11 @@ def tokenize(
         language: Language code (e.g., 'en-us', 'en-gb').
         use_espeak_fallback: Whether to use espeak for out-of-vocabulary words
             (only applies when backend="espeak").
+        use_goruut_fallback: Whether to use goruut for out-of-vocabulary words
+            (only applies when backend="goruut").
         use_spacy: Whether to use spaCy for tokenization and POS tagging
             (only applies to English with espeak backend).
-        backend: Phonemization backend to use: "espeak" (default) or "goruut".
+        backend: Phonemization backend: "kokorog2p", "espeak", "goruut".
             The goruut backend requires pygoruut to be installed.
 
     Returns:
@@ -414,6 +429,7 @@ def tokenize(
     g2p = get_g2p(
         language=language,
         use_espeak_fallback=use_espeak_fallback,
+        use_goruut_fallback=use_goruut_fallback,
         use_spacy=use_spacy,
         backend=backend,
     )

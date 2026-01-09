@@ -190,6 +190,8 @@ class GermanG2P(G2PBase):
         load_silver: bool = True,
         load_gold: bool = True,
         version: str = "1.0",
+        expand_abbreviations: bool = True,
+        enable_context_detection: bool = True,
         **kwargs,
     ) -> None:
         """Initialize the German G2P converter.
@@ -207,6 +209,8 @@ class GermanG2P(G2PBase):
             load_gold: If True, load gold tier dictionary.
                 Defaults to True for maximum quality and coverage.
                 Set to False when ultra-fast initialization is needed.
+            expand_abbreviations: Whether to expand abbreviations (Prof. → Professor).
+            enable_context_detection: Context-aware abbreviation expansion.
 
         Raises:
             ValueError: If both use_espeak_fallback and use_goruut_fallback are True.
@@ -219,12 +223,24 @@ class GermanG2P(G2PBase):
                 "use_goruut_fallback to True."
             )
 
-        super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
+        super().__init__(
+            language=language,
+            use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
+        )
         self.version = version
         self._lexicon: GermanLexicon | None = None  # noqa: F823
         self._fallback = None
         self._strip_stress = strip_stress
-        self.use_goruut_fallback = use_goruut_fallback
+
+        # Initialize normalizer
+        from kokorog2p.de.normalizer import GermanNormalizer
+
+        self._normalizer = GermanNormalizer(
+            track_changes=False,
+            expand_abbreviations=expand_abbreviations,
+            enable_context_detection=enable_context_detection,
+        )
 
         if use_lexicon:
             try:
@@ -265,6 +281,9 @@ class GermanG2P(G2PBase):
         """
         if not text or not text.strip():
             return []
+
+        # Normalize text (expand abbreviations, normalize quotes, etc.)
+        text = self._normalizer(text)
 
         tokens: list[GToken] = []
 

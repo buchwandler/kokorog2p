@@ -334,7 +334,7 @@ class TestMainAPI:
         from kokorog2p.espeak_g2p import EspeakOnlyG2P
 
         clear_cache()
-        g2p = get_g2p("es-es")  # Spanish - not yet implemented
+        g2p = get_g2p("sw-sw", backend="espeak")  # Swahili - not yet implemented
         assert isinstance(g2p, EspeakOnlyG2P)
 
     def test_clear_cache(self):

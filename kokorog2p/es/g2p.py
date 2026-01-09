@@ -21,6 +21,7 @@ import unicodedata
 from typing import Final
 
 from kokorog2p.base import G2PBase
+from kokorog2p.es.normalizer import SpanishNormalizer
 from kokorog2p.token import GToken
 
 # =============================================================================
@@ -87,8 +88,11 @@ class SpanishG2P(G2PBase):
         self,
         language: str = "es",
         use_espeak_fallback: bool = False,
+        use_goruut_fallback: bool = False,
         mark_stress: bool = True,
         dialect: str = "es",  # "es" for European, "la" for Latin American
+        expand_abbreviations: bool = True,
+        enable_context_detection: bool = True,
         version: str = "1.0",
         **kwargs,
     ) -> None:
@@ -97,13 +101,27 @@ class SpanishG2P(G2PBase):
         Args:
             language: Language code (default: 'es').
             use_espeak_fallback: Reserved for future espeak integration.
+            use_goruut_fallback: Reserved for future goruut integration.
             mark_stress: Whether to mark primary stress with ˈ.
             dialect: "es" for European Spanish (with θ), "la" for Latin American (θ→s).
+            expand_abbreviations: Whether to expand common abbreviations.
+            enable_context_detection: Context-aware abbreviation expansion.
+            version: Target model version.
         """
-        super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
+        super().__init__(
+            language=language,
+            use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
+        )
         self.version = version
         self.mark_stress = mark_stress
         self.dialect = dialect
+
+        # Initialize normalizer
+        self._normalizer = SpanishNormalizer(
+            expand_abbreviations=expand_abbreviations,
+            enable_context_detection=enable_context_detection,
+        )
 
     def __call__(self, text: str) -> list[GToken]:
         """Convert text to a list of tokens with phonemes.
@@ -155,7 +173,10 @@ class SpanishG2P(G2PBase):
         # Normalize Unicode
         text = unicodedata.normalize("NFC", text)
 
-        # Normalize punctuation
+        # Apply normalizer (abbreviations, temperature, etc.)
+        text = self._normalizer(text)
+
+        # Normalize punctuation (keep for legacy compatibility)
         for old, new in self._PUNCT_MAP.items():
             text = text.replace(old, new)
 

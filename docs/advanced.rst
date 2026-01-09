@@ -270,6 +270,137 @@ Convert phonemes to IDs for model input:
    vocab = get_kokoro_vocab()
    print(f"Kokoro has {len(vocab)} tokens")
 
+Quote Handling
+--------------
+
+kokorog2p provides sophisticated quote handling with support for nested quotes and automatic conversion to curly quotes.
+
+Nested Quote Detection
+~~~~~~~~~~~~~~~~~~~~~~
+
+The tokenizer supports two modes for handling quotes:
+
+.. code-block:: python
+
+   from kokorog2p import get_g2p
+
+   # Default: Bracket-matching mode (supports nesting)
+   g2p = get_g2p("en-us")
+   tokens = g2p('He said "She used `backticks` here"')
+
+   # Check quote depths
+   for token in tokens:
+       depth = token.quote_depth
+       print(f"{token.text}: depth={depth}")
+   # Output shows nesting: "=1, `=2, `=2, "=1
+
+**Bracket-Matching Mode** (default):
+
+* Supports nested quotes when using **different** quote characters
+* Maintains a stack to track nesting depth
+* Supported quote characters: ``"`` (double quote), `````` (backtick), ``'`` (single quote)
+* Depth increases with each level of nesting (1 = outermost, 2 = nested once, etc.)
+
+**Important**: Nesting only works with different quote types:
+
+* ✅ **Supported**: ``"outer `inner` text"`` → depths ``[1, 2, 2, 1]`` (different quotes)
+* ❌ **NOT supported**: ``"level1 "level2""`` → depths ``[1, 1, 1, 1]`` (same quotes alternate)
+
+Examples:
+
+.. code-block:: python
+
+   from kokorog2p.pipeline.tokenizer import RegexTokenizer
+
+   # Create tokenizer with bracket matching (default)
+   tokenizer = RegexTokenizer(use_bracket_matching=True)
+
+   # Simple pair
+   tokens = tokenizer.tokenize('"hello"', '"hello"')
+   # Quote depths: [1, 1]
+
+   # Nested quotes (different types)
+   tokens = tokenizer.tokenize('"outer `inner` text"', '"outer `inner` text"')
+   # Quote depths: [1, 2, 2, 1]
+
+   # Multiple separate pairs
+   tokens = tokenizer.tokenize('"first" and "second"', '"first" and "second"')
+   # Quote depths: [1, 1, 1, 1]
+
+   # Triple nesting (different types)
+   tokens = tokenizer.tokenize('"a `b \'c\' d` e"', '"a `b \'c\' d` e"')
+   # Quote depths: [1, 2, 3, 3, 2, 1]
+
+**Simple Alternation Mode**:
+
+For simpler use cases without nesting support:
+
+.. code-block:: python
+
+   from kokorog2p.pipeline.tokenizer import RegexTokenizer
+
+   # Disable bracket matching for simple alternation
+   tokenizer = RegexTokenizer(use_bracket_matching=False)
+
+   # First quote opens (depth 1), second closes (depth 0)
+   tokens = tokenizer.tokenize('"hello" world', '"hello" world')
+   # Quote depths: [1, 0, 0]
+
+Curly Quote Conversion
+~~~~~~~~~~~~~~~~~~~~~~
+
+The tokenizer automatically converts straight quotes to curly quotes based on nesting depth:
+
+.. code-block:: python
+
+   from kokorog2p import get_g2p
+
+   g2p = get_g2p("en-us")
+
+   # Straight quotes converted to curly quotes
+   tokens = g2p('She said "hello"')
+
+   # First quote becomes left curly ("), last becomes right curly (")
+   quote_chars = [t.text for t in tokens if t.text in ('"', '"')]
+   print(quote_chars)  # ['"', '"']
+
+**Conversion Rules**:
+
+* Opening quotes (depth increases) → left curly quote ``"`` (U+201C)
+* Closing quotes (depth decreases) → right curly quote ``"`` (U+201D)
+* Backticks follow the same pattern as double quotes
+* Single quotes use standard apostrophe ``'`` (U+0027)
+
+Quote Depth in Custom Processing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Access quote depth for custom processing:
+
+.. code-block:: python
+
+   from kokorog2p import get_g2p
+
+   g2p = get_g2p("en-us")
+   tokens = g2p('He said "She whispered `quietly`"')
+
+   # Analyze quote nesting
+   for token in tokens:
+       if token.quote_depth > 0:
+           indent = "  " * (token.quote_depth - 1)
+           print(f"{indent}[{token.quote_depth}] {token.text}")
+
+Output shows nesting structure:
+
+.. code-block:: text
+
+   [1] "
+   [1] She
+   [1] whispered
+     [2] `
+     [2] quietly
+     [2] `
+   [1] "
+
 Punctuation Handling
 --------------------
 
