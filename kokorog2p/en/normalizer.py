@@ -240,9 +240,33 @@ class EnglishNormalizer(TextNormalizer):
             )
         )
 
-        # Phase 3: Smart backtick/acute handling
+        # Phase 3: Smart backtick/acute/prime handling
         # Normalize to apostrophe ONLY when inside words (contractions)
         # This must happen BEFORE general backtick normalization
+        self.add_rule(
+            NormalizationRule(
+                name="apostrophe_prime_contraction",
+                pattern=r"(\w)′(\w)",  # Word + prime + word (U+2032)
+                replacement=r"\1'\2",
+                description="Normalize prime in contractions (we′re → we're)",
+            )
+        )
+        self.add_rule(
+            NormalizationRule(
+                name="apostrophe_double_prime_contraction",
+                pattern=r"(\w)″(\w)",  # Word + double prime + word (U+2033)
+                replacement=r"\1'\2",
+                description="Normalize double prime in contractions",
+            )
+        )
+        self.add_rule(
+            NormalizationRule(
+                name="apostrophe_modifier_acute_contraction",
+                pattern=r"(\w)ˊ(\w)",  # Word + modifier acute + word (U+02CA)
+                replacement=r"\1'\2",
+                description="Normalize modifier acute in contractions",
+            )
+        )
         self.add_rule(
             NormalizationRule(
                 name="backtick_contraction",

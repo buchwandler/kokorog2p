@@ -118,6 +118,7 @@ def get_g2p(
     allowed_languages: list[str] | None = None,
     language_confidence_threshold: float = 0.7,
     version: str = "1.0",
+    phoneme_quotes: str = "curly",
     **kwargs: Any,
 ) -> G2PBase:
     """Get a G2P instance for the specified language.
@@ -162,6 +163,11 @@ def get_g2p(
             Different languages may have different behavior:
             - Chinese: "1.0" = IPA output, "1.1" = Zhuyin output
             - Other languages: Generally use "1.0" for multilingual support
+        phoneme_quotes: Quote character style in phoneme output. Options:
+            - "curly": Use curly quotes (", ") - default, backward compatible
+            - "ascii": Use ASCII double quotes (")
+            - "none": Remove quote characters from phoneme output
+            Only applies to English currently.
         **kwargs: Additional arguments passed to the G2P constructor.
 
     Returns:
@@ -211,7 +217,7 @@ def get_g2p(
     allowed_langs_key = tuple(sorted(allowed_languages)) if allowed_languages else None
     cache_key = (
         f"{lang}:{use_espeak_fallback}:{use_goruut_fallback}:{use_spacy}:{backend}:{load_silver}:{load_gold}"
-        f":{multilingual_mode}:{allowed_langs_key}:{language_confidence_threshold}:{version}"
+        f":{multilingual_mode}:{allowed_langs_key}:{language_confidence_threshold}:{version}:{phoneme_quotes}"
     )
     if cache_key in _g2p_cache:
         return _g2p_cache[cache_key]
@@ -261,6 +267,7 @@ def get_g2p(
             load_silver=load_silver,
             load_gold=load_gold,
             version=version,
+            phoneme_quotes=phoneme_quotes,
             **kwargs,
         )
     elif lang in ("zh", "zh-cn", "zh-tw", "cmn", "chinese"):

@@ -31,6 +31,7 @@ class EnglishG2P(G2PBase):
         use_spacy: bool = True,
         expand_abbreviations: bool = True,
         enable_context_detection: bool = True,
+        phoneme_quotes: str = "curly",
         unk: str = "❓",
         load_silver: bool = True,
         load_gold: bool = True,
@@ -46,6 +47,10 @@ class EnglishG2P(G2PBase):
             use_spacy: Whether to use spaCy for tokenization and POS tagging.
             expand_abbreviations: Whether to expand common abbreviations.
             enable_context_detection: Context-aware abbreviation expansion.
+            phoneme_quotes: Quote style in phoneme output:
+                - "curly": Use directional quotes " and " (default)
+                - "ascii": Use ASCII double quote "
+                - "none": Strip quotes from phoneme output
             unk: Character to use for unknown words when fallback is disabled.
             load_silver: If True, load silver tier dictionary (~100k extra entries).
                 Defaults to True for backward compatibility and maximum coverage.
@@ -61,6 +66,13 @@ class EnglishG2P(G2PBase):
         Raises:
             ValueError: If both use_espeak_fallback and use_goruut_fallback are True.
         """
+        # Validate phoneme_quotes parameter
+        if phoneme_quotes not in ("curly", "ascii", "none"):
+            raise ValueError(
+                f"phoneme_quotes must be 'curly', 'ascii', or 'none', "
+                f"got {phoneme_quotes!r}"
+            )
+
         # Validate mutual exclusion
         if use_espeak_fallback and use_goruut_fallback:
             raise ValueError(
@@ -81,6 +93,7 @@ class EnglishG2P(G2PBase):
         self.use_goruut_fallback = use_goruut_fallback
         self.expand_abbreviations = expand_abbreviations
         self.enable_context_detection = enable_context_detection
+        self.phoneme_quotes = phoneme_quotes
 
         # Initialize lexicon
         self.lexicon = Lexicon(
@@ -142,7 +155,9 @@ class EnglishG2P(G2PBase):
         """Lazily initialize the regex tokenizer."""
         if self._regex_tokenizer is None:
             self._regex_tokenizer = RegexTokenizer(
-                track_positions=True, use_bracket_matching=True
+                track_positions=True,
+                use_bracket_matching=True,
+                phoneme_quotes=self.phoneme_quotes,
             )
         return self._regex_tokenizer
 
@@ -151,7 +166,10 @@ class EnglishG2P(G2PBase):
         """Lazily initialize the spaCy tokenizer."""
         if self._spacy_tokenizer is None:
             self._spacy_tokenizer = SpacyTokenizer(
-                nlp=self.nlp, track_positions=True, use_bracket_matching=True
+                nlp=self.nlp,
+                track_positions=True,
+                use_bracket_matching=True,
+                phoneme_quotes=self.phoneme_quotes,
             )
         return self._spacy_tokenizer
 
@@ -475,23 +493,24 @@ class EnglishG2P(G2PBase):
 
             # Handle punctuation (but not contractions with apostrophes)
             if not ptoken.text.isalnum() and "'" not in ptoken.text:
-                # Assign phoneme for known punctuation
-                gtoken.phonemes = (
-                    ptoken.text if ptoken.text in '.,;:!?-—…"\u201c\u201d' else ""
-                )
+                # Assign phoneme for known punctuation using the same method
+                # as the spacy tokenizer for consistency
+                gtoken.phonemes = self._get_punct_phonemes(ptoken.text, "")
                 gtoken.set("rating", 4)
 
             tokens.append(gtoken)
 
         return tokens
 
-    @staticmethod
-    def _get_punct_phonemes(text: str, tag: str) -> str:
+    def _get_punct_phonemes(self, text: str, tag: str) -> str:
         """Get phonemes for punctuation tokens.
 
         For quotes, we use the text itself (which has been converted to curly
         quotes by the tokenizer) rather than relying on spaCy tags which can
         be unreliable for simple alternating quotes.
+
+        The quote characters in the output can be controlled via the
+        phoneme_quotes parameter.
         """
         # For non-quote punctuation tags, use the tag mapping
         punct_map = {
@@ -501,9 +520,18 @@ class EnglishG2P(G2PBase):
         if tag in punct_map:
             return punct_map[tag]
 
+        # Apply quote normalization based on phoneme_quotes setting
+        if self.phoneme_quotes == "ascii":
+            # Convert curly quotes to ASCII double quotes
+            text = text.replace("\u201c", '"').replace("\u201d", '"')
+        elif self.phoneme_quotes == "none":
+            # Remove all quote characters
+            text = text.replace("\u201c", "").replace("\u201d", "").replace('"', "")
+        # else: "curly" - keep as-is (default, backward compatible)
+
         # For all other punctuation (including quotes), use the text itself
         # The tokenizer has already converted quotes to curly quotes with
-        # correct directionality
+        # correct directionality (unless phoneme_quotes changes them above)
         puncts = frozenset(';:,.!?—…"""`\u201c\u201d')
         return "".join(c for c in text if c in puncts)
 

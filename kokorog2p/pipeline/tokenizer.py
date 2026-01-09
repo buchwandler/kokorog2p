@@ -18,13 +18,25 @@ class BaseTokenizer(ABC):
     tracking positions, quotes, and other metadata.
     """
 
-    def __init__(self, track_positions: bool = True):
+    def __init__(self, track_positions: bool = True, phoneme_quotes: str = "curly"):
         """Initialize the tokenizer.
 
         Args:
-            track_positions: Whether to track character positions in original text
+            track_positions: Whether to track character positions in text
+            phoneme_quotes: Quote style for phoneme output:
+                - "curly": Use directional quotes " and " (default)
+                - "ascii": Use ASCII double quote "
+                - "none": Strip quotes from phoneme output
         """
         self.track_positions = track_positions
+        self.phoneme_quotes = phoneme_quotes
+
+        # Validate phoneme_quotes parameter
+        if phoneme_quotes not in ("curly", "ascii", "none"):
+            raise ValueError(
+                f"phoneme_quotes must be 'curly', 'ascii', or 'none', "
+                f"got {phoneme_quotes!r}"
+            )
 
     @abstractmethod
     def tokenize(
@@ -179,6 +191,25 @@ class BaseTokenizer(ABC):
             else:
                 prev_depth = token.quote_depth
 
+    def normalize_phoneme_quotes(self, text: str) -> str:
+        """Normalize quote characters for phoneme output based on setting.
+
+        Args:
+            text: Text potentially containing quote characters
+
+        Returns:
+            Text with quotes normalized according to phoneme_quotes setting
+        """
+        if self.phoneme_quotes == "ascii":
+            # Convert all quote variants to ASCII
+            text = text.replace('"', '"').replace('"', '"')
+        elif self.phoneme_quotes == "none":
+            # Strip all quotes
+            text = text.replace('"', "").replace('"', "").replace('"', "")
+        # else: "curly" - keep as-is
+
+        return text
+
 
 class RegexTokenizer(BaseTokenizer):
     """Simple regex-based tokenizer.
@@ -191,6 +222,7 @@ class RegexTokenizer(BaseTokenizer):
         self,
         track_positions: bool = True,
         use_bracket_matching: bool = True,
+        phoneme_quotes: str = "curly",
         contraction_pattern: str | None = None,
     ):
         """Initialize the regex tokenizer.
@@ -198,10 +230,11 @@ class RegexTokenizer(BaseTokenizer):
         Args:
             track_positions: Whether to track character positions
             use_bracket_matching: Whether to use bracket-matching for quotes
+            phoneme_quotes: Quote style for phoneme output
             contraction_pattern: Custom regex pattern for contractions
                                 (default: handles standard English contractions)
         """
-        super().__init__(track_positions)
+        super().__init__(track_positions, phoneme_quotes)
         self.use_bracket_matching = use_bracket_matching
 
         # Default pattern for English contractions
@@ -269,6 +302,7 @@ class SpacyTokenizer(BaseTokenizer):
         nlp: Any,  # spacy.Language object
         track_positions: bool = True,
         use_bracket_matching: bool = True,
+        phoneme_quotes: str = "curly",
     ):
         """Initialize the spaCy tokenizer.
 
@@ -276,8 +310,9 @@ class SpacyTokenizer(BaseTokenizer):
             nlp: spaCy Language object (e.g., spacy.load("en_core_web_sm"))
             track_positions: Whether to track character positions
             use_bracket_matching: Whether to use bracket-matching for quotes
+            phoneme_quotes: Quote style for phoneme output
         """
-        super().__init__(track_positions)
+        super().__init__(track_positions, phoneme_quotes)
         self.nlp = nlp
         self.use_bracket_matching = use_bracket_matching
 

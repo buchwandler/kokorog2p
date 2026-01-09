@@ -75,9 +75,9 @@ add_abbreviation()
    - ``religious``: Religious context (e.g., "St. Peter")
 
    .. note::
-      
+
       The "St." abbreviation uses an advanced multi-signal detection algorithm:
-      
+
       - **Priority 1:** Saint/city name recognition (23 names: peter, paul, john, mary, patrick, francis, joseph, michael, george, luke, mark, matthew, thomas, james, anthony, andrew, louis, petersburg, augustine, helena, cloud, albans, andrews)
       - **Priority 2:** House number pattern within 30 characters (e.g., "123 Main")
       - **Priority 3:** Defaults to "Saint" for unknown names
