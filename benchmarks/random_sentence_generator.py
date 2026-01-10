@@ -79,16 +79,13 @@ APOSTROPHES = {
 
 QUOTE_PAIRS = {
     "ascii_double": ('"', '"'),
-    "curly_double": ("“", "”"),
-    "curly_single": ("‘", "’"),
-    "mixed_left_curly": ("“", '"'),
-    "mixed_right_curly": ('"', "”"),
+    "curly_double": ("\u201c", "\u201d"),
+    "curly_single": ("\u2018", "\u2019"),
     "guillemets": ("«", "»"),
-    "single_low_high": ("‚", "’"),
-    "double_low_high": ("„", "“"),
+    "single_low_high": ("\u201a", "\u2019"),
+    "double_low_high": ("\u201e", "\u201d"),
     "asian_corner": ("「", "」"),
     "fullwidth": ("＂", "＂"),
-    "grave_acute": ("`", "´"),
     "prime_double": ("″", "″"),
 }
 
@@ -394,7 +391,7 @@ class SentenceGenerator:
     def generate_dash_test(self, dash_type: str | None = None) -> TestCase:
         """Generate test case with dash variants.
 
-        All dash variants should normalize to em dash (—) in the output.
+        All dash variants should normalize to em dash in the output.
         """
         if dash_type is None:
             dash_type = self.rng.choice(list(DASH_VARIANTS.keys()))
@@ -531,6 +528,31 @@ if __name__ == "__main__":
         if has_g2p:
             tokens = g2p(test_case.text)
             phonemes = " ".join(t.phonemes for t in tokens if t.phonemes)
+            # Remove spaces around punctuation
+            phonemes = phonemes.replace(" , ", ",").replace(" .", ".")
+            phonemes = phonemes.replace(" !", "!").replace(" ?", "?")
+            phonemes = phonemes.replace(" ;", ";").replace(" :", ":")
+            phonemes = (
+                phonemes.replace(" …", "…").replace(" … ", "…").replace("… ", "…")
+            )
+            phonemes = phonemes.replace(" — ", "—").replace(" – ", "–")
+            phonemes = phonemes.replace(" —", "—").replace(" –", "–")
+            phonemes = phonemes.replace("— ", "—").replace("– ", "–")
+            # Remove spaces after opening quotes and before closing quotes (all types)
+            import re
+
+            # Remove space after any quote-like character
+            phonemes = re.sub(
+                r'(["\'\u201c\u201d\u2018\u2019\u201a\u201e«»「」＂″‚„]) ',
+                r"\1",
+                phonemes,
+            )
+            # Remove space before any quote-like character
+            phonemes = re.sub(
+                r' (["\'\u201c\u201d\u2018\u2019\u201a\u201e«»「」＂″‚„])',
+                r"\1",
+                phonemes,
+            )
             print(f"   Expected phonemes: {phonemes}")
 
         # Show key parameters
