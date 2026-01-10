@@ -7,7 +7,8 @@ This benchmark systematically tests the English G2P system's ability to handle:
 - All punctuation marks from Kokoro vocab
 - Mixed combinations
 
-The benchmark generates random test sentences and validates that the G2P produces
+The benchmark generates random test sentences and validates that the
+G2P produces
 consistent, correct output. It reports failures categorized by type.
 """
 
@@ -190,13 +191,14 @@ class QuotesContractionsBenchmark:
         self.verbose = verbose
 
         # Initialize components
-        self.generator = SentenceGenerator(seed=seed)
-
-        # G2P for testing
+        # G2P for testing and generating expected phonemes
         print(f"Initializing G2P for {language} (with spaCy)...")
         self.g2p_test = EnglishG2P(
             language=language, use_espeak_fallback=True, use_spacy=True
         )
+
+        # Generator with G2P to generate expected phonemes
+        self.generator = SentenceGenerator(seed=seed, g2p=self.g2p_test)
 
         # Results tracking
         self.results: list[TestResult] = []
@@ -307,19 +309,47 @@ class QuotesContractionsBenchmark:
         Returns:
             TestResult.
         """
+        import re
+
         # Run G2P
         tokens = self.g2p_test(test_case.text)
 
-        # Join with whitespace preservation (matching TTS output format)
-        actual = "".join(
-            (t.phonemes or "") + (" " if t.whitespace else "") for t in tokens
-        ).strip()
+        # Join phonemes and format them (remove spaces around punctuation/quotes)
+        actual = " ".join(t.phonemes for t in tokens if t.phonemes)
 
-        # Validate against rules
-        passed, validation_msg = self.validate_output(test_case, actual)
+        # Remove spaces around punctuation
+        actual = actual.replace(" , ", ",").replace(" .", ".")
+        actual = actual.replace(" !", "!").replace(" ?", "?")
+        actual = actual.replace(" ;", ";").replace(" :", ":")
+        actual = actual.replace(" …", "…").replace(" … ", "…").replace("… ", "…")
+        actual = actual.replace(" — ", "—").replace(" – ", "–")
+        actual = actual.replace(" —", "—").replace(" –", "–")
+        actual = actual.replace("— ", "—").replace("– ", "–")
 
-        # Expected is now a description, not exact phonemes
-        expected = validation_msg if not passed else "All validation rules passed"
+        # Remove spaces after opening quotes and before closing quotes (all types)
+        # Remove space after any quote-like character
+        actual = re.sub(
+            r'(["\'\u201c\u201d\u2018\u2019\u201a\u201e«»「」＂″‚„]) ',
+            r"\1",
+            actual,
+        )
+        # Remove space before any quote-like character
+        actual = re.sub(
+            r' (["\'\u201c\u201d\u2018\u2019\u201a\u201e«»「」＂″‚„])',
+            r"\1",
+            actual,
+        )
+
+        # Compare against expected phonemes from test case
+        expected = test_case.expected_phonemes
+        passed = (actual == expected) if expected else False
+
+        # Also validate against rules for additional checking
+        rule_passed, validation_msg = self.validate_output(test_case, actual)
+
+        # A test passes only if both phoneme match AND rules pass
+        if not rule_passed:
+            passed = False
 
         failure_type = None
         if not passed:

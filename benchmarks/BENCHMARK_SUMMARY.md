@@ -1,4 +1,4 @@
-# Benchmark Summary: English Quotes, Contractions & Punctuation
+# Benchmark Summary: English Synthetic Tests
 
 ## Executive Summary
 
@@ -9,7 +9,7 @@ detected**: No regressions or inconsistencies found
 ## What Was Tested
 
 This benchmark systematically validates the English G2P system's handling of problematic
-character combinations found in English literature:
+character combinations found in English literature using synthetic test generation:
 
 ### 1. Apostrophe Variants (8 types tested)
 
@@ -208,10 +208,12 @@ exceptions and lexicon lookups to work correctly.
    - Generates reproducible random test cases
    - 295 lines, fully documented
 
-2. **benchmarks/benchmark_en_quotes_contractions.py**
+2. **benchmarks/benchmark_en_synthetic.py**
 
    - Main benchmark runner with spaCy support
-   - 441 lines, command-line interface
+   - Generates synthetic test cases for comprehensive testing
+   - Command-line interface for flexible testing
+   - Can be extended for abbreviations, numbers, and more
 
 3. **benchmarks/results_quotes_contractions_en_us_spacy.json**
 
@@ -228,19 +230,19 @@ exceptions and lexicon lookups to work correctly.
 
 ```bash
 # Run default benchmark (US English, 1000 tests)
-python benchmarks/benchmark_en_quotes_contractions.py
+python benchmarks/benchmark_en_synthetic.py
 
 # Test British English
-python benchmarks/benchmark_en_quotes_contractions.py --language en-gb
+python benchmarks/benchmark_en_synthetic.py --language en-gb
 
 # More thorough testing
-python benchmarks/benchmark_en_quotes_contractions.py --num-tests 5000
+python benchmarks/benchmark_en_synthetic.py --num-tests 5000
 
 # Save results
-python benchmarks/benchmark_en_quotes_contractions.py --output my_results.json
+python benchmarks/benchmark_en_synthetic.py --output my_results.json
 
 # Verbose progress output
-python benchmarks/benchmark_en_quotes_contractions.py --verbose
+python benchmarks/benchmark_en_synthetic.py --verbose
 ```
 
 ## Recommendations

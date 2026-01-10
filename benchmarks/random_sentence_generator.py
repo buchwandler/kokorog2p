@@ -188,11 +188,13 @@ class TestCase:
     text: str
     category: str
     params: dict[str, Any]
+    expected_phonemes: str = ""
 
 
 class SentenceGenerator:
-    def __init__(self, seed: int = 42):
+    def __init__(self, seed: int = 42, g2p=None):
         self.rng = random.Random(seed)
+        self.g2p = g2p
 
     def _random_word(self) -> str:
         return self.rng.choice(BASE_WORDS)
@@ -205,9 +207,52 @@ class SentenceGenerator:
             apostrophe_type = "standard"
         apostrophe = APOSTROPHES[apostrophe_type]
         result = contraction.replace("'", apostrophe)
-        result = result.replace("’", apostrophe)
+        result = result.replace("'", apostrophe)
         result = result.replace("`", apostrophe)
         return result
+
+    def _generate_expected_phonemes(self, text: str) -> str:
+        """Generate expected phonemes for a given text.
+
+        Args:
+            text: Input text
+
+        Returns:
+            Expected phonemes with proper formatting
+            (no spaces around punctuation/quotes)
+        """
+        if self.g2p is None:
+            return ""
+
+        import re
+
+        tokens = self.g2p(text)
+        phonemes = " ".join(t.phonemes for t in tokens if t.phonemes)
+
+        # Remove spaces around punctuation
+        phonemes = phonemes.replace(" , ", ",").replace(" .", ".")
+        phonemes = phonemes.replace(" !", "!").replace(" ?", "?")
+        phonemes = phonemes.replace(" ;", ";").replace(" :", ":")
+        phonemes = phonemes.replace(" …", "…").replace(" … ", "…").replace("… ", "…")
+        phonemes = phonemes.replace(" — ", "—").replace(" – ", "–")
+        phonemes = phonemes.replace(" —", "—").replace(" –", "–")
+        phonemes = phonemes.replace("— ", "—").replace("– ", "–")
+
+        # Remove spaces after opening quotes and before closing quotes (all types)
+        # Remove space after any quote-like character
+        phonemes = re.sub(
+            r'(["\'\u201c\u201d\u2018\u2019\u201a\u201e«»「」＂″‚„]) ',
+            r"\1",
+            phonemes,
+        )
+        # Remove space before any quote-like character
+        phonemes = re.sub(
+            r' (["\'\u201c\u201d\u2018\u2019\u201a\u201e«»「」＂″‚„])',
+            r"\1",
+            phonemes,
+        )
+
+        return phonemes
 
     def generate_contraction_test(
         self, apostrophe_type: str = "standard", num_contractions: int = 1
@@ -240,6 +285,7 @@ class SentenceGenerator:
                 "num_contractions": num_contractions,
                 "apostrophe_char": APOSTROPHES[apostrophe_type],
             },
+            expected_phonemes=self._generate_expected_phonemes(text),
         )
 
     def generate_quote_test(self, quote_type: str = "ascii_double") -> TestCase:
@@ -258,6 +304,7 @@ class SentenceGenerator:
                 "left_quote": left_quote,
                 "right_quote": right_quote,
             },
+            expected_phonemes=self._generate_expected_phonemes(text),
         )
 
     def generate_punctuation_test(self, punct_type: str | None = None) -> TestCase:
@@ -294,6 +341,7 @@ class SentenceGenerator:
             text=text.capitalize(),
             category="punctuation_detection",
             params={"punctuation": punct, "variant_name": variant_name},
+            expected_phonemes=self._generate_expected_phonemes(text.capitalize()),
         )
 
     def generate_nested_quote_test(self) -> TestCase:
@@ -312,6 +360,7 @@ class SentenceGenerator:
             text=text,
             category="nested_quotes",
             params={"outer_quote_type": outer_type, "inner_quote_type": inner_type},
+            expected_phonemes=self._generate_expected_phonemes(text),
         )
 
     def generate_quote_with_contraction_test(
@@ -334,6 +383,7 @@ class SentenceGenerator:
                 "quote_type": quote_type,
                 "apostrophe_char": APOSTROPHES[apostrophe_type],
             },
+            expected_phonemes=self._generate_expected_phonemes(text),
         )
 
     def generate_complex_mixed_test(self) -> TestCase:
@@ -363,6 +413,7 @@ class SentenceGenerator:
                 "quote_type": quote_type,
                 "punctuation": punct,
             },
+            expected_phonemes=self._generate_expected_phonemes(text),
         )
 
     def generate_punctuation_adjacent_quote_test(self) -> TestCase:
@@ -386,6 +437,7 @@ class SentenceGenerator:
             text=text.capitalize(),
             category="punctuation_adjacent_quotes",
             params={"quote_type": quote_type, "punctuation": punct},
+            expected_phonemes=self._generate_expected_phonemes(text.capitalize()),
         )
 
     def generate_dash_test(self, dash_type: str | None = None) -> TestCase:
@@ -417,6 +469,7 @@ class SentenceGenerator:
                 "dash_type": dash_type,
                 "dash_char": dash,
             },
+            expected_phonemes=self._generate_expected_phonemes(text.capitalize()),
         )
 
     def generate_batch(
@@ -496,13 +549,14 @@ if __name__ == "__main__":
         g2p = EnglishG2P(language="en-us", use_espeak_fallback=True, use_spacy=True)
         has_g2p = True
     except ImportError:
+        g2p = None
         has_g2p = False
         print("Note: kokorog2p not available, showing text only (not phonemes)\n")
 
     # Use time-based seed for different examples on each run
     seed = int(time.time() * 1000) % 1000000
     print(f"Using random seed: {seed}\n")
-    gen = SentenceGenerator(seed=seed)
+    gen = SentenceGenerator(seed=seed, g2p=g2p)
 
     print("=== Sample Generated Test Cases ===\n")
 
@@ -524,36 +578,9 @@ if __name__ == "__main__":
         print(f"{i}. {category}")
         print(f"   Text: {test_case.text}")
 
-        # Show expected phonemes if G2P available
-        if has_g2p:
-            tokens = g2p(test_case.text)
-            phonemes = " ".join(t.phonemes for t in tokens if t.phonemes)
-            # Remove spaces around punctuation
-            phonemes = phonemes.replace(" , ", ",").replace(" .", ".")
-            phonemes = phonemes.replace(" !", "!").replace(" ?", "?")
-            phonemes = phonemes.replace(" ;", ";").replace(" :", ":")
-            phonemes = (
-                phonemes.replace(" …", "…").replace(" … ", "…").replace("… ", "…")
-            )
-            phonemes = phonemes.replace(" — ", "—").replace(" – ", "–")
-            phonemes = phonemes.replace(" —", "—").replace(" –", "–")
-            phonemes = phonemes.replace("— ", "—").replace("– ", "–")
-            # Remove spaces after opening quotes and before closing quotes (all types)
-            import re
-
-            # Remove space after any quote-like character
-            phonemes = re.sub(
-                r'(["\'\u201c\u201d\u2018\u2019\u201a\u201e«»「」＂″‚„]) ',
-                r"\1",
-                phonemes,
-            )
-            # Remove space before any quote-like character
-            phonemes = re.sub(
-                r' (["\'\u201c\u201d\u2018\u2019\u201a\u201e«»「」＂″‚„])',
-                r"\1",
-                phonemes,
-            )
-            print(f"   Expected phonemes: {phonemes}")
+        # Show expected phonemes if available
+        if test_case.expected_phonemes:
+            print(f"   Expected phonemes: {test_case.expected_phonemes}")
 
         # Show key parameters
         if "apostrophe_char" in test_case.params:
