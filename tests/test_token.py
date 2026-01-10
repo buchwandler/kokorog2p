@@ -111,8 +111,8 @@ class TestGToken:
         assert "phonemes" in repr(token2)
         assert "hˈɛlO" in repr(token2)
 
-    def test_post_init_none_dict(self):
-        """Test that _ is initialized if None."""
-        # This tests the __post_init__ method
-        token = GToken(text="test", _=None)  # type: ignore
+    def test_default_empty_dict(self):
+        """Test that _ defaults to an empty dict."""
+        token = GToken(text="test")
         assert token._ == {}
+        assert isinstance(token._, dict)
