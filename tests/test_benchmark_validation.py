@@ -13,7 +13,7 @@ import pytest
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from benchmarks.benchmark_en_quotes_contractions import QuotesContractionsBenchmark
+from benchmarks.benchmark_en_synthetic import QuotesContractionsBenchmark
 from benchmarks.random_sentence_generator import TestCase
 
 

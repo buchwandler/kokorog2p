@@ -14,9 +14,10 @@ Welcome to kokorog2p's documentation!
 Features
 --------
 
-* **Multi-language support**: English (US/GB), German, French, Czech, Chinese, Japanese
+* **Multi-language support**: English (US/GB), German, French, Czech, Spanish, Italian, Portuguese, Chinese, Japanese, Korean, Hebrew
 * **Mixed-language detection**: Automatic detection and handling of texts mixing multiple languages
-* **Dictionary-based lookup** with large gold/silver tier lexicons
+* **Dictionary-based lookup** with large gold/silver tier lexicons for select languages
+* **Rule-based G2P** for Romance and Slavic languages with comprehensive phonological rules
 * **espeak-ng integration** as a fallback for out-of-vocabulary words
 * **Automatic IPA to Kokoro phoneme conversion**
 * **Number and currency handling** across all languages
@@ -67,6 +68,7 @@ Installation
    quickstart
    languages
    advanced
+   abbreviation_customization
    phonemes
 
 .. toctree::
@@ -78,8 +80,13 @@ Installation
    api/german
    api/french
    api/czech
+   api/spanish
+   api/italian
+   api/portuguese
    api/chinese
    api/japanese
+   api/korean
+   api/hebrew
    api/mixed
    api/backends
    api/utils

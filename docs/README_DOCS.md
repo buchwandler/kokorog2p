@@ -59,8 +59,13 @@ docs/
 │   ├── german.rst          # German G2P API
 │   ├── french.rst          # French G2P API
 │   ├── czech.rst           # Czech G2P API
+│   ├── spanish.rst         # Spanish G2P API
+│   ├── italian.rst         # Italian G2P API
+│   ├── portuguese.rst      # Portuguese G2P API
 │   ├── chinese.rst         # Chinese G2P API
 │   ├── japanese.rst        # Japanese G2P API
+│   ├── korean.rst          # Korean G2P API
+│   ├── hebrew.rst          # Hebrew G2P API
 │   ├── backends.rst        # Backend APIs
 │   └── utils.rst           # Utility APIs
 ├── conf.py                  # Sphinx configuration
@@ -113,8 +118,13 @@ docs/
 - **German API** - German G2P detailed reference
 - **French API** - French G2P detailed reference
 - **Czech API** - Czech G2P detailed reference
+- **Spanish API** - Spanish G2P detailed reference
+- **Italian API** - Italian G2P detailed reference
+- **Portuguese API** - Portuguese G2P detailed reference
 - **Chinese API** - Chinese G2P detailed reference
 - **Japanese API** - Japanese G2P detailed reference
+- **Korean API** - Korean G2P detailed reference
+- **Hebrew API** - Hebrew G2P detailed reference
 - **Backends API** - espeak-ng and goruut backends
 - **Utilities API** - Helper functions and utilities
 
