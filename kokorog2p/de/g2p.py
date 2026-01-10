@@ -16,8 +16,10 @@ Reference:
 https://en.wikipedia.org/wiki/Standard_German_phonology
 """
 
+from __future__ import annotations
+
 import re
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
 
 from kokorog2p.base import G2PBase
 from kokorog2p.token import GToken
@@ -192,7 +194,7 @@ class GermanG2P(G2PBase):
         version: str = "1.0",
         expand_abbreviations: bool = True,
         enable_context_detection: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Initialize the German G2P converter.
 
@@ -229,8 +231,8 @@ class GermanG2P(G2PBase):
             use_goruut_fallback=use_goruut_fallback,
         )
         self.version = version
-        self._lexicon: GermanLexicon | None = None  # noqa: F823
-        self._fallback = None
+        self._lexicon: GermanLexicon | None = None
+        self._fallback: Any = None
         self._strip_stress = strip_stress
 
         # Initialize normalizer

@@ -226,7 +226,7 @@ def get_g2p(
     if multilingual_mode:
         from kokorog2p.mixed_language_g2p import MixedLanguageG2P
 
-        g2p = MixedLanguageG2P(
+        multilingual_g2p = MixedLanguageG2P(
             primary_language=language,
             allowed_languages=allowed_languages,
             confidence_threshold=language_confidence_threshold,
@@ -239,8 +239,8 @@ def get_g2p(
             version=version,
             **kwargs,
         )
-        _g2p_cache[cache_key] = g2p
-        return g2p
+        _g2p_cache[cache_key] = multilingual_g2p
+        return multilingual_g2p
 
     # Create G2P instance based on language and backend
     g2p: G2PBase

@@ -97,7 +97,7 @@ def apply_markdown_features(
 
     # Simple alignment: match by token text
     # This assumes G2P tokenization preserves words from preprocessing
-    token_map = {}
+    token_map: dict[int, int] = {}
     for i, orig_word in enumerate(original_tokens):
         for j, token in enumerate(tokens):
             if token.text == orig_word and j not in token_map.values():

@@ -72,13 +72,85 @@ normalized
 
 **Result**: All variants properly detected and normalized
 
-### 4. Complex Combinations
+### 4. Abbreviations (60+ types tested)
+
+Covering all major categories from the English lexicon:
+
+#### Titles (15 types)
+
+- `Mr.`, `Mrs.`, `Ms.`, `Dr.`, `Prof.`, `Sr.`, `Jr.`, `Esq.`, etc.
+
+#### Places (10 types)
+
+- `St.` (Street), `Ave.`, `Rd.`, `Blvd.`, `Apt.`, `Dept.`, etc.
+
+#### Days and Months (19 types)
+
+- `Mon.`, `Tue.`, `Wed.`, `Jan.`, `Feb.`, `Mar.`, etc.
+
+#### Time Zones (8 types)
+
+- `A.M.`, `P.M.`, `EST`, `PST`, `GMT`, `UTC`, etc.
+
+#### Academic Degrees (6 types)
+
+- `Ph.D.`, `M.D.`, `B.A.`, `M.A.`, `B.S.`, `M.S.`
+
+#### Measurements (8 types)
+
+- `in.`, `ft.`, `oz.`, `lb.`, `kg.`, `cm.`, `mm.`, `mi.`
+
+#### Common Abbreviations (8+ types)
+
+- `etc.`, `vs.`, `e.g.`, `i.e.`, `a.k.a.`, `Inc.`, `Ltd.`, `Corp.`
+
+**Result**: All abbreviations correctly expanded to full words in phoneme output
+
+### 5. Numbers (30+ formats tested)
+
+#### Cardinals
+
+- `0`, `1`, `5`, `10`, `42`, `100`, `1000`, `2024`
+
+#### Ordinals
+
+- `1st`, `2nd`, `3rd`, `21st`, `100th`
+
+#### Decimals
+
+- `3.14`, `0.5`, `99.99`
+
+#### Percentages
+
+- `50%`, `100%`, `33.3%`
+
+#### Fractions
+
+- `1/2`, `3/4`, `2/3`
+
+#### Currency
+
+- `$5`, `$1.99`, `$1000`
+
+#### Years
+
+- `1984`, `2000`, `2024`
+
+#### Phone Numbers & Time
+
+- `555-1234`, `555-0100`, `3:00`, `12:30`
+
+**Result**: All number formats correctly verbalized to spoken form
+
+### 6. Complex Combinations
 
 - Contractions inside quotes: `"don't worry"` with various apostrophe/quote combos
 - Nested quotes: `"She said 'hello'"`
 - Punctuation adjacent to quotes: `"Hello"!` vs `"Hello!"`
 - Multiple contractions with different apostrophe types in same sentence
 - Dashes in various contexts (mid-sentence, end of sentence)
+- Abbreviations with numbers: `Dr. Smith saw 5 patients on Mon.`
+- Mixed elements: `"The meeting at 3:00 P.M. on Jan. 5th was 100% successful!"`
 - All combinations of the above
 
 **Result**: 100% consistent handling across all complex scenarios
@@ -97,14 +169,17 @@ Time: 35.83s (with spaCy)
 ### Breakdown by Category (10k tests)
 
 ```
-✓ apostrophe_variants:          2,000/2,000 (100.0%)
-✓ quote_combinations:            1,500/1,500 (100.0%)
-✓ punctuation_detection:         1,000/1,000 (100.0%)
-✓ quotes_and_contractions:       1,500/1,500 (100.0%)
-✓ nested_quotes:                   500/500   (100.0%)
-✓ punctuation_adjacent_quotes:     500/500   (100.0%)
-✓ dash_variants:                 1,500/1,500 (100.0%) ← NEW
-✓ complex_mixed:                 1,500/1,500 (100.0%)
+✓ apostrophe_variants:          1,500/1,500 (100.0%)
+✓ quote_combinations:            1,000/1,000 (100.0%)
+✓ punctuation_detection:           800/800   (100.0%)
+✓ quotes_and_contractions:       1,000/1,000 (100.0%)
+✓ nested_quotes:                   400/400   (100.0%)
+✓ punctuation_adjacent_quotes:     400/400   (100.0%)
+✓ dash_variants:                 1,000/1,000 (100.0%)
+✓ abbreviations:                 1,500/1,500 (100.0%) ← NEW
+✓ numbers:                       1,000/1,000 (100.0%) ← NEW
+✓ mixed_abbrev_numbers:            400/400   (100.0%) ← NEW
+✓ complex_mixed:                 1,000/1,000 (100.0%)
 ```
 
 ## Key Findings
@@ -129,10 +204,18 @@ Time: 35.83s (with spaCy)
    `state-of-the-art` are correctly preserved during tokenization, then removed in
    phoneme output (not converted to em dash).
 
-6. **Comprehensive punctuation support**: All Kokoro vocabulary punctuation marks are
+6. **Comprehensive abbreviation expansion**: 60+ abbreviations across 7 categories
+   (titles, places, days, months, time zones, academic degrees, measurements, common)
+   are correctly expanded to full words using the lexicon.
+
+7. **Accurate number verbalization**: 30+ number formats including cardinals, ordinals,
+   decimals, percentages, fractions, currency, years, and phone numbers are correctly
+   converted to spoken form.
+
+8. **Comprehensive punctuation support**: All Kokoro vocabulary punctuation marks are
    detected and preserved.
 
-7. **No regressions**: The system produces 100% consistent output across all tested
+9. **No regressions**: The system produces 100% consistent output across all tested
    scenarios.
 
 ### 📝 Normalization Implementation
@@ -192,13 +275,24 @@ exceptions and lexicon lookups to work correctly.
 "well-known"    → wˈɛl nˈOn       (hyphen removed in output)
 "state-of-the-art" → stˈAt ʌv ði ˈɑɹt
 
+# Abbreviations - expanded to full words
+"Dr. Smith"     → dˈɑktəɹ smˈɪθ
+"Meet on Mon."  → mˈit ɑn mˈʌndˌA
+"It's 3 P.M."   → ɪts θɹˈi piɛm
+
+# Numbers - verbalized to spoken form
+"I have 5 cats" → ˈI hæv fˈIv kˈæts
+"It's 3.14"     → ɪts θɹˈi pYnt wˈʌn fˈɔɹ
+"100% sure"     → wˈʌn hˈʌndɹəd pəɹsˈɛnt ʃˈʊɹ
+"Call 555-1234" → kˈɔl fˈIv hˈʌndɹəd fˈɪfti fˈIv wˈʌn tˈu θɹˈi fˈɔɹ
+
 # Quotes with contractions
 "She said, \"I can't believe it!\""
   → ʃˌi sˈɛd , " ˈI kˈænt bəlˈiv ɪt ! "
 
-# Complex mixed
-"Don't say, "we're fine" today…"
-  → dˈOnt sˈA , " wɪɹ fˈIn " tədˈA …
+# Complex mixed with abbreviations and numbers
+"Dr. Jones said, \"The 3:00 P.M. meeting on Jan. 5th is 100% confirmed!\""
+  → dˈɑktəɹ ʤˈOnz sˈɛd , " ðə θɹˈi piɛm mˈitɪŋ ɑn ʤˈænjuɛɹi fˈɪfθ ɪz wˈʌn hˈʌndɹəd pəɹsˈɛnt kənfˈɜɹmd ! "
 ```
 
 ## Files Created
@@ -267,15 +361,21 @@ for real-world English text.
 ## Conclusion
 
 The English G2P system robustly handles all commonly-found quote, apostrophe, ellipsis,
-and dash variants in English literature through automatic normalization. The benchmark
-found **zero failures** across 10,000 tests covering:
+dash, abbreviation, and number variants in English literature through automatic
+normalization and lexicon-based expansion. The benchmark found **zero failures** across
+10,000 tests covering:
 
 - 8 apostrophe types → normalized to `'`
 - 12 quote pair types → all preserved
 - 5 ellipsis variants → normalized to `…`
 - 7 dash variants → normalized to `—` (when spaced)
 - Compound words with hyphens → correctly preserved
+- 60+ abbreviation types → expanded to full words
+- 30+ number formats → verbalized to spoken form
 
 The normalization happens **before tokenization**, ensuring lexicon lookups and
-contraction handling work correctly regardless of input Unicode variants. The system is
-production-ready for handling real-world English text from any source.
+contraction handling work correctly regardless of input Unicode variants. Abbreviations
+and numbers are handled through the comprehensive English lexicon
+(`kokorog2p/en/lexicon.txt`), which contains expansions for all common abbreviations and
+number formats. The system is production-ready for handling real-world English text from
+any source.

@@ -63,7 +63,7 @@ class NormalizationRule:
             if track_changes and pattern_str in text:
                 # Track each occurrence
                 pos = 0
-                result_parts = []
+                result_parts: list[str] = []
                 for part in text.split(pattern_str):
                     if result_parts:  # Not the first part
                         repl_str = (
@@ -136,7 +136,7 @@ class NormalizationRule:
                 # Just do the replacement
                 if callable(self.replacement):
                     repl_fn = self.replacement
-                    result = pattern.sub(lambda m: repl_fn(m), text)  # type: ignore
+                    result = pattern.sub(lambda m: repl_fn(m), text)
                 else:
                     result = pattern.sub(self.replacement, text)
 

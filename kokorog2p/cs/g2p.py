@@ -15,7 +15,7 @@ https://cs.wikipedia.org/wiki/Fonologie_%C4%8De%C5%A1tiny
 """
 
 import re
-from typing import Final
+from typing import Any, Final
 
 from kokorog2p.base import G2PBase
 from kokorog2p.cs.normalizer import CzechNormalizer
@@ -255,7 +255,7 @@ class CzechG2P(G2PBase):
         version: str = "1.0",
         expand_abbreviations: bool = True,
         enable_context_detection: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Initialize the Czech G2P converter.
 
@@ -296,7 +296,7 @@ class CzechG2P(G2PBase):
         self.use_goruut_fallback = use_goruut_fallback
         self.expand_abbreviations = expand_abbreviations
         self.enable_context_detection = enable_context_detection
-        self._fallback = None
+        self._fallback: Any = None
 
         # Initialize normalizer
         self._normalizer = CzechNormalizer(

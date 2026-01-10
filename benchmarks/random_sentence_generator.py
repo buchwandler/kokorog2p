@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Random sentence generator for English quote/contraction/punctuation testing."""
+"""Random sentence generator for English synthetic test cases.
+
+Generates test sentences covering:
+- Quotes, contractions, and punctuation
+- Abbreviations (titles, places, dates, measurements)
+- Numbers (cardinals, ordinals, decimals, fractions)
+"""
 
 import random
 from dataclasses import dataclass
@@ -181,6 +187,44 @@ BASE_WORDS = [
     "bring",
     "write",
 ]
+
+# Abbreviations (from kokorog2p/en/abbreviations.py)
+ABBREVIATIONS = {
+    "titles": ["Mr.", "Mrs.", "Ms.", "Dr.", "Prof.", "Rev."],
+    "places": ["St.", "Ave.", "Rd.", "Blvd.", "Ln.", "Ct."],
+    "days": ["Mon.", "Tue.", "Wed.", "Thu.", "Fri.", "Sat.", "Sun."],
+    "months": [
+        "Jan.",
+        "Feb.",
+        "Mar.",
+        "Apr.",
+        "Jun.",
+        "Jul.",
+        "Aug.",
+        "Sep.",
+        "Oct.",
+        "Nov.",
+        "Dec.",
+    ],
+    "time": ["A.M.", "P.M.", "EST", "PST", "GMT"],
+    "academic": ["Ph.D.", "M.D.", "B.A.", "M.A.", "B.S.", "M.S."],
+    "common": ["etc.", "vs.", "e.g.", "i.e.", "no.", "vol.", "pg.", "approx."],
+    "measurements": ["in.", "ft.", "mi.", "oz.", "lb.", "gal."],
+    "directional": ["N.", "S.", "E.", "W.", "NE.", "NW.", "SE.", "SW."],
+}
+
+# Number formats to test
+NUMBER_FORMATS = {
+    "cardinal": [0, 1, 5, 10, 42, 100, 1000, 2024],
+    "ordinal_suffix": ["1st", "2nd", "3rd", "4th", "21st", "42nd", "100th"],
+    "decimal": ["3.14", "0.5", "99.99", "1.0"],
+    "percentage": ["50%", "100%", "33.3%", "0.1%"],
+    "fraction": ["1/2", "3/4", "2/3", "1/4"],
+    "currency": ["$5", "$1.99", "$1000", "$0.99"],
+    "year": [1984, 2000, 2024, 1776],
+    "phone": ["555-1234", "555-0100"],
+    "time": ["3:00", "12:30", "9:45"],
+}
 
 
 @dataclass
@@ -472,20 +516,129 @@ class SentenceGenerator:
             expected_phonemes=self._generate_expected_phonemes(text.capitalize()),
         )
 
+    def generate_abbreviation_test(
+        self, abbrev_category: str | None = None
+    ) -> TestCase:
+        """Generate test case with abbreviations.
+
+        Args:
+            abbrev_category: Category of abbreviation (titles, places, days,
+                           months, etc.). If None, randomly selects a category.
+
+        Returns:
+            TestCase with abbreviation.
+        """
+        if abbrev_category is None or abbrev_category not in ABBREVIATIONS:
+            abbrev_category = self.rng.choice(list(ABBREVIATIONS.keys()))
+
+        abbrev = self.rng.choice(ABBREVIATIONS[abbrev_category])
+        words = self._random_words(self.rng.randint(2, 5))
+
+        # Create different sentence patterns
+        pattern = self.rng.choice(["start", "middle", "end"])
+
+        if pattern == "start":
+            text = f"{abbrev} {' '.join(words)}."
+        elif pattern == "middle":
+            mid = len(words) // 2
+            text = f"{' '.join(words[:mid])} {abbrev} {' '.join(words[mid:])}."
+        else:  # end
+            text = f"{' '.join(words)} {abbrev}"
+
+        return TestCase(
+            text=text.capitalize(),
+            category="abbreviations",
+            params={
+                "abbrev_category": abbrev_category,
+                "abbreviation": abbrev,
+                "position": pattern,
+            },
+            expected_phonemes=self._generate_expected_phonemes(text.capitalize()),
+        )
+
+    def generate_number_test(self, number_format: str | None = None) -> TestCase:
+        """Generate test case with numbers in various formats.
+
+        Args:
+            number_format: Type of number (cardinal, ordinal_suffix, decimal, etc.)
+                          If None, randomly selects a format.
+
+        Returns:
+            TestCase with numbers.
+        """
+        if number_format is None or number_format not in NUMBER_FORMATS:
+            number_format = self.rng.choice(list(NUMBER_FORMATS.keys()))
+
+        number = self.rng.choice(NUMBER_FORMATS[number_format])
+        words = self._random_words(self.rng.randint(2, 4))
+
+        # Create different sentence patterns
+        pattern = self.rng.choice(["start", "middle", "end"])
+
+        if pattern == "start":
+            text = f"{number} {' '.join(words)}."
+        elif pattern == "middle":
+            mid = len(words) // 2
+            text = f"{' '.join(words[:mid])} {number} {' '.join(words[mid:])}."
+        else:  # end
+            text = f"{' '.join(words)} {number}."
+
+        return TestCase(
+            text=text.capitalize(),
+            category="numbers",
+            params={
+                "number_format": number_format,
+                "number": str(number),
+                "position": pattern,
+            },
+            expected_phonemes=self._generate_expected_phonemes(text.capitalize()),
+        )
+
+    def generate_mixed_abbrev_number_test(self) -> TestCase:
+        """Generate test case with both abbreviations and numbers."""
+        abbrev_cat = self.rng.choice(list(ABBREVIATIONS.keys()))
+        abbrev = self.rng.choice(ABBREVIATIONS[abbrev_cat])
+
+        number_format = self.rng.choice(list(NUMBER_FORMATS.keys()))
+        number = self.rng.choice(NUMBER_FORMATS[number_format])
+
+        words = self._random_words(self.rng.randint(1, 3))
+
+        # Mix abbreviation and number
+        if self.rng.random() < 0.5:
+            text = f"{abbrev} {' '.join(words)} {number}."
+        else:
+            text = f"{number} {' '.join(words)} {abbrev}"
+
+        return TestCase(
+            text=text.capitalize(),
+            category="mixed_abbrev_numbers",
+            params={
+                "abbrev_category": abbrev_cat,
+                "abbreviation": abbrev,
+                "number_format": number_format,
+                "number": str(number),
+            },
+            expected_phonemes=self._generate_expected_phonemes(text.capitalize()),
+        )
+
     def generate_batch(
         self, total: int = 1000, distribution: dict[str, int] | None = None
     ) -> list[TestCase]:
         if distribution is None:
             # Default proportions (percentages)
             default_proportions = {
-                "apostrophe_variants": 0.20,  # 20%
-                "quote_combinations": 0.15,  # 15%
-                "punctuation_detection": 0.10,  # 10%
-                "quotes_and_contractions": 0.15,  # 15%
-                "nested_quotes": 0.05,  # 5%
-                "punctuation_adjacent_quotes": 0.05,  # 5%
-                "dash_variants": 0.15,  # 15%
-                "complex_mixed": 0.15,  # 15%
+                "apostrophe_variants": 0.15,  # 15%
+                "quote_combinations": 0.10,  # 10%
+                "punctuation_detection": 0.08,  # 8%
+                "quotes_and_contractions": 0.10,  # 10%
+                "nested_quotes": 0.04,  # 4%
+                "punctuation_adjacent_quotes": 0.04,  # 4%
+                "dash_variants": 0.10,  # 10%
+                "complex_mixed": 0.10,  # 10%
+                "abbreviations": 0.15,  # 15% - NEW
+                "numbers": 0.10,  # 10% - NEW
+                "mixed_abbrev_numbers": 0.04,  # 4% - NEW
             }
             # Scale proportions to actual counts
             distribution = {k: int(v * total) for k, v in default_proportions.items()}
@@ -530,6 +683,17 @@ class SentenceGenerator:
         for _ in range(distribution.get("complex_mixed", 0)):
             test_cases.append(self.generate_complex_mixed_test())
 
+        for _ in range(distribution.get("abbreviations", 0)):
+            abbrev_cat = self.rng.choice(list(ABBREVIATIONS.keys()))
+            test_cases.append(self.generate_abbreviation_test(abbrev_cat))
+
+        for _ in range(distribution.get("numbers", 0)):
+            number_format = self.rng.choice(list(NUMBER_FORMATS.keys()))
+            test_cases.append(self.generate_number_test(number_format))
+
+        for _ in range(distribution.get("mixed_abbrev_numbers", 0)):
+            test_cases.append(self.generate_mixed_abbrev_number_test())
+
         self.rng.shuffle(test_cases)
         return test_cases[:total]
 
@@ -571,6 +735,9 @@ if __name__ == "__main__":
         ),
         ("nested_quotes", gen.generate_nested_quote_test()),
         ("dash_variants", gen.generate_dash_test("en_dash")),
+        ("abbreviations", gen.generate_abbreviation_test()),
+        ("numbers", gen.generate_number_test()),
+        ("mixed_abbrev_numbers", gen.generate_mixed_abbrev_number_test()),
         ("complex_mixed", gen.generate_complex_mixed_test()),
     ]
 
@@ -595,6 +762,14 @@ if __name__ == "__main__":
             dash_char = repr(test_case.params["dash_char"])
             dash_type = test_case.params["dash_type"]
             print(f"   Dash used: {dash_char} ({dash_type})")
+        if "abbreviation" in test_case.params:
+            abbrev = test_case.params["abbreviation"]
+            abbrev_cat = test_case.params["abbrev_category"]
+            print(f"   Abbreviation: {abbrev} ({abbrev_cat})")
+        if "number" in test_case.params:
+            num = test_case.params["number"]
+            num_fmt = test_case.params["number_format"]
+            print(f"   Number: {num} ({num_fmt})")
         print()
 
     print("\nGenerating batch of 100 test cases...")

@@ -10,6 +10,7 @@ Licensed under the Apache License, Version 2.0
 """
 
 import warnings
+from typing import Any
 
 from kokorog2p.base import G2PBase
 from kokorog2p.token import GToken
@@ -38,7 +39,7 @@ class HebrewG2P(G2PBase):
         preserve_punctuation: bool = True,
         preserve_stress: bool = True,
         version: str = "1.0",
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Initialize the Hebrew G2P.
 

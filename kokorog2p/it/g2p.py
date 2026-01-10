@@ -17,7 +17,7 @@ https://en.wikipedia.org/wiki/Italian_phonology
 
 import re
 import unicodedata
-from typing import Final
+from typing import Any, Final
 
 from kokorog2p.base import G2PBase
 from kokorog2p.it.normalizer import ItalianNormalizer
@@ -94,7 +94,7 @@ class ItalianG2P(G2PBase):
         expand_abbreviations: bool = True,
         enable_context_detection: bool = True,
         version: str = "1.0",
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Initialize the Italian G2P converter.
 
@@ -524,7 +524,7 @@ class ItalianG2P(G2PBase):
 
         # Find stressed vowels before normalization
         stressed_vowels = set()
-        normalized_text = []
+        normalized_text: list[str] = []
         for _i, char in enumerate(text):
             if char in "àèéìòóù":
                 # Remember the position of the normalized vowel

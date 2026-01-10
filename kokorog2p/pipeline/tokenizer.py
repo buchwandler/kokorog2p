@@ -99,7 +99,7 @@ class BaseTokenizer(ABC):
             tokens: List of tokens to process (modified in-place)
         """
         # Stack to track open quotes - stores the quote character (", `, ')
-        stack = []
+        stack: list[str] = []
 
         # Quote characters we recognize
         quote_chars = frozenset(('"', "`", "'"))

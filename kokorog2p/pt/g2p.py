@@ -20,7 +20,7 @@ https://en.wikipedia.org/wiki/Brazilian_Portuguese
 
 import re
 import unicodedata
-from typing import Final
+from typing import Any, Final
 
 from kokorog2p.base import G2PBase
 from kokorog2p.pt.normalizer import PortugueseNormalizer
@@ -90,7 +90,7 @@ class PortugueseG2P(G2PBase):
         enable_context_detection: bool = True,
         dialect: str = "br",  # "br" for Brazilian, "pt" for European
         version: str = "1.0",
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Initialize the Portuguese G2P converter.
 
@@ -229,7 +229,7 @@ class PortugueseG2P(G2PBase):
         """
         stressed_vowels = set()
         open_vowels = set()  # Track é/ó (open) vs ê/ô (closed)
-        normalized_text = []
+        normalized_text: list[str] = []
 
         for _i, char in enumerate(text):
             if char in "áéíóúâêôãõ":
