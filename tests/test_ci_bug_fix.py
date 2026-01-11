@@ -65,7 +65,7 @@ class TestEspeakEmptyStringBugFix:
         assert result != ""
 
     def test_espeak_lookup_not_none(self):
-        """Espeak lookup should return phonemes or raise an error, never None silently."""
+        """Espeak lookup should return phonemes or raise error, not None."""
         from kokorog2p.espeak_g2p import EspeakOnlyG2P
 
         g2p = EspeakOnlyG2P(language="en-us")
@@ -114,7 +114,7 @@ class TestGoruutEmptyStringBugFix:
 
     @pytest.mark.skipif(not _is_goruut_available(), reason="pygoruut not installed")
     def test_goruut_lookup_not_none(self):
-        """Goruut lookup should return phonemes or raise an error, never None silently."""
+        """Goruut lookup should return phonemes or raise error, not None."""
         from kokorog2p.goruut_g2p import GoruutOnlyG2P
 
         g2p = GoruutOnlyG2P(language="en-us")
@@ -142,8 +142,9 @@ class TestErrorHandling:
 
     def test_espeak_phonemize_failure_raises_error(self):
         """If espeak somehow fails during phonemize, it should raise an error."""
+        from unittest.mock import patch
+
         from kokorog2p.espeak_g2p import EspeakOnlyG2P
-        from unittest.mock import Mock, patch
 
         g2p = EspeakOnlyG2P(language="en-us")
 
@@ -161,8 +162,9 @@ class TestFallbackLogging:
 
     def test_espeak_fallback_logs_errors(self, caplog):
         """EspeakFallback should log errors when failing."""
+        from unittest.mock import patch
+
         from kokorog2p.en.fallback import EspeakFallback
-        from unittest.mock import Mock, patch
 
         fallback = EspeakFallback(british=False)
 

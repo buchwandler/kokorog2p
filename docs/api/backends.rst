@@ -45,11 +45,16 @@ Using espeak-only G2P
 
    from kokorog2p.espeak_g2p import EspeakOnlyG2P
 
-   g2p = EspeakOnlyG2P(language="es-es")
+   # Strict mode (default) - raises errors if espeak fails
+   g2p = EspeakOnlyG2P(language="es-es", strict=True)
    tokens = g2p("Hola mundo")
 
    for token in tokens:
        print(f"{token.text} -> {token.phonemes}")
+
+   # Lenient mode - returns empty on errors (backward compatible)
+   g2p_lenient = EspeakOnlyG2P(language="es-es", strict=False)
+   tokens = g2p_lenient("Hola mundo")
 
 Using goruut Backend
 ~~~~~~~~~~~~~~~~~~~~
@@ -58,8 +63,13 @@ Using goruut Backend
 
    from kokorog2p.goruut_g2p import GoruutOnlyG2P
 
-   g2p = GoruutOnlyG2P(language="en-us")
+   # Strict mode (default)
+   g2p = GoruutOnlyG2P(language="en-us", strict=True)
    tokens = g2p("Hello world")
 
    for token in tokens:
        print(f"{token.text} -> {token.phonemes}")
+
+   # Lenient mode
+   g2p_lenient = GoruutOnlyG2P(language="en-us", strict=False)
+   tokens = g2p_lenient("Hello world")
