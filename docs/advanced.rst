@@ -950,7 +950,100 @@ Combine with markdown phoneme annotations:
 Error Handling
 --------------
 
-Handle missing dependencies gracefully:
+kokorog2p provides robust error handling to help you debug issues, especially in CI/CD environments.
+
+Strict Mode (Default)
+~~~~~~~~~~~~~~~~~~~~~
+
+By default, kokorog2p uses **strict mode** (``strict=True``), which raises clear exceptions when backend initialization or phonemization fails:
+
+.. code-block:: python
+
+   from kokorog2p import get_g2p
+
+   # Strict mode is the default
+   g2p = get_g2p("en-us", backend="espeak", strict=True)
+
+   try:
+       result = g2p.phonemize("test")
+   except RuntimeError as e:
+       # Get detailed error message about what went wrong
+       print(f"Error: {e}")
+       # Example: "Espeak backend validation failed. Please ensure espeak-ng
+       # is properly installed and voice 'en-us' is available."
+
+**Benefits of strict mode:**
+
+* Catches configuration issues immediately
+* Provides actionable error messages
+* Prevents silent failures in CI/CD pipelines
+* Recommended for production use
+
+Lenient Mode (Backward Compatible)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For backward compatibility with older versions (< 0.4.0) that silently failed, you can use **lenient mode** (``strict=False``):
+
+.. code-block:: python
+
+   from kokorog2p import get_g2p
+
+   # Lenient mode logs errors but doesn't raise exceptions
+   g2p = get_g2p("en-us", backend="espeak", strict=False)
+
+   result = g2p.phonemize("test")
+   # If espeak fails:
+   # - Error is logged to Python's logging system
+   # - Returns empty string "" instead of raising exception
+   # - Allows your application to continue running
+
+**When to use lenient mode:**
+
+* Migrating from older versions (< 0.4.0)
+* Non-critical applications where empty results are acceptable
+* When you have your own error handling logic
+
+Common Error Scenarios
+~~~~~~~~~~~~~~~~~~~~~~
+
+**espeak-ng not installed:**
+
+.. code-block:: python
+
+   # Strict mode (default)
+   g2p = get_g2p("en-us", backend="espeak")
+   # RuntimeError: Espeak backend validation failed. Please ensure espeak-ng
+   # is properly installed...
+
+   # Solution: Install espeak-ng
+   # Ubuntu/Debian: sudo apt-get install espeak-ng
+   # macOS: brew install espeak
+   # Windows: Download from https://github.com/espeak-ng/espeak-ng/releases
+
+**Invalid voice:**
+
+.. code-block:: python
+
+   from kokorog2p.espeak_g2p import EspeakOnlyG2P
+
+   g2p = EspeakOnlyG2P(language="xx-invalid")
+   # RuntimeError: Espeak backend validation failed...voice 'xx-invalid' is unavailable
+
+**CI/CD Best Practices:**
+
+.. code-block:: python
+
+   import logging
+
+   # Configure logging to see error details
+   logging.basicConfig(level=logging.INFO)
+
+   # Use strict mode in CI to catch issues early (this is the default)
+   g2p = get_g2p("en-us", backend="espeak", strict=True)
+
+   # Your CI will fail with clear error messages if there are issues
+
+**Handling missing dependencies:**
 
 .. code-block:: python
 
@@ -970,6 +1063,29 @@ Handle missing dependencies gracefully:
    except OSError as e:
        print("spaCy model not found")
        print("Download with: python -m spacy download en_core_web_sm")
+
+Configuring with Different Backends
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``strict`` parameter works with all backends:
+
+.. code-block:: python
+
+   from kokorog2p import get_g2p
+
+   # Espeak backend with strict mode
+   g2p_espeak = get_g2p("en-us", backend="espeak", strict=True)
+
+   # Goruut backend with strict mode
+   g2p_goruut = get_g2p("en-us", backend="goruut", strict=True)
+
+   # Dictionary-based with fallback (strict applies to fallback only)
+   g2p_dict = get_g2p(
+       "en-us",
+       backend="kokorog2p",
+       use_espeak_fallback=True,
+       strict=True  # Affects espeak fallback behavior
+   )
 
 Next Steps
 ----------

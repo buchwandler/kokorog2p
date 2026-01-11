@@ -8,10 +8,13 @@ Copyright 2024 kokorog2p contributors
 Licensed under the Apache License, Version 2.0
 """
 
+import logging
 import re
 
 from kokorog2p.base import G2PBase
 from kokorog2p.token import GToken
+
+logger = logging.getLogger(__name__)
 
 
 class GoruutOnlyG2P(G2PBase):
@@ -31,6 +34,7 @@ class GoruutOnlyG2P(G2PBase):
         language: str = "en-us",
         use_espeak_fallback: bool = False,  # Not used for this class
         use_goruut_fallback: bool = True,  # Not used for this class
+        strict: bool = True,
         version: str = "1.0",
         **kwargs,
     ) -> None:
@@ -40,11 +44,16 @@ class GoruutOnlyG2P(G2PBase):
             language: Language code (e.g., 'fr', 'de', 'en-us').
             use_espeak_fallback: Ignored (always uses goruut).
             use_goruut_fallback: Ignored (always uses goruut).
+            strict: If True (default), raise exceptions on errors. If False,
+                log warnings and return empty results for backward compatibility.
             version: Model version (default: "1.0").
             **kwargs: Additional arguments (ignored).
         """
         super().__init__(
-            language=language, use_espeak_fallback=False, use_goruut_fallback=True
+            language=language,
+            use_espeak_fallback=False,
+            use_goruut_fallback=True,
+            strict=strict,
         )
         self.version = version
         self._goruut_backend = None
@@ -104,8 +113,25 @@ class GoruutOnlyG2P(G2PBase):
             # Phonemize using goruut
             try:
                 phonemes = self.goruut_backend.word_phonemes(part)
-            except Exception:
-                phonemes = None
+            except Exception as e:
+                if self.strict:
+                    if isinstance(e, RuntimeError):
+                        raise RuntimeError(
+                            f"GoruutOnlyG2P failed to process word '{part}' "
+                            f"with goruut. This usually means pygoruut is not "
+                            f"properly installed or initialized. "
+                            f"Original error: {e}"
+                        ) from e
+                    else:
+                        raise RuntimeError(
+                            f"Unexpected error processing word '{part}': {e}"
+                        ) from e
+                else:
+                    logger.error(
+                        f"GoruutOnlyG2P failed to process word '{part}': {e}. "
+                        f"Returning None (strict=False mode)."
+                    )
+                    phonemes = None
 
             token = GToken(
                 text=part,
@@ -126,12 +152,30 @@ class GoruutOnlyG2P(G2PBase):
             tag: Optional POS tag (ignored for goruut).
 
         Returns:
-            Phoneme string from goruut.
+            Phoneme string from goruut, or None if strict=False and error occurs.
+
+        Raises:
+            RuntimeError: If goruut backend fails and strict=True.
         """
         try:
             return self.goruut_backend.word_phonemes(word)
-        except Exception:
-            return None
+        except Exception as e:
+            if self.strict:
+                if isinstance(e, RuntimeError):
+                    raise RuntimeError(
+                        f"GoruutOnlyG2P.lookup() failed for word '{word}' with goruut. "
+                        f"Original error: {e}"
+                    ) from e
+                else:
+                    raise RuntimeError(
+                        f"Unexpected error in lookup for '{word}': {e}"
+                    ) from e
+            else:
+                logger.error(
+                    f"GoruutOnlyG2P.lookup() failed for word '{word}': {e}. "
+                    f"Returning None (strict=False mode)."
+                )
+                return None
 
     def phonemize(self, text: str) -> str:
         """Convert text to phonemes using goruut.
@@ -140,12 +184,33 @@ class GoruutOnlyG2P(G2PBase):
             text: Input text to convert.
 
         Returns:
-            Phoneme string.
+            Phoneme string, or empty string if strict=False and error occurs.
+
+        Raises:
+            RuntimeError: If goruut backend fails and strict=True.
         """
         try:
             return self.goruut_backend.phonemize(text)
-        except Exception:
-            return ""
+        except Exception as e:
+            if self.strict:
+                if isinstance(e, RuntimeError):
+                    # goruut initialization or configuration errors
+                    raise RuntimeError(
+                        f"GoruutOnlyG2P failed to phonemize text with goruut. "
+                        f"This usually means pygoruut is not properly "
+                        f"installed or initialized. Original error: {e}"
+                    ) from e
+                else:
+                    # Unexpected errors - don't hide them!
+                    raise RuntimeError(
+                        f"Unexpected error in GoruutOnlyG2P.phonemize(): {e}"
+                    ) from e
+            else:
+                logger.error(
+                    f"GoruutOnlyG2P.phonemize() failed: {e}. "
+                    f"Returning empty string (strict=False mode)."
+                )
+                return ""
 
     @staticmethod
     def is_available() -> bool:

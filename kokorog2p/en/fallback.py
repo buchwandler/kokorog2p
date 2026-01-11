@@ -1,5 +1,6 @@
 """Fallback options for OOV words with IPA to Kokoro conversion."""
 
+import logging
 from typing import TYPE_CHECKING
 
 from kokorog2p.phonemes import from_espeak, from_goruut
@@ -7,6 +8,8 @@ from kokorog2p.phonemes import from_espeak, from_goruut
 if TYPE_CHECKING:
     from kokorog2p.backends.espeak import EspeakBackend
     from kokorog2p.backends.goruut import GoruutBackend
+
+logger = logging.getLogger(__name__)
 
 
 class EspeakFallback:
@@ -49,7 +52,16 @@ class EspeakFallback:
             # Convert to Kokoro format
             phonemes = from_espeak(raw_phonemes, british=self.british)
             return (phonemes, 1)
-        except Exception:
+        except RuntimeError as e:
+            # espeak backend initialization or critical failure
+            logger.error(
+                f"EspeakFallback failed for word '{word}': {e}. "
+                f"Check that espeak-ng is properly installed."
+            )
+            return (None, 0)
+        except Exception as e:
+            # Per-word processing errors can be graceful
+            logger.warning(f"EspeakFallback could not process word '{word}': {e}")
             return (None, 0)
 
     def phonemize(self, text: str) -> str:
@@ -104,7 +116,16 @@ class GoruutFallback:
             # Convert to Kokoro format
             phonemes = from_goruut(raw_phonemes, british=self.british)
             return (phonemes, 1)
-        except Exception:
+        except RuntimeError as e:
+            # goruut backend initialization or critical failure
+            logger.error(
+                f"GoruutFallback failed for word '{word}': {e}. "
+                f"Check that pygoruut is properly installed."
+            )
+            return (None, 0)
+        except Exception as e:
+            # Per-word processing errors can be graceful
+            logger.warning(f"GoruutFallback could not process word '{word}': {e}")
             return (None, 0)
 
     def phonemize(self, text: str) -> str:

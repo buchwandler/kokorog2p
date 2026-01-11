@@ -35,6 +35,7 @@ class EnglishG2P(G2PBase):
         unk: str = "❓",
         load_silver: bool = True,
         load_gold: bool = True,
+        strict: bool = True,
         version: str = "1.0",
         **kwargs,
     ) -> None:
@@ -58,6 +59,10 @@ class EnglishG2P(G2PBase):
             load_gold: If True, load gold tier dictionary (~170k common words).
                 Defaults to True for maximum quality and coverage.
                 Set to False when only silver tier or no dictionaries needed.
+            strict: If True (default), raise exceptions when backend initialization
+                or phonemization fails. If False, log errors and return empty results.
+                Note: This only affects fallback backends (espeak/goruut), not
+                the primary dictionary lookups.
             version: Model version ("1.0" for multilingual model, "1.1" for
             Chinese model).
                 Defaults to "1.0".
@@ -85,6 +90,7 @@ class EnglishG2P(G2PBase):
             language=language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
+            strict=strict,
         )
 
         self.version = version

@@ -129,6 +129,15 @@ tokens = g2p_minimal("Hello world!")
 # load_gold=False, load_silver=True: Extended vocabulary only (unusual)
 # load_gold=False, load_silver=False: No dictionaries, espeak only (fastest)
 
+# Error handling with strict mode (default: strict=True)
+# Strict mode raises clear exceptions for debugging issues
+g2p_strict = get_g2p("en-us", backend="espeak", strict=True)
+# If espeak fails: RuntimeError with detailed error message
+
+# Lenient mode for backward compatibility (logs errors, returns empty results)
+g2p_lenient = get_g2p("en-us", backend="espeak", strict=False)
+# If espeak fails: logs error, returns empty string (no exception)
+
 # Automatic punctuation normalization
 g2p = get_g2p("en-us")
 tokens = g2p("Wait... really?")       # ... → … (ellipsis)
@@ -155,6 +164,101 @@ g2p_fr = get_g2p("fr", use_espeak_fallback=True)
 tokens = g2p_fr("C'est magnifique!")
 for token in tokens:
     print(f"{token.text} → {token.phonemes}")
+```
+
+## Error Handling and Debugging
+
+kokorog2p provides robust error handling to help you debug issues, especially in CI/CD
+environments.
+
+### Strict Mode (Default, Recommended)
+
+By default, kokorog2p uses **strict mode** (`strict=True`), which raises clear
+exceptions when backend initialization or phonemization fails:
+
+```python
+from kokorog2p import get_g2p
+
+# Strict mode is the default
+g2p = get_g2p("en-us", backend="espeak", strict=True)
+
+try:
+    result = g2p.phonemize("test")
+except RuntimeError as e:
+    # Get detailed error message about what went wrong
+    print(f"Error: {e}")
+    # Example: "Espeak backend validation failed. Please ensure espeak-ng
+    # is properly installed and voice 'en-us' is available."
+```
+
+**Benefits:**
+
+- Catches configuration issues immediately
+- Provides actionable error messages
+- Prevents silent failures in CI/CD pipelines
+- Recommended for production use
+
+### Lenient Mode (Backward Compatible)
+
+For backward compatibility with older versions that silently failed, you can use
+**lenient mode** (`strict=False`):
+
+```python
+from kokorog2p import get_g2p
+
+# Lenient mode logs errors but doesn't raise exceptions
+g2p = get_g2p("en-us", backend="espeak", strict=False)
+
+result = g2p.phonemize("test")
+# If espeak fails:
+# - Error is logged to Python's logging system
+# - Returns empty string "" instead of raising exception
+# - Allows your application to continue running
+```
+
+**When to use lenient mode:**
+
+- Migrating from older versions (< 0.4.0)
+- Non-critical applications where empty results are acceptable
+- When you have your own error handling logic
+
+### Common Error Scenarios
+
+**espeak-ng not installed:**
+
+```python
+# Strict mode (default)
+g2p = get_g2p("en-us", backend="espeak")
+# RuntimeError: Espeak backend validation failed. Please ensure espeak-ng
+# is properly installed...
+
+# Solution: Install espeak-ng
+# Ubuntu/Debian: sudo apt-get install espeak-ng
+# macOS: brew install espeak
+# Windows: Download from https://github.com/espeak-ng/espeak-ng/releases
+```
+
+**Invalid voice:**
+
+```python
+from kokorog2p.espeak_g2p import EspeakOnlyG2P
+
+g2p = EspeakOnlyG2P(language="xx-invalid")
+# RuntimeError: Espeak backend validation failed...voice 'xx-invalid' is unavailable
+```
+
+**CI/CD Best Practices:**
+
+```python
+import logging
+
+# Configure logging to see error details
+logging.basicConfig(level=logging.INFO)
+
+# Use strict mode in CI to catch issues early
+g2p = get_g2p("en-us", backend="espeak", strict=True)
+
+# Your CI will fail with clear error messages if there are issues
 ```
 
 ## Mixed-Language Support

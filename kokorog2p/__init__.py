@@ -119,6 +119,7 @@ def get_g2p(
     language_confidence_threshold: float = 0.7,
     version: str = "1.0",
     phoneme_quotes: str = "curly",
+    strict: bool = True,
     **kwargs: Any,
 ) -> G2PBase:
     """Get a G2P instance for the specified language.
@@ -168,6 +169,10 @@ def get_g2p(
             - "ascii": Use ASCII double quotes (")
             - "none": Remove quote characters from phoneme output
             Only applies to English currently.
+        strict: If True (default), raise exceptions when backend initialization
+            or phonemization fails. If False, log errors and return empty results
+            for backward compatibility with older versions that silently failed.
+            Recommended: True for production use to catch configuration issues.
         **kwargs: Additional arguments passed to the G2P constructor.
 
     Returns:
@@ -217,7 +222,7 @@ def get_g2p(
     allowed_langs_key = tuple(sorted(allowed_languages)) if allowed_languages else None
     cache_key = (
         f"{lang}:{use_espeak_fallback}:{use_goruut_fallback}:{use_spacy}:{backend}:{load_silver}:{load_gold}"
-        f":{multilingual_mode}:{allowed_langs_key}:{language_confidence_threshold}:{version}:{phoneme_quotes}"
+        f":{multilingual_mode}:{allowed_langs_key}:{language_confidence_threshold}:{version}:{phoneme_quotes}:{strict}"
     )
     if cache_key in _g2p_cache:
         return _g2p_cache[cache_key]
@@ -249,12 +254,12 @@ def get_g2p(
         # Use goruut backend for all languages
         from kokorog2p.goruut_g2p import GoruutOnlyG2P
 
-        g2p = GoruutOnlyG2P(language=language, version=version, **kwargs)
+        g2p = GoruutOnlyG2P(language=language, strict=strict, version=version, **kwargs)
     elif backend == "espeak":
         # Use espeak backend for all languages
         from kokorog2p.espeak_g2p import EspeakOnlyG2P
 
-        g2p = EspeakOnlyG2P(language=language, version=version, **kwargs)
+        g2p = EspeakOnlyG2P(language=language, strict=strict, version=version, **kwargs)
 
     elif lang.startswith("en"):
         from kokorog2p.en import EnglishG2P
@@ -266,6 +271,7 @@ def get_g2p(
             use_spacy=use_spacy,
             load_silver=load_silver,
             load_gold=load_gold,
+            strict=strict,
             version=version,
             phoneme_quotes=phoneme_quotes,
             **kwargs,

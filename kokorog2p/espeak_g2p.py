@@ -8,10 +8,13 @@ Copyright 2024 kokorog2p contributors
 Licensed under the Apache License, Version 2.0
 """
 
+import logging
 import re
 
 from kokorog2p.base import G2PBase
 from kokorog2p.token import GToken
+
+logger = logging.getLogger(__name__)
 
 
 class EspeakOnlyG2P(G2PBase):
@@ -94,7 +97,8 @@ class EspeakOnlyG2P(G2PBase):
         self,
         language: str = "en-us",
         use_espeak_fallback: bool = True,  # Always True for this class
-        use_goruut_fallback: bool = False,  # Always True for this class
+        use_goruut_fallback: bool = False,  # Always False for this class
+        strict: bool = True,
         version: str = "1.0",
         **kwargs,
     ) -> None:
@@ -103,11 +107,16 @@ class EspeakOnlyG2P(G2PBase):
         Args:
             language: Language code (e.g., 'fr-fr', 'de-de').
             use_espeak_fallback: Ignored (always uses espeak).
+            strict: If True (default), raise exceptions on errors. If False,
+                log warnings and return empty results for backward compatibility.
             version: Model version (default: "1.0").
             **kwargs: Additional arguments (ignored).
         """
         super().__init__(
-            language=language, use_espeak_fallback=True, use_goruut_fallback=False
+            language=language,
+            use_espeak_fallback=True,
+            use_goruut_fallback=False,
+            strict=strict,
         )
         self.version = version
         self._espeak_backend = None
@@ -127,7 +136,11 @@ class EspeakOnlyG2P(G2PBase):
 
     @property
     def espeak_backend(self):
-        """Lazy initialization of espeak backend."""
+        """Lazy initialization of espeak backend.
+
+        Raises:
+            RuntimeError: If espeak backend initialization or validation fails.
+        """
         if self._espeak_backend is None:
             from kokorog2p.backends.espeak import EspeakBackend
 
@@ -135,7 +148,37 @@ class EspeakOnlyG2P(G2PBase):
                 language=self._espeak_voice,
                 with_stress=True,
             )
+            # Validate immediately after initialization
+            self._validate_backend()
         return self._espeak_backend
+
+    def _validate_backend(self) -> None:
+        """Validate that espeak backend is working.
+
+        This catches initialization failures early instead of
+        during first phonemization attempt.
+
+        Raises:
+            RuntimeError: If espeak backend cannot phonemize test text.
+        """
+        if self._espeak_backend is None:
+            raise RuntimeError("Backend not initialized")
+
+        try:
+            # Try a simple test
+            test_result = self._espeak_backend.phonemize("test")
+            if not test_result:
+                raise RuntimeError(
+                    f"Espeak backend returned empty result for test word. "
+                    f"Voice '{self._espeak_voice}' may not be available."
+                )
+        except Exception as e:
+            raise RuntimeError(
+                f"Espeak backend validation failed. "
+                f"Please ensure espeak-ng is properly installed and "
+                f"voice '{self._espeak_voice}' is available. "
+                f"Error: {e}"
+            ) from e
 
     def __call__(self, text: str) -> list[GToken]:
         """Convert text to tokens with phonemes.
@@ -180,8 +223,25 @@ class EspeakOnlyG2P(G2PBase):
             # Phonemize using espeak
             try:
                 phonemes = self.espeak_backend.word_phonemes(part)
-            except Exception:
-                phonemes = None
+            except Exception as e:
+                if self.strict:
+                    if isinstance(e, RuntimeError):
+                        raise RuntimeError(
+                            f"EspeakOnlyG2P failed to process word '{part}' "
+                            f"with espeak-ng. This usually means espeak-ng is "
+                            f"not properly installed or initialized. "
+                            f"Original error: {e}"
+                        ) from e
+                    else:
+                        raise RuntimeError(
+                            f"Unexpected error processing word '{part}': {e}"
+                        ) from e
+                else:
+                    logger.error(
+                        f"EspeakOnlyG2P failed to process word '{part}': {e}. "
+                        f"Returning None (strict=False mode)."
+                    )
+                    phonemes = None
 
             token = GToken(
                 text=part,
@@ -202,12 +262,30 @@ class EspeakOnlyG2P(G2PBase):
             tag: Optional POS tag (ignored for espeak).
 
         Returns:
-            Phoneme string from espeak.
+            Phoneme string from espeak, or None if strict=False and error occurs.
+
+        Raises:
+            RuntimeError: If espeak backend fails and strict=True.
         """
         try:
             return self.espeak_backend.word_phonemes(word)
-        except Exception:
-            return None
+        except Exception as e:
+            if self.strict:
+                if isinstance(e, RuntimeError):
+                    raise RuntimeError(
+                        f"EspeakOnlyG2P.lookup() failed for word '{word}' "
+                        f"with espeak-ng. Original error: {e}"
+                    ) from e
+                else:
+                    raise RuntimeError(
+                        f"Unexpected error in lookup for '{word}': {e}"
+                    ) from e
+            else:
+                logger.error(
+                    f"EspeakOnlyG2P.lookup() failed for word '{word}': {e}. "
+                    f"Returning None (strict=False mode)."
+                )
+                return None
 
     def phonemize(self, text: str) -> str:
         """Convert text to phonemes using espeak.
@@ -216,12 +294,35 @@ class EspeakOnlyG2P(G2PBase):
             text: Input text to convert.
 
         Returns:
-            Phoneme string.
+            Phoneme string, or empty string if strict=False and error occurs.
+
+        Raises:
+            RuntimeError: If espeak backend fails and strict=True.
         """
         try:
             return self.espeak_backend.phonemize(text)
-        except Exception:
-            return ""
+        except Exception as e:
+            if self.strict:
+                if isinstance(e, RuntimeError):
+                    # espeak initialization or configuration errors
+                    raise RuntimeError(
+                        f"EspeakOnlyG2P failed to phonemize text with "
+                        f"espeak-ng. This usually means espeak-ng is not "
+                        f"properly installed, the library cannot be found, "
+                        f"or voice '{self._espeak_voice}' is unavailable. "
+                        f"Original error: {e}"
+                    ) from e
+                else:
+                    # Unexpected errors - don't hide them!
+                    raise RuntimeError(
+                        f"Unexpected error in EspeakOnlyG2P.phonemize(): {e}"
+                    ) from e
+            else:
+                logger.error(
+                    f"EspeakOnlyG2P.phonemize() failed: {e}. "
+                    f"Returning empty string (strict=False mode)."
+                )
+                return ""
 
     def __repr__(self) -> str:
         return (

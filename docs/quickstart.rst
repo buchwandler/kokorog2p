@@ -16,6 +16,29 @@ The simplest way to use kokorog2p is with the ``phonemize()`` function:
    phonemes = phonemize("Hello world!")
    print(phonemes)  # hˈɛlO wˈɜɹld!
 
+Error Handling
+--------------
+
+By default, kokorog2p raises clear errors when backends fail (v0.4.0+):
+
+.. code-block:: python
+
+   from kokorog2p import get_g2p
+
+   # Strict mode (default) - raises errors
+   try:
+       g2p = get_g2p("en-us", backend="espeak")
+       tokens = g2p("Hello world!")
+   except RuntimeError as e:
+       print(f"Error: {e}")
+       # Will show helpful message if espeak-ng is not installed
+
+   # Lenient mode - returns empty strings on errors (backward compatible)
+   g2p = get_g2p("en-us", backend="espeak", strict=False)
+   tokens = g2p("Hello world!")  # Returns empty strings if backend fails
+
+For more details, see :doc:`advanced`.
+
 Specifying Language
 -------------------
 
