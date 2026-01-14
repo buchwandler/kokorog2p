@@ -61,8 +61,8 @@ def preprocess_markdown(text: str) -> tuple[str, list[str], dict[int, str]]:
         # Extract phonemes (group 2)
         phonemes = m.group(2)
 
-        # Check if it's a phoneme annotation (starts with /)
-        if phonemes and phonemes.startswith("/"):
+        # Check if it's a phoneme annotation (starts and ends with /)
+        if phonemes and phonemes.startswith("/") and phonemes.endswith("/"):
             phonemes = phonemes.strip("/")  # Remove leading and trailing slashes
             features[len(tokens)] = phonemes
 
@@ -99,8 +99,9 @@ def apply_markdown_features(
     # This assumes G2P tokenization preserves words from preprocessing
     token_map: dict[int, int] = {}
     for i, orig_word in enumerate(original_tokens):
+        orig_key = orig_word.casefold()
         for j, token in enumerate(tokens):
-            if token.text == orig_word and j not in token_map.values():
+            if token.text.casefold() == orig_key and j not in token_map.values():
                 token_map[i] = j
                 break
 

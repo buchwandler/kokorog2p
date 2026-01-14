@@ -111,6 +111,18 @@ class TestRegexTokenizer:
         assert quote_tokens[0].quote_depth == 1
         assert quote_tokens[1].quote_depth == 0
 
+    def test_normalize_phoneme_quotes_ascii(self):
+        """Curly quotes should normalize to ASCII when requested."""
+        tokenizer = RegexTokenizer(phoneme_quotes="ascii")
+        text = "\u201cHello\u201d"
+        assert tokenizer.normalize_phoneme_quotes(text) == '"Hello"'
+
+    def test_normalize_phoneme_quotes_none(self):
+        """Quote characters should be stripped when requested."""
+        tokenizer = RegexTokenizer(phoneme_quotes="none")
+        text = "\u201cHello\u201d"
+        assert tokenizer.normalize_phoneme_quotes(text) == "Hello"
+
     def test_empty_string(self, tokenizer):
         """Test tokenizing empty string."""
         tokens = tokenizer.tokenize("")

@@ -52,6 +52,13 @@ class TestPreprocessMarkdown:
         assert "link" in clean
         assert len(features) == 0  # Not a phoneme annotation
 
+    def test_relative_link_is_not_annotation(self):
+        """Relative links should not be treated as annotations."""
+        text = "[link](/docs/page) test"
+        clean, tokens, features = preprocess_markdown(text)
+        assert "link" in clean
+        assert len(features) == 0
+
     def test_empty_annotation(self):
         """Test annotation with empty phonemes."""
         text = "[word](/) test"
@@ -150,6 +157,19 @@ class TestApplyMarkdownFeatures:
 
         result = apply_markdown_features(tokens, features, orig_tokens)
         assert result[0].phonemes == "hɛloʊ"
+
+    def test_apply_feature_case_insensitive(self):
+        """Features should match regardless of casing differences."""
+        tokens = [
+            GToken(text="hello", phonemes="hɛloʊ"),
+            GToken(text="world", phonemes="wɝld"),
+        ]
+        features = {0: "hˈɛloʊ"}
+        orig_tokens = ["Hello", "world"]
+
+        result = apply_markdown_features(tokens, features, orig_tokens)
+        assert result[0].phonemes == "hˈɛloʊ"
+        assert result[0].get("rating") == 5
 
 
 class TestPhonemizeWithMarkdown:

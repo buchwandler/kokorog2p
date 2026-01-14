@@ -202,10 +202,15 @@ class BaseTokenizer(ABC):
         """
         if self.phoneme_quotes == "ascii":
             # Convert all quote variants to ASCII
-            text = text.replace('"', '"').replace('"', '"')
+            text = text.replace("\u201c", '"').replace("\u201d", '"').replace("`", '"')
         elif self.phoneme_quotes == "none":
             # Strip all quotes
-            text = text.replace('"', "").replace('"', "").replace('"', "")
+            text = (
+                text.replace('"', "")
+                .replace("\u201c", "")
+                .replace("\u201d", "")
+                .replace("`", "")
+            )
         # else: "curly" - keep as-is
 
         return text
