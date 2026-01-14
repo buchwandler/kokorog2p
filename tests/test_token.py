@@ -52,6 +52,7 @@ class TestGToken:
         assert GToken(text=".", tag=".").is_punctuation is True
         assert GToken(text=",", tag=",").is_punctuation is True
         assert GToken(text="!", tag="!").is_punctuation is True
+        assert GToken(text="!", tag="PUNCT").is_punctuation is True
         assert GToken(text="hello", tag="NN").is_punctuation is False
 
     def test_is_word(self):
@@ -80,6 +81,7 @@ class TestGToken:
             text="hello",
             tag="NN",
             phonemes="hˈɛlO",
+            rating="espeak",
             _={"rating": 4},
         )
 
@@ -89,6 +91,7 @@ class TestGToken:
         assert copy.text == original.text
         assert copy.tag == original.tag
         assert copy.phonemes == original.phonemes
+        assert copy.rating == original.rating
         assert copy._["rating"] == 4
 
         # Check it's a different object

@@ -37,7 +37,20 @@ class GToken:
     @property
     def is_punctuation(self) -> bool:
         """Check if this token is punctuation."""
-        return self.tag in (".", ",", ":", ";", "!", "?", "-", "'", '"', "(", ")")
+        return self.tag in (
+            ".",
+            ",",
+            ":",
+            ";",
+            "!",
+            "?",
+            "-",
+            "'",
+            '"',
+            "(",
+            ")",
+            "PUNCT",
+        )
 
     @property
     def is_word(self) -> bool:
@@ -61,6 +74,7 @@ class GToken:
             phonemes=self.phonemes,
             start_ts=self.start_ts,
             end_ts=self.end_ts,
+            rating=self.rating,
             _=dict(self._),
         )
 
