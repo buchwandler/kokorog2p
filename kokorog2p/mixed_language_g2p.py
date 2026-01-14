@@ -165,14 +165,25 @@ class MixedLanguageG2P(G2PBase):
             ImportError: If enable_detection=True but lingua-language-detector
                 is not installed (will warn and disable detection instead).
         """
-        super().__init__(language=primary_language)
-        self.version = version
-
         if allowed_languages is None or len(allowed_languages) == 0:
             raise ValueError(
                 "allowed_languages must be specified and non-empty. "
                 "Example: allowed_languages=['de', 'en-us']"
             )
+
+        normalized_allowed = {
+            lang.lower().replace("_", "-"): lang for lang in allowed_languages
+        }
+        primary_normalized = primary_language.lower().replace("_", "-")
+        if primary_normalized not in normalized_allowed:
+            raise ValueError(
+                "primary_language must be in allowed_languages. "
+                "Example: primary_language='de', allowed_languages=['de', 'en-us']"
+            )
+
+        primary_language = normalized_allowed[primary_normalized]
+        super().__init__(language=primary_language)
+        self.version = version
 
         # Check if lingua is available
         if not LINGUA_AVAILABLE:

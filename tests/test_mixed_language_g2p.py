@@ -46,6 +46,15 @@ class TestMixedLanguageG2PBasic:
         with pytest.raises(ValueError, match="allowed_languages must be specified"):
             MixedLanguageG2P(primary_language="de", allowed_languages=[])
 
+    def test_primary_language_must_be_allowed(self):
+        """Primary language should be part of allowed_languages."""
+        from kokorog2p.mixed_language_g2p import MixedLanguageG2P
+
+        with pytest.raises(
+            ValueError, match="primary_language must be in allowed_languages"
+        ):
+            MixedLanguageG2P(primary_language="de", allowed_languages=["en-us"])
+
     def test_repr(self):
         """Test string representation."""
         from kokorog2p.mixed_language_g2p import MixedLanguageG2P
