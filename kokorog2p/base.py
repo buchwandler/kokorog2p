@@ -70,12 +70,12 @@ class G2PBase(ABC):
             if token.phonemes:
                 result.append(token.phonemes)
                 if token.whitespace:
-                    result.append(" ")
+                    result.append(token.whitespace)
             elif token.is_punctuation:
                 # Keep punctuation as-is
                 result.append(token.text)
                 if token.whitespace:
-                    result.append(" ")
+                    result.append(token.whitespace)
         return "".join(result).strip()
 
     def word_to_phonemes(self, word: str, tag: str | None = None) -> str | None:
