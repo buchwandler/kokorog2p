@@ -55,6 +55,18 @@ class TestMixedLanguageG2PBasic:
         ):
             MixedLanguageG2P(primary_language="de", allowed_languages=["en-us"])
 
+    def test_language_codes_normalized(self):
+        """Language codes should normalize to lowercase with hyphens."""
+        from kokorog2p.mixed_language_g2p import MixedLanguageG2P
+
+        g2p = MixedLanguageG2P(
+            primary_language="DE",
+            allowed_languages=["EN_US", "DE"],
+            enable_detection=False,
+        )
+        assert g2p.primary_language == "de"
+        assert g2p.allowed_languages == ["en-us", "de"]
+
     def test_repr(self):
         """Test string representation."""
         from kokorog2p.mixed_language_g2p import MixedLanguageG2P

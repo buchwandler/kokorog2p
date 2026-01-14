@@ -171,9 +171,9 @@ class MixedLanguageG2P(G2PBase):
                 "Example: allowed_languages=['de', 'en-us']"
             )
 
-        normalized_allowed = {
-            lang.lower().replace("_", "-"): lang for lang in allowed_languages
-        }
+        normalized_allowed = [
+            lang.lower().replace("_", "-") for lang in allowed_languages
+        ]
         primary_normalized = primary_language.lower().replace("_", "-")
         if primary_normalized not in normalized_allowed:
             raise ValueError(
@@ -181,7 +181,9 @@ class MixedLanguageG2P(G2PBase):
                 "Example: primary_language='de', allowed_languages=['de', 'en-us']"
             )
 
-        primary_language = normalized_allowed[primary_normalized]
+        primary_language = primary_normalized
+        allowed_languages = normalized_allowed
+
         super().__init__(language=primary_language)
         self.version = version
 
