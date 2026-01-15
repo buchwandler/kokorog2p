@@ -362,6 +362,15 @@ class TestTokenizerEdgeCases:
         assert tokens[1].text == "—"
         assert tokens[2].text == "world"
 
+    def test_exclamation_mark(self, tokenizer):
+        """Test that multiple exclamation marks are not changed."""
+        tokens = tokenizer.tokenize("!!!")
+
+        assert len(tokens) == 3
+        assert tokens[0].text == "!"
+        assert tokens[1].text == "!"
+        assert tokens[2].text == "!"
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

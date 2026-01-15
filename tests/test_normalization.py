@@ -50,6 +50,9 @@ class TestApostropheNormalization:
         """Fullwidth apostrophe (U+FF07) → ASCII apostrophe."""
         assert punct.normalize("don＇t") == "don't"
 
+    def test_normalize_multiple_exclamation_mark(self, punct):
+        assert punct.normalize("!!!") == "!!!"
+
     def test_normalize_multiple_apostrophes(self, punct):
         """Multiple contractions with different apostrophe types."""
         text = "I don't think you're right, but we`ve tried."

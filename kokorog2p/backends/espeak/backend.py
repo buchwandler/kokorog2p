@@ -7,6 +7,8 @@ Copyright 2024 kokorog2p contributors
 Licensed under the Apache License, Version 2.0
 """
 
+import re
+
 from kokorog2p.backends.espeak.wrapper import Phonemizer
 from kokorog2p.phonemes import from_espeak
 
@@ -55,10 +57,85 @@ class EspeakBackend:
         """Check if using British English variant."""
         return self.language.lower() in ("en-gb", "en_gb")
 
+    def remove_punctuation(self, text: str) -> str:
+        """Remove punctuation from text before phonemization.
+
+        Preserves:
+        - Hyphens between letters: "my-world" → "my-world"
+        - Apostrophes between letters: "don't" → "don't"
+        - Single periods between letters: "Dr. Smith" → "Dr. Smith"
+
+        Removes:
+        - Quote marks around words: "'Hello'" → "Hello"
+        - Repeated punctuation: "Hello??" → "Hello?"
+        - Standalone punctuation: "!" → "", "?" → ""
+        - Standalone dots: ".." → ""
+        - Ellipsis sequences: "I like this ... . Hello." → "I like this. Hello."
+        - Special sequences: "I dont't like you.!" → "I dont't like you."
+
+        Enforces:
+        - Single punctuation between words
+        - Space after punctuation: "Hello,world" → "Hello, world"
+
+        Preserves special symbols: @, #, etc.
+
+        Args:
+            text: Input text.
+
+        Returns:
+            Text with punctuation cleaned.
+        """
+        # Placeholders for protected characters
+        APOS_PROTECT = "__APOS__"
+        HYPHEN_PROTECT = "__HYPHEN__"
+
+        # Step 1: Protect apostrophes between letters (contractions)
+        text = re.sub(r"(?<=\w)'(?=\w)", APOS_PROTECT, text)
+
+        # Step 2: Protect hyphens between letters (compound words)
+        text = re.sub(r"(?<=\w)-(?=\w)", HYPHEN_PROTECT, text)
+
+        # Step 3: Remove quote marks (single and double)
+        text = re.sub(r"[\"']", "", text)
+
+        # Step 4: Remove spaces before punctuation
+        text = re.sub(r"\s+([.,;:!?])", r"\1", text)
+
+        # Step 5: Collapse repeated punctuation (?!;: to single)
+        text = re.sub(r"([?!;:,])\1+", r"\1", text)
+
+        # Step 6: Collapse dot sequences
+        # First, handle ellipsis-like patterns: "..." becomes "."
+        # But keep single period between letters (abbreviations)
+        text = re.sub(r"\.{2,}", ".", text)
+
+        # Step 7: Remove standalone punctuation (not attached to words)
+        # Remove standalone !, ?, ;, : not between letters
+        text = re.sub(r"(?<!\w)[?!;:,](?!\w)", "", text)
+
+        # Step 8: Remove standalone dots
+        text = re.sub(r"(?<!\w)\.(?!\w)", "", text)
+
+        # Step 9: Clean up multiple spaces
+        text = re.sub(r" +", " ", text)
+
+        # Step 10: Enforce space after punctuation when followed by letter
+        text = re.sub(r"([.,;:!?])(?=\w)", r"\1 ", text)
+
+        # Step 11: Restore protected characters
+        text = text.replace(APOS_PROTECT, "'")
+        text = text.replace(HYPHEN_PROTECT, "-")
+
+        # Step 12: Strip leading/trailing whitespace
+        text = text.strip()
+
+        return text
+
     def phonemize(
         self,
         text: str,
         convert_to_kokoro: bool = True,
+        remove_punctuation: bool = True,
     ) -> str:
         """Convert text to phonemes.
 
@@ -66,12 +143,14 @@ class EspeakBackend:
             text: Text to convert to phonemes.
             convert_to_kokoro: If True, convert espeak IPA to Kokoro format.
                               If False, return raw espeak IPA output.
-
+            remove_punctuation: If True, remove punctuation before phonemization.
         Returns:
             Phoneme string.
         """
         # Use tie character for better handling of affricates (dʒ, tʃ)
         use_tie = self.tie == "^"
+        if remove_punctuation:
+            text = self.remove_punctuation(text)
         raw_phonemes = self.wrapper.phonemize(text, use_tie=use_tie)
 
         if convert_to_kokoro:

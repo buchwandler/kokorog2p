@@ -323,6 +323,12 @@ class TestMarkdownEdgeCases:
         # Should handle gracefully
         assert len(result) > 0
 
+    def test_multiple_exclamation_marks(self):
+        text = "!!!"
+        result = phonemize_with_markdown(text, "en-us")
+        # Should handle gracefully
+        assert "! ! !" in result
+
     def test_unclosed_annotation(self):
         """Test unclosed annotation."""
         text = "[Hello](/hɛˈloʊ/ world"

@@ -41,6 +41,10 @@ class TestEnglishNormalizer:
         """Test normalization of fullwidth apostrophe."""
         assert normalizer("I＇m here") == "I'm here"
 
+    def test_multiple_exclamation_marks(self, normalizer):
+        """Test normalization of !!!."""
+        assert normalizer("!!!") == "!!!"
+
     # Backtick and acute handling tests
     def test_backtick_in_contraction(self, normalizer):
         """Test backtick inside contractions is normalized to apostrophe."""

@@ -70,6 +70,14 @@ class TestEnglishG2PNoFallback:
         assert "EnglishG2P" in result
         assert "en-us" in result
 
+    def test_multiple_exlamation_marks(self, english_g2p_no_espeak):
+        """Test !!!."""
+        tokens = english_g2p_no_espeak("!!!")
+        assert len(tokens) == 3
+        # All should have phonemes with fallback
+        for token in tokens:
+            assert token.phonemes == "!"
+
 
 @pytest.mark.espeak
 class TestEnglishG2PWithEspeak:
@@ -93,6 +101,14 @@ class TestEnglishG2PWithEspeak:
             if token.is_word:
                 assert token.phonemes is not None
 
+    def test_multiple_exlamation_marks(self, english_g2p_with_espeak):
+        """Test !!!."""
+        tokens = english_g2p_with_espeak("!!!")
+        assert len(tokens) == 3
+        # All should have phonemes with fallback
+        for token in tokens:
+            assert token.phonemes == "!"
+
 
 @pytest.mark.spacy
 class TestEnglishG2PWithSpacy:
@@ -115,6 +131,14 @@ class TestEnglishG2PWithSpacy:
         # Should have punctuation tokens
         assert any(t.text == "," for t in tokens)
         assert any(t.text == "!" for t in tokens)
+
+    def test_multiple_exlamation_marks(self, english_g2p_with_spacy):
+        """Test !!!."""
+        tokens = english_g2p_with_spacy("!!!")
+        assert len(tokens) == 3
+        # All should have phonemes with fallback
+        for token in tokens:
+            assert token.phonemes == "!"
 
     def test_punctuation_with_quotes(self, english_g2p_with_spacy):
         """Test that punctuation followed by quotes is preserved as punctuation.

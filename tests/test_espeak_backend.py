@@ -32,6 +32,12 @@ class TestEspeakBackend:
         assert isinstance(result, str)
         assert len(result) > 0
 
+    def test_multiple_exclamation_marks(self, espeak_backend):
+        """Test converting !!!."""
+        result = espeak_backend.phonemize("!!!")
+        assert isinstance(result, str)
+        assert len(result) == 0
+
     def test_phonemize_sentence(self, espeak_backend):
         """Test converting a sentence to phonemes."""
         result = espeak_backend.phonemize("Hello world")
@@ -82,6 +88,133 @@ class TestEspeakBackend:
         result = espeak_backend_gb.phonemize("hello")
         assert isinstance(result, str)
         assert len(result) > 0
+
+    def test_remove_punctuation_hyphen_preserved(self, espeak_backend):
+        """Test hyphens between letters are preserved."""
+        result = espeak_backend.remove_punctuation("my-world")
+        assert result == "my-world"
+
+    def test_remove_punctuation_single_quotes_removed(self, espeak_backend):
+        """Test single quotes around words are removed."""
+        result = espeak_backend.remove_punctuation("'Hello'")
+        assert result == "Hello"
+
+    def test_remove_punctuation_double_quotes_removed(self, espeak_backend):
+        """Test double quotes around words are removed."""
+        result = espeak_backend.remove_punctuation('"Hello"')
+        assert result == "Hello"
+
+    def test_remove_punctuation_contraction_preserved(self, espeak_backend):
+        """Test apostrophes in contractions are preserved."""
+        result = espeak_backend.remove_punctuation("don't")
+        assert result == "don't"
+        assert "'" in result
+
+    def test_remove_punctuation_possessive_preserved(self, espeak_backend):
+        """Test apostrophes in possessives are preserved."""
+        result = espeak_backend.remove_punctuation("John's book")
+        assert result == "John's book"
+
+    def test_remove_punctuation_collapse_question_marks(self, espeak_backend):
+        """Test multiple question marks collapse to one."""
+        result = espeak_backend.remove_punctuation("Hello??")
+        assert result == "Hello?"
+
+    def test_remove_punctuation_single_question_kept(self, espeak_backend):
+        """Test single question mark at end is kept."""
+        result = espeak_backend.remove_punctuation("Hello?")
+        assert result == "Hello?"
+
+    def test_remove_punctuation_standalone_question_removed(self, espeak_backend):
+        """Test standalone question mark is removed."""
+        result = espeak_backend.remove_punctuation("?")
+        assert result == ""
+
+    def test_remove_punctuation_standalone_exclamation_removed(self, espeak_backend):
+        """Test standalone exclamation mark is removed."""
+        result = espeak_backend.remove_punctuation("!")
+        assert result == ""
+
+    def test_remove_punctuation_trailing_exclamation_after_period(self, espeak_backend):
+        """Test trailing exclamation after period is removed."""
+        result = espeak_backend.remove_punctuation("I don't like you.!")
+        assert result == "I don't like you."
+
+    def test_remove_punctuation_standalone_dots_removed(self, espeak_backend):
+        """Test standalone dots are removed."""
+        result = espeak_backend.remove_punctuation("..")
+        assert result == ""
+
+    def test_remove_punctuation_ellipsis_normalized(self, espeak_backend):
+        """Test ellipsis sequences are normalized to single period."""
+        result = espeak_backend.remove_punctuation("I like this ... . Hello.")
+        assert result == "I like this. Hello."
+
+    def test_remove_punctuation_multiple_contractions(self, espeak_backend):
+        """Test multiple contractions are preserved."""
+        result = espeak_backend.remove_punctuation("we're sure you're right")
+        assert "we're" in result
+        assert "you're" in result
+
+    def test_remove_punctuation_special_symbols_preserved(self, espeak_backend):
+        """Test special symbols like @ and # are preserved."""
+        result = espeak_backend.remove_punctuation("test@example.com #tag")
+        assert "@" in result
+        assert "#" in result
+
+    def test_remove_punctuation_spacing_enforced(self, espeak_backend):
+        """Test space is enforced after punctuation."""
+        result = espeak_backend.remove_punctuation("Hello,world")
+        assert result == "Hello, world"
+
+    def test_remove_punctuation_collapse_semicolons(self, espeak_backend):
+        """Test multiple semicolons collapse to one."""
+        result = espeak_backend.remove_punctuation("Hello;;world")
+        assert result == "Hello; world"
+
+    def test_remove_punctuation_collapse_colons(self, espeak_backend):
+        """Test multiple colons collapse to one."""
+        result = espeak_backend.remove_punctuation("Hello::world")
+        assert result == "Hello: world"
+
+    def test_remove_punctuation_collapse_exclamations(self, espeak_backend):
+        """Test multiple exclamation marks collapse to one."""
+        result = espeak_backend.remove_punctuation("Hello!!world")
+        assert result == "Hello! world"
+
+    def test_remove_punctuation_abbreviation_period_kept(self, espeak_backend):
+        """Test period in abbreviation is kept."""
+        result = espeak_backend.remove_punctuation("Dr. Smith")
+        assert result == "Dr. Smith"
+
+    def test_remove_punctuation_quotes_with_contraction(self, espeak_backend):
+        """Test quotes removed but contractions kept."""
+        result = espeak_backend.remove_punctuation("'I don't know'")
+        assert "don't" in result
+        assert result.count("'") == 1  # Only contraction apostrophe
+
+    def test_remove_punctuation_empty_string(self, espeak_backend):
+        """Test empty string handling."""
+        result = espeak_backend.remove_punctuation("")
+        assert result == ""
+
+    def test_remove_punctuation_complex_sentence(self, espeak_backend):
+        """Test complex sentence with mixed punctuation."""
+        result = espeak_backend.remove_punctuation(
+            "Don't worry, 'they're' happy! What's up??"
+        )
+        assert "Don't" in result
+        assert "they're" in result
+        assert "What's" in result
+        assert "," in result
+        assert "!" in result
+        assert result.count("?") == 1  # Only one ?
+        assert "'" in result  # Contraction apostrophes present
+
+    def test_remove_punctuation_hyphen_compound_words(self, espeak_backend):
+        """Test hyphens in compound words are preserved."""
+        result = espeak_backend.remove_punctuation("state-of-the-art technology")
+        assert result == "state-of-the-art technology"
 
 
 @pytest.mark.espeak
