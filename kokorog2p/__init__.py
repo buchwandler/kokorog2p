@@ -48,6 +48,7 @@ from kokorog2p.ssmd import (
     preprocess_ssmd,
     remove_ssmd,
 )
+from kokorog2p.multilang import preprocess_multilang
 from kokorog2p.phonemes import (
     CONSONANTS,
     GB_VOCAB,
@@ -98,12 +99,6 @@ except ImportError:
 # Lazy imports for optional dependencies
 _g2p_cache: dict[str, G2PBase] = {}
 
-# Import MixedLanguageG2P for type checking
-try:
-    from kokorog2p.mixed_language_g2p import MixedLanguageG2P
-except ImportError:
-    MixedLanguageG2P = None  # type: ignore
-
 # Backend type hint
 BackendType = Literal["kokorog2p", "espeak", "goruut"]
 
@@ -144,9 +139,6 @@ def get_g2p(
     backend: BackendType = "kokorog2p",
     load_silver: bool = True,
     load_gold: bool = True,
-    multilingual_mode: bool = False,
-    allowed_languages: list[str] | None = None,
-    language_confidence_threshold: float = 0.7,
     version: str = "1.0",
     phoneme_quotes: str = "curly",
     use_ssmd: bool = False,
@@ -156,7 +148,8 @@ def get_g2p(
     """Get a G2P instance for the specified language.
 
     This factory function returns an appropriate G2P instance based on the
-    language code. Results are cached for efficiency.
+    language code. Results are cached for efficiency. For mixed-language text,
+    use preprocess_multilang before SSMD phonemization.
 
     Args:
         language: Language code (e.g., 'en-us', 'en-gb', 'zh', 'ja', 'fr', etc.).
@@ -177,24 +170,11 @@ def get_g2p(
             Defaults to True for maximum quality and coverage.
             Set to False when only silver tier or no dictionaries needed.
             Only applies to languages with dictionaries (English, French, German).
-        multilingual_mode: If True, enable automatic language detection for
-            mixed-language texts. Requires lingua-language-detector and
-            allowed_languages to be specified. Example: German text with
-            English words will be automatically detected and routed to the
-            appropriate G2P engines.
-        allowed_languages: List of languages to detect in multilingual mode.
-            Required when multilingual_mode=True. Must be explicitly specified
-            by the user. Example: ["de", "en-us", "fr"]. Each word will be
-            analyzed and routed to the appropriate language's G2P engine.
-        language_confidence_threshold: Minimum confidence (0.0-1.0) for
-            language detection in multilingual mode. Words with lower confidence
-            fall back to the primary language. Default: 0.7 (recommended).
         version: Model version to use. Default: "1.0" (base model).
             - "1.0": Base model
             - "1.1": Chinese/English model
             Different languages may have different behavior:
             - Chinese: "1.0" = IPA output, "1.1" = Zhuyin output
-            - Other languages: Generally use "1.0" for multilingual support
         phoneme_quotes: Quote character style in phoneme output. Options:
             - "curly": Use curly quotes (", ") - default, backward compatible
             - "ascii": Use ASCII double quotes (")
@@ -213,7 +193,6 @@ def get_g2p(
 
     Raises:
         ValueError: If the language is not supported and no fallback is available,
-            or if multilingual_mode=True but allowed_languages is not specified,
             or if version is not "1.0" or "1.1".
         ImportError: If backend="goruut" but pygoruut is not installed.
 
@@ -232,13 +211,6 @@ def get_g2p(
         >>> g2p_fr = get_g2p("fr")
         >>> # Using goruut backend
         >>> g2p_goruut = get_g2p("en-us", backend="goruut")
-        >>> # Mixed-language: German with English words
-        >>> g2p_mixed = get_g2p(
-        ...     language="de",
-        ...     multilingual_mode=True,
-        ...     allowed_languages=["de", "en-us"]
-        ... )
-        >>> result = g2p_mixed("Das Meeting ist great!")
     """
     # Normalize language code
     lang = language.lower().replace("_", "-")
@@ -251,34 +223,12 @@ def get_g2p(
         )
 
     # Check cache (include all relevant parameters in cache key)
-    # Convert allowed_languages list to sorted tuple for hashable cache key
-    allowed_langs_key = tuple(sorted(allowed_languages)) if allowed_languages else None
     cache_key = (
         f"{lang}:{use_espeak_fallback}:{use_goruut_fallback}:{use_spacy}:{backend}:{load_silver}:{load_gold}"
-        f":{multilingual_mode}:{allowed_langs_key}:{language_confidence_threshold}:{version}:{phoneme_quotes}:{use_ssmd}:{strict}"
+        f":{version}:{phoneme_quotes}:{use_ssmd}:{strict}"
     )
     if cache_key in _g2p_cache:
         return _g2p_cache[cache_key]
-
-    # If multilingual mode is enabled, create MixedLanguageG2P
-    if multilingual_mode:
-        from kokorog2p.mixed_language_g2p import MixedLanguageG2P
-
-        multilingual_g2p = MixedLanguageG2P(
-            primary_language=language,
-            allowed_languages=allowed_languages,
-            confidence_threshold=language_confidence_threshold,
-            enable_detection=True,
-            use_espeak_fallback=use_espeak_fallback,
-            use_goruut_fallback=use_goruut_fallback,
-            use_spacy=use_spacy,
-            load_silver=load_silver,
-            load_gold=load_gold,
-            version=version,
-            **kwargs,
-        )
-        _g2p_cache[cache_key] = multilingual_g2p
-        return multilingual_g2p
 
     # Create G2P instance based on language and backend
     g2p: G2PBase
@@ -404,9 +354,6 @@ def get_g2p(
                 backend=backend,
                 load_silver=load_silver,
                 load_gold=load_gold,
-                multilingual_mode=False,
-                allowed_languages=None,
-                language_confidence_threshold=language_confidence_threshold,
                 version=version,
                 phoneme_quotes=phoneme_quotes,
                 use_ssmd=False,
@@ -521,7 +468,6 @@ __all__ = [
     # Core classes
     "GToken",
     "G2PBase",
-    "MixedLanguageG2P",  # Mixed-language support
     # Main functions
     "phonemize",
     "tokenize",
@@ -566,6 +512,7 @@ __all__ = [
     "preprocess_ssmd",
     "apply_ssmd_features",
     "remove_ssmd",
+    "preprocess_multilang",
     "ANNOTATION_REGEX",
     "ATTR_REGEX",
 ]

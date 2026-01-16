@@ -12,8 +12,8 @@ provides:
 
 - **Multi-language support**: English (US/GB), German, French, Italian, Spanish,
   Portuguese (Brazilian), Czech, Chinese, Japanese, Korean, Hebrew
-- **Mixed-language detection**: Automatically detect and handle mixed-language texts
-  (e.g., German text with English words)
+- **Mixed-language preprocessing**: Detect languages and insert SSMD tags (e.g., German
+  text with English words)
 - **Dictionary-based lookup** with comprehensive lexicons
   - English: 179k+ entries (gold tier), 187k+ silver tier (both loaded by default)
   - German: 738k+ entries from Olaph/IPA-Dict
@@ -48,7 +48,7 @@ pip install kokorog2p[de]
 # With French support
 pip install kokorog2p[fr]
 
-# With mixed-language detection support
+# With multilang preprocessing support
 pip install kokorog2p[mixed]
 
 # With espeak-ng backend
@@ -261,150 +261,75 @@ g2p = get_g2p("en-us", backend="espeak", strict=True)
 # Your CI will fail with clear error messages if there are issues
 ```
 
-## Mixed-Language Support
+## Mixed-Language Preprocessing
 
-kokorog2p can automatically detect and handle mixed-language texts using the
-high-accuracy lingua-py library. This is especially useful for technical documents,
-social media, or any text that contains words from multiple languages.
+kokorog2p provides a standalone multilang preprocessor that detects word-level languages
+with `lingua-language-detector` and inserts SSMD `{lang="..."}` annotations. You run it
+explicitly before SSMD phonemization.
 
 ### Installation
 
 ```bash
-# Install with mixed-language support
+# Install with language detection support
 pip install kokorog2p[mixed]
 
-# Or install lingua-py directly
+# Or install lingua directly
 pip install lingua-language-detector
 ```
 
 ### Basic Usage
 
 ```python
-from kokorog2p import get_g2p
-
-# German text with English words
-g2p = get_g2p(
-    language="de",  # Primary language
-    multilingual_mode=True,
-    allowed_languages=["de", "en-us"]  # Languages to detect
-)
+from kokorog2p import phonemize_with_ssmd
+from kokorog2p.multilang import preprocess_multilang
 
 text = "Ich gehe zum Meeting. Let's discuss the Roadmap!"
-result = g2p.phonemize(text)
-# Automatically detects:
-# - "Ich gehe zum Meeting" → German G2P
-# - "Let's discuss the Roadmap" → English G2P
-```
-
-### Advanced Configuration
-
-```python
-from kokorog2p import get_g2p
-
-# Multiple languages with custom confidence threshold
-g2p = get_g2p(
-    language="en-us",  # Primary/fallback language
-    multilingual_mode=True,
-    allowed_languages=["en-us", "de", "fr", "es"],
-    language_confidence_threshold=0.6  # Lower = more aggressive detection
-)
-
-# Access detected language for each word
-tokens = g2p("Hello! Bonjour! Hola!")
-for token in tokens:
-    if token.is_word:
-        detected_lang = token.get("detected_language")
-        print(f"{token.text}: {detected_lang} → {token.phonemes}")
-```
-
-### Direct API
-
-```python
-from kokorog2p.mixed_language_g2p import MixedLanguageG2P
-
-g2p = MixedLanguageG2P(
-    primary_language="de",
+annotated = preprocess_multilang(
+    text,
+    default_language="de",
     allowed_languages=["de", "en-us"],
-    confidence_threshold=0.7,  # Default: 0.7 (recommended)
-    enable_detection=True
 )
-
-# Check cache size
-print(f"Cached words: {g2p.get_cache_size()}")
-
-# Clear cache if needed (for very large texts)
-g2p.clear_detection_cache()
+result = phonemize_with_ssmd(annotated, language="de")
 ```
 
-### How It Works
+### Confidence Threshold
 
-1. **Tokenization**: Text is split into words using the primary language's tokenizer
-2. **Detection**: Each word is analyzed by lingua-py for language identification
-3. **Routing**: Words are sent to the appropriate language-specific G2P engine
-4. **Caching**: Detection results are cached for performance
-5. **Fallback**: Words below confidence threshold use the primary language
+```python
+from kokorog2p.multilang import preprocess_multilang
 
-### Performance
-
-- **Memory**: Adds ~100 MB (lingua models) + memory for each enabled language
-- **Speed**: ~0.1-0.5 ms per word detection (very fast, Rust-based)
-- **Accuracy**: >90% for words with 5+ characters
-- **Cache**: Unlimited size by default (clear manually if needed)
-
-### Configuration Tips
-
-**Confidence Threshold:**
-
-- `0.5`: More aggressive, may mis-detect ambiguous words
-- `0.7`: **Recommended** - balanced precision and recall
-- `0.9`: Conservative, most words fall back to primary language
-
-**Allowed Languages:**
-
-- Only specify languages that actually appear in your text
-- Fewer languages = faster detection and better accuracy
-- Must be explicitly defined by the user (no defaults)
+annotated = preprocess_multilang(
+    "Hello! Bonjour! Hola!",
+    default_language="en-us",
+    allowed_languages=["en-us", "de", "fr", "es"],
+    confidence_threshold=0.6,
+)
+```
 
 ### Limitations
 
-- Very short words (<3 chars) always use primary language
-- Ambiguous words (e.g., "Supermarket" in German/English) use primary language
-- Script-based detection (Latin, Cyrillic, CJK) happens before linguistic analysis
-- Detected language must be in `allowed_languages` list
+- Very short words (<3 chars) keep the default language
+- Proper nouns may be misdetected
+- Requires `lingua-language-detector` installation
+- Detected language must be in `allowed_languages`
 
 ### Example: Technical Documentation
 
 ```python
-from kokorog2p import get_g2p
-
-# German technical manual with English terms
-g2p = get_g2p(
-    language="de",
-    multilingual_mode=True,
-    allowed_languages=["de", "en-us"]
-)
+from kokorog2p import phonemize_with_ssmd
+from kokorog2p.multilang import preprocess_multilang
 
 text = """
 Das System verwendet Machine Learning für die Performance-Optimierung.
 Der Workflow ist sehr efficient durch das Caching.
 """
 
-tokens = g2p(text)
-for token in tokens:
-    if token.is_word:
-        lang = token.get("detected_language")
-        print(f"{token.text:20} {lang:6} {token.phonemes}")
-```
-
-Output:
-
-```
-Das                  de     das
-System               de     zʏsteːm
-verwendet            de     fɛɐ̯vɛndət
-Machine              en-us  məʃˈiːn
-Learning             en-us  lˈɜːnɪŋ
-...
+annotated = preprocess_multilang(
+    text,
+    default_language="de",
+    allowed_languages=["de", "en-us"],
+)
+result = phonemize_with_ssmd(annotated, language="de")
+print(result)
 ```
 
 ## Supported Languages

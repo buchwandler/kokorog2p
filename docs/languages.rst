@@ -623,30 +623,17 @@ Usage
 
 .. code-block:: python
 
-   from kokorog2p import get_g2p
+   from kokorog2p import phonemize_with_ssmd
+   from kokorog2p.multilang import preprocess_multilang
 
-   # German text with English words
-   g2p = get_g2p(
-       language="de",
-       multilingual_mode=True,
-       allowed_languages=["de", "en-us"]
+   text = "Das Meeting war great!"
+   annotated = preprocess_multilang(
+       text,
+       default_language="de",
+       allowed_languages=["de", "en-us"],
    )
 
-   tokens = g2p("Das Meeting war great!")
-
-   for token in tokens:
-       if token.is_word:
-           detected = token.get("detected_language")
-           print(f"{token.text} ({detected}) → {token.phonemes}")
-
-Output:
-
-.. code-block:: text
-
-   Das (de) → das
-   Meeting (en-us) → mˈiɾɪŋ
-   war (de) → vaːɐ̯
-   great (en-us) → ɡɹˈeɪt
+   result = phonemize_with_ssmd(annotated, language="de")
 
 Examples
 ~~~~~~~~
@@ -655,42 +642,39 @@ Examples
 
 .. code-block:: python
 
-   from kokorog2p import phonemize
+   from kokorog2p import phonemize_with_ssmd
+   from kokorog2p.multilang import preprocess_multilang
 
-   result = phonemize(
+   annotated = preprocess_multilang(
        "Ich gehe zum Meeting. Let's discuss the Roadmap!",
-       language="de",
-       multilingual_mode=True,
-       allowed_languages=["de", "en-us"]
+       default_language="de",
+       allowed_languages=["de", "en-us"],
    )
+   result = phonemize_with_ssmd(annotated, language="de")
    print(result)
-   # → ɪç ɡeːə ʦʊm mˈiɾɪŋ. lɛts dɪskˈʌs ðə ɹˈoʊdmæp!
 
 **English with German:**
 
 .. code-block:: python
 
-   result = phonemize(
+   annotated = preprocess_multilang(
        "Hello, mein Freund! This is wunderbar.",
-       language="en-us",
-       multilingual_mode=True,
-       allowed_languages=["en-us", "de"]
+       default_language="en-us",
+       allowed_languages=["en-us", "de"],
    )
+   result = phonemize_with_ssmd(annotated, language="en-us")
    print(result)
-   # → həlˈO, maɪ̯n fʁɔɪ̯nt! ðɪs ɪz vʊndɐbaːɐ̯.
 
 **Multiple languages:**
 
 .. code-block:: python
 
-   # French, English, and German
-   g2p = get_g2p(
-       language="fr",
-       multilingual_mode=True,
-       allowed_languages=["fr", "en-us", "de"]
+   annotated = preprocess_multilang(
+       "Bonjour! The Meeting ist wichtig.",
+       default_language="fr",
+       allowed_languages=["fr", "en-us", "de"],
    )
-
-   result = g2p.phonemize("Bonjour! The Meeting ist wichtig.")
+   result = phonemize_with_ssmd(annotated, language="fr")
    print(result)
 
 Configuration
@@ -703,31 +687,20 @@ Configuration
    from kokorog2p import get_g2p
 
    # Conservative (higher confidence required)
-   g2p = get_g2p(
-       language="de",
-       multilingual_mode=True,
+   annotated = preprocess_multilang(
+       "Das Meeting ist wichtig",
+       default_language="de",
        allowed_languages=["de", "en-us"],
-       language_confidence_threshold=0.9  # Default: 0.7
+       confidence_threshold=0.9,  # Default: 0.7
    )
 
    # Aggressive (lower confidence required)
-   g2p = get_g2p(
-       language="de",
-       multilingual_mode=True,
+   annotated = preprocess_multilang(
+       "Das Meeting ist wichtig",
+       default_language="de",
        allowed_languages=["de", "en-us"],
-       language_confidence_threshold=0.5
+       confidence_threshold=0.5,
    )
-
-**Cache management:**
-
-.. code-block:: python
-
-   # Check cache size
-   cache_size = g2p.get_cache_size()
-   print(f"Cached {cache_size} detections")
-
-   # Clear cache if needed
-   g2p.clear_detection_cache()
 
 How It Works
 ~~~~~~~~~~~~
@@ -737,30 +710,23 @@ How It Works
 3. Detector returns language + confidence score
 4. If confidence ≥ threshold and language is allowed:
 
-   * Word is routed to that language's G2P engine
-   * Detection is cached for future use
-
-5. Otherwise:
-
-   * Word uses primary language G2P
-   * Short words (<3 chars) always use primary language
+   * Word is wrapped with ``[word]{lang="..."}``
+   * Short words (<3 chars) keep the default language
 
 Performance
 ~~~~~~~~~~~
 
 * **Memory**: ~100 MB for lingua models (loaded once)
-* **Speed**: ~0.1-0.5 ms per word (first detection)
-* **Speed**: ~0.001 ms per word (cached)
+* **Speed**: ~0.1-0.5 ms per word
 * **Accuracy**: >90% for words with 5+ characters
 
 Limitations
 ~~~~~~~~~~~
 
-* Short words (<3 characters) use primary language only
+* Short words (<3 characters) use the default language only
 * Proper nouns may be misdetected
-* Requires lingua-py installation (gracefully degrades without it)
+* Requires ``lingua-language-detector`` installation
 * Detection quality varies by word distinctiveness
-* Cache grows unbounded (clear manually if needed)
 
 Installation
 ~~~~~~~~~~~~
