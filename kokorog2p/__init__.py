@@ -49,6 +49,13 @@ from kokorog2p.ssmd import (
     remove_ssmd,
 )
 from kokorog2p.multilang import preprocess_multilang
+from kokorog2p.speechmarkdown import (
+    SPEECHMARKDOWN_ATTR_REGEX,
+    SPEECHMARKDOWN_REGEX,
+    phonemize_with_speechmarkdown,
+    process_speechmarkdown,
+    remove_speechmarkdown,
+)
 from kokorog2p.phonemes import (
     CONSONANTS,
     GB_VOCAB,
@@ -131,6 +138,34 @@ class SSMDG2P(G2PBase):
         )
 
 
+class SpeechMarkdownG2P(G2PBase):
+    """G2P wrapper that enables SpeechMarkdown annotations."""
+
+    def __init__(self, g2p: G2PBase, g2p_factory: Callable[[str], G2PBase]) -> None:
+        super().__init__(
+            language=g2p.language,
+            use_espeak_fallback=g2p.use_espeak_fallback,
+            use_goruut_fallback=g2p.use_goruut_fallback,
+            strict=g2p.strict,
+        )
+        self._g2p = g2p
+        self._g2p_factory = g2p_factory
+
+    def __call__(self, text: str) -> list[GToken]:
+        return self._g2p(text)
+
+    def lookup(self, word: str, tag: str | None = None) -> str | None:
+        return self._g2p.lookup(word, tag=tag)
+
+    def phonemize(self, text: str) -> str:
+        return phonemize_with_speechmarkdown(
+            text,
+            language=self.language,
+            g2p=self._g2p,
+            g2p_factory=self._g2p_factory,
+        )
+
+
 def get_g2p(
     language: str = "en-us",
     use_espeak_fallback: bool = True,
@@ -141,7 +176,7 @@ def get_g2p(
     load_gold: bool = True,
     version: str = "1.0",
     phoneme_quotes: str = "curly",
-    use_ssmd: bool = False,
+    markdown_syntax: Literal["ssmd", "speechmarkdown", "disabled"] = "disabled",
     strict: bool = True,
     **kwargs: Any,
 ) -> G2PBase:
@@ -180,8 +215,11 @@ def get_g2p(
             - "ascii": Use ASCII double quotes (")
             - "none": Remove quote characters from phoneme output
             Only applies to English currently.
-        use_ssmd: If True, return a wrapper whose phonemize() understands
+        markdown_syntax: If "ssmd", return a wrapper whose phonemize() understands
             SSMD annotations like [word]{ph="..."} and [word]{lang="..."}.
+            If "speechmarkdown", return a wrapper whose phonemize() understands
+            SpeechMarkdown annotations like (word)[ipa:"..."] or (word)[lang:"...].
+            If "disabled", return a standard G2P instance without special handling.
         strict: If True (default), raise exceptions when backend initialization
             or phonemization fails. If False, log errors and return empty results
             for backward compatibility with older versions that silently failed.
@@ -225,7 +263,7 @@ def get_g2p(
     # Check cache (include all relevant parameters in cache key)
     cache_key = (
         f"{lang}:{use_espeak_fallback}:{use_goruut_fallback}:{use_spacy}:{backend}:{load_silver}:{load_gold}"
-        f":{version}:{phoneme_quotes}:{use_ssmd}:{strict}"
+        f":{version}:{phoneme_quotes}:{markdown_syntax}:{strict}"
     )
     if cache_key in _g2p_cache:
         return _g2p_cache[cache_key]
@@ -343,7 +381,7 @@ def get_g2p(
             "Use 'espeak' or 'goruut' backend for more languages."
         )
 
-    if use_ssmd:
+    if markdown_syntax != "disabled:":
 
         def g2p_factory(override_language: str) -> G2PBase:
             return get_g2p(
@@ -356,12 +394,15 @@ def get_g2p(
                 load_gold=load_gold,
                 version=version,
                 phoneme_quotes=phoneme_quotes,
-                use_ssmd=False,
+                markdown_syntax="disabled",
                 strict=strict,
                 **kwargs,
             )
 
-        g2p = SSMDG2P(g2p, g2p_factory)
+        if markdown_syntax == "speechmarkdown":
+            g2p = SpeechMarkdownG2P(g2p, g2p_factory)
+        elif markdown_syntax == "ssmd":
+            g2p = SSMDG2P(g2p, g2p_factory)
 
     _g2p_cache[cache_key] = g2p
     return g2p
@@ -513,6 +554,11 @@ __all__ = [
     "apply_ssmd_features",
     "remove_ssmd",
     "preprocess_multilang",
+    "SPEECHMARKDOWN_REGEX",
+    "SPEECHMARKDOWN_ATTR_REGEX",
+    "process_speechmarkdown",
+    "phonemize_with_speechmarkdown",
+    "remove_speechmarkdown",
     "ANNOTATION_REGEX",
     "ATTR_REGEX",
 ]

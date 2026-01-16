@@ -29,7 +29,7 @@ Basic Usage
        allowed_languages=["en-us", "de"],
    )
 
-   g2p = get_g2p("en-us", use_ssmd=True)
+   g2p = get_g2p("en-us", markdown_syntax="ssmd")
    result = g2p.phonemize(annotated)
 
 Confidence Tuning

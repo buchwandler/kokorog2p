@@ -201,7 +201,7 @@ class TestPhonemizeWithSSMD:
 
     def test_get_g2p_with_ssmd(self):
         """Test get_g2p with SSMD enabled."""
-        g2p = get_g2p("en-us", use_ssmd=True)
+        g2p = get_g2p("en-us", markdown_sytax="ssmd")
         result = g2p.phonemize('[Test]{ph="tˈɛst"}')
         assert "tˈɛst" in result
 

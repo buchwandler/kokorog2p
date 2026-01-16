@@ -14,6 +14,7 @@ provides:
   Portuguese (Brazilian), Czech, Chinese, Japanese, Korean, Hebrew
 - **Mixed-language preprocessing**: Detect languages and insert SSMD tags (e.g., German
   text with English words)
+- **SpeechMarkdown support**: Parse (word)[ipa:"..."] and (word)[lang:"..."]
 - **Dictionary-based lookup** with comprehensive lexicons
   - English: 179k+ entries (gold tier), 187k+ silver tier (both loaded by default)
   - German: 738k+ entries from Olaph/IPA-Dict
@@ -264,8 +265,47 @@ g2p = get_g2p("en-us", backend="espeak", strict=True)
 ## Mixed-Language Preprocessing
 
 kokorog2p provides a standalone multilang preprocessor that detects word-level languages
-with `lingua-language-detector` and inserts SSMD `{lang="..."}` annotations. You run it
-explicitly before SSMD phonemization.
+with `lingua-language-detector` and inserts SSMD `[]{lang="..."}` or Speechmarkdown
+`()[lang:"..."]` annotations. You run it explicitly before SSMD/Speechmarkdown
+phonemization. Use `get_g2p(..., markdown_syntax="...")` to enable SSMD/SpeechMarkdown
+parsing get_g2p.
+
+## SSMD Support
+
+SSMD annotations like `[pecan]{ph="pɪˈkɑːn"}` and `[Paris]{lang="fr"}` are supported
+alongside SpeechMarkdown. Use `get_g2p(..., markdown_syntax="ssmd")` to enable
+SpeechMarkdown parsing.
+
+```python
+from kokorog2p import get_g2p
+
+text = (
+    'You say, [pecan]{ph="pɪˈkɑːn"}. '
+    'In Paris, they pronounce it [Paris]{lang="fr"}.'
+)
+
+g2p = get_g2p("en-us", markdown_syntax="ssmd")
+print(g2p.phonemize(text))
+```
+
+## SpeechMarkdown Support
+
+SpeechMarkdown annotations like `(pecan)[ipa:"pɪˈkɑːn"]` and `(Paris)[lang:"fr-FR"]` are
+supported alongside SSMD. Use `get_g2p(..., markdown_syntax="speechmarkdown")` to enable
+SpeechMarkdown parsing.
+
+```python
+from kokorog2p import get_g2p
+
+text = (
+    'You say, (pecan)[ipa:"pɪˈkɑːn"]. '
+    'I say, (pecan)[/ˈpi.kæn/]. '
+    'In Paris, they pronounce it (Paris)[lang:"fr-FR"].'
+)
+
+g2p = get_g2p("en-us", markdown_syntax="speechmarkdown")
+print(g2p.phonemize(text))
+```
 
 ### Installation
 

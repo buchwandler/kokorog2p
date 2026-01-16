@@ -14,9 +14,7 @@ Example:
 from __future__ import annotations
 
 import re
-from typing import Any, Final
-
-from kokorog2p.ssmd import ANNOTATION_REGEX
+from typing import Any, Final, Literal
 
 try:
     from lingua import Language, LanguageDetectorBuilder
@@ -123,6 +121,7 @@ def _map_from_lingua_language(lingua_lang: Any, allowed: list[str]) -> str:
 
 def preprocess_multilang(
     text: str,
+    markdown_syntax: Literal["ssmd", "speechmarkdown"] = "ssmd",
     default_language: str = "en-us",
     allowed_languages: list[str] | None = None,
     confidence_threshold: float = 0.7,
@@ -131,12 +130,14 @@ def preprocess_multilang(
 
     Args:
         text: Input text to annotate.
+        markdown_syntax: Input syntax type, can be either ssmd or speechmarkdown.
         default_language: Base language for unmarked words.
         allowed_languages: Language codes to detect (must include default_language).
         confidence_threshold: Minimum confidence (0.0-1.0) to accept detection.
 
     Returns:
-        Text with SSMD {lang="..."} annotations for detected words.
+        Text with SSMD []{lang="..."} annotations for detected words or
+        Text with Speechmarkdown ()[lang:"..."] annotations for detected words.
 
     Raises:
         ImportError: If lingua-language-detector is not installed.
@@ -148,6 +149,8 @@ def preprocess_multilang(
             "Install with: pip install lingua-language-detector"
         )
 
+    if markdown_syntax not in ["ssmd", "speechmarkdown"]:
+        raise ValueError('syntax must be either "ssmd" or "speechmarkdown"')
     if allowed_languages is None or len(allowed_languages) == 0:
         raise ValueError("allowed_languages must be specified and non-empty")
 
@@ -199,8 +202,13 @@ def preprocess_multilang(
                 continue
             if token.isalnum() or any(ch.isalnum() for ch in token):
                 detected = detect_language(token)
-                if detected != normalized_default:
+                if detected != normalized_default and markdown_syntax == "ssmd":
                     parts.append(f'[{token}]{{lang="{detected}"}}')
+                elif (
+                    detected != normalized_default
+                    and markdown_syntax == "speechmarkdown"
+                ):
+                    parts.append(f'({token})[lang:"{detected}"]')
                 else:
                     parts.append(token)
             else:
@@ -209,6 +217,10 @@ def preprocess_multilang(
 
     result: list[str] = []
     last_end = 0
+    if markdown_syntax == "ssmd":
+        from kokorog2p.ssmd import ANNOTATION_REGEX
+    else:  # speechmarkdown
+        from kokorog2p.speechmarkdown import SPEECHMARKDOWN_REGEX as ANNOTATION_REGEX
     for match in ANNOTATION_REGEX.finditer(text):
         result.append(process_plain_segment(text[last_end : match.start()]))
         result.append(match.group(0))
