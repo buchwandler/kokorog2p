@@ -40,7 +40,8 @@ from kokorog2p.base import G2PBase
 
 # Markdown annotation support
 from kokorog2p.markdown import (
-    LINK_REGEX,
+    ANNOTATION_REGEX,
+    ATTR_REGEX,
     apply_markdown_features,
     phonemize_with_markdown,
     preprocess_markdown,
@@ -510,5 +511,6 @@ __all__ = [
     "preprocess_markdown",
     "apply_markdown_features",
     "remove_markdown",
-    "LINK_REGEX",
+    "ANNOTATION_REGEX",
+    "ATTR_REGEX",
 ]

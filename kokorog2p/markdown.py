@@ -1,17 +1,18 @@
 """Markdown annotation support for kokorog2p.
 
-This module provides preprocessing for markdown-style phoneme annotations
-compatible with the misaki library format: [word](/phonemes/)
+This module provides preprocessing for markdown-style annotations
+compatible with the misaki library format: [word]{ph="phonemes"}
 
 Example:
     >>> from kokorog2p.markdown import preprocess_markdown
     >>> from kokorog2p import get_g2p, phonemize_with_markdown
-    >>> text = '[Misaki](/misˈɑki/) is a G2P engine.'
+    >>> text = '[Misaki]{ph="misˈɑki"} is a G2P engine. [french]{lang="fr"}'
     >>> phonemize_with_markdown(text, 'en-us')
     'misˈɑki ɪz ɐ ʤˈi tˈu pˈi ˈɛnʤən.'
 """
 
 import re
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from kokorog2p.token import GToken
@@ -20,51 +21,58 @@ if TYPE_CHECKING:
     pass
 
 
-# Regex pattern for markdown annotations: [word](/phonemes/)
-LINK_REGEX = re.compile(r"\[([^\]]+)\]\(([^\)]*)\)")
+# Regex pattern for markdown annotations: [word]{ph="phonemes" lang="en"}
+ANNOTATION_REGEX = re.compile(r"\[([^\]]+)\]\{([^}]*)\}")
+ATTR_REGEX = re.compile(r"(\w+)\s*=\s*\"([^\"]*)\"")
 
 
-def preprocess_markdown(text: str) -> tuple[str, list[str], dict[int, str]]:
+def preprocess_markdown(
+    text: str,
+) -> tuple[str, list[str], dict[int, str], dict[int, str]]:
     """Preprocess text with markdown phoneme annotations.
 
-    Extracts annotations in the format [word](/phonemes/) and returns
-    cleaned text along with feature mappings.
+    Extracts annotations in the format [word]{ph="phonemes" lang="en"}
+    and returns cleaned text along with feature mappings.
 
     Args:
         text: Text with optional markdown annotations
 
     Returns:
-        Tuple of (cleaned_text, tokens, features) where:
+        Tuple of (cleaned_text, tokens, phoneme_features, language_features) where:
         - cleaned_text: Text with annotations removed (words only)
         - tokens: List of tokens (words)
-        - features: Dict mapping token indices to phoneme strings
+        - phoneme_features: Dict mapping token indices to phoneme strings
+        - language_features: Dict mapping token indices to language codes
 
     Example:
-        >>> text = '[Misaki](/misˈɑki/) is great.'
-        >>> clean, tokens, features = preprocess_markdown(text)
+        >>> text = '[Misaki]{ph="misˈɑki"} is [great]{lang="en-gb"}.'
+        >>> clean, tokens, phonemes, languages = preprocess_markdown(text)
         >>> clean
         'Misaki is great.'
-        >>> features
+        >>> phonemes
         {0: 'misˈɑki'}
+        >>> languages
+        {2: 'en-gb'}
     """
     result = ""
     tokens = []
-    features = {}
+    phoneme_features: dict[int, str] = {}
+    language_features: dict[int, str] = {}
     last_end = 0
     text = text.lstrip()
 
-    for m in LINK_REGEX.finditer(text):
+    for m in ANNOTATION_REGEX.finditer(text):
         # Add text before this annotation
         result += text[last_end : m.start()]
         tokens.extend(text[last_end : m.start()].split())
 
-        # Extract phonemes (group 2)
-        phonemes = m.group(2)
+        attrs = {key.casefold(): value for key, value in ATTR_REGEX.findall(m.group(2))}
 
-        # Check if it's a phoneme annotation (starts and ends with /)
-        if phonemes and phonemes.startswith("/") and phonemes.endswith("/"):
-            phonemes = phonemes.strip("/")  # Remove leading and trailing slashes
-            features[len(tokens)] = phonemes
+        if "ph" in attrs:
+            phoneme_features[len(tokens)] = attrs["ph"]
+
+        if "lang" in attrs:
+            language_features[len(tokens)] = attrs["lang"]
 
         # Add the word (group 1) to result
         result += m.group(1)
@@ -76,7 +84,22 @@ def preprocess_markdown(text: str) -> tuple[str, list[str], dict[int, str]]:
         result += text[last_end:]
         tokens.extend(text[last_end:].split())
 
-    return result, tokens, features
+    return result, tokens, phoneme_features, language_features
+
+
+def align_markdown_tokens(
+    original_tokens: list[str], tokens: list[GToken]
+) -> dict[int, int]:
+    """Align original tokens to G2P tokens by word text."""
+    token_map: dict[int, int] = {}
+    for i, orig_word in enumerate(original_tokens):
+        orig_key = orig_word.casefold()
+        for j, token in enumerate(tokens):
+            if token.text.casefold() == orig_key and j not in token_map.values():
+                token_map[i] = j
+                break
+
+    return token_map
 
 
 def apply_markdown_features(
@@ -95,15 +118,7 @@ def apply_markdown_features(
     if not features:
         return tokens
 
-    # Simple alignment: match by token text
-    # This assumes G2P tokenization preserves words from preprocessing
-    token_map: dict[int, int] = {}
-    for i, orig_word in enumerate(original_tokens):
-        orig_key = orig_word.casefold()
-        for j, token in enumerate(tokens):
-            if token.text.casefold() == orig_key and j not in token_map.values():
-                token_map[i] = j
-                break
+    token_map = align_markdown_tokens(original_tokens, tokens)
 
     # Apply phoneme features
     for orig_idx, phonemes in features.items():
@@ -118,8 +133,8 @@ def apply_markdown_features(
 def phonemize_with_markdown(text: str, language: str = "en-us") -> str:
     """Phonemize text with markdown phoneme annotations.
 
-    Text with [word](/phonemes/) will use the provided phonemes.
-    Other text will be phonemized normally.
+    Text with [word]{ph="phonemes"} will use the provided phonemes.
+    Text with [word]{lang="en"} will be phonemized in the specified language.
 
     This function is compatible with misaki's markdown annotation format.
 
@@ -131,12 +146,14 @@ def phonemize_with_markdown(text: str, language: str = "en-us") -> str:
         Phonemized string with annotations applied
 
     Example:
-        >>> text = '[Misaki](/misˈɑki/) is a G2P engine for [Kokoro](/kˈOkəɹO/).'
+        >>> text = '[Misaki]{ph="misˈɑki"} is a G2P engine for [Kokoro]{ph="kˈOkəɹO"}.'
         >>> phonemize_with_markdown(text)
         'misˈɑki ɪz ɐ ʤˈi tˈu pˈi ˈɛnʤən fɔɹ kˈOkəɹO.'
     """
     # Preprocess markdown annotations
-    clean_text, orig_tokens, features = preprocess_markdown(text)
+    clean_text, orig_tokens, phoneme_features, language_features = preprocess_markdown(
+        text
+    )
 
     # Import here to avoid circular imports
     from kokorog2p import get_g2p
@@ -145,8 +162,39 @@ def phonemize_with_markdown(text: str, language: str = "en-us") -> str:
     g2p = get_g2p(language)
     tokens = g2p(clean_text)
 
+    if language_features:
+        token_map = align_markdown_tokens(orig_tokens, tokens)
+        g2p_cache: dict[str, Callable[[str], list[GToken]]] = {}
+
+        for orig_idx, override_language in language_features.items():
+            if orig_idx not in token_map:
+                continue
+
+            token_idx = token_map[orig_idx]
+            token_text = orig_tokens[orig_idx]
+            if not token_text.strip():
+                continue
+
+            if override_language not in g2p_cache:
+                g2p_cache[override_language] = get_g2p(override_language)
+
+            override_g2p = g2p_cache[override_language]
+            override_tokens = override_g2p(token_text)
+            override_phonemes = None
+            for override_token in override_tokens:
+                if override_token.text.casefold() == token_text.casefold():
+                    override_phonemes = override_token.phonemes
+                    break
+
+            if override_phonemes is None:
+                override_phonemes = " ".join(
+                    t.phonemes or "" for t in override_tokens if t.phonemes
+                )
+
+            tokens[token_idx].phonemes = override_phonemes
+
     # Apply markdown features
-    tokens = apply_markdown_features(tokens, features, orig_tokens)
+    tokens = apply_markdown_features(tokens, phoneme_features, orig_tokens)
 
     # Join phonemes
     return " ".join(t.phonemes or "" for t in tokens if t.phonemes)
@@ -162,14 +210,16 @@ def remove_markdown(text: str) -> str:
         Text with annotations removed
 
     Example:
-        >>> remove_markdown('[Misaki](/misˈɑki/) is great.')
+        >>> remove_markdown('[Misaki]{ph="misˈɑki"} is great.')
         'Misaki is great.'
     """
+    text = re.sub(r"\[([^\]]+)\]\{[^}]*\}", r"\1", text)
     return re.sub(r"\[([^\]]+)\]\([^\)]*\)", r"\1", text)
 
 
 __all__ = [
-    "LINK_REGEX",
+    "ANNOTATION_REGEX",
+    "ATTR_REGEX",
     "preprocess_markdown",
     "apply_markdown_features",
     "phonemize_with_markdown",

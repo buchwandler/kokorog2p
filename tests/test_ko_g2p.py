@@ -270,5 +270,5 @@ class TestKoreanG2PIntegration:
         from kokorog2p import phonemize_with_markdown
 
         # Test markdown phoneme override
-        result = phonemize_with_markdown("[한국어](/hɐnɡuɡʌ/) 발음", language="ko")
+        result = phonemize_with_markdown('[한국어]{ph="hɐnɡuɡʌ"} 발음', language="ko")
         assert result is not None

@@ -935,7 +935,7 @@ Combine with markdown phoneme annotations:
    )
 
    # Markdown overrides automatic detection
-   text = "Das {Meeting|ˈmiːtɪŋ} ist wichtig"
+   text = "Das [Meeting]{ph='ˈmiːtɪŋ'} ist wichtig"
 
    tokens = g2p(text)
    for tok in tokens:

@@ -14,66 +14,82 @@ class TestPreprocessMarkdown:
 
     def test_simple_annotation(self):
         """Test simple markdown annotation."""
-        text = "[Misaki](/misˈɑki/) is great."
-        clean, tokens, features = preprocess_markdown(text)
+        text = '[Misaki]{ph="misˈɑki"} is great.'
+        clean, tokens, phonemes, languages = preprocess_markdown(text)
         assert clean == "Misaki is great."
         assert "Misaki" in tokens
-        assert 0 in features
-        assert features[0] == "misˈɑki"
+        assert 0 in phonemes
+        assert phonemes[0] == "misˈɑki"
+        assert languages == {}
 
     def test_multiple_annotations(self):
         """Test multiple markdown annotations."""
-        text = "[Hello](/hɛˈloʊ/) [world](/wˈɝld/)!"
-        clean, tokens, features = preprocess_markdown(text)
+        text = '[Hello]{ph="hɛˈloʊ"} [world]{ph="wˈɝld"}!'
+        clean, tokens, phonemes, languages = preprocess_markdown(text)
         assert clean == "Hello world!"
-        assert len(features) == 2
-        assert features[0] == "hɛˈloʊ"
-        assert features[1] == "wˈɝld"
+        assert len(phonemes) == 2
+        assert phonemes[0] == "hɛˈloʊ"
+        assert phonemes[1] == "wˈɝld"
+        assert languages == {}
 
     def test_no_annotations(self):
         """Test text without annotations."""
         text = "Hello world!"
-        clean, tokens, features = preprocess_markdown(text)
+        clean, tokens, phonemes, languages = preprocess_markdown(text)
         assert clean == "Hello world!"
-        assert len(features) == 0
+        assert len(phonemes) == 0
+        assert len(languages) == 0
 
     def test_mixed_annotations_and_regular_text(self):
         """Test mix of annotated and regular text."""
-        text = "[Misaki](/misˈɑki/) is a G2P engine."
-        clean, tokens, features = preprocess_markdown(text)
+        text = '[Misaki]{ph="misˈɑki"} is a G2P engine.'
+        clean, tokens, phonemes, languages = preprocess_markdown(text)
         assert clean == "Misaki is a G2P engine."
-        assert len(features) == 1
-        assert features[0] == "misˈɑki"
+        assert len(phonemes) == 1
+        assert phonemes[0] == "misˈɑki"
+        assert languages == {}
 
-    def test_annotation_without_phoneme_slash(self):
-        """Test annotation without leading slash (should be ignored)."""
-        text = "[link](http://example.com) test"
-        clean, tokens, features = preprocess_markdown(text)
-        assert "link" in clean
-        assert len(features) == 0  # Not a phoneme annotation
+    def test_language_annotation(self):
+        """Test language annotation parsing."""
+        text = '[Bonjour]{lang="fr"} monde'
+        clean, tokens, phonemes, languages = preprocess_markdown(text)
+        assert clean == "Bonjour monde"
+        assert phonemes == {}
+        assert languages[0] == "fr"
 
-    def test_relative_link_is_not_annotation(self):
-        """Relative links should not be treated as annotations."""
-        text = "[link](/docs/page) test"
-        clean, tokens, features = preprocess_markdown(text)
-        assert "link" in clean
-        assert len(features) == 0
+    def test_combined_phoneme_and_language(self):
+        """Test combined phoneme and language annotation parsing."""
+        text = '[Test]{ph="tˈɛst" lang="de"}'
+        clean, tokens, phonemes, languages = preprocess_markdown(text)
+        assert clean == "Test"
+        assert phonemes[0] == "tˈɛst"
+        assert languages[0] == "de"
+
+    def test_annotation_without_phoneme_or_language(self):
+        """Unknown annotation attributes are ignored."""
+        text = '[link]{href="/docs/page"} test'
+        clean, tokens, phonemes, languages = preprocess_markdown(text)
+        assert clean == "link test"
+        assert phonemes == {}
+        assert languages == {}
 
     def test_empty_annotation(self):
         """Test annotation with empty phonemes."""
-        text = "[word](/) test"
-        clean, tokens, features = preprocess_markdown(text)
+        text = '[word]{ph=""} test'
+        clean, tokens, phonemes, languages = preprocess_markdown(text)
         assert "word" in clean
-        assert 0 in features
-        assert features[0] == ""
+        assert 0 in phonemes
+        assert phonemes[0] == ""
+        assert languages == {}
 
     def test_whitespace_handling(self):
         """Test whitespace in annotations."""
-        text = "  [Test](/tˈɛst/)  more text  "
-        clean, tokens, features = preprocess_markdown(text)
+        text = '  [Test]{ph="tˈɛst"}  more text  '
+        clean, tokens, phonemes, languages = preprocess_markdown(text)
         assert "Test" in clean
-        assert 0 in features
-        assert features[0] == "tˈɛst"
+        assert 0 in phonemes
+        assert phonemes[0] == "tˈɛst"
+        assert languages == {}
 
 
 class TestRemoveMarkdown:
@@ -81,13 +97,13 @@ class TestRemoveMarkdown:
 
     def test_remove_simple_annotation(self):
         """Test removing simple annotation."""
-        text = "[Misaki](/misˈɑki/) is great."
+        text = '[Misaki]{ph="misˈɑki"} is great.'
         result = remove_markdown(text)
         assert result == "Misaki is great."
 
     def test_remove_multiple_annotations(self):
         """Test removing multiple annotations."""
-        text = "[Hello](/hɛˈloʊ/) [world](/wˈɝld/)!"
+        text = '[Hello]{ph="hɛˈloʊ"} [world]{ph="wˈɝld"}!'
         result = remove_markdown(text)
         assert result == "Hello world!"
 
@@ -177,7 +193,7 @@ class TestPhonemizeWithMarkdown:
 
     def test_english_with_annotation(self):
         """Test English phonemization with annotation."""
-        text = "[Misaki](/misˈɑki/) is a G2P engine."
+        text = '[Misaki]{ph="misˈɑki"} is a G2P engine.'
         result = phonemize_with_markdown(text, "en-us")
         assert "misˈɑki" in result
         assert result.startswith("misˈɑki")
@@ -191,47 +207,57 @@ class TestPhonemizeWithMarkdown:
 
     def test_english_multiple_annotations(self):
         """Test English with multiple annotations."""
-        text = "[Misaki](/misˈɑki/) and [Kokoro](/kˈOkəɹO/) are great."
+        text = '[Misaki]{ph="misˈɑki"} and [Kokoro]{ph="kˈOkəɹO"} are great.'
         result = phonemize_with_markdown(text, "en-us")
         assert "misˈɑki" in result
         assert "kˈOkəɹO" in result
 
+    def test_language_override(self):
+        """Test language override within text."""
+        text = 'Hello [Welt]{lang="de"}.'
+        result = phonemize_with_markdown(text, "en-us")
+        assert "vɛlt" in result
+
     def test_german_with_annotation(self):
         """Test German phonemization with annotation."""
-        text = "[Hallo](/hˈaloː/) Welt!"
+        text = '[Hallo]{ph="hˈaloː"} Welt!'
         result = phonemize_with_markdown(text, "de")
         assert "hˈaloː" in result
         assert "vɛlt" in result
 
     def test_german_multiple_annotations(self):
         """Test German with multiple annotations."""
-        text = "[Hallo](/hˈaloː/) und [schön](/ʃˈøːn/)."
+        text = '[Hallo]{ph="hˈaloː"} und [schön]{ph="ʃˈøːn"}.'
         result = phonemize_with_markdown(text, "de")
         assert "hˈaloː" in result
         assert "ʃˈøːn" in result
+        text = '[Hallo]{lang="de"} und [schön]{lang="de"}.'
+        result = phonemize_with_markdown(text, "de")
+        assert "haloː" in result
+        assert "ʃøːn" in result
 
     def test_french_with_annotation(self):
         """Test French phonemization with annotation."""
-        text = "[Bonjour](/bɔ̃ʒuʁ/) le monde."
+        text = '[Bonjour]{ph="bɔ̃ʒuʁ"} le monde.'
         result = phonemize_with_markdown(text, "fr")
         assert "bɔ̃ʒuʁ" in result
 
     def test_japanese_with_annotation(self):
         """Test Japanese phonemization with annotation."""
-        text = "[こんにちは](/konnit͡ɕiɰa/) 世界"
+        text = '[こんにちは]{ph="konnit͡ɕiɰa"} 世界'
         result = phonemize_with_markdown(text, "ja")
         assert "konnit͡ɕiɰa" in result
 
     def test_chinese_with_annotation(self):
         """Test Chinese phonemization with annotation."""
-        text = "[你好](/customphoneme/) 世界"
+        text = '[你好]{ph="customphoneme"} 世界'
         result = phonemize_with_markdown(text, "zh")
         # Chinese uses different output format (Bopomofo), verify it doesn't crash
         assert len(result) > 0
 
     def test_czech_with_annotation(self):
         """Test Czech phonemization with annotation."""
-        text = "[Ahoj](/ahoj/) světe"
+        text = '[Ahoj]{ph="ahoj"} světe'
         result = phonemize_with_markdown(text, "cs")
         assert "ahoj" in result
 
@@ -247,13 +273,13 @@ class TestPhonemizeWithMarkdown:
 
     def test_special_characters_in_phonemes(self):
         """Test special IPA characters in annotations."""
-        text = "[Test](/tˈɛst/)."
+        text = '[Test]{ph="tˈɛst"}.'
         result = phonemize_with_markdown(text, "en-us")
         assert "tˈɛst" in result
 
     def test_punctuation_preserved(self):
         """Test punctuation is preserved."""
-        text = "[Hello](/hɛˈloʊ/) world!"
+        text = '[Hello]{ph="hɛˈloʊ"} world!'
         result = phonemize_with_markdown(text, "en-us")
         assert "!" in result
 
@@ -263,14 +289,14 @@ class TestMarkdownIntegration:
 
     def test_mixed_content_english(self):
         """Test mixed annotated and regular content in English."""
-        text = "This is [Misaki](/misˈɑki/), a G2P for [Kokoro](/kˈOkəɹO/) TTS."
+        text = 'This is [Misaki]{ph="misˈɑki"}, a G2P for [Kokoro]{ph="kˈOkəɹO"} TTS.'
         result = phonemize_with_markdown(text, "en-us")
         assert "misˈɑki" in result
         assert "kˈOkəɹO" in result
 
     def test_mixed_content_german(self):
         """Test mixed annotated and regular content in German."""
-        text = "Das ist [schön](/ʃˈøːn/) und [gut](/ɡˈuːt/)."
+        text = 'Das ist [schön]{ph="ʃˈøːn"} und [gut]{ph="ɡˈuːt"}.'
         result = phonemize_with_markdown(text, "de")
         assert "ʃˈøːn" in result
         assert "ɡˈuːt" in result
@@ -279,13 +305,13 @@ class TestMarkdownIntegration:
     def test_annotation_override_default(self):
         """Test annotation overrides default G2P."""
         # "test" normally phonemized differently, override with custom
-        text = "[test](/tˈɛst/) this"
+        text = '[test]{ph="tˈɛst"} this'
         result = phonemize_with_markdown(text, "en-us")
         assert "tˈɛst" in result
 
     def test_german_umlauts_with_annotation(self):
         """Test German umlauts in annotated words."""
-        text = "[Äpfel](/ˈɛpfəl/) sind [schön](/ʃˈøːn/)."
+        text = '[Äpfel]{ph="ˈɛpfəl"} sind [schön]{ph="ʃˈøːn"}.'
         result = phonemize_with_markdown(text, "de")
         assert "ˈɛpfəl" in result
         assert "ʃˈøːn" in result
@@ -293,9 +319,9 @@ class TestMarkdownIntegration:
     def test_long_text_with_annotations(self):
         """Test longer text with multiple annotations."""
         text = (
-            "[Misaki](/misˈɑki/) is a modern G2P engine designed specifically "
-            "for [Kokoro](/kˈOkəɹO/) TTS models. It supports multiple languages "
-            "including English, German, French, and [Japanese](/ʤˌæpənˈiz/)."
+            '[Misaki]{ph="misˈɑki"} is a modern G2P engine designed specifically '
+            'for [Kokoro]{ph="kˈOkəɹO"} TTS models. It supports multiple languages '
+            'including English, German, French, and [Japanese]{ph="ʤˌæpənˈiz"}.'
         )
         result = phonemize_with_markdown(text, "en-us")
         assert "misˈɑki" in result
@@ -311,14 +337,14 @@ class TestMarkdownEdgeCases:
         # Note: Without space, "Helloworld" becomes a single token
         # which won't match the individual annotations.
         # Use space for proper tokenization.
-        text = "[Hello](/hɛˈloʊ/) [world](/wˈɝld/)"
+        text = '[Hello]{ph="hɛˈloʊ"} [world]{ph="wˈɝld"}'
         result = phonemize_with_markdown(text, "en-us")
         assert "hɛˈloʊ" in result
         assert "wˈɝld" in result
 
     def test_nested_brackets(self):
         """Test nested brackets (not valid markdown but shouldn't crash)."""
-        text = "[[test]](/tˈɛst/)"
+        text = '[[test]]{ph="tˈɛst"}'
         result = phonemize_with_markdown(text, "en-us")
         # Should handle gracefully
         assert len(result) > 0
@@ -331,26 +357,26 @@ class TestMarkdownEdgeCases:
 
     def test_unclosed_annotation(self):
         """Test unclosed annotation."""
-        text = "[Hello](/hɛˈloʊ/ world"
+        text = '[Hello]{ph="hɛˈloʊ" world'
         result = phonemize_with_markdown(text, "en-us")
         # Should handle gracefully
         assert len(result) > 0
 
     def test_annotation_with_numbers(self):
         """Test annotation with numbers."""
-        text = "[Test123](/tˈɛst/) ok"
+        text = '[Test123]{ph="tˈɛst"} ok'
         result = phonemize_with_markdown(text, "en-us")
         assert "tˈɛst" in result
 
     def test_very_long_phoneme_string(self):
         """Test very long phoneme string."""
         long_phonemes = "a" * 1000
-        text = f"[test](/{long_phonemes}/)"
+        text = f'[test]{{ph="{long_phonemes}"}}'
         result = phonemize_with_markdown(text, "en-us")
         assert long_phonemes in result
 
     def test_unicode_in_annotations(self):
         """Test unicode characters in annotations."""
-        text = "[こんにちは](/konnit͡ɕiɰa/) test"
+        text = '[こんにちは]{ph="konnit͡ɕiɰa"} test'
         result = phonemize_with_markdown(text, "ja")
         assert "konnit͡ɕiɰa" in result
