@@ -137,7 +137,7 @@ Rating System
 
 Tokens have a rating indicating the source of phonemes:
 
-* **5**: User-provided (markdown annotations) or gold dictionary (highest quality)
+* **5**: User-provided (SSMD annotations) or gold dictionary (highest quality)
 * **4**: Punctuation
 * **3**: Silver dictionary or rule-based conversion
 * **2**: From espeak-ng fallback
@@ -919,10 +919,10 @@ Provide hints for specific words:
            tok.phonemes = "mˈiɾɪŋ"
            tok["detected_language"] = "en-us"
 
-Integration with Markdown
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Integration with SSMD
+~~~~~~~~~~~~~~~~~~~~~
 
-Combine with markdown phoneme annotations:
+Combine with SSMD phoneme annotations:
 
 .. code-block:: python
 
@@ -931,10 +931,11 @@ Combine with markdown phoneme annotations:
    g2p = get_g2p(
        language="de",
        multilingual_mode=True,
-       allowed_languages=["de", "en-us"]
+       allowed_languages=["de", "en-us"],
+       use_ssmd=True,
    )
 
-   # Markdown overrides automatic detection
+   # SSMD overrides automatic detection
    text = "Das [Meeting]{ph='ˈmiːtɪŋ'} ist wichtig"
 
    tokens = g2p(text)

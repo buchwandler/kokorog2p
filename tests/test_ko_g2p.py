@@ -265,10 +265,10 @@ class TestKoreanG2PIntegration:
         assert isinstance(result, str)
         assert len(result) > 0
 
-    def test_korean_with_markdown(self):
-        """Test Korean G2P with markdown annotations."""
-        from kokorog2p import phonemize_with_markdown
+    def test_korean_with_ssmd(self):
+        """Test Korean G2P with SSMD annotations."""
+        from kokorog2p import phonemize_with_ssmd
 
-        # Test markdown phoneme override
-        result = phonemize_with_markdown('[한국어]{ph="hɐnɡuɡʌ"} 발음', language="ko")
+        # Test SSMD phoneme override
+        result = phonemize_with_ssmd('[한국어]{ph="hɐnɡuɡʌ"} 발음', language="ko")
         assert result is not None
