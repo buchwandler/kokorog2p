@@ -1,5 +1,6 @@
 """Tests for the markdown annotation module."""
 
+from kokorog2p import get_g2p
 from kokorog2p.markdown import (
     apply_markdown_features,
     phonemize_with_markdown,
@@ -197,6 +198,12 @@ class TestPhonemizeWithMarkdown:
         result = phonemize_with_markdown(text, "en-us")
         assert "misˈɑki" in result
         assert result.startswith("misˈɑki")
+
+    def test_get_g2p_with_markdown(self):
+        """Test get_g2p with markdown enabled."""
+        g2p = get_g2p("en-us", use_markdown=True)
+        result = g2p.phonemize('[Test]{ph="tˈɛst"}')
+        assert "tˈɛst" in result
 
     def test_english_without_annotation(self):
         """Test English phonemization without annotation."""

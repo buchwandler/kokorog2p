@@ -34,6 +34,7 @@ Example:
     ...     print(f"{token.text} -> {token.phonemes}")
 """
 
+from collections.abc import Callable
 from typing import Any, Literal, Optional, Union
 
 from kokorog2p.base import G2PBase
@@ -107,6 +108,34 @@ except ImportError:
 BackendType = Literal["kokorog2p", "espeak", "goruut"]
 
 
+class MarkdownG2P(G2PBase):
+    """G2P wrapper that enables markdown phoneme annotations."""
+
+    def __init__(self, g2p: G2PBase, g2p_factory: Callable[[str], G2PBase]) -> None:
+        super().__init__(
+            language=g2p.language,
+            use_espeak_fallback=g2p.use_espeak_fallback,
+            use_goruut_fallback=g2p.use_goruut_fallback,
+            strict=g2p.strict,
+        )
+        self._g2p = g2p
+        self._g2p_factory = g2p_factory
+
+    def __call__(self, text: str) -> list[GToken]:
+        return self._g2p(text)
+
+    def lookup(self, word: str, tag: str | None = None) -> str | None:
+        return self._g2p.lookup(word, tag=tag)
+
+    def phonemize(self, text: str) -> str:
+        return phonemize_with_markdown(
+            text,
+            language=self.language,
+            g2p=self._g2p,
+            g2p_factory=self._g2p_factory,
+        )
+
+
 def get_g2p(
     language: str = "en-us",
     use_espeak_fallback: bool = True,
@@ -120,6 +149,7 @@ def get_g2p(
     language_confidence_threshold: float = 0.7,
     version: str = "1.0",
     phoneme_quotes: str = "curly",
+    use_markdown: bool = False,
     strict: bool = True,
     **kwargs: Any,
 ) -> G2PBase:
@@ -170,6 +200,8 @@ def get_g2p(
             - "ascii": Use ASCII double quotes (")
             - "none": Remove quote characters from phoneme output
             Only applies to English currently.
+        use_markdown: If True, return a wrapper whose phonemize() understands
+            markdown annotations like [word]{ph="..."} and [word]{lang="..."}.
         strict: If True (default), raise exceptions when backend initialization
             or phonemization fails. If False, log errors and return empty results
             for backward compatibility with older versions that silently failed.
@@ -223,7 +255,7 @@ def get_g2p(
     allowed_langs_key = tuple(sorted(allowed_languages)) if allowed_languages else None
     cache_key = (
         f"{lang}:{use_espeak_fallback}:{use_goruut_fallback}:{use_spacy}:{backend}:{load_silver}:{load_gold}"
-        f":{multilingual_mode}:{allowed_langs_key}:{language_confidence_threshold}:{version}:{phoneme_quotes}:{strict}"
+        f":{multilingual_mode}:{allowed_langs_key}:{language_confidence_threshold}:{version}:{phoneme_quotes}:{use_markdown}:{strict}"
     )
     if cache_key in _g2p_cache:
         return _g2p_cache[cache_key]
@@ -360,6 +392,29 @@ def get_g2p(
             f"Unsupported language '{language}' for kokorog2p backend. "
             "Use 'espeak' or 'goruut' backend for more languages."
         )
+
+    if use_markdown:
+
+        def g2p_factory(override_language: str) -> G2PBase:
+            return get_g2p(
+                language=override_language,
+                use_espeak_fallback=use_espeak_fallback,
+                use_goruut_fallback=use_goruut_fallback,
+                use_spacy=use_spacy,
+                backend=backend,
+                load_silver=load_silver,
+                load_gold=load_gold,
+                multilingual_mode=False,
+                allowed_languages=None,
+                language_confidence_threshold=language_confidence_threshold,
+                version=version,
+                phoneme_quotes=phoneme_quotes,
+                use_markdown=False,
+                strict=strict,
+                **kwargs,
+            )
+
+        g2p = MarkdownG2P(g2p, g2p_factory)
 
     _g2p_cache[cache_key] = g2p
     return g2p

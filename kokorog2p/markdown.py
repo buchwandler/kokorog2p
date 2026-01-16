@@ -13,12 +13,12 @@ Example:
 
 import re
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from kokorog2p.token import GToken
 
 if TYPE_CHECKING:
-    pass
+    from kokorog2p.base import G2PBase
 
 
 # Regex pattern for markdown annotations: [word]{ph="phonemes" lang="en"}
@@ -130,7 +130,12 @@ def apply_markdown_features(
     return tokens
 
 
-def phonemize_with_markdown(text: str, language: str = "en-us") -> str:
+def phonemize_with_markdown(
+    text: str,
+    language: str = "en-us",
+    g2p: Optional["G2PBase"] = None,
+    g2p_factory: Callable[[str], "G2PBase"] | None = None,
+) -> str:
     """Phonemize text with markdown phoneme annotations.
 
     Text with [word]{ph="phonemes"} will use the provided phonemes.
@@ -141,6 +146,8 @@ def phonemize_with_markdown(text: str, language: str = "en-us") -> str:
     Args:
         text: Text with optional markdown phoneme annotations
         language: Language code for G2P (default: 'en-us')
+        g2p: Optional G2P instance to reuse
+        g2p_factory: Optional factory for language overrides
 
     Returns:
         Phonemized string with annotations applied
@@ -159,12 +166,15 @@ def phonemize_with_markdown(text: str, language: str = "en-us") -> str:
     from kokorog2p import get_g2p
 
     # Phonemize the cleaned text
-    g2p = get_g2p(language)
+    if g2p is None:
+        g2p = get_g2p(language)
+    if g2p_factory is None:
+        g2p_factory = get_g2p
     tokens = g2p(clean_text)
 
     if language_features:
         token_map = align_markdown_tokens(orig_tokens, tokens)
-        g2p_cache: dict[str, Callable[[str], list[GToken]]] = {}
+        g2p_cache: dict[str, G2PBase] = {}
 
         for orig_idx, override_language in language_features.items():
             if orig_idx not in token_map:
@@ -176,7 +186,7 @@ def phonemize_with_markdown(text: str, language: str = "en-us") -> str:
                 continue
 
             if override_language not in g2p_cache:
-                g2p_cache[override_language] = get_g2p(override_language)
+                g2p_cache[override_language] = g2p_factory(override_language)
 
             override_g2p = g2p_cache[override_language]
             override_tokens = override_g2p(token_text)
