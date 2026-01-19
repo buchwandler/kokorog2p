@@ -1,84 +1,13 @@
 """Span-based annotation processing for deterministic override application.
 
-This module provides conversion from annotated text (SSMD/SpeechMarkdown) to
-offset-based spans, enabling deterministic phoneme/language override application
-even with duplicates, punctuation, and mixed languages.
+This module provides offset-based span processing for enabling deterministic
+phoneme/language override application even with duplicates, punctuation, and
+mixed languages.
 """
 
-import re
 from typing import Literal
 
-from kokorog2p.attr_parser import parse_attributes
 from kokorog2p.types import OverrideSpan, TokenSpan
-
-# Regex for SSMD annotations: [word]{attrs}
-SSMD_ANNOTATION_REGEX = re.compile(r"\[([^\]]+)\]\{([^}]*)\}")
-
-
-def parse_ssmd_to_spans(
-    text: str,
-) -> tuple[str, list[OverrideSpan], list[str]]:
-    """Parse SSMD-annotated text into clean text and override spans.
-
-    Converts annotations like [word]{ph="..." lang="..."} into character-offset spans
-    that refer to positions in the cleaned text.
-
-    Args:
-        text: Text with SSMD annotations.
-
-    Returns:
-        Tuple of (clean_text, override_spans, warnings) where:
-        - clean_text: Text with annotations removed (only words/punctuation/spaces)
-        - override_spans: List of OverrideSpan with char offsets in clean_text
-        - warnings: List of warning messages
-
-    Example:
-        >>> parse_ssmd_to_spans('[Hello]{ph="hɛloʊ"} world!')
-        ('Hello world!', [OverrideSpan(0, 5, {'ph': 'hɛloʊ'})], [])
-    """
-    clean_parts: list[str] = []
-    override_spans: list[OverrideSpan] = []
-    warnings: list[str] = []
-    current_pos = 0  # Position in clean_text
-    last_end = 0  # Position in original text
-
-    for match in SSMD_ANNOTATION_REGEX.finditer(text):
-        # Add text before this annotation to clean output
-        before_text = text[last_end : match.start()]
-        clean_parts.append(before_text)
-        current_pos += len(before_text)
-
-        # Extract word and parse attributes
-        word = match.group(1)
-        attr_text = match.group(2)
-        attrs, parse_warnings = parse_attributes(attr_text)
-
-        # Record parse warnings with context
-        for pw in parse_warnings:
-            warnings.append(
-                f"Attribute parse warning in annotation at position {match.start()}: {pw.message}"
-            )
-
-        # Only create override span if we have relevant attrs
-        if attrs:
-            span = OverrideSpan(
-                char_start=current_pos,
-                char_end=current_pos + len(word),
-                attrs=attrs,
-            )
-            override_spans.append(span)
-
-        # Add word to clean output
-        clean_parts.append(word)
-        current_pos += len(word)
-        last_end = match.end()
-
-    # Add remaining text after last annotation
-    if last_end < len(text):
-        clean_parts.append(text[last_end:])
-
-    clean_text = "".join(clean_parts)
-    return clean_text, override_spans, warnings
 
 
 def apply_overrides_to_tokens(
@@ -223,7 +152,6 @@ def tokens_to_text_with_spacing(tokens: list[TokenSpan]) -> str:
 
 
 __all__ = [
-    "parse_ssmd_to_spans",
     "apply_overrides_to_tokens",
     "tokens_to_text_with_spacing",
 ]

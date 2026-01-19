@@ -1,105 +1,7 @@
 """Tests for span-based override processing."""
 
-from kokorog2p.span_processing import apply_overrides_to_tokens, parse_ssmd_to_spans
+from kokorog2p.span_processing import apply_overrides_to_tokens
 from kokorog2p.types import OverrideSpan, TokenSpan
-
-
-class TestParseSSMDToSpans:
-    """Tests for parse_ssmd_to_spans function."""
-
-    def test_simple_annotation(self):
-        """Test simple SSMD annotation converts to span."""
-        clean, spans, warnings = parse_ssmd_to_spans('[Hello]{ph="hɛloʊ"}')
-        assert clean == "Hello"
-        assert len(spans) == 1
-        assert spans[0].char_start == 0
-        assert spans[0].char_end == 5
-        assert spans[0].attrs["ph"] == "hɛloʊ"
-        assert len(warnings) == 0
-
-    def test_annotation_with_surrounding_text(self):
-        """Test annotation with text before and after."""
-        clean, spans, warnings = parse_ssmd_to_spans('Say [Hello]{ph="hɛloʊ"} world!')
-        assert clean == "Say Hello world!"
-        assert len(spans) == 1
-        assert spans[0].char_start == 4  # After "Say "
-        assert spans[0].char_end == 9  # "Hello" is 5 chars
-        assert spans[0].attrs["ph"] == "hɛloʊ"
-        assert len(warnings) == 0
-
-    def test_multiple_annotations(self):
-        """Test multiple annotations in same text."""
-        clean, spans, warnings = parse_ssmd_to_spans(
-            '[Hello]{ph="hɛloʊ"} [world]{ph="wɝld"}!'
-        )
-        assert clean == "Hello world!"
-        assert len(spans) == 2
-        assert spans[0].char_start == 0
-        assert spans[0].char_end == 5
-        assert spans[0].attrs["ph"] == "hɛloʊ"
-        assert spans[1].char_start == 6
-        assert spans[1].char_end == 11
-        assert spans[1].attrs["ph"] == "wɝld"
-        assert len(warnings) == 0
-
-    def test_duplicate_words(self):
-        """Test that duplicate words get separate spans with correct offsets."""
-        clean, spans, warnings = parse_ssmd_to_spans(
-            'The [the]{ph="ðə"} and [the]{ph="ði"} end'
-        )
-        assert clean == "The the and the end"
-        assert len(spans) == 2
-        # First "the" at position 4-7
-        assert spans[0].char_start == 4
-        assert spans[0].char_end == 7
-        assert spans[0].attrs["ph"] == "ðə"
-        # Second "the" at position 12-15
-        assert spans[1].char_start == 12
-        assert spans[1].char_end == 15
-        assert spans[1].attrs["ph"] == "ði"
-        assert len(warnings) == 0
-
-    def test_punctuation_adjacent(self):
-        """Test annotation with adjacent punctuation."""
-        clean, spans, warnings = parse_ssmd_to_spans('[Hello]{ph="hɛloʊ"}, world!')
-        assert clean == "Hello, world!"
-        assert len(spans) == 1
-        assert spans[0].char_start == 0
-        assert spans[0].char_end == 5  # "Hello" only, not comma
-        assert len(warnings) == 0
-
-    def test_multiple_attributes(self):
-        """Test annotation with multiple attributes."""
-        clean, spans, warnings = parse_ssmd_to_spans(
-            '[Bonjour]{ph="bɔ̃ʒuʁ" lang="fr"} monde'
-        )
-        assert clean == "Bonjour monde"
-        assert len(spans) == 1
-        assert spans[0].attrs["ph"] == "bɔ̃ʒuʁ"
-        assert spans[0].attrs["lang"] == "fr"
-        assert len(warnings) == 0
-
-    def test_single_quotes(self):
-        """Test annotation with single quotes."""
-        clean, spans, warnings = parse_ssmd_to_spans("[Hello]{ph='hɛloʊ'}")
-        assert clean == "Hello"
-        assert len(spans) == 1
-        assert spans[0].attrs["ph"] == "hɛloʊ"
-        assert len(warnings) == 0
-
-    def test_no_annotations(self):
-        """Test plain text without annotations."""
-        clean, spans, warnings = parse_ssmd_to_spans("Hello world!")
-        assert clean == "Hello world!"
-        assert len(spans) == 0
-        assert len(warnings) == 0
-
-    def test_empty_attributes(self):
-        """Test annotation with empty braces."""
-        clean, spans, warnings = parse_ssmd_to_spans("[Hello]{}")
-        assert clean == "Hello"
-        assert len(spans) == 0  # No attrs, so no span created
-        assert len(warnings) == 0
 
 
 class TestApplyOverridesToTokens:
@@ -280,4 +182,227 @@ class TestApplyOverridesToTokens:
 
         assert len(result_tokens) == 1
         assert "ph" not in result_tokens[0].meta
+        assert len(warnings) == 0
+
+
+class TestGoldenEdgeCases:
+    """Golden tests for complex edge cases (K2P-5)."""
+
+    def test_punctuation_within_override_span(self):
+        """Test override span that includes punctuation tokens."""
+        tokens = [
+            TokenSpan("New", 0, 3),
+            TokenSpan("York", 4, 8),
+            TokenSpan("'", 8, 9),
+            TokenSpan("s", 9, 10),
+        ]
+        # Override includes the apostrophe
+        overrides = [OverrideSpan(0, 10, {"ph": "nuː jɔːks", "lang": "en-us"})]
+
+        result_tokens, warnings = apply_overrides_to_tokens(tokens, overrides)
+
+        # All tokens in span should get the override
+        assert result_tokens[0].meta["ph"] == "nuː jɔːks"
+        assert result_tokens[1].meta["ph"] == "nuː jɔːks"
+        assert result_tokens[2].meta["ph"] == "nuː jɔːks"
+        assert result_tokens[3].meta["ph"] == "nuː jɔːks"
+        assert all(t.lang == "en-us" for t in result_tokens)
+        assert len(warnings) == 0
+
+    def test_adjacent_punctuation_not_in_span(self):
+        """Test that adjacent punctuation is NOT overridden if outside span."""
+        tokens = [
+            TokenSpan('"', 0, 1),
+            TokenSpan("Hello", 1, 6),
+            TokenSpan('"', 6, 7),
+        ]
+        # Override only the word, not the quotes
+        overrides = [OverrideSpan(1, 6, {"ph": "hɛloʊ"})]
+
+        result_tokens, warnings = apply_overrides_to_tokens(tokens, overrides)
+
+        assert "ph" not in result_tokens[0].meta  # First quote
+        assert result_tokens[1].meta["ph"] == "hɛloʊ"  # Word
+        assert "ph" not in result_tokens[2].meta  # Second quote
+        assert len(warnings) == 0
+
+    def test_multi_attribute_override(self):
+        """Test override with multiple custom attributes."""
+        tokens = [TokenSpan("test", 0, 4)]
+        overrides = [
+            OverrideSpan(
+                0,
+                4,
+                {
+                    "ph": "tɛst",
+                    "lang": "en-us",
+                    "rate": "slow",
+                    "emphasis": "strong",
+                    "volume": "loud",
+                    "pitch": "+10Hz",
+                },
+            )
+        ]
+
+        result_tokens, warnings = apply_overrides_to_tokens(tokens, overrides)
+
+        # Check all attributes are applied
+        assert result_tokens[0].meta["ph"] == "tɛst"
+        assert result_tokens[0].lang == "en-us"
+        assert result_tokens[0].meta["rate"] == "slow"
+        assert result_tokens[0].meta["emphasis"] == "strong"
+        assert result_tokens[0].meta["volume"] == "loud"
+        assert result_tokens[0].meta["pitch"] == "+10Hz"
+        assert result_tokens[0].meta["rating"] == 5
+        assert len(warnings) == 0
+
+    def test_overlapping_overrides_priority(self):
+        """Test that later overrides take precedence for overlapping spans."""
+        tokens = [
+            TokenSpan("Hello", 0, 5),
+            TokenSpan("world", 6, 11),
+        ]
+        overrides = [
+            OverrideSpan(0, 11, {"ph": "first", "custom1": "A"}),
+            OverrideSpan(6, 11, {"ph": "second", "custom2": "B"}),
+        ]
+
+        result_tokens, warnings = apply_overrides_to_tokens(tokens, overrides)
+
+        # First token gets first override only
+        assert result_tokens[0].meta["ph"] == "first"
+        assert result_tokens[0].meta["custom1"] == "A"
+        # Second token gets BOTH overrides merged (later ph wins)
+        assert result_tokens[1].meta["ph"] == "second"  # Later override wins
+        assert result_tokens[1].meta["custom1"] == "A"  # From first override
+        assert result_tokens[1].meta["custom2"] == "B"  # From second override
+        assert len(warnings) == 0
+
+    def test_unicode_text_with_overrides(self):
+        """Test overrides work correctly with Unicode text."""
+        tokens = [
+            TokenSpan("Café", 0, 4),
+            TokenSpan("naïve", 5, 10),
+            TokenSpan("résumé", 11, 17),
+        ]
+        overrides = [
+            OverrideSpan(0, 4, {"ph": "kæˈfeɪ", "lang": "en-us"}),
+            OverrideSpan(5, 10, {"ph": "naɪˈiv"}),
+            OverrideSpan(11, 17, {"ph": "ˈɹɛzəˌmeɪ"}),
+        ]
+
+        result_tokens, warnings = apply_overrides_to_tokens(tokens, overrides)
+
+        assert result_tokens[0].meta["ph"] == "kæˈfeɪ"
+        assert result_tokens[1].meta["ph"] == "naɪˈiv"
+        assert result_tokens[2].meta["ph"] == "ˈɹɛzəˌmeɪ"
+        assert len(warnings) == 0
+
+    def test_whitespace_only_between_tokens(self):
+        """Test that whitespace-only gaps don't affect override matching."""
+        tokens = [
+            TokenSpan("Hello", 0, 5),  # char 0-5
+            TokenSpan("world", 7, 12),  # char 7-12 (gap at 5-7)
+        ]
+        # Override that spans the gap
+        overrides = [OverrideSpan(0, 12, {"ph": "hɛloʊ wɝld"})]
+
+        result_tokens, warnings = apply_overrides_to_tokens(tokens, overrides)
+
+        # Both tokens should get the override despite the gap
+        assert result_tokens[0].meta["ph"] == "hɛloʊ wɝld"
+        assert result_tokens[1].meta["ph"] == "hɛloʊ wɝld"
+        assert len(warnings) == 0
+
+    def test_zero_width_span_snaps(self):
+        """Test that zero-width spans snap to containing token."""
+        tokens = [TokenSpan("Hello", 0, 5)]
+        overrides = [OverrideSpan(3, 3, {"ph": "test"})]  # Zero-width span
+
+        result_tokens, warnings = apply_overrides_to_tokens(tokens, overrides)
+
+        # Zero-width span within token snaps to that token
+        assert result_tokens[0].meta["ph"] == "test"
+        assert len(warnings) == 1
+        assert "snapping" in warnings[0].lower()
+
+    def test_duplicate_word_three_instances(self):
+        """Test three instances of same word with different overrides."""
+        tokens = [
+            TokenSpan("read", 0, 4),  # Present tense: /ɹiːd/
+            TokenSpan("I", 5, 6),
+            TokenSpan("read", 7, 11),  # Past tense: /ɹɛd/
+            TokenSpan("and", 12, 15),
+            TokenSpan("read", 16, 20),  # Present tense: /ɹiːd/
+        ]
+        overrides = [
+            OverrideSpan(0, 4, {"ph": "ɹiːd"}),  # First: present
+            OverrideSpan(7, 11, {"ph": "ɹɛd"}),  # Second: past
+            OverrideSpan(16, 20, {"ph": "ɹiːd"}),  # Third: present
+        ]
+
+        result_tokens, warnings = apply_overrides_to_tokens(tokens, overrides)
+
+        assert result_tokens[0].meta["ph"] == "ɹiːd"
+        assert "ph" not in result_tokens[1].meta
+        assert result_tokens[2].meta["ph"] == "ɹɛd"
+        assert "ph" not in result_tokens[3].meta
+        assert result_tokens[4].meta["ph"] == "ɹiːd"
+        assert len(warnings) == 0
+
+    def test_multi_token_phrase_override(self):
+        """Test override spanning a complete multi-word phrase."""
+        tokens = [
+            TokenSpan("The", 0, 3),
+            TokenSpan("United", 4, 10),
+            TokenSpan("States", 11, 17),
+            TokenSpan("of", 18, 20),
+            TokenSpan("America", 21, 28),
+        ]
+        # Override for "United States of America"
+        overrides = [OverrideSpan(4, 28, {"ph": "juːˌnaɪtɪd steɪts əv əˈmɛɹɪkə"})]
+
+        result_tokens, warnings = apply_overrides_to_tokens(tokens, overrides)
+
+        assert "ph" not in result_tokens[0].meta  # "The"
+        # All tokens in phrase get same phonemes
+        expected_ph = "juːˌnaɪtɪd steɪts əv əˈmɛɹɪkə"
+        assert result_tokens[1].meta["ph"] == expected_ph
+        assert result_tokens[2].meta["ph"] == expected_ph
+        assert result_tokens[3].meta["ph"] == expected_ph
+        assert result_tokens[4].meta["ph"] == expected_ph
+        assert len(warnings) == 0
+
+    def test_partial_token_overlap_at_boundary(self):
+        """Test override that ends exactly at token boundary."""
+        tokens = [
+            TokenSpan("Hello", 0, 5),
+            TokenSpan("world", 6, 11),
+            TokenSpan("!", 11, 12),
+        ]
+        # Override ends exactly where "world" ends
+        overrides = [OverrideSpan(0, 11, {"ph": "hɛloʊ wɝld"})]
+
+        result_tokens, warnings = apply_overrides_to_tokens(tokens, overrides)
+
+        assert result_tokens[0].meta["ph"] == "hɛloʊ wɝld"
+        assert result_tokens[1].meta["ph"] == "hɛloʊ wɝld"
+        assert "ph" not in result_tokens[2].meta  # Punctuation not included
+        assert len(warnings) == 0
+
+    def test_attribute_merging_different_keys(self):
+        """Test that different attributes from multiple overrides are merged."""
+        tokens = [TokenSpan("test", 0, 4)]
+        overrides = [
+            OverrideSpan(0, 4, {"ph": "tɛst"}),
+            OverrideSpan(0, 4, {"lang": "en-us"}),
+            OverrideSpan(0, 4, {"rate": "slow"}),
+        ]
+
+        result_tokens, warnings = apply_overrides_to_tokens(tokens, overrides)
+
+        # All attributes should be present (last wins for duplicates)
+        assert result_tokens[0].meta["ph"] == "tɛst"
+        assert result_tokens[0].lang == "en-us"
+        assert result_tokens[0].meta["rate"] == "slow"
         assert len(warnings) == 0

@@ -12,9 +12,7 @@ provides:
 
 - **Multi-language support**: English (US/GB), German, French, Italian, Spanish,
   Portuguese (Brazilian), Czech, Chinese, Japanese, Korean, Hebrew
-- **Mixed-language preprocessing**: Detect languages and insert SSMD tags (e.g., German
-  text with English words)
-- **SpeechMarkdown support**: Parse (word)[ipa:"..."] and (word)[lang:"..."]
+- **Mixed-language preprocessing**: Detect languages for per-word language switching
 - **Dictionary-based lookup** with comprehensive lexicons
   - English: 179k+ entries (gold tier), 187k+ silver tier (both loaded by default)
   - German: 738k+ entries from Olaph/IPA-Dict
@@ -262,14 +260,6 @@ g2p = get_g2p("en-us", backend="espeak", strict=True)
 # Your CI will fail with clear error messages if there are issues
 ```
 
-## Mixed-Language Preprocessing
-
-kokorog2p provides a standalone multilang preprocessor that detects word-level languages
-with `lingua-language-detector` and inserts SSMD `[]{lang="..."}` or Speechmarkdown
-`()[lang:"..."]` annotations. You run it explicitly before SSMD/Speechmarkdown
-phonemization. Use `get_g2p(..., markdown_syntax="...")` to enable SSMD/SpeechMarkdown
-parsing get_g2p.
-
 ## Pipeline-Friendly API (NEW)
 
 kokorog2p now provides a **span-based phonemization API** designed for integration with
@@ -311,36 +301,12 @@ result = phonemize_to_result(text, lang="en-us", overrides=overrides)
 # "Bonjour" phonemized with French G2P
 ```
 
-### SSMD Convenience Wrapper
-
-Use SSMD markup syntax for human-readable annotations:
-
-```python
-from kokorog2p import phonemize_ssmd, phonemize_ssmd_to_result
-
-# Simple usage
-phonemes = phonemize_ssmd("[the]{ph='ðə'} cat [the]{ph='ði'} dog")
-# Output: "ðə kˈæt ði dˈɔɡ"
-
-# With detailed results
-result = phonemize_ssmd_to_result("[Paris]{lang='fr'} is beautiful")
-print(result.phonemes)
-print(result.warnings)  # Check for alignment issues
-
-# Both phonemes and token IDs
-phonemes, ids = phonemize_ssmd(
-    "[hello]{ph='həlˈO'} world",
-    return_phonemes=True,
-    return_ids=True
-)
-```
-
 ### Documentation
 
 - **[API Reference](docs/api.md)** - Complete function documentation
 - **[Span Guide](docs/spans.md)** - Understanding character offsets and alignment
-- **[SSMD Syntax](docs/ssmd.md)** - Markup grammar and examples
-- **[Examples](examples/new_api_demo.py)** - Working code examples
+- **[Marker Helper](docs/markers.md)** - Convenient marker-based override syntax
+- **[Examples](examples/)** - Working code examples
 
 ### Use Cases
 
@@ -350,47 +316,11 @@ phonemes, ids = phonemize_ssmd(
 token IDs directly without manual conversion ✅ **Debugging**: Comprehensive warnings
 for alignment issues
 
-## SSMD Support
+## Mixed-Language Preprocessing
 
-SSMD annotations like `[pecan]{ph="pɪˈkɑːn"}` and `[Paris]{lang="fr"}` are supported
-alongside SpeechMarkdown. Use `get_g2p(..., markdown_syntax="ssmd")` to enable
-SpeechMarkdown parsing, or use the new `phonemize_ssmd()` function for direct SSMD
-processing.
-
-```python
-from kokorog2p import get_g2p
-
-text = (
-    'You say, [pecan]{ph="pɪˈkɑːn"}. '
-    'In Paris, they pronounce it [Paris]{lang="fr"}.'
-)
-
-g2p = get_g2p("en-us", markdown_syntax="ssmd")
-print(g2p.phonemize(text))
-
-# Or use the new API:
-from kokorog2p import phonemize_ssmd
-phonemes = phonemize_ssmd(text)
-```
-
-## SpeechMarkdown Support
-
-SpeechMarkdown annotations like `(pecan)[ipa:"pɪˈkɑːn"]` and `(Paris)[lang:"fr-FR"]` are
-supported alongside SSMD. Use `get_g2p(..., markdown_syntax="speechmarkdown")` to enable
-SpeechMarkdown parsing.
-
-```python
-from kokorog2p import get_g2p
-
-text = (
-    'You say, (pecan)[ipa:"pɪˈkɑːn"]. '
-    'I say, (pecan)[/ˈpi.kæn/]. '
-    'In Paris, they pronounce it (Paris)[lang:"fr-FR"].'
-)
-
-g2p = get_g2p("en-us", markdown_syntax="speechmarkdown")
-print(g2p.phonemize(text))
-```
+kokorog2p provides a standalone multilang preprocessor that detects word-level languages
+with `lingua-language-detector` and generates `OverrideSpan` objects for per-word
+language switching.
 
 ### Installation
 
@@ -405,16 +335,16 @@ pip install lingua-language-detector
 ### Basic Usage
 
 ```python
-from kokorog2p import phonemize_with_ssmd
+from kokorog2p import phonemize_to_result
 from kokorog2p.multilang import preprocess_multilang
 
 text = "Ich gehe zum Meeting. Let's discuss the Roadmap!"
-annotated = preprocess_multilang(
+clean_text, overrides = preprocess_multilang(
     text,
     default_language="de",
     allowed_languages=["de", "en-us"],
 )
-result = phonemize_with_ssmd(annotated, language="de")
+result = phonemize_to_result(clean_text, lang="de", overrides=overrides)
 ```
 
 ### Confidence Threshold
@@ -440,7 +370,7 @@ annotated = preprocess_multilang(
 ### Example: Technical Documentation
 
 ```python
-from kokorog2p import phonemize_with_ssmd
+from kokorog2p import phonemize_to_result
 from kokorog2p.multilang import preprocess_multilang
 
 text = """
@@ -448,13 +378,13 @@ Das System verwendet Machine Learning für die Performance-Optimierung.
 Der Workflow ist sehr efficient durch das Caching.
 """
 
-annotated = preprocess_multilang(
+clean_text, overrides = preprocess_multilang(
     text,
     default_language="de",
     allowed_languages=["de", "en-us"],
 )
-result = phonemize_with_ssmd(annotated, language="de")
-print(result)
+result = phonemize_to_result(clean_text, lang="de", overrides=overrides)
+print(result.phonemes)
 ```
 
 ## Supported Languages

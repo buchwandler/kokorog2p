@@ -1,10 +1,9 @@
-SSMD Multilang Preprocessing
+Multilang Preprocessing
 ============================
 
 The multilang preprocessor detects word-level languages with
-``lingua-language-detector`` and adds SSMD ``{lang="..."}`` annotations.
-It is intentionally separate from ``get_g2p``; users call it explicitly
-before SSMD phonemization.
+``lingua-language-detector`` and returns ``OverrideSpan`` objects for
+language switching. It integrates with the span-based phonemization API.
 
 API
 ---
@@ -19,18 +18,17 @@ Basic Usage
 
 .. code-block:: python
 
-   from kokorog2p import get_g2p, phonemize_with_ssmd
+   from kokorog2p import phonemize_to_result
    from kokorog2p.multilang import preprocess_multilang
 
    text = "Schöne World"
-   annotated = preprocess_multilang(
+   overrides = preprocess_multilang(
        text,
        default_language="en-us",
        allowed_languages=["en-us", "de"],
    )
 
-   g2p = get_g2p("en-us", markdown_syntax="ssmd")
-   result = g2p.phonemize(annotated)
+   result = phonemize_to_result(text, lang="en-us", overrides=overrides)
 
 Confidence Tuning
 ~~~~~~~~~~~~~~~~~
@@ -39,7 +37,7 @@ Confidence Tuning
 
    from kokorog2p.multilang import preprocess_multilang
 
-   annotated = preprocess_multilang(
+   overrides = preprocess_multilang(
        "Bonjour World",
        default_language="en-us",
        allowed_languages=["en-us", "fr"],

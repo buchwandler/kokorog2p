@@ -34,6 +34,7 @@ class HebrewG2P(G2PBase):
         self,
         language: str = "he",
         use_espeak_fallback: bool = False,
+        use_goruut_fallback: bool = False,
         load_silver: bool = True,
         load_gold: bool = True,
         preserve_punctuation: bool = True,
@@ -47,6 +48,8 @@ class HebrewG2P(G2PBase):
             language: Language code (e.g., 'he', 'he-il', 'heb', 'hebrew').
             use_espeak_fallback: Whether to use espeak for unknown words.
                 Not typically used for Hebrew. Defaults to False.
+            use_goruut_fallback: Whether to use goruut for unknown words.
+                Not typically used for Hebrew. Defaults to False.
             load_silver: Reserved for API consistency. Hebrew doesn't use
                 dictionary tiers. Defaults to True.
             load_gold: Reserved for API consistency. Hebrew doesn't use
@@ -57,7 +60,11 @@ class HebrewG2P(G2PBase):
                 Defaults to True.
             **kwargs: Additional arguments passed to phonikud.phonemize().
         """
-        super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
+        super().__init__(
+            language=language,
+            use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
+        )
         self.version = version
         self.load_silver = load_silver
         self.load_gold = load_gold

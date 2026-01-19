@@ -1,20 +1,19 @@
-"""SSMD language annotation preprocessing using lingua-py.
+"""Language annotation preprocessing using lingua-py.
 
-This module detects word-level languages and adds SSMD {lang="..."}
-annotations to the input text. Users are expected to call this preprocessor
-before phonemization.
+This module detects word-level languages and adds language override
+annotations to the input text for use with kokorog2p's span-based API.
 
 Example:
     >>> from kokorog2p.multilang import preprocess_multilang
     >>> preprocess_multilang("Schöne World", default_language="en-us",
         allowed_languages=["en-us", "de"])
-    '[Schöne]{lang="de"} World'
+    # Returns list of OverrideSpan objects for language switching
 """
 
 from __future__ import annotations
 
 import re
-from typing import Any, Final, Literal
+from typing import Any, Final
 
 try:
     from lingua import Language, LanguageDetectorBuilder
@@ -121,23 +120,22 @@ def _map_from_lingua_language(lingua_lang: Any, allowed: list[str]) -> str:
 
 def preprocess_multilang(
     text: str,
-    markdown_syntax: Literal["ssmd", "speechmarkdown"] = "ssmd",
     default_language: str = "en-us",
     allowed_languages: list[str] | None = None,
     confidence_threshold: float = 0.7,
-) -> str:
-    """Annotate detected non-default words with SSMD language tags.
+) -> list[Any]:
+    """Detect word-level languages and return OverrideSpan objects.
+
+    Returns OverrideSpan objects for language switching.
 
     Args:
         text: Input text to annotate.
-        markdown_syntax: Input syntax type, can be either ssmd or speechmarkdown.
         default_language: Base language for unmarked words.
         allowed_languages: Language codes to detect (must include default_language).
         confidence_threshold: Minimum confidence (0.0-1.0) to accept detection.
 
     Returns:
-        Text with SSMD []{lang="..."} annotations for detected words or
-        Text with Speechmarkdown ()[lang:"..."] annotations for detected words.
+        List of OverrideSpan objects with language overrides for detected words.
 
     Raises:
         ImportError: If lingua-language-detector is not installed.
@@ -149,8 +147,6 @@ def preprocess_multilang(
             "Install with: pip install lingua-language-detector"
         )
 
-    if markdown_syntax not in ["ssmd", "speechmarkdown"]:
-        raise ValueError('syntax must be either "ssmd" or "speechmarkdown"')
     if allowed_languages is None or len(allowed_languages) == 0:
         raise ValueError("allowed_languages must be specified and non-empty")
 
@@ -194,42 +190,29 @@ def preprocess_multilang(
         cache[word] = detected
         return detected
 
-    def process_plain_segment(segment: str) -> str:
-        parts: list[str] = []
-        for token in WORD_OR_PUNCT_REGEX.findall(segment):
-            if token.isspace():
-                parts.append(token)
-                continue
-            if token.isalnum() or any(ch.isalnum() for ch in token):
-                detected = detect_language(token)
-                if detected != normalized_default and markdown_syntax == "ssmd":
-                    parts.append(f'[{token}]{{lang="{detected}"}}')
-                elif (
-                    detected != normalized_default
-                    and markdown_syntax == "speechmarkdown"
-                ):
-                    parts.append(f'({token})[lang:"{detected}"]')
-                else:
-                    parts.append(token)
-            else:
-                parts.append(token)
-        return "".join(parts)
+    from kokorog2p.types import OverrideSpan
 
-    result: list[str] = []
-    last_end = 0
-    if markdown_syntax == "ssmd":
-        from kokorog2p.ssmd import ANNOTATION_REGEX
-    else:  # speechmarkdown
-        from kokorog2p.speechmarkdown import SPEECHMARKDOWN_REGEX as ANNOTATION_REGEX
-    for match in ANNOTATION_REGEX.finditer(text):
-        result.append(process_plain_segment(text[last_end : match.start()]))
-        result.append(match.group(0))
-        last_end = match.end()
+    overrides: list[OverrideSpan] = []
+    offset = 0
 
-    if last_end < len(text):
-        result.append(process_plain_segment(text[last_end:]))
+    for token in WORD_OR_PUNCT_REGEX.findall(text):
+        token_start = offset
+        token_end = offset + len(token)
 
-    return "".join(result)
+        if token.isalnum() or any(ch.isalnum() for ch in token):
+            detected = detect_language(token)
+            if detected != normalized_default:
+                overrides.append(
+                    OverrideSpan(
+                        char_start=token_start,
+                        char_end=token_end,
+                        attrs={"lang": detected},
+                    )
+                )
+
+        offset = token_end
+
+    return overrides
 
 
 __all__ = ["preprocess_multilang"]

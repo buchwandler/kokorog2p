@@ -38,24 +38,7 @@ from collections.abc import Callable
 from typing import Any, Literal, Optional, Union
 
 from kokorog2p.base import G2PBase
-
-# SSMD annotation support
-from kokorog2p.ssmd import (
-    ANNOTATION_REGEX,
-    ATTR_REGEX,
-    apply_ssmd_features,
-    phonemize_with_ssmd,
-    preprocess_ssmd,
-    remove_ssmd,
-)
 from kokorog2p.multilang import preprocess_multilang
-from kokorog2p.speechmarkdown import (
-    SPEECHMARKDOWN_ATTR_REGEX,
-    SPEECHMARKDOWN_REGEX,
-    phonemize_with_speechmarkdown,
-    process_speechmarkdown,
-    remove_speechmarkdown,
-)
 from kokorog2p.phonemes import (
     CONSONANTS,
     GB_VOCAB,
@@ -110,62 +93,6 @@ _g2p_cache: dict[str, G2PBase] = {}
 BackendType = Literal["kokorog2p", "espeak", "goruut"]
 
 
-class SSMDG2P(G2PBase):
-    """G2P wrapper that enables SSMD phoneme annotations."""
-
-    def __init__(self, g2p: G2PBase, g2p_factory: Callable[[str], G2PBase]) -> None:
-        super().__init__(
-            language=g2p.language,
-            use_espeak_fallback=g2p.use_espeak_fallback,
-            use_goruut_fallback=g2p.use_goruut_fallback,
-            strict=g2p.strict,
-        )
-        self._g2p = g2p
-        self._g2p_factory = g2p_factory
-
-    def __call__(self, text: str) -> list[GToken]:
-        return self._g2p(text)
-
-    def lookup(self, word: str, tag: str | None = None) -> str | None:
-        return self._g2p.lookup(word, tag=tag)
-
-    def phonemize(self, text: str) -> str:
-        return phonemize_with_ssmd(
-            text,
-            language=self.language,
-            g2p=self._g2p,
-            g2p_factory=self._g2p_factory,
-        )
-
-
-class SpeechMarkdownG2P(G2PBase):
-    """G2P wrapper that enables SpeechMarkdown annotations."""
-
-    def __init__(self, g2p: G2PBase, g2p_factory: Callable[[str], G2PBase]) -> None:
-        super().__init__(
-            language=g2p.language,
-            use_espeak_fallback=g2p.use_espeak_fallback,
-            use_goruut_fallback=g2p.use_goruut_fallback,
-            strict=g2p.strict,
-        )
-        self._g2p = g2p
-        self._g2p_factory = g2p_factory
-
-    def __call__(self, text: str) -> list[GToken]:
-        return self._g2p(text)
-
-    def lookup(self, word: str, tag: str | None = None) -> str | None:
-        return self._g2p.lookup(word, tag=tag)
-
-    def phonemize(self, text: str) -> str:
-        return phonemize_with_speechmarkdown(
-            text,
-            language=self.language,
-            g2p=self._g2p,
-            g2p_factory=self._g2p_factory,
-        )
-
-
 def get_g2p(
     language: str = "en-us",
     use_espeak_fallback: bool = True,
@@ -176,7 +103,6 @@ def get_g2p(
     load_gold: bool = True,
     version: str = "1.0",
     phoneme_quotes: str = "curly",
-    markdown_syntax: Literal["ssmd", "speechmarkdown", "disabled"] = "disabled",
     strict: bool = True,
     **kwargs: Any,
 ) -> G2PBase:
@@ -184,7 +110,7 @@ def get_g2p(
 
     This factory function returns an appropriate G2P instance based on the
     language code. Results are cached for efficiency. For mixed-language text,
-    use preprocess_multilang before SSMD phonemization.
+    use preprocess_multilang to generate OverrideSpan objects for phonemize_to_result.
 
     Args:
         language: Language code (e.g., 'en-us', 'en-gb', 'zh', 'ja', 'fr', etc.).
@@ -215,11 +141,6 @@ def get_g2p(
             - "ascii": Use ASCII double quotes (")
             - "none": Remove quote characters from phoneme output
             Only applies to English currently.
-        markdown_syntax: If "ssmd", return a wrapper whose phonemize() understands
-            SSMD annotations like [word]{ph="..."} and [word]{lang="..."}.
-            If "speechmarkdown", return a wrapper whose phonemize() understands
-            SpeechMarkdown annotations like (word)[ipa:"..."] or (word)[lang:"...].
-            If "disabled", return a standard G2P instance without special handling.
         strict: If True (default), raise exceptions when backend initialization
             or phonemization fails. If False, log errors and return empty results
             for backward compatibility with older versions that silently failed.
@@ -263,7 +184,7 @@ def get_g2p(
     # Check cache (include all relevant parameters in cache key)
     cache_key = (
         f"{lang}:{use_espeak_fallback}:{use_goruut_fallback}:{use_spacy}:{backend}:{load_silver}:{load_gold}"
-        f":{version}:{phoneme_quotes}:{markdown_syntax}:{strict}"
+        f":{version}:{phoneme_quotes}:{strict}"
     )
     if cache_key in _g2p_cache:
         return _g2p_cache[cache_key]
@@ -381,29 +302,6 @@ def get_g2p(
             "Use 'espeak' or 'goruut' backend for more languages."
         )
 
-    if markdown_syntax != "disabled:":
-
-        def g2p_factory(override_language: str) -> G2PBase:
-            return get_g2p(
-                language=override_language,
-                use_espeak_fallback=use_espeak_fallback,
-                use_goruut_fallback=use_goruut_fallback,
-                use_spacy=use_spacy,
-                backend=backend,
-                load_silver=load_silver,
-                load_gold=load_gold,
-                version=version,
-                phoneme_quotes=phoneme_quotes,
-                markdown_syntax="disabled",
-                strict=strict,
-                **kwargs,
-            )
-
-        if markdown_syntax == "speechmarkdown":
-            g2p = SpeechMarkdownG2P(g2p, g2p_factory)
-        elif markdown_syntax == "ssmd":
-            g2p = SSMDG2P(g2p, g2p_factory)
-
     _g2p_cache[cache_key] = g2p
     return g2p
 
@@ -502,13 +400,19 @@ def clear_cache() -> None:
 
 
 # New span-based API
-from kokorog2p.pipeline_api import (
-    phonemize_to_result,
-    phonemize_ssmd,
-    phonemize_ssmd_to_result,
+from kokorog2p.pipeline_api import phonemize_to_result  # noqa: E402
+from kokorog2p.types import (  # noqa: E402
+    OverrideSpan,
+    PhonemizeResult,
+    TokenSpan,
 )
-from kokorog2p.types import OverrideSpan, PhonemizeResult, TokenSpan
-from kokorog2p.tokenization import tokenize_with_offsets
+from kokorog2p.tokenization import tokenize_with_offsets  # noqa: E402
+
+# Marker-based helper
+from kokorog2p.markers import (  # noqa: E402
+    apply_marker_overrides,
+    parse_delimited,
+)
 
 # Public API
 __all__ = [
@@ -525,12 +429,13 @@ __all__ = [
     "clear_cache",
     # New span-based API (recommended for pipelines)
     "phonemize_to_result",
-    "phonemize_ssmd",
-    "phonemize_ssmd_to_result",
     "tokenize_with_offsets",
     "TokenSpan",
     "OverrideSpan",
     "PhonemizeResult",
+    # Marker-based helper
+    "parse_delimited",
+    "apply_marker_overrides",
     # Phoneme utilities
     "US_VOCAB",
     "GB_VOCAB",
@@ -565,17 +470,6 @@ __all__ = [
     "detect_mismatches",
     "check_word_alignment",
     "count_words",
-    # SSMD annotation support
-    "phonemize_with_ssmd",
-    "preprocess_ssmd",
-    "apply_ssmd_features",
-    "remove_ssmd",
+    # Multi-language support
     "preprocess_multilang",
-    "SPEECHMARKDOWN_REGEX",
-    "SPEECHMARKDOWN_ATTR_REGEX",
-    "process_speechmarkdown",
-    "phonemize_with_speechmarkdown",
-    "remove_speechmarkdown",
-    "ANNOTATION_REGEX",
-    "ATTR_REGEX",
 ]

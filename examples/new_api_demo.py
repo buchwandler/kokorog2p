@@ -5,7 +5,7 @@ This script shows how to use the pipeline-friendly API for deterministic
 phonemization with overrides.
 """
 
-from kokorog2p import OverrideSpan, phonemize_ssmd, phonemize_to_result
+from kokorog2p import OverrideSpan, phonemize_to_result
 
 # Example 1: Simple phonemization with the new API
 print("=" * 70)
@@ -72,21 +72,9 @@ print(f"Token 1 lang: {result.tokens[1].lang}")  # Bonjour - French
 print(f"Token 2 lang: {result.tokens[2].lang}")  # Welt - German
 print()
 
-# Example 5: Using SSMD annotations directly
+# Example 5: Mixed attributes (phoneme + language)
 print("=" * 70)
-print("Example 5: SSMD annotations (convenience wrapper)")
-print("=" * 70)
-
-ssmd_text = '[Misaki]{ph="misˈɑki"} is a G2P engine for [Kokoro]{ph="kˈOkəɹO"}.'
-phonemes = phonemize_ssmd(ssmd_text)
-
-print(f"SSMD text: {ssmd_text}")
-print(f"Phonemes: {phonemes}")
-print()
-
-# Example 6: Mixed attributes (phoneme + language)
-print("=" * 70)
-print("Example 6: Mixed attributes")
+print("Example 5: Mixed attributes")
 print("=" * 70)
 
 text = "Say Bonjour nicely"
@@ -100,9 +88,9 @@ print(f"'Bonjour' token lang: {result.tokens[1].lang}")
 print(f"'Bonjour' phonemes: {result.tokens[1].meta.get('phonemes')}")
 print()
 
-# Example 7: Warnings and debugging
+# Example 6: Warnings and debugging
 print("=" * 70)
-print("Example 7: Warnings for misaligned overrides")
+print("Example 6: Warnings for misaligned overrides")
 print("=" * 70)
 
 text = "Hello world"
@@ -120,7 +108,7 @@ print("=" * 70)
 print("Example 8: Reusing G2P for performance")
 print("=" * 70)
 
-from kokorog2p import get_g2p
+from kokorog2p import get_g2p  # noqa: E402
 
 g2p = get_g2p("en-us")
 

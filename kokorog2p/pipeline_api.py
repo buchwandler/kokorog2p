@@ -7,7 +7,7 @@ direct token ID output.
 
 from typing import TYPE_CHECKING, Literal
 
-from kokorog2p.span_processing import apply_overrides_to_tokens, parse_ssmd_to_spans
+from kokorog2p.span_processing import apply_overrides_to_tokens
 from kokorog2p.tokenization import gtokens_to_tokenspans, tokenize_with_offsets
 from kokorog2p.types import OverrideSpan, PhonemizeResult, TokenSpan
 from kokorog2p.vocab import phonemes_to_ids
@@ -24,6 +24,7 @@ def phonemize_to_result(
     return_ids: bool = True,
     return_phonemes: bool = True,
     alignment: Literal["span", "legacy"] = "span",
+    overlap: Literal["snap", "strict"] = "snap",
     g2p: "G2PBase | None" = None,
 ) -> PhonemizeResult:
     """Phonemize text with span-based override application.
@@ -43,6 +44,10 @@ def phonemize_to_result(
         alignment: Override alignment mode:
             - "span": Use offset-based alignment (deterministic, default)
             - "legacy": Use old word-based alignment (backward compat)
+        overlap: Overlap handling mode for applying overrides:
+            - "snap": Apply to intersecting tokens, emit warning on
+              partial boundary overlap (default)
+            - "strict": Skip partial boundary overlap, emit warning
         g2p: Optional G2P instance to reuse (for performance).
 
     Returns:
@@ -88,7 +93,7 @@ def phonemize_to_result(
     # Apply overrides if provided
     if overrides:
         token_spans, override_warnings = apply_overrides_to_tokens(
-            token_spans, overrides, mode="snap"
+            token_spans, overrides, mode=overlap
         )
         warnings.extend(override_warnings)
 
@@ -264,99 +269,6 @@ def _is_punctuation(text: str) -> bool:
     return text.strip() in punct or all(not c.isalnum() for c in text)
 
 
-# ============================================================================
-# Convenience wrappers for SSMD/SpeechMarkdown
-# ============================================================================
-
-
-def phonemize_ssmd_to_result(
-    text: str,
-    *,
-    lang: str | None = None,
-    return_ids: bool = True,
-    return_phonemes: bool = True,
-    alignment: Literal["span", "legacy"] = "span",
-    g2p: "G2PBase | None" = None,
-) -> PhonemizeResult:
-    """Phonemize SSMD-annotated text using span-based processing.
-
-    This is a convenience wrapper that parses SSMD annotations and calls
-    phonemize_to_result.
-
-    Args:
-        text: Text with SSMD annotations (e.g., "[Hello]{ph='hɛloʊ'}").
-        lang: Language code (default: 'en-us').
-        return_ids: Whether to return token IDs.
-        return_phonemes: Whether to return phoneme string.
-        alignment: Override alignment mode ('span' or 'legacy').
-        g2p: Optional G2P instance to reuse.
-
-    Returns:
-        PhonemizeResult with clean_text, tokens, phonemes, token_ids, and warnings.
-
-    Example:
-        >>> result = phonemize_ssmd_to_result('[Hello]{ph="hɛloʊ"} world!')
-        >>> result.phonemes
-        'hɛloʊ wɝld!'
-    """
-    # Parse SSMD to clean text and overrides
-    clean_text, overrides, parse_warnings = parse_ssmd_to_spans(text)
-
-    # Phonemize with overrides
-    result = phonemize_to_result(
-        clean_text,
-        lang=lang,
-        overrides=overrides,
-        return_ids=return_ids,
-        return_phonemes=return_phonemes,
-        alignment=alignment,
-        g2p=g2p,
-    )
-
-    # Prepend parse warnings
-    result.warnings = parse_warnings + result.warnings
-
-    return result
-
-
-def phonemize_ssmd(
-    text: str,
-    *,
-    lang: str | None = None,
-    alignment: Literal["span", "legacy"] = "span",
-    g2p: "G2PBase | None" = None,
-) -> str:
-    """Phonemize SSMD-annotated text and return phoneme string.
-
-    This is a simple convenience wrapper for phonemize_ssmd_to_result
-    that returns only the phoneme string.
-
-    Args:
-        text: Text with SSMD annotations.
-        lang: Language code (default: 'en-us').
-        alignment: Override alignment mode ('span' or 'legacy').
-        g2p: Optional G2P instance to reuse.
-
-    Returns:
-        Phoneme string.
-
-    Example:
-        >>> phonemize_ssmd('[Hello]{ph="hɛloʊ"} world!')
-        'hɛloʊ wɝld!'
-    """
-    result = phonemize_ssmd_to_result(
-        text,
-        lang=lang,
-        return_ids=False,
-        return_phonemes=True,
-        alignment=alignment,
-        g2p=g2p,
-    )
-    return result.phonemes or ""
-
-
 __all__ = [
     "phonemize_to_result",
-    "phonemize_ssmd",
-    "phonemize_ssmd_to_result",
 ]

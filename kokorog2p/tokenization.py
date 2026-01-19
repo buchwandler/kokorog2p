@@ -65,12 +65,6 @@ def tokenize_with_offsets(
         world [6:11]
         ! [11:12]
     """
-    from kokorog2p import get_g2p
-
-    # Get G2P instance for tokenization
-    lang = lang or "en-us"
-    g2p = get_g2p(lang, markdown_syntax="disabled")
-
     # For now, use simple regex-based tokenization with offset tracking
     # This ensures consistency with actual G2P tokenization
     import re

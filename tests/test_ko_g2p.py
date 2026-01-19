@@ -265,10 +265,17 @@ class TestKoreanG2PIntegration:
         assert isinstance(result, str)
         assert len(result) > 0
 
-    def test_korean_with_ssmd(self):
-        """Test Korean G2P with SSMD annotations."""
-        from kokorog2p import phonemize_with_ssmd
+    def test_korean_with_overrides(self):
+        """Test Korean G2P with span-based overrides."""
+        from kokorog2p import phonemize_to_result
+        from kokorog2p.types import OverrideSpan
 
-        # Test SSMD phoneme override
-        result = phonemize_with_ssmd('[한국어]{ph="hɐnɡuɡʌ"} 발음', language="ko")
+        # Test phoneme override for Korean text
+        text = "한국어 발음"
+        overrides = [OverrideSpan(0, 3, {"ph": "hɐnɡuɡʌ"})]
+        result = phonemize_to_result(text, lang="ko", overrides=overrides)
+
         assert result is not None
+        assert result.phonemes is not None
+        # First token should have the override
+        assert result.tokens[0].meta.get("ph") == "hɐnɡuɡʌ"

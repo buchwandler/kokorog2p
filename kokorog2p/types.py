@@ -75,9 +75,12 @@ class PhonemizeResult:
     Attributes:
         clean_text: Text with markup removed (only words and whitespace).
         tokens: List of token spans with offset information.
-        phonemes: Phoneme string (space-separated), or None if token_ids requested instead.
-        token_ids: Token IDs for model input (numpy array), or None if phonemes requested.
-        warnings: List of warning messages (alignment issues, unsupported symbols, etc.).
+        phonemes: Phoneme string (space-separated), or None if token_ids
+            requested instead.
+        token_ids: Token IDs for model input (numpy array), or None if
+            phonemes requested.
+        warnings: List of warning messages (alignment issues, unsupported
+            symbols, etc.).
     """
 
     clean_text: str

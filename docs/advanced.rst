@@ -137,7 +137,7 @@ Rating System
 
 Tokens have a rating indicating the source of phonemes:
 
-* **5**: User-provided (SSMD annotations) or gold dictionary (highest quality)
+* **5**: User-provided (via OverrideSpan) or gold dictionary (highest quality)
 * **4**: Punctuation
 * **3**: Silver dictionary or rule-based conversion
 * **2**: From espeak-ng fallback
@@ -647,23 +647,23 @@ Filter phonemes for specific use cases:
 Multilang Preprocessing
 ------------------------
 
-Use ``preprocess_multilang`` to add SSMD language annotations before phonemizing.
-This keeps mixed-language handling explicit and decoupled from ``get_g2p``.
+Use ``preprocess_multilang`` to get language override spans for mixed-language text.
+This integrates with the span-based phonemization API.
 
 .. code-block:: python
 
-   from kokorog2p import phonemize_with_ssmd
+   from kokorog2p import phonemize_to_result
    from kokorog2p.multilang import preprocess_multilang
 
    text = "Hello, mein Freund! Bonjour!"
-   annotated = preprocess_multilang(
+   overrides = preprocess_multilang(
        text,
        default_language="de",
        allowed_languages=["de", "en-us", "fr"],
        confidence_threshold=0.6,
    )
 
-   phonemes = phonemize_with_ssmd(annotated, language="de")
+   result = phonemize_to_result(text, lang="de", overrides=overrides)
 
 Confidence Tuning
 ~~~~~~~~~~~~~~~~~
@@ -690,24 +690,31 @@ Adjust detection sensitivity based on your use case:
        confidence_threshold=0.5,
    )
 
-Integration with SSMD
-~~~~~~~~~~~~~~~~~~~~~
+Integration with Span API
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Combine SSMD phoneme annotations with detected language tags:
+Combine language detection with other span overrides:
 
 .. code-block:: python
 
-   from kokorog2p import phonemize_with_ssmd
+   from kokorog2p import phonemize_to_result, OverrideSpan
    from kokorog2p.multilang import preprocess_multilang
 
-   text = "Das [Meeting]{ph='ˈmiːtɪŋ'} ist wichtig"
-   annotated = preprocess_multilang(
+   text = "Das Meeting ist wichtig"
+
+   # Get language overrides
+   lang_overrides = preprocess_multilang(
        text,
        default_language="de",
        allowed_languages=["de", "en-us"],
    )
 
-   phonemes = phonemize_with_ssmd(annotated, language="de")
+   # Add custom phoneme override
+   all_overrides = lang_overrides + [
+       OverrideSpan(4, 11, {"ph": "ˈmiːtɪŋ"})  # Custom pronunciation for "Meeting"
+   ]
+
+   result = phonemize_to_result(text, lang="de", overrides=all_overrides)
 
 
 Error Handling

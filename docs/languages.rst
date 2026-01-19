@@ -623,17 +623,17 @@ Usage
 
 .. code-block:: python
 
-   from kokorog2p import phonemize_with_ssmd
+   from kokorog2p import phonemize_to_result
    from kokorog2p.multilang import preprocess_multilang
 
    text = "Das Meeting war great!"
-   annotated = preprocess_multilang(
+   overrides = preprocess_multilang(
        text,
        default_language="de",
        allowed_languages=["de", "en-us"],
    )
 
-   result = phonemize_with_ssmd(annotated, language="de")
+   result = phonemize_to_result(text, lang="de", overrides=overrides)
 
 Examples
 ~~~~~~~~
@@ -642,40 +642,49 @@ Examples
 
 .. code-block:: python
 
-   from kokorog2p import phonemize_with_ssmd
+   from kokorog2p import phonemize_to_result
    from kokorog2p.multilang import preprocess_multilang
 
-   annotated = preprocess_multilang(
-       "Ich gehe zum Meeting. Let's discuss the Roadmap!",
+   text = "Ich gehe zum Meeting. Let's discuss the Roadmap!"
+   overrides = preprocess_multilang(
+       text,
        default_language="de",
        allowed_languages=["de", "en-us"],
    )
-   result = phonemize_with_ssmd(annotated, language="de")
-   print(result)
+   result = phonemize_to_result(text, lang="de", overrides=overrides)
+   print(result.phonemes)
 
 **English with German:**
 
 .. code-block:: python
 
-   annotated = preprocess_multilang(
+   overrides = preprocess_multilang(
        "Hello, mein Freund! This is wunderbar.",
        default_language="en-us",
        allowed_languages=["en-us", "de"],
    )
-   result = phonemize_with_ssmd(annotated, language="en-us")
-   print(result)
+   result = phonemize_to_result(
+       "Hello, mein Freund! This is wunderbar.",
+       lang="en-us",
+       overrides=overrides
+   )
+   print(result.phonemes)
 
 **Multiple languages:**
 
 .. code-block:: python
 
-   annotated = preprocess_multilang(
+   overrides = preprocess_multilang(
        "Bonjour! The Meeting ist wichtig.",
        default_language="fr",
        allowed_languages=["fr", "en-us", "de"],
    )
-   result = phonemize_with_ssmd(annotated, language="fr")
-   print(result)
+   result = phonemize_to_result(
+       "Bonjour! The Meeting ist wichtig.",
+       lang="fr",
+       overrides=overrides
+   )
+   print(result.phonemes)
 
 Configuration
 ~~~~~~~~~~~~~
@@ -684,10 +693,10 @@ Configuration
 
 .. code-block:: python
 
-   from kokorog2p import get_g2p
+   from kokorog2p.multilang import preprocess_multilang
 
    # Conservative (higher confidence required)
-   annotated = preprocess_multilang(
+   overrides = preprocess_multilang(
        "Das Meeting ist wichtig",
        default_language="de",
        allowed_languages=["de", "en-us"],
@@ -695,7 +704,7 @@ Configuration
    )
 
    # Aggressive (lower confidence required)
-   annotated = preprocess_multilang(
+   overrides = preprocess_multilang(
        "Das Meeting ist wichtig",
        default_language="de",
        allowed_languages=["de", "en-us"],
@@ -710,7 +719,7 @@ How It Works
 3. Detector returns language + confidence score
 4. If confidence ≥ threshold and language is allowed:
 
-   * Word is wrapped with ``[word]{lang="..."}``
+   * An ``OverrideSpan`` is created with ``{"lang": "..."}``
    * Short words (<3 chars) keep the default language
 
 Performance

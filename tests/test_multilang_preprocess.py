@@ -1,8 +1,9 @@
-"""Tests for SSMD language preprocessing."""
+"""Tests for language preprocessing."""
 
 import pytest
 
 from kokorog2p.multilang import preprocess_multilang
+from kokorog2p.types import OverrideSpan
 
 pytest.importorskip("lingua")
 
@@ -14,52 +15,42 @@ class TestPreprocessMultilang:
         text = "Schöne World"
         result = preprocess_multilang(
             text,
-            markdown_syntax="ssmd",
             default_language="en-us",
             allowed_languages=["en-us", "de"],
         )
-        assert result == '[Schöne]{lang="de"} World'
-        result = preprocess_multilang(
-            text,
-            markdown_syntax="speechmarkdown",
-            default_language="en-us",
-            allowed_languages=["en-us", "de"],
-        )
-        assert result == '(Schöne)[lang:"de"] World'
+        # Should return list of OverrideSpan objects
+        assert isinstance(result, list)
+        assert len(result) == 1  # Only "Schöne" should be detected as German
+        assert isinstance(result[0], OverrideSpan)
+        assert result[0].char_start == 0
+        assert result[0].char_end == 6  # len("Schöne")
+        assert result[0].attrs == {"lang": "de"}
 
-    def test_preserves_existing_lang_annotation(self):
-        text = '[Hallo]{lang="de"} World'
+    def test_no_overrides_for_default_language(self):
+        text = "Hello World"
         result = preprocess_multilang(
             text,
             default_language="en-us",
             allowed_languages=["en-us", "de"],
         )
-        assert result == text
-        text = '(Hallo)[lang:"de"] World'
-        result = preprocess_multilang(
-            text,
-            markdown_syntax="speechmarkdown",
-            default_language="en-us",
-            allowed_languages=["en-us", "de"],
-        )
-        assert result == text
+        # Should return empty list (all words are in default language)
+        assert isinstance(result, list)
+        assert len(result) == 0
 
-    def test_preserves_phoneme_annotation(self):
-        text = '[Bonjour]{ph="bɔ̃ʒuʁ"} World'
+    def test_multiple_language_switches(self):
+        text = "Schöne World Guten Tag"
         result = preprocess_multilang(
             text,
             default_language="en-us",
-            allowed_languages=["en-us", "fr"],
+            allowed_languages=["en-us", "de"],
         )
-        assert result == text
-        text = '(Bonjour)[ipa:"bɔ̃ʒuʁ"] World'
-        result = preprocess_multilang(
-            text,
-            markdown_syntax="speechmarkdown",
-            default_language="en-us",
-            allowed_languages=["en-us", "fr"],
-        )
-        assert result == text
+        # Should detect "Schöne" and "Guten" and "Tag" as German
+        assert isinstance(result, list)
+        assert len(result) >= 2  # At least "Schöne" and one of "Guten"/"Tag"
+        # Check first override is "Schöne"
+        assert result[0].char_start == 0
+        assert result[0].char_end == 6
+        assert result[0].attrs["lang"] == "de"
 
     def test_keeps_punctuation(self):
         text = "Schöne, World!"
@@ -68,26 +59,17 @@ class TestPreprocessMultilang:
             default_language="en-us",
             allowed_languages=["en-us", "de"],
         )
-        assert result == '[Schöne]{lang="de"}, World!'
-        result = preprocess_multilang(
-            text,
-            markdown_syntax="speechmarkdown",
-            default_language="en-us",
-            allowed_languages=["en-us", "de"],
-        )
-        assert result == '(Schöne)[lang:"de"], World!'
+        # Punctuation should not be in overrides
+        assert isinstance(result, list)
+        assert len(result) == 1
+        # Only "Schöne" should have an override
+        assert result[0].char_start == 0
+        assert result[0].char_end == 6
 
     def test_requires_default_language_in_allowed(self):
         with pytest.raises(ValueError):
             preprocess_multilang(
                 "Schöne World",
-                default_language="en-us",
-                allowed_languages=["de"],
-            )
-        with pytest.raises(ValueError):
-            preprocess_multilang(
-                "Schöne World",
-                markdown_syntax="speechmarkdown",
                 default_language="en-us",
                 allowed_languages=["de"],
             )
