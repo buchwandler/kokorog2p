@@ -15,6 +15,7 @@ import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Optional
 
+from kokorog2p.attr_parser import parse_attributes
 from kokorog2p.token import GToken
 
 if TYPE_CHECKING:
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
 
 # Regex pattern for SSMD annotations: [word]{ph="phonemes" lang="en"}
 ANNOTATION_REGEX = re.compile(r"\[([^\]]+)\]\{([^}]*)\}")
+# Legacy regex for backward compatibility (only double quotes)
 ATTR_REGEX = re.compile(r"(\w+)\s*=\s*\"([^\"]*)\"")
 
 
@@ -66,7 +68,10 @@ def preprocess_ssmd(
         result += text[last_end : m.start()]
         tokens.extend(text[last_end : m.start()].split())
 
-        attrs = {key.casefold(): value for key, value in ATTR_REGEX.findall(m.group(2))}
+        # Parse attributes using robust parser (supports single/double quotes, multi-attrs)
+        attrs, _warnings = parse_attributes(m.group(2))
+        # Note: warnings are currently ignored for backward compatibility
+        # Future: could add warning collection parameter
 
         if "ph" in attrs:
             phoneme_features[len(tokens)] = attrs["ph"]

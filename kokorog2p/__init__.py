@@ -501,6 +501,15 @@ def clear_cache() -> None:
     _g2p_cache.clear()
 
 
+# New span-based API
+from kokorog2p.pipeline_api import (
+    phonemize_to_result,
+    phonemize_ssmd,
+    phonemize_ssmd_to_result,
+)
+from kokorog2p.types import OverrideSpan, PhonemizeResult, TokenSpan
+from kokorog2p.tokenization import tokenize_with_offsets
+
 # Public API
 __all__ = [
     # Version
@@ -514,6 +523,14 @@ __all__ = [
     "tokenize",
     "get_g2p",
     "clear_cache",
+    # New span-based API (recommended for pipelines)
+    "phonemize_to_result",
+    "phonemize_ssmd",
+    "phonemize_ssmd_to_result",
+    "tokenize_with_offsets",
+    "TokenSpan",
+    "OverrideSpan",
+    "PhonemizeResult",
     # Phoneme utilities
     "US_VOCAB",
     "GB_VOCAB",

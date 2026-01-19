@@ -15,6 +15,7 @@ import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from kokorog2p.attr_parser import parse_attributes
 from kokorog2p.ssmd import (
     phonemize_with_ssmd,
     preprocess_ssmd,
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
 
 
 SPEECHMARKDOWN_REGEX = re.compile(r"\(([^)]+)\)\[([^\]]+)\]")
+# Legacy regex for backward compatibility (only colon-separated)
 SPEECHMARKDOWN_ATTR_REGEX = re.compile(r"(\w+)\s*:\s*\"([^\"]*)\"")
 
 
@@ -37,14 +39,18 @@ def _convert_speechmarkdown_to_ssmd(text: str) -> str:
         lang_value: str | None = None
 
         if raw_attrs.startswith("/") and raw_attrs.endswith("/") and len(raw_attrs) > 1:
+            # Shorthand IPA: (word)[/phonemes/]
             ph_value = raw_attrs.strip("/")
         else:
-            for key, value in SPEECHMARKDOWN_ATTR_REGEX.findall(raw_attrs):
-                key = key.casefold()
-                if key == "ipa":
-                    ph_value = value
-                elif key == "lang":
-                    lang_value = value.lower().replace("_", "-")
+            # Convert SpeechMarkdown colon syntax to equals syntax for parsing
+            # ipa:"value" -> ipa="value"
+            normalized_attrs = raw_attrs.replace(":", "=")
+            attrs, _warnings = parse_attributes(normalized_attrs)
+
+            if "ipa" in attrs:
+                ph_value = attrs["ipa"]
+            if "lang" in attrs:
+                lang_value = attrs["lang"].lower().replace("_", "-")
 
         parts: list[str] = []
         if ph_value is not None:

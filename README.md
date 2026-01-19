@@ -270,11 +270,88 @@ with `lingua-language-detector` and inserts SSMD `[]{lang="..."}` or Speechmarkd
 phonemization. Use `get_g2p(..., markdown_syntax="...")` to enable SSMD/SpeechMarkdown
 parsing get_g2p.
 
+## Pipeline-Friendly API (NEW)
+
+kokorog2p now provides a **span-based phonemization API** designed for integration with text processing pipelines. This API uses character offsets for deterministic override application and supports per-token language switching.
+
+### Key Features
+
+- **Offset-based alignment**: Handles duplicate words correctly (e.g., "the cat the dog")
+- **Direct token ID output**: Ready for model input without post-processing
+- **Per-token language switching**: Mix languages within a single sentence
+- **Comprehensive warnings**: Debug alignment issues with detailed feedback
+- **Backward compatible**: Legacy word-based alignment still available
+
+### Quick Example
+
+```python
+from kokorog2p import phonemize_to_result, OverrideSpan
+
+# Simple phonemization
+result = phonemize_to_result("Hello world!")
+print(result.phonemes)    # 'həlˈoʊ wˈɜɹld!'
+print(result.token_ids)   # [50, 83, 54, ...]
+
+# Handle duplicate words with different pronunciations
+text = "the cat the dog"
+overrides = [
+    OverrideSpan(0, 3, {"ph": "ðə"}),   # First "the"
+    OverrideSpan(8, 11, {"ph": "ði"}),  # Second "the"
+]
+result = phonemize_to_result(text, overrides=overrides)
+# Both overrides applied correctly!
+
+# Language switching within text
+text = "Hello Bonjour world"
+overrides = [OverrideSpan(6, 13, {"lang": "fr"})]
+result = phonemize_to_result(text, lang="en-us", overrides=overrides)
+# "Bonjour" phonemized with French G2P
+```
+
+### SSMD Convenience Wrapper
+
+Use SSMD markup syntax for human-readable annotations:
+
+```python
+from kokorog2p import phonemize_ssmd, phonemize_ssmd_to_result
+
+# Simple usage
+phonemes = phonemize_ssmd("[the]{ph='ðə'} cat [the]{ph='ði'} dog")
+# Output: "ðə kˈæt ði dˈɔɡ"
+
+# With detailed results
+result = phonemize_ssmd_to_result("[Paris]{lang='fr'} is beautiful")
+print(result.phonemes)
+print(result.warnings)  # Check for alignment issues
+
+# Both phonemes and token IDs
+phonemes, ids = phonemize_ssmd(
+    "[hello]{ph='həlˈO'} world",
+    return_phonemes=True,
+    return_ids=True
+)
+```
+
+### Documentation
+
+- **[API Reference](docs/api.md)** - Complete function documentation
+- **[Span Guide](docs/spans.md)** - Understanding character offsets and alignment
+- **[SSMD Syntax](docs/ssmd.md)** - Markup grammar and examples
+- **[Examples](examples/new_api_demo.py)** - Working code examples
+
+### Use Cases
+
+✅ **Pipeline Integration**: Preserve offsets through preprocessing stages
+✅ **Duplicate Handling**: Apply different pronunciations to repeated words
+✅ **Multi-language**: Switch languages per-word within sentences
+✅ **Model Input**: Get token IDs directly without manual conversion
+✅ **Debugging**: Comprehensive warnings for alignment issues
+
 ## SSMD Support
 
 SSMD annotations like `[pecan]{ph="pɪˈkɑːn"}` and `[Paris]{lang="fr"}` are supported
 alongside SpeechMarkdown. Use `get_g2p(..., markdown_syntax="ssmd")` to enable
-SpeechMarkdown parsing.
+SpeechMarkdown parsing, or use the new `phonemize_ssmd()` function for direct SSMD processing.
 
 ```python
 from kokorog2p import get_g2p
@@ -286,6 +363,10 @@ text = (
 
 g2p = get_g2p("en-us", markdown_syntax="ssmd")
 print(g2p.phonemize(text))
+
+# Or use the new API:
+from kokorog2p import phonemize_ssmd
+phonemes = phonemize_ssmd(text)
 ```
 
 ## SpeechMarkdown Support
