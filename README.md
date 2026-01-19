@@ -272,11 +272,14 @@ parsing get_g2p.
 
 ## Pipeline-Friendly API (NEW)
 
-kokorog2p now provides a **span-based phonemization API** designed for integration with text processing pipelines. This API uses character offsets for deterministic override application and supports per-token language switching.
+kokorog2p now provides a **span-based phonemization API** designed for integration with
+text processing pipelines. This API uses character offsets for deterministic override
+application and supports per-token language switching.
 
 ### Key Features
 
-- **Offset-based alignment**: Handles duplicate words correctly (e.g., "the cat the dog")
+- **Offset-based alignment**: Handles duplicate words correctly (e.g., "the cat the
+  dog")
 - **Direct token ID output**: Ready for model input without post-processing
 - **Per-token language switching**: Mix languages within a single sentence
 - **Comprehensive warnings**: Debug alignment issues with detailed feedback
@@ -341,17 +344,18 @@ phonemes, ids = phonemize_ssmd(
 
 ### Use Cases
 
-✅ **Pipeline Integration**: Preserve offsets through preprocessing stages
-✅ **Duplicate Handling**: Apply different pronunciations to repeated words
-✅ **Multi-language**: Switch languages per-word within sentences
-✅ **Model Input**: Get token IDs directly without manual conversion
-✅ **Debugging**: Comprehensive warnings for alignment issues
+✅ **Pipeline Integration**: Preserve offsets through preprocessing stages ✅
+**Duplicate Handling**: Apply different pronunciations to repeated words ✅
+**Multi-language**: Switch languages per-word within sentences ✅ **Model Input**: Get
+token IDs directly without manual conversion ✅ **Debugging**: Comprehensive warnings
+for alignment issues
 
 ## SSMD Support
 
 SSMD annotations like `[pecan]{ph="pɪˈkɑːn"}` and `[Paris]{lang="fr"}` are supported
 alongside SpeechMarkdown. Use `get_g2p(..., markdown_syntax="ssmd")` to enable
-SpeechMarkdown parsing, or use the new `phonemize_ssmd()` function for direct SSMD processing.
+SpeechMarkdown parsing, or use the new `phonemize_ssmd()` function for direct SSMD
+processing.
 
 ```python
 from kokorog2p import get_g2p
