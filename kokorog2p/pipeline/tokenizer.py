@@ -145,7 +145,7 @@ class BaseTokenizer(ABC):
         current_depth = 0
 
         for token in tokens:
-            if token.text in ('"', "`"):
+            if token.text in ('"', "`", "'"):
                 quote_count += 1
                 if quote_count % 2 == 1:
                     # Opening quote
@@ -183,6 +183,13 @@ class BaseTokenizer(ABC):
                 prev_depth = token.quote_depth
             elif token.text == "`":
                 # Backticks follow same pattern as double quotes
+                if token.quote_depth > prev_depth:
+                    token.text = "\u201c"  # "
+                else:
+                    token.text = "\u201d"  # "
+                prev_depth = token.quote_depth
+            elif token.text == "'":
+                # Single quotes follow same pattern as double quotes
                 if token.quote_depth > prev_depth:
                     token.text = "\u201c"  # "
                 else:
