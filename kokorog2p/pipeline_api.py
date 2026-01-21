@@ -176,6 +176,28 @@ def _phonemize_token_spans(
         # Determine language for this token
         token_lang = token.lang or default_lang
 
+        while (
+            g2p_index < len(g2p_token_spans)
+            and g2p_token_spans[g2p_index].char_end <= token.char_start
+        ):
+            g2p_index += 1
+
+        scan_index = g2p_index
+        overlap_spans: list[TokenSpan] = []
+        mapped_whitespace: str | None = None
+        while (
+            scan_index < len(g2p_token_spans)
+            and g2p_token_spans[scan_index].char_start < token.char_end
+        ):
+            overlap_span = g2p_token_spans[scan_index]
+            overlap_spans.append(overlap_span)
+            whitespace = overlap_span.meta.get("whitespace")
+            if whitespace is not None:
+                mapped_whitespace = str(whitespace)
+            scan_index += 1
+
+        g2p_index = scan_index
+
         # Get G2P instance for this language
         if token_lang not in g2p_cache:
             try:
@@ -216,22 +238,11 @@ def _phonemize_token_spans(
                 phonemes = ""
         else:
             # Map phonemes from whole-text G2P output
-            while (
-                g2p_index < len(g2p_token_spans)
-                and g2p_token_spans[g2p_index].char_end <= token.char_start
-            ):
-                g2p_index += 1
-
-            scan_index = g2p_index
             mapped_parts: list[str] = []
-            while (
-                scan_index < len(g2p_token_spans)
-                and g2p_token_spans[scan_index].char_start < token.char_end
-            ):
-                g2p_phonemes = g2p_token_spans[scan_index].meta.get("phonemes", "")
+            for overlap_span in overlap_spans:
+                g2p_phonemes = overlap_span.meta.get("phonemes", "")
                 if g2p_phonemes:
                     mapped_parts.append(str(g2p_phonemes))
-                scan_index += 1
 
             phonemes = "".join(mapped_parts)
             if not phonemes and token.text.strip() and not _is_punctuation(token.text):
@@ -246,7 +257,7 @@ def _phonemize_token_spans(
             char_start=token.char_start,
             char_end=token.char_end,
             lang=token.lang,
-            meta={**token.meta, "phonemes": phonemes},
+            meta={**token.meta, "phonemes": phonemes, "whitespace": mapped_whitespace},
         )
         phonemized_tokens.append(phonemized_token)
 
@@ -267,16 +278,24 @@ def _build_phoneme_string(tokens: list[TokenSpan], clean_text: str) -> str:
 
     for i, token in enumerate(tokens):
         phonemes = token.meta.get("phonemes", "")
+        whitespace = token.meta.get("whitespace")
+
         if not phonemes:
             # No phonemes - might be punctuation or failed phonemization
             # Check if it's punctuation and include as-is
             if _is_punctuation_token(token):
                 parts.append(token.text)
+                if whitespace:
+                    parts.append(str(whitespace))
             continue
 
         parts.append(str(phonemes))
+        if whitespace is not None:
+            if whitespace:
+                parts.append(str(whitespace))
+            continue
 
-        # Add spacing from original text if needed before next token
+        # Fallback: add spacing based on original text when whitespace missing
         if i + 1 < len(tokens):
             next_token = tokens[i + 1]
             gap = next_token.char_start - token.char_end

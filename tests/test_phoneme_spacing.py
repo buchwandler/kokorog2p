@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from kokorog2p import phonemize_to_result
 from kokorog2p.en.g2p import EnglishG2P
 
 
@@ -20,15 +21,18 @@ class TestPhonemeSpacing:
         """Create G2P instance for testing."""
         return EnglishG2P(use_espeak_fallback=True, use_spacy=False)
 
-    def test_double_quotes_no_extra_spaces(self, g2p):
+    @pytest.fixture(params=["english_g2p", "pipeline"])
+    def phonemizer(self, request, g2p):
+        """Provide phonemizer outputs for G2P and pipeline API."""
+        if request.param == "english_g2p":
+            return g2p.phonemize
+
+        return lambda text: phonemize_to_result(text, g2p=g2p).phonemes or ""
+
+    def test_double_quotes_no_extra_spaces(self, phonemizer):
         """Double quotes should not have extra spaces around them."""
         text = 'She said "hello".'
-        tokens = g2p(text)
-
-        # Join with whitespace preservation
-        result = "".join(
-            (t.phonemes or "") + (" " if t.whitespace else "") for t in tokens
-        ).strip()
+        result = phonemizer(text)
 
         # Should NOT have spaces like: ʃˌi sˈɛd " həlˈO " .
         # Should have: ʃˌi sˈɛd "həlˈO". (with curly quotes U+201C and U+201D)
@@ -38,26 +42,20 @@ class TestPhonemeSpacing:
             "\u201chəlˈO\u201d" in result
         ), "Should have curly quotes directly around word"
 
-    def test_period_no_extra_space_before(self, g2p):
+    def test_period_no_extra_space_before(self, phonemizer):
         """Period should not have extra space before it."""
         text = "Hello world."
-        tokens = g2p(text)
-        result = "".join(
-            (t.phonemes or "") + (" " if t.whitespace else "") for t in tokens
-        ).strip()
+        result = phonemizer(text)
 
         # Should NOT end with: wˈɜɹld .
         # Should end with: wˈɜɹld.
         assert not result.endswith(" ."), "Period should not have space before it"
         assert result.endswith("."), "Should end with period"
 
-    def test_comma_spacing(self, g2p):
+    def test_comma_spacing(self, phonemizer):
         """Comma should follow natural spacing."""
         text = "Hello, world."
-        tokens = g2p(text)
-        result = "".join(
-            (t.phonemes or "") + (" " if t.whitespace else "") for t in tokens
-        ).strip()
+        result = phonemizer(text)
 
         # Should be: həlˈO,wˈɜɹld.
         # Should NOT be: həlˈO , wˈɜɹld .
@@ -65,24 +63,17 @@ class TestPhonemeSpacing:
         assert " ," not in result, "Comma should not have space before it"
         assert ", " not in result, "Comma should not have space before it"
 
-    def test_whitespace_normalization(self, g2p):
-        """Multiple spaces should be normalized to single space."""
+    def test_whitespace_normalization(self, phonemizer, g2p):
+        """Whitespace handling should match EnglishG2P output."""
         text = "Hello  world."  # Double space
-        tokens = g2p(text)
-        result = "".join(
-            (t.phonemes or "") + (" " if t.whitespace else "") for t in tokens
-        ).strip()
+        result = phonemizer(text)
 
-        # Should normalize double space to single
-        assert "  " not in result, "Should not have double spaces"
+        assert result == g2p.phonemize(text)
 
-    def test_guillemets_converted_to_quotes(self, g2p):
+    def test_guillemets_converted_to_quotes(self, phonemizer):
         """Guillemets should be normalized to double quotes."""
         text = "Test «word» here."
-        tokens = g2p(text)
-        result = "".join(
-            (t.phonemes or "") + (" " if t.whitespace else "") for t in tokens
-        ).strip()
+        result = phonemizer(text)
 
         # Should contain curly quotes (U+201C and U+201D), not guillemets
         assert "\u201c" in result or "\u201d" in result, "Should contain curly quotes"
@@ -90,13 +81,10 @@ class TestPhonemeSpacing:
         assert "»" not in result, "Should not contain right guillemet"
         assert "\u201cwˈɜɹd\u201d" in result, "Should have curly quotes around word"
 
-    def test_single_guillemets_converted(self, g2p):
+    def test_single_guillemets_converted(self, phonemizer):
         """Single guillemets (‹›) should be normalized to double quotes."""
         text = "Test ‹word› here."
-        tokens = g2p(text)
-        result = "".join(
-            (t.phonemes or "") + (" " if t.whitespace else "") for t in tokens
-        ).strip()
+        result = phonemizer(text)
 
         # Should contain curly quotes (U+201C and U+201D)
         assert "\u201c" in result or "\u201d" in result, "Should contain curly quotes"

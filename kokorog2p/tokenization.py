@@ -210,6 +210,7 @@ def gtokens_to_tokenspans(
             meta["rating"] = gtoken.rating
         if gtoken.tag:
             meta["tag"] = gtoken.tag
+        meta["whitespace"] = gtoken.whitespace
 
         # Create TokenSpan
         token_span = TokenSpan(
