@@ -37,7 +37,7 @@ class TestQuotePhonemes:
         result = g2p.phonemize("Say They'll like me. I'm sure.")
         # Should not contain curly quotes
         assert "\u201c" not in result and "\u201d" not in result
-        
+
     def test_ascii_quotes(self):
         """Test ASCII quote output."""
         g2p = get_g2p("en-us", phoneme_quotes="ascii")
