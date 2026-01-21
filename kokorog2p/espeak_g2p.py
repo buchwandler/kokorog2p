@@ -13,6 +13,7 @@ import re
 
 from kokorog2p.base import G2PBase
 from kokorog2p.token import GToken
+from kokorog2p.tokenization import ensure_gtoken_positions
 
 logger = logging.getLogger(__name__)
 
@@ -252,6 +253,7 @@ class EspeakOnlyG2P(G2PBase):
             token.rating = "espeak" if phonemes else None
             tokens.append(token)
 
+        ensure_gtoken_positions(tokens, text)
         return tokens
 
     def lookup(self, word: str, tag: str | None = None) -> str | None:

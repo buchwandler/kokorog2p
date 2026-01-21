@@ -11,6 +11,7 @@ Licensed under the Apache License, Version 2.0
 
 from kokorog2p.base import G2PBase
 from kokorog2p.token import GToken
+from kokorog2p.tokenization import ensure_gtoken_positions
 
 from .jamo_to_ipa import jamo_to_ipa
 
@@ -120,7 +121,9 @@ class KoreanG2P(G2PBase):
             phonemes=ipa_phonemes if ipa_phonemes else None,
         )
         token.rating = "ko" if ipa_phonemes else None
-        return [token]
+        tokens = [token]
+        ensure_gtoken_positions(tokens, text)
+        return tokens
 
     def lookup(self, word: str, tag: str | None = None) -> str | None:
         """Look up a Korean word and return its phonetic representation.

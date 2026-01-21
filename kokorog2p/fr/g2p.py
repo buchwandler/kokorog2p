@@ -14,6 +14,7 @@ from kokorog2p.fr.lexicon import FrenchLexicon, TokenContext
 from kokorog2p.fr.normalizer import FrenchNormalizer
 from kokorog2p.fr.numbers import expand_currency, expand_numbers, expand_time
 from kokorog2p.token import GToken
+from kokorog2p.tokenization import ensure_gtoken_positions
 
 
 class FrenchG2P(G2PBase):
@@ -181,6 +182,7 @@ class FrenchG2P(G2PBase):
             if token.phonemes is None and token.is_word:
                 token.phonemes = self.unk
 
+        ensure_gtoken_positions(tokens, text)
         return tokens
 
     def _preprocess(self, text: str) -> str:

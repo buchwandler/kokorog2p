@@ -262,6 +262,18 @@ class TestPhonemizeToResult:
         assert result.phonemes is not None
         assert len(result.phonemes) > 0
 
+    def test_matches_g2p_without_overrides(self):
+        """Test that phonemize_to_result matches g2p output without overrides."""
+        from kokorog2p import get_g2p
+
+        text = "What's your problem?"
+        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        expected = g2p.phonemize(text)
+
+        result = phonemize_to_result(text, g2p=g2p)
+
+        assert result.phonemes == expected
+
     def test_various_contractions_preserved(self):
         """Test that various types of contractions preserve all phonemes."""
         test_cases = [

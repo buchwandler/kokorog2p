@@ -441,11 +441,7 @@ class EnglishG2P(G2PBase):
         # Convert ProcessingToken to GToken and handle punctuation
         tokens: list[GToken] = []
         for ptoken in processing_tokens:
-            gtoken = GToken(
-                text=ptoken.text,
-                tag=ptoken.pos_tag,
-                whitespace=ptoken.whitespace,
-            )
+            gtoken = ptoken.to_gtoken()
 
             # Handle punctuation
             is_punct_tag = ptoken.pos_tag in (
@@ -491,11 +487,8 @@ class EnglishG2P(G2PBase):
         # Convert ProcessingToken to GToken and handle punctuation
         tokens: list[GToken] = []
         for ptoken in processing_tokens:
-            gtoken = GToken(
-                text=ptoken.text,
-                tag="",  # No POS tags in simple tokenizer
-                whitespace=ptoken.whitespace,
-            )
+            gtoken = ptoken.to_gtoken()
+            gtoken.tag = ""  # No POS tags in simple tokenizer
 
             # Handle punctuation (but not contractions with apostrophes)
             if not ptoken.text.isalnum() and "'" not in ptoken.text:

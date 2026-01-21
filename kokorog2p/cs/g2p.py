@@ -20,6 +20,7 @@ from typing import Any, Final
 from kokorog2p.base import G2PBase
 from kokorog2p.cs.normalizer import CzechNormalizer
 from kokorog2p.token import GToken
+from kokorog2p.tokenization import ensure_gtoken_positions
 
 # =============================================================================
 # Czech Phoneme Mappings
@@ -372,6 +373,7 @@ class CzechG2P(G2PBase):
 
             tokens.append(token)
 
+        ensure_gtoken_positions(tokens, text)
         return tokens
 
     def _word_to_phonemes(self, word: str) -> str:  # noqa: C901

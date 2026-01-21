@@ -13,6 +13,7 @@ import re
 
 from kokorog2p.base import G2PBase
 from kokorog2p.token import GToken
+from kokorog2p.tokenization import ensure_gtoken_positions
 
 
 class ChineseG2P(G2PBase):
@@ -188,7 +189,9 @@ class ChineseG2P(G2PBase):
             phonemes=phonemes if phonemes else None,
         )
         token.rating = "zh" if phonemes else None
-        return [token]
+        tokens = [token]
+        ensure_gtoken_positions(tokens, text)
+        return tokens
 
     def _phonemize_internal(
         self, text: str, en_callable=None

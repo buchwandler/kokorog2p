@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any, Final
 
 from kokorog2p.base import G2PBase
 from kokorog2p.token import GToken
+from kokorog2p.tokenization import ensure_gtoken_positions
 
 if TYPE_CHECKING:
     from kokorog2p.de.lexicon import GermanLexicon
@@ -333,6 +334,7 @@ class GermanG2P(G2PBase):
 
             tokens.append(token)
 
+        ensure_gtoken_positions(tokens, text)
         return tokens
 
     def _word_to_phonemes(self, word: str) -> str:

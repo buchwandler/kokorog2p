@@ -9,7 +9,11 @@ from typing import TYPE_CHECKING, Literal
 
 from kokorog2p.punctuation import normalize_punctuation
 from kokorog2p.span_processing import apply_overrides_to_tokens
-from kokorog2p.tokenization import gtokens_to_tokenspans, tokenize_with_offsets
+from kokorog2p.tokenization import (
+    ensure_gtoken_positions,
+    gtokens_to_tokenspans,
+    tokenize_with_offsets,
+)
 from kokorog2p.types import OverrideSpan, PhonemizeResult, TokenSpan
 from kokorog2p.vocab import filter_for_kokoro, phonemes_to_ids, validate_for_kokoro
 
@@ -86,14 +90,18 @@ def phonemize_to_result(
     if g2p is None:
         g2p = get_g2p(lang, markdown_syntax="disabled")
 
+    # Phonemize full text once to preserve context and spacing
+    gtokens = g2p(clean_text)
+    ensure_gtoken_positions(gtokens, clean_text)
+    g2p_token_spans = gtokens_to_tokenspans(gtokens, clean_text)
+
     # Tokenize clean text with offset tracking
     if alignment == "span":
         # Use new span-based alignment
         token_spans = tokenize_with_offsets(clean_text, lang=lang, keep_punct=True)
     else:
-        # Legacy: use G2P's tokenization and reconstruct offsets
-        gtokens = g2p(clean_text)
-        token_spans = gtokens_to_tokenspans(gtokens, clean_text)
+        # Legacy: use G2P's tokenization and offsets
+        token_spans = g2p_token_spans
 
     # Apply overrides if provided
     if overrides:
@@ -104,14 +112,14 @@ def phonemize_to_result(
 
     # Phonemize tokens based on language and overrides
     phonemized_tokens, phonemize_warnings = _phonemize_token_spans(
-        token_spans, g2p, lang
+        token_spans, g2p_token_spans, g2p, lang
     )
     warnings.extend(phonemize_warnings)
 
     # Build phoneme string if needed for output OR for IDs
     phoneme_str: str | None = None
     if return_phonemes or return_ids:
-        phoneme_str = _build_phoneme_string(phonemized_tokens)
+        phoneme_str = _build_phoneme_string(phonemized_tokens, clean_text)
 
     phonemes: str | None = phoneme_str if return_phonemes else None
 
@@ -142,6 +150,7 @@ def phonemize_to_result(
 
 def _phonemize_token_spans(
     token_spans: list[TokenSpan],
+    g2p_token_spans: list[TokenSpan],
     g2p: "G2PBase",
     default_lang: str,
 ) -> tuple[list[TokenSpan], list[str]]:
@@ -149,6 +158,7 @@ def _phonemize_token_spans(
 
     Args:
         token_spans: List of token spans to phonemize.
+        g2p_token_spans: Token spans derived from whole-text G2P.
         g2p: G2P instance for default language.
         default_lang: Default language code.
 
@@ -160,6 +170,7 @@ def _phonemize_token_spans(
     warnings: list[str] = []
     phonemized_tokens: list[TokenSpan] = []
     g2p_cache: dict[str, G2PBase] = {default_lang: g2p}
+    g2p_index = 0
 
     for token in token_spans:
         # Determine language for this token
@@ -183,23 +194,13 @@ def _phonemize_token_spans(
         if "ph" in token.meta:
             # Use override phonemes
             phonemes = str(token.meta["ph"])
-        else:
-            # Phonemize using G2P
+        elif token_lang != default_lang:
+            # Re-phonemize using language-specific G2P
             try:
                 gtokens = token_g2p(token.text)
-                if gtokens:
-                    # Concatenate phonemes from all returned tokens
-                    # (e.g., "What's" -> ["What", "'s"] -> "wˌʌt" + "s")
-                    phoneme_parts = [gt.phonemes for gt in gtokens if gt.phonemes]
-                    if phoneme_parts:
-                        phonemes = " ".join(phoneme_parts)
-                    else:
-                        phonemes = ""
-                        if token.text.strip() and not _is_punctuation(token.text):
-                            warnings.append(
-                                f"No phonemes generated for token '{token.text}' "
-                                f"at position {token.char_start}"
-                            )
+                phoneme_parts = [gt.phonemes for gt in gtokens if gt.phonemes]
+                if phoneme_parts:
+                    phonemes = "".join(phoneme_parts)
                 else:
                     phonemes = ""
                     if token.text.strip() and not _is_punctuation(token.text):
@@ -213,6 +214,31 @@ def _phonemize_token_spans(
                     f"at position {token.char_start}: {e}"
                 )
                 phonemes = ""
+        else:
+            # Map phonemes from whole-text G2P output
+            while (
+                g2p_index < len(g2p_token_spans)
+                and g2p_token_spans[g2p_index].char_end <= token.char_start
+            ):
+                g2p_index += 1
+
+            scan_index = g2p_index
+            phoneme_parts: list[str] = []
+            while (
+                scan_index < len(g2p_token_spans)
+                and g2p_token_spans[scan_index].char_start < token.char_end
+            ):
+                g2p_phonemes = g2p_token_spans[scan_index].meta.get("phonemes", "")
+                if g2p_phonemes:
+                    phoneme_parts.append(str(g2p_phonemes))
+                scan_index += 1
+
+            phonemes = "".join(phoneme_parts)
+            if not phonemes and token.text.strip() and not _is_punctuation(token.text):
+                warnings.append(
+                    f"No phonemes generated for token '{token.text}' "
+                    f"at position {token.char_start}"
+                )
 
         # Create phonemized token
         phonemized_token = TokenSpan(
@@ -227,11 +253,12 @@ def _phonemize_token_spans(
     return phonemized_tokens, warnings
 
 
-def _build_phoneme_string(tokens: list[TokenSpan]) -> str:
+def _build_phoneme_string(tokens: list[TokenSpan], clean_text: str) -> str:
     """Build a space-separated phoneme string from tokens.
 
     Args:
         tokens: List of phonemized token spans.
+        clean_text: Original clean text for spacing reconstruction.
 
     Returns:
         Phoneme string with appropriate spacing.
@@ -243,20 +270,18 @@ def _build_phoneme_string(tokens: list[TokenSpan]) -> str:
         if not phonemes:
             # No phonemes - might be punctuation or failed phonemization
             # Check if it's punctuation and include as-is
-            if _is_punctuation(token.text):
+            if _is_punctuation_token(token):
                 parts.append(token.text)
             continue
 
         parts.append(str(phonemes))
 
-        # Add space if needed before next token
+        # Add spacing from original text if needed before next token
         if i + 1 < len(tokens):
             next_token = tokens[i + 1]
-            # Add space unless next token is punctuation
-            if not _is_punctuation(next_token.text):
-                gap = next_token.char_start - token.char_end
-                if gap > 0:
-                    parts.append(" ")
+            gap = next_token.char_start - token.char_end
+            if gap > 0:
+                parts.append(clean_text[token.char_end : next_token.char_start])
 
     return "".join(parts).strip()
 
@@ -292,6 +317,14 @@ def _is_punctuation(text: str) -> bool:
         "}",
     }
     return text.strip() in punct or all(not c.isalnum() for c in text)
+
+
+def _is_punctuation_token(token: TokenSpan) -> bool:
+    """Check if a token should be treated as punctuation for output."""
+    tag = token.meta.get("tag")
+    if tag:
+        return tag in {".", ",", ":", ";", "!", "?", "-", "'", '"', "(", ")", "PUNCT"}
+    return _is_punctuation(token.text)
 
 
 __all__ = [

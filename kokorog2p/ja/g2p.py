@@ -11,6 +11,7 @@ Licensed under the Apache License, Version 2.0
 
 from kokorog2p.base import G2PBase
 from kokorog2p.token import GToken
+from kokorog2p.tokenization import ensure_gtoken_positions
 
 # Katakana to phoneme mapping
 M2P = {
@@ -342,6 +343,7 @@ class JapaneseG2P(G2PBase):
         phonemes, tokens = self._phonemize_internal(text)
 
         if tokens:
+            ensure_gtoken_positions(tokens, text)
             return tokens
 
         # Create a single token if no detailed tokens
@@ -352,7 +354,9 @@ class JapaneseG2P(G2PBase):
             phonemes=phonemes if phonemes else None,
         )
         token.rating = "ja" if phonemes else None
-        return [token]
+        tokens = [token]
+        ensure_gtoken_positions(tokens, text)
+        return tokens
 
     def _phonemize_internal(self, text: str) -> tuple[str, list[GToken] | None]:
         """Internal phonemization logic.

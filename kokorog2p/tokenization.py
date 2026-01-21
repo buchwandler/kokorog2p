@@ -13,6 +13,49 @@ if TYPE_CHECKING:
     from kokorog2p.token import GToken
 
 
+def ensure_gtoken_positions(gtokens: list["GToken"], text: str) -> list["GToken"]:
+    """Ensure GTokens have char_start/char_end positions.
+
+    Positions are stored in the GToken extension dict to preserve
+    backward compatibility. Existing positions are preserved.
+
+    Args:
+        gtokens: List of GTokens to update.
+        text: Text used to generate the tokens.
+
+    Returns:
+        The updated list of GTokens.
+    """
+    current_pos = 0
+
+    for gtoken in gtokens:
+        char_start = gtoken.get("char_start")
+        char_end = gtoken.get("char_end")
+        if char_start is not None and char_end is not None:
+            current_pos = max(current_pos, char_end)
+            continue
+
+        while current_pos < len(text) and text[current_pos].isspace():
+            current_pos += 1
+
+        token_text = gtoken.text
+        if not token_text:
+            gtoken.set("char_start", current_pos)
+            gtoken.set("char_end", current_pos)
+            continue
+
+        token_start = text.find(token_text, current_pos)
+        if token_start == -1:
+            token_start = current_pos
+        token_end = token_start + len(token_text)
+
+        gtoken.set("char_start", token_start)
+        gtoken.set("char_end", token_end)
+        current_pos = token_end
+
+    return gtokens
+
+
 def gtoken_to_tokenspan(token: "GToken", clean_text: str) -> TokenSpan:
     """Convert a GToken to a TokenSpan with computed char offsets.
 
@@ -129,26 +172,35 @@ def gtokens_to_tokenspans(
     current_pos = 0
 
     for gtoken in gtokens:
-        # Skip ahead to find this token in clean_text
-        # Handle whitespace by advancing past it
-        while current_pos < len(clean_text) and clean_text[current_pos].isspace():
-            current_pos += 1
+        char_start = gtoken.get("char_start")
+        char_end = gtoken.get("char_end")
 
-        if current_pos >= len(clean_text):
-            # Reached end of text
-            break
-
-        # Find the token text starting at current_pos
-        token_text = gtoken.text
-        token_start = clean_text.find(token_text, current_pos)
-
-        if token_start == -1:
-            # Token not found - this could happen with normalization differences
-            # Use best guess: current position
-            token_start = current_pos
-            token_end = current_pos + len(token_text)
+        if char_start is not None and char_end is not None:
+            token_start = char_start
+            token_end = char_end
         else:
-            token_end = token_start + len(token_text)
+            # Skip ahead to find this token in clean_text
+            # Handle whitespace by advancing past it
+            while current_pos < len(clean_text) and clean_text[current_pos].isspace():
+                current_pos += 1
+
+            if current_pos >= len(clean_text):
+                # Reached end of text
+                break
+
+            # Find the token text starting at current_pos
+            token_text = gtoken.text
+            token_start = clean_text.find(token_text, current_pos)
+
+            if token_start == -1:
+                # Token not found - this could happen with normalization differences
+                # Use best guess: current position
+                token_start = current_pos
+                token_end = current_pos + len(token_text)
+            else:
+                token_end = token_start + len(token_text)
+
+        token_text = gtoken.text
 
         # Build meta dict from GToken
         meta: dict[str, object] = {}
@@ -179,4 +231,5 @@ __all__ = [
     "tokenize_with_offsets",
     "gtokens_to_tokenspans",
     "gtoken_to_tokenspan",
+    "ensure_gtoken_positions",
 ]

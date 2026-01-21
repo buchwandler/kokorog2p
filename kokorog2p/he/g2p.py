@@ -14,6 +14,7 @@ from typing import Any
 
 from kokorog2p.base import G2PBase
 from kokorog2p.token import GToken
+from kokorog2p.tokenization import ensure_gtoken_positions
 
 
 class HebrewG2P(G2PBase):
@@ -105,7 +106,9 @@ class HebrewG2P(G2PBase):
 
         if self.phonikud is None:
             # Return tokens without phonemes if phonikud is not available
-            return [GToken(text=text, tag="HE", whitespace="", phonemes=None)]
+            tokens = [GToken(text=text, tag="HE", whitespace="", phonemes=None)]
+            ensure_gtoken_positions(tokens, text)
+            return tokens
 
         # Convert to phonemes using phonikud
         try:
@@ -130,7 +133,9 @@ class HebrewG2P(G2PBase):
             phonemes=phonemes if phonemes else None,
         )
         token.rating = "he" if phonemes else None
-        return [token]
+        tokens = [token]
+        ensure_gtoken_positions(tokens, text)
+        return tokens
 
     def lookup(self, word: str, tag: str | None = None) -> str | None:
         """Look up a Hebrew word and return its phonetic representation.

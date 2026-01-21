@@ -22,6 +22,7 @@ from typing import Any, Final
 from kokorog2p.base import G2PBase
 from kokorog2p.it.normalizer import ItalianNormalizer
 from kokorog2p.token import GToken
+from kokorog2p.tokenization import ensure_gtoken_positions
 
 # =============================================================================
 # Italian Grapheme-to-Phoneme Mappings
@@ -158,6 +159,7 @@ class ItalianG2P(G2PBase):
             if token.phonemes is None and token.is_word:
                 token.phonemes = "?"
 
+        ensure_gtoken_positions(tokens, text)
         return tokens
 
     def _preprocess(self, text: str) -> str:
