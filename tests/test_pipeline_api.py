@@ -219,3 +219,135 @@ class TestPhonemizeToResult:
         assert "ði" in result.phonemes
         assert "ðə" in result.phonemes
         assert len(result.warnings) == 0
+
+    def test_contraction_apostrophe_s_preserved(self):
+        """Test that contractions with 's preserve the apostrophe-s in phonemes.
+
+        Bug: phonemize_to_result was dropping the 's in "What's", producing
+        only 'wˌʌt' instead of something like 'wˌʌts' or 'wˌʌt s'.
+        """
+        result = phonemize_to_result("What's your problem?")
+
+        # The input text should be preserved
+        assert result.clean_text == "What's your problem?"
+
+        # Check that "What's" is tokenized as a single token
+        whats_token = None
+        for token in result.tokens:
+            if token.text == "What's":
+                whats_token = token
+                break
+
+        assert whats_token is not None, "What's should be a single token"
+
+        # The phonemes for "What's" should include both "what" and "'s" sounds
+        # The 's in contractions is typically pronounced as /z/ or /s/
+        whats_phonemes = whats_token.meta.get("phonemes", "")
+
+        # Check that we have phonemes for "What's"
+        assert whats_phonemes, "What's should have phonemes"
+
+        # The phonemes should include some representation of the 's sound
+        # Common phoneme representations: 's', 'z', 'ʃ' (depending on backend)
+        # At minimum, the phonemes should be longer than just "what" alone
+        # "what" alone is typically 3-4 phonemes (w-ʌ-t or similar)
+        # "what's" should be 4-5+ phonemes
+        assert len(whats_phonemes) > 4, (
+            f"What's phonemes '{whats_phonemes}' seem incomplete. "
+            f"Expected phonemes for both 'what' and 's', but got "
+            f"only {len(whats_phonemes)} chars"
+        )
+
+        # Also verify the full phoneme string includes representation of both words
+        assert result.phonemes is not None
+        assert len(result.phonemes) > 0
+
+    def test_various_contractions_preserved(self):
+        """Test that various types of contractions preserve all phonemes."""
+        test_cases = [
+            ("It's raining", "It's"),
+            ("I don't know", "don't"),
+            ("We're ready", "We're"),
+            ("They've gone", "They've"),
+            ("She'll come", "She'll"),
+        ]
+
+        for text, contraction in test_cases:
+            result = phonemize_to_result(text)
+
+            # Find the contraction token
+            contraction_token = None
+            for token in result.tokens:
+                if token.text == contraction:
+                    contraction_token = token
+                    break
+
+            assert (
+                contraction_token is not None
+            ), f"{contraction} should be a token in '{text}'"
+
+            # Check that it has phonemes
+            phonemes = contraction_token.meta.get("phonemes", "")
+            assert phonemes, f"{contraction} should have phonemes"
+
+            # The phoneme string should not be empty for the full result
+            assert result.phonemes is not None
+            assert len(result.phonemes) > 0
+
+    def test_hyphenated_words_preserved(self):
+        """Test that hyphenated words like 'good-looking' are treated as single tokens.
+
+        Hyphenated words should be tokenized as a single unit and all parts should
+        be phonemized together.
+        """
+        result = phonemize_to_result("good-looking")
+
+        # The input text should be preserved
+        assert result.clean_text == "good-looking"
+
+        # "good-looking" should be a single token
+        assert len(result.tokens) == 1, (
+            f"Expected 1 token for 'good-looking', got {len(result.tokens)}: "
+            f"{[t.text for t in result.tokens]}"
+        )
+
+        token = result.tokens[0]
+        assert token.text == "good-looking"
+
+        # The phonemes should include both parts
+        phonemes = token.meta.get("phonemes", "")
+        assert phonemes, "good-looking should have phonemes"
+
+        # Should have phonemes for both "good" and "looking"
+        # At minimum, should be longer than just one word
+        assert len(phonemes) > 5, (
+            f"good-looking phonemes '{phonemes}' seem incomplete. "
+            f"Expected phonemes for both 'good' and 'looking'"
+        )
+
+        # The full result should also be correct
+        assert result.phonemes is not None
+        assert len(result.phonemes) > 0
+
+    def test_multiple_hyphenated_words(self):
+        """Test sentences with multiple hyphenated words."""
+        test_cases = [
+            ("good-looking", 1),
+            ("state-of-the-art technology", 2),  # "state-of-the-art" and "technology"
+            ("A well-known actor", 3),  # "A", "well-known", "actor"
+        ]
+
+        for text, expected_tokens in test_cases:
+            result = phonemize_to_result(text)
+
+            # Check tokenization
+            actual_tokens = len(result.tokens)
+            assert actual_tokens == expected_tokens, (
+                f"Expected {expected_tokens} tokens for '{text}', got {actual_tokens}: "
+                f"{[t.text for t in result.tokens]}"
+            )
+
+            # Check that all tokens have phonemes
+            for token in result.tokens:
+                phonemes = token.meta.get("phonemes", "")
+                assert phonemes, f"Token '{token.text}' should have phonemes"

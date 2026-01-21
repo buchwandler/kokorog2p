@@ -187,8 +187,19 @@ def _phonemize_token_spans(
             # Phonemize using G2P
             try:
                 gtokens = token_g2p(token.text)
-                if gtokens and gtokens[0].phonemes:
-                    phonemes = gtokens[0].phonemes
+                if gtokens:
+                    # Concatenate phonemes from all returned tokens
+                    # (e.g., "What's" -> ["What", "'s"] -> "wˌʌt" + "s")
+                    phoneme_parts = [gt.phonemes for gt in gtokens if gt.phonemes]
+                    if phoneme_parts:
+                        phonemes = " ".join(phoneme_parts)
+                    else:
+                        phonemes = ""
+                        if token.text.strip() and not _is_punctuation(token.text):
+                            warnings.append(
+                                f"No phonemes generated for token '{token.text}' "
+                                f"at position {token.char_start}"
+                            )
                 else:
                     phonemes = ""
                     if token.text.strip() and not _is_punctuation(token.text):

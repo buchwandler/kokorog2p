@@ -69,7 +69,13 @@ def tokenize_with_offsets(
     # This ensures consistency with actual G2P tokenization
     import re
 
-    pattern = re.compile(r"(\w+'\w+|\w+|[^\w\s]|\s+)")
+    # Pattern matches:
+    # - Hyphenated words: \w+-\w+(-\w+)* (e.g., "good-looking", "state-of-the-art")
+    # - Contractions: \w+'\w+ (e.g., "don't", "What's")
+    # - Regular words: \w+
+    # - Non-word/non-space chars: [^\w\s]
+    # - Whitespace: \s+
+    pattern = re.compile(r"(\w+(?:-\w+)+|\w+'\w+|\w+|[^\w\s]|\s+)")
     tokens: list[TokenSpan] = []
 
     for match in pattern.finditer(text):

@@ -22,6 +22,8 @@ class TestContractionDetection:
         """Test that standard apostrophe works correctly."""
         result = g2p.phonemize("we're")
         assert "wɪɹ" in result
+        result = g2p.phonemize("What's your problem?'")
+        assert "wˌʌts" in result
 
     def test_prime_apostrophe(self, g2p):
         """Test that prime character (U+2032) is normalized to apostrophe."""
