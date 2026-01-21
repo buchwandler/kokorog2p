@@ -42,9 +42,7 @@ class TestQuotePhonemes:
 
     def test_curly_quotes_default(self, phoneme_backend):
         """Test that curly quotes are used by default (backward compatible)."""
-        result = phonemize_with_mode(
-            phoneme_backend, 'Say "hi".', language="en-us"
-        )
+        result = phonemize_with_mode(phoneme_backend, 'Say "hi".', language="en-us")
         # Should contain curly quotes (U+201C, U+201D) by default
         assert "\u201c" in result or "\u201d" in result
 

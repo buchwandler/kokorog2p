@@ -1,9 +1,27 @@
 """Tests for the English G2P module."""
 
+from typing import Literal
+
 import pytest
 
+from kokorog2p import phonemize_to_result
 from kokorog2p.en.g2p import EnglishG2P
 from kokorog2p.token import GToken
+
+
+def phonemize_with_backend(
+    backend: Literal["g2p", "pipeline"],
+    g2p: EnglishG2P,
+    text: str,
+) -> str:
+    if backend == "g2p":
+        return g2p.phonemize(text)
+    return phonemize_to_result(text, g2p=g2p).phonemes or ""
+
+
+@pytest.fixture(params=["g2p", "pipeline"])
+def phoneme_backend(request) -> Literal["g2p", "pipeline"]:
+    return request.param
 
 
 class TestEnglishG2PNoFallback:
@@ -48,9 +66,9 @@ class TestEnglishG2PNoFallback:
         tokens2 = english_g2p_no_espeak("   ")
         assert tokens2 == []
 
-    def test_phonemize_method(self, english_g2p_no_espeak):
+    def test_phonemize_method(self, english_g2p_no_espeak, phoneme_backend):
         """Test phonemize method returns string."""
-        result = english_g2p_no_espeak.phonemize("hello")
+        result = phonemize_with_backend(phoneme_backend, english_g2p_no_espeak, "hello")
         assert isinstance(result, str)
         assert len(result) > 0
 
@@ -140,7 +158,7 @@ class TestEnglishG2PWithSpacy:
         for token in tokens:
             assert token.phonemes == "!"
 
-    def test_punctuation_with_quotes(self, english_g2p_with_spacy):
+    def test_punctuation_with_quotes(self, english_g2p_with_spacy, phoneme_backend):
         """Test that punctuation followed by quotes is preserved as punctuation.
 
         This is a regression test for the issue where !' and !" were being looked up
@@ -149,7 +167,9 @@ class TestEnglishG2PWithSpacy:
         """
         # Test case 1: Single quotes with punctuation
         tokens = english_g2p_with_spacy("'Master Maker!'")
-        phonemes = english_g2p_with_spacy.phonemize("'Master Maker!'")
+        phonemes = phonemize_with_backend(
+            phoneme_backend, english_g2p_with_spacy, "'Master Maker!'"
+        )
 
         # The ! should remain as punctuation, not be converted to "exclamation"
         assert (
@@ -168,7 +188,9 @@ class TestEnglishG2PWithSpacy:
                 )
 
         # Test case 2: Double quotes with punctuation
-        phonemes2 = english_g2p_with_spacy.phonemize('"Hello!"')
+        phonemes2 = phonemize_with_backend(
+            phoneme_backend, english_g2p_with_spacy, '"Hello!"'
+        )
 
         assert (
             "ˈɛkskləmˌAʃən" not in phonemes2
@@ -188,7 +210,9 @@ class TestEnglishG2PWithSpacy:
         ]
 
         for text, expected_punct in test_cases:
-            result = english_g2p_with_spacy.phonemize(text)
+            result = phonemize_with_backend(
+                phoneme_backend, english_g2p_with_spacy, text
+            )
             # Check punctuation is preserved
             assert (
                 expected_punct in result
@@ -199,7 +223,9 @@ class TestEnglishG2PWithSpacy:
                 f"Got: {result!r}"
             )
 
-    def test_contraction_phonemes_with_spacy(self, english_g2p_with_spacy):
+    def test_contraction_phonemes_with_spacy(
+        self, english_g2p_with_spacy, phoneme_backend
+    ):
         """Test contractions are phonemized correctly with spaCy.
 
         spaCy splits contractions (e.g., I've -> I + 've), but our merge
@@ -212,7 +238,9 @@ class TestEnglishG2PWithSpacy:
             ("They're here", "ðˌɛɹ hˈɪɹ"),
         ]
         for text, expected in test_cases:
-            result = english_g2p_with_spacy.phonemize(text)
+            result = phonemize_with_backend(
+                phoneme_backend, english_g2p_with_spacy, text
+            )
             assert (
                 result == expected
             ), f"'{text}': expected '{expected}', got '{result}'"
@@ -585,9 +613,9 @@ class TestContractionMerging:
         assert cant_token.phonemes == "kˈænt"
         assert wont_token.phonemes == "wˈOnt"
 
-    def test_phonemize_with_contractions(self, g2p_spacy):
+    def test_phonemize_with_contractions(self, g2p_spacy, phoneme_backend):
         """Test the phonemize() method with contractions."""
-        result = g2p_spacy.phonemize("I don't think so")
+        result = phonemize_with_backend(phoneme_backend, g2p_spacy, "I don't think so")
 
         # Should contain the correct phoneme for "don't"
         assert "dˈOnt" in result
@@ -781,10 +809,10 @@ class TestContractionRobustness:
 
         return EnglishG2P(language="en-us", use_spacy=True)
 
-    def test_dont_with_straight_apostrophe(self, g2p_spacy):
+    def test_dont_with_straight_apostrophe(self, g2p_spacy, phoneme_backend):
         """Test 'don't' with straight apostrophe (U+0027)."""
         text = "I don't understand them, but I love them."
-        result = g2p_spacy.phonemize(text)
+        result = phonemize_with_backend(phoneme_backend, g2p_spacy, text)
 
         # Should contain correct phoneme for don't
         assert "dˈOnt" in result
@@ -799,10 +827,10 @@ class TestContractionRobustness:
         assert dont_tokens[0].text == "don't"
         assert dont_tokens[0].phonemes == "dˈOnt"
 
-    def test_dont_with_curly_apostrophe(self, g2p_spacy):
+    def test_dont_with_curly_apostrophe(self, g2p_spacy, phoneme_backend):
         """Test 'don't' with right single quotation mark (U+2019)."""
         text = "I don't understand"
-        result = g2p_spacy.phonemize(text)
+        result = phonemize_with_backend(phoneme_backend, g2p_spacy, text)
 
         # Should be normalized and phonemized correctly
         assert "dˈOnt" in result
@@ -813,10 +841,10 @@ class TestContractionRobustness:
         assert len(dont_tokens) == 1
         assert dont_tokens[0].phonemes == "dˈOnt"
 
-    def test_dont_with_grave_accent(self, g2p_spacy):
+    def test_dont_with_grave_accent(self, g2p_spacy, phoneme_backend):
         """Test 'don't' with grave accent (U+0060) - common typo."""
         text = "I don`t understand"
-        result = g2p_spacy.phonemize(text)
+        result = phonemize_with_backend(phoneme_backend, g2p_spacy, text)
 
         # Should be normalized to apostrophe and phonemized correctly
         assert "dˈOnt" in result
@@ -826,19 +854,19 @@ class TestContractionRobustness:
         word_texts = [t.text for t in tokens if t.is_word]
         assert "don" not in word_texts  # Should be "don't", not "don"
 
-    def test_dont_with_acute_accent(self, g2p_spacy):
+    def test_dont_with_acute_accent(self, g2p_spacy, phoneme_backend):
         """Test 'don't' with acute accent (U+00B4) - another typo."""
         text = "I don´t understand"
-        result = g2p_spacy.phonemize(text)
+        result = phonemize_with_backend(phoneme_backend, g2p_spacy, text)
 
         # Should be normalized and phonemized correctly
         assert "dˈOnt" in result
 
-    def test_multiple_apostrophe_types_mixed(self, g2p_spacy):
+    def test_multiple_apostrophe_types_mixed(self, g2p_spacy, phoneme_backend):
         """Test text with multiple different apostrophe types."""
         # Mix straight, curly, and grave apostrophes
         text = "I don't think you're right, but we`ve tried."
-        result = g2p_spacy.phonemize(text)
+        result = phonemize_with_backend(phoneme_backend, g2p_spacy, text)
 
         # All contractions should work correctly
         assert "dˈOnt" in result  # don't
@@ -882,10 +910,10 @@ class TestContractionRobustness:
             assert len(dont_tokens) == 1
             assert dont_tokens[0].phonemes == expected_phoneme
 
-    def test_user_reported_sentence(self, g2p_spacy):
+    def test_user_reported_sentence(self, g2p_spacy, phoneme_backend):
         """Test the exact sentence reported by user that was failing."""
         text = "I don't understand them, but I love them."
-        result = g2p_spacy.phonemize(text)
+        result = phonemize_with_backend(phoneme_backend, g2p_spacy, text)
 
         # Expected output
         expected_dont = "dˈOnt"
@@ -954,7 +982,7 @@ class TestContractionRobustness:
                     "got" not in word_texts
                 ), f"'{word}' was split into parts: {word_texts}"
 
-    def test_dont_in_quoted_dialogue(self, g2p_spacy):
+    def test_dont_in_quoted_dialogue(self, g2p_spacy, phoneme_backend):
         """Test 'don't' in quoted dialogue with punctuation.
 
         Regression test for: 'I don't mind at all,' said Totho.
@@ -990,7 +1018,7 @@ class TestContractionRobustness:
             ), f"Expected 'dˈOnt', got '{dont_tokens[0].phonemes}' in {repr(text)}"
 
             # Verify the full phonemized result
-            result = g2p_spacy.phonemize(text)
+            result = phonemize_with_backend(phoneme_backend, g2p_spacy, text)
             assert (
                 "dˈOnt" in result
             ), f"Expected 'dˈOnt' in result for {repr(text)}, got: {result}"
@@ -1037,30 +1065,30 @@ class TestGoruutFallback:
         with pytest.raises(ValueError, match="Cannot use both"):
             EnglishG2P(use_espeak_fallback=True, use_goruut_fallback=True)
 
-    def test_goruut_fallback_basic(self, g2p_goruut):
+    def test_goruut_fallback_basic(self, g2p_goruut, phoneme_backend):
         """Test basic goruut fallback for unknown words."""
         # Use a made-up word not in dictionary
-        result = g2p_goruut.phonemize("xyzabc")
+        result = phonemize_with_backend(phoneme_backend, g2p_goruut, "xyzabc")
 
         # Should produce some phonemes (not empty or unknown marker)
         assert result
         assert result != "❓"
         assert len(result) > 0
 
-    def test_goruut_fallback_produces_phonemes(self, g2p_goruut):
+    def test_goruut_fallback_produces_phonemes(self, g2p_goruut, phoneme_backend):
         """Test that goruut produces valid phonemes for common words."""
-        result = g2p_goruut.phonemize("hello")
+        result = phonemize_with_backend(phoneme_backend, g2p_goruut, "hello")
 
         # Should contain recognizable IPA characters
         assert any(c in result for c in "həɛlˈO")
         assert result != "❓"
 
-    def test_goruut_vs_espeak_both_work(self, g2p_goruut, g2p_espeak):
+    def test_goruut_vs_espeak_both_work(self, g2p_goruut, g2p_espeak, phoneme_backend):
         """Test that both goruut and espeak produce phonemes (may differ)."""
         word = "supercalifragilisticexpialidocious"
 
-        result_goruut = g2p_goruut.phonemize(word)
-        result_espeak = g2p_espeak.phonemize(word)
+        result_goruut = phonemize_with_backend(phoneme_backend, g2p_goruut, word)
+        result_espeak = phonemize_with_backend(phoneme_backend, g2p_espeak, word)
 
         # Both should produce something
         assert result_goruut
@@ -1070,7 +1098,7 @@ class TestGoruutFallback:
         assert len(result_goruut) > 5
         assert len(result_espeak) > 5
 
-    def test_no_fallback_returns_unknown(self):
+    def test_no_fallback_returns_unknown(self, phoneme_backend):
         """Test that without fallback, unknown words return unknown marker."""
         g2p_none = EnglishG2P(
             use_espeak_fallback=False,
@@ -1079,22 +1107,22 @@ class TestGoruutFallback:
             load_silver=False,
         )
 
-        result = g2p_none.phonemize("xyzabc")
+        result = phonemize_with_backend(phoneme_backend, g2p_none, "xyzabc")
 
         # Should contain unknown marker
         assert "❓" in result
 
-    def test_goruut_fallback_with_real_words(self, g2p_goruut):
+    def test_goruut_fallback_with_real_words(self, g2p_goruut, phoneme_backend):
         """Test goruut fallback with various real English words."""
         words = ["test", "world", "python", "programming"]
 
         for word in words:
-            result = g2p_goruut.phonemize(word)
+            result = phonemize_with_backend(phoneme_backend, g2p_goruut, word)
             # Should produce phonemes, not unknown marker
             assert result
             assert "❓" not in result
 
-    def test_goruut_british_variant(self):
+    def test_goruut_british_variant(self, phoneme_backend):
         """Test goruut fallback with British English."""
         pytest.importorskip("pygoruut")
 
@@ -1106,7 +1134,7 @@ class TestGoruutFallback:
             load_silver=False,
         )
 
-        result = g2p_gb.phonemize("hello")
+        result = phonemize_with_backend(phoneme_backend, g2p_gb, "hello")
 
         # Should produce phonemes
         assert result
@@ -1122,10 +1150,10 @@ class TestGoruutFallback:
 
         assert isinstance(g2p_goruut.fallback, GoruutFallback)
 
-    def test_goruut_sentence_phonemization(self, g2p_goruut):
+    def test_goruut_sentence_phonemization(self, g2p_goruut, phoneme_backend):
         """Test goruut fallback with full sentences."""
         text = "The quick brown fox jumps over the lazy dog."
-        result = g2p_goruut.phonemize(text)
+        result = phonemize_with_backend(phoneme_backend, g2p_goruut, text)
 
         # Should produce substantial output
         assert len(result) > 20
