@@ -7,10 +7,11 @@ direct token ID output.
 
 from typing import TYPE_CHECKING, Literal
 
+from kokorog2p.punctuation import normalize_punctuation
 from kokorog2p.span_processing import apply_overrides_to_tokens
 from kokorog2p.tokenization import gtokens_to_tokenspans, tokenize_with_offsets
 from kokorog2p.types import OverrideSpan, PhonemizeResult, TokenSpan
-from kokorog2p.vocab import phonemes_to_ids
+from kokorog2p.vocab import filter_for_kokoro, phonemes_to_ids, validate_for_kokoro
 
 if TYPE_CHECKING:
     from kokorog2p.base import G2PBase
@@ -77,6 +78,10 @@ def phonemize_to_result(
     lang = lang or "en-us"
     warnings: list[str] = []
 
+    # Normalize punctuation into Kokoro-compatible forms early
+    # (e.g. '-' -> '—', '...' -> '…', fullwidth punctuation -> ASCII)
+    clean_text = normalize_punctuation(clean_text)
+
     # Get or create G2P instance
     if g2p is None:
         g2p = get_g2p(lang, markdown_syntax="disabled")
@@ -103,16 +108,25 @@ def phonemize_to_result(
     )
     warnings.extend(phonemize_warnings)
 
-    # Build phoneme string if requested
-    phonemes: str | None = None
-    if return_phonemes:
-        phonemes = _build_phoneme_string(phonemized_tokens)
+    # Build phoneme string if needed for output OR for IDs
+    phoneme_str: str | None = None
+    if return_phonemes or return_ids:
+        phoneme_str = _build_phoneme_string(phonemized_tokens)
 
-    # Build token IDs if requested
+    phonemes: str | None = phoneme_str if return_phonemes else None
+
+    # Build token IDs if requested (independent of return_phonemes)
     token_ids: list[int] | None = None
-    if return_ids and phonemes is not None:
+    if return_ids and phoneme_str is not None:
+        is_valid, invalid = validate_for_kokoro(phoneme_str)
+        if not is_valid:
+            warnings.append(
+                "Phoneme string contains chars not in Kokoro vocab; "
+                "they will be dropped: " + "".join(sorted(set(invalid)))
+            )
+            phoneme_str = filter_for_kokoro(phoneme_str, replacement="")
         try:
-            token_ids = phonemes_to_ids(phonemes)
+            token_ids = phonemes_to_ids(phoneme_str)
         except Exception as e:
             warnings.append(f"Failed to convert phonemes to IDs: {e}")
             token_ids = None

@@ -70,7 +70,21 @@ class TestPhonemizeToResult:
         result = phonemize_to_result("Hello!", return_ids=True, return_phonemes=False)
 
         assert result.phonemes is None
-        assert result.token_ids is None  # Can't generate IDs without phonemes
+        assert result.token_ids is not None
+        assert len(result.token_ids) > 0
+        assert all(isinstance(tid, int) for tid in result.token_ids)
+
+    def test_return_ids_only_for_hello_world(self):
+        """Test requesting only IDs, not phonemes, for 'Hello, world!'."""
+        result = phonemize_to_result(
+            "Hello, world!", return_ids=True, return_phonemes=False
+        )
+
+        assert result.token_ids is not None
+        assert len(result.token_ids) > 0
+        assert all(isinstance(tid, int) for tid in result.token_ids)
+        assert result.phonemes is None
+        assert not any("failed to convert" in w.lower() for w in result.warnings)
 
     def test_return_both(self):
         """Test requesting both phonemes and IDs."""
