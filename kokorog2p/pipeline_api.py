@@ -223,17 +223,17 @@ def _phonemize_token_spans(
                 g2p_index += 1
 
             scan_index = g2p_index
-            phoneme_parts: list[str] = []
+            mapped_parts: list[str] = []
             while (
                 scan_index < len(g2p_token_spans)
                 and g2p_token_spans[scan_index].char_start < token.char_end
             ):
                 g2p_phonemes = g2p_token_spans[scan_index].meta.get("phonemes", "")
                 if g2p_phonemes:
-                    phoneme_parts.append(str(g2p_phonemes))
+                    mapped_parts.append(str(g2p_phonemes))
                 scan_index += 1
 
-            phonemes = "".join(phoneme_parts)
+            phonemes = "".join(mapped_parts)
             if not phonemes and token.text.strip() and not _is_punctuation(token.text):
                 warnings.append(
                     f"No phonemes generated for token '{token.text}' "
