@@ -4,81 +4,148 @@ This test suite verifies that the phoneme_quotes parameter correctly controls
 how quote characters appear in phoneme output.
 """
 
+from typing import Literal
+
 import pytest
 
-from kokorog2p import get_g2p
+from kokorog2p import get_g2p, phonemize_to_result
+
+
+def phonemize_with_mode(
+    mode: Literal["g2p", "pipeline"],
+    text: str,
+    *,
+    language: str = "en-us",
+    phoneme_quotes: str = "curly",
+    use_spacy: bool | None = None,
+) -> str:
+    if use_spacy is None:
+        g2p = get_g2p(language=language, phoneme_quotes=phoneme_quotes)
+    else:
+        g2p = get_g2p(
+            language=language,
+            phoneme_quotes=phoneme_quotes,
+            use_spacy=use_spacy,
+        )
+    if mode == "g2p":
+        return g2p.phonemize(text)
+    return phonemize_to_result(text, g2p=g2p).phonemes or ""
+
+
+@pytest.fixture(params=["g2p", "pipeline"])
+def phoneme_backend(request) -> Literal["g2p", "pipeline"]:
+    return request.param
 
 
 class TestQuotePhonemes:
     """Test configurable quote output in phonemes."""
 
-    def test_curly_quotes_default(self):
+    def test_curly_quotes_default(self, phoneme_backend):
         """Test that curly quotes are used by default (backward compatible)."""
-        g2p = get_g2p("en-us")
-        result = g2p.phonemize('Say "hi".')
+        result = phonemize_with_mode(
+            phoneme_backend, 'Say "hi".', language="en-us"
+        )
         # Should contain curly quotes (U+201C, U+201D) by default
         assert "\u201c" in result or "\u201d" in result
 
-    def test_curly_quotes_explicit(self):
+    def test_curly_quotes_explicit(self, phoneme_backend):
         """Test explicit curly quotes setting."""
-        g2p = get_g2p("en-us", phoneme_quotes="curly")
-        result = g2p.phonemize('Say "hi".')
+        result = phonemize_with_mode(
+            phoneme_backend,
+            'Say "hi".',
+            language="en-us",
+            phoneme_quotes="curly",
+        )
         # Should contain curly quotes
         assert "\u201c" in result or "\u201d" in result
 
-        result = g2p.phonemize("Say 'hi'.")
+        result = phonemize_with_mode(
+            phoneme_backend,
+            "Say 'hi'.",
+            language="en-us",
+            phoneme_quotes="curly",
+        )
         # Should contain curly quotes
         assert "\u201c" in result or "\u201d" in result
 
-        result = g2p.phonemize("Say 'They'll like me'.")
+        result = phonemize_with_mode(
+            phoneme_backend,
+            "Say 'They'll like me'.",
+            language="en-us",
+            phoneme_quotes="curly",
+        )
         # Should contain curly quotes
         assert "\u201c" in result or "\u201d" in result
 
-        result = g2p.phonemize("Say They'll like me. I'm sure.")
+        result = phonemize_with_mode(
+            phoneme_backend,
+            "Say They'll like me. I'm sure.",
+            language="en-us",
+            phoneme_quotes="curly",
+        )
         # Should not contain curly quotes
         assert "\u201c" not in result and "\u201d" not in result
 
-    def test_ascii_quotes(self):
+    def test_ascii_quotes(self, phoneme_backend):
         """Test ASCII quote output."""
-        g2p = get_g2p("en-us", phoneme_quotes="ascii")
-        result = g2p.phonemize('Say "hi".')
+        result = phonemize_with_mode(
+            phoneme_backend,
+            'Say "hi".',
+            language="en-us",
+            phoneme_quotes="ascii",
+        )
         # Should contain ASCII quotes, not curly
         assert '"' in result
         assert "\u201c" not in result
         assert "\u201d" not in result
 
-    def test_no_quotes(self):
+    def test_no_quotes(self, phoneme_backend):
         """Test quote removal."""
-        g2p = get_g2p("en-us", phoneme_quotes="none")
-        result = g2p.phonemize('Say "hi".')
+        result = phonemize_with_mode(
+            phoneme_backend,
+            'Say "hi".',
+            language="en-us",
+            phoneme_quotes="none",
+        )
         # Should not contain any quote characters
         assert '"' not in result
         assert "\u201c" not in result
         assert "\u201d" not in result
 
-    def test_original_bug_curly(self):
+    def test_original_bug_curly(self, phoneme_backend):
         """Test original bug report with curly quotes (default)."""
-        g2p = get_g2p("en-us")
-        result = g2p.phonemize('They replied, "we′re feel play".')
+        result = phonemize_with_mode(
+            phoneme_backend,
+            'They replied, "we′re feel play".',
+            language="en-us",
+        )
         # Should have curly quotes by default
         assert "\u201c" in result or "\u201d" in result
         # And should have correct phonemes for we're
         assert "wɪɹ" in result
 
-    def test_original_bug_ascii(self):
+    def test_original_bug_ascii(self, phoneme_backend):
         """Test original bug report with ASCII quotes."""
-        g2p = get_g2p("en-us", phoneme_quotes="ascii")
-        result = g2p.phonemize('They replied, "we′re feel play".')
+        result = phonemize_with_mode(
+            phoneme_backend,
+            'They replied, "we′re feel play".',
+            language="en-us",
+            phoneme_quotes="ascii",
+        )
         # Should have ASCII quotes
         assert '"' in result
         assert "\u201c" not in result and "\u201d" not in result
         # And should have correct phonemes for we're
         assert "wɪɹ" in result
 
-    def test_original_bug_none(self):
+    def test_original_bug_none(self, phoneme_backend):
         """Test original bug report with no quotes."""
-        g2p = get_g2p("en-us", phoneme_quotes="none")
-        result = g2p.phonemize('They replied, "we′re feel play".')
+        result = phonemize_with_mode(
+            phoneme_backend,
+            'They replied, "we′re feel play".',
+            language="en-us",
+            phoneme_quotes="none",
+        )
         # Should not have any quotes
         assert '"' not in result
         assert "\u201c" not in result
@@ -86,40 +153,54 @@ class TestQuotePhonemes:
         # And should have correct phonemes for we're
         assert "wɪɹ" in result
 
-    def test_nested_quotes_curly(self):
+    def test_nested_quotes_curly(self, phoneme_backend):
         """Test nested quotes with curly setting."""
-        g2p = get_g2p("en-us", phoneme_quotes="curly")
-        result = g2p.phonemize("She said, \"He said 'hello' to me\".")
+        result = phonemize_with_mode(
+            phoneme_backend,
+            "She said, \"He said 'hello' to me\".",
+            language="en-us",
+            phoneme_quotes="curly",
+        )
         # Should have curly quotes
         assert "\u201c" in result or "\u201d" in result
 
-    def test_nested_quotes_ascii(self):
+    def test_nested_quotes_ascii(self, phoneme_backend):
         """Test nested quotes with ASCII setting."""
-        g2p = get_g2p("en-us", phoneme_quotes="ascii")
-        result = g2p.phonemize("She said, \"He said 'hello' to me\".")
+        result = phonemize_with_mode(
+            phoneme_backend,
+            "She said, \"He said 'hello' to me\".",
+            language="en-us",
+            phoneme_quotes="ascii",
+        )
         # Should have ASCII quotes
         assert '"' in result
         assert "\u201c" not in result and "\u201d" not in result
 
-    def test_nested_quotes_none(self):
+    def test_nested_quotes_none(self, phoneme_backend):
         """Test nested quotes with none setting."""
-        g2p = get_g2p("en-us", phoneme_quotes="none")
-        result = g2p.phonemize("She said, \"He said 'hello' to me\".")
+        result = phonemize_with_mode(
+            phoneme_backend,
+            "She said, \"He said 'hello' to me\".",
+            language="en-us",
+            phoneme_quotes="none",
+        )
         # Should not have any quotes
         assert '"' not in result
         assert "\u201c" not in result
         assert "\u201d" not in result
 
-    def test_other_punctuation_unaffected(self):
+    def test_other_punctuation_unaffected(self, phoneme_backend):
         """Test that other punctuation is not affected by phoneme_quotes."""
-        g2p_curly = get_g2p("en-us", phoneme_quotes="curly")
-        g2p_ascii = get_g2p("en-us", phoneme_quotes="ascii")
-        g2p_none = get_g2p("en-us", phoneme_quotes="none")
-
         text = "Hello, world! How are you?"
-        result_curly = g2p_curly.phonemize(text)
-        result_ascii = g2p_ascii.phonemize(text)
-        result_none = g2p_none.phonemize(text)
+        result_curly = phonemize_with_mode(
+            phoneme_backend, text, language="en-us", phoneme_quotes="curly"
+        )
+        result_ascii = phonemize_with_mode(
+            phoneme_backend, text, language="en-us", phoneme_quotes="ascii"
+        )
+        result_none = phonemize_with_mode(
+            phoneme_backend, text, language="en-us", phoneme_quotes="none"
+        )
 
         # All should have same punctuation (comma, exclamation, question mark)
         for result in [result_curly, result_ascii, result_none]:
@@ -222,30 +303,50 @@ class TestQuotePhonemesInvalidValues:
 class TestQuotePhonemesWithSpacy:
     """Test quote handling with spaCy enabled/disabled."""
 
-    def test_ascii_quotes_with_spacy(self):
+    def test_ascii_quotes_with_spacy(self, phoneme_backend):
         """Test ASCII quotes with spaCy enabled."""
-        g2p = get_g2p("en-us", use_spacy=True, phoneme_quotes="ascii")
-        result = g2p.phonemize('Say "hi".')
+        result = phonemize_with_mode(
+            phoneme_backend,
+            'Say "hi".',
+            language="en-us",
+            phoneme_quotes="ascii",
+            use_spacy=True,
+        )
         assert '"' in result
         assert "\u201c" not in result and "\u201d" not in result
 
-    def test_ascii_quotes_without_spacy(self):
+    def test_ascii_quotes_without_spacy(self, phoneme_backend):
         """Test ASCII quotes without spaCy."""
-        g2p = get_g2p("en-us", use_spacy=False, phoneme_quotes="ascii")
-        result = g2p.phonemize('Say "hi".')
+        result = phonemize_with_mode(
+            phoneme_backend,
+            'Say "hi".',
+            language="en-us",
+            phoneme_quotes="ascii",
+            use_spacy=False,
+        )
         assert '"' in result
         assert "\u201c" not in result and "\u201d" not in result
 
-    def test_none_quotes_with_spacy(self):
+    def test_none_quotes_with_spacy(self, phoneme_backend):
         """Test no quotes with spaCy enabled."""
-        g2p = get_g2p("en-us", use_spacy=True, phoneme_quotes="none")
-        result = g2p.phonemize('Say "hi".')
+        result = phonemize_with_mode(
+            phoneme_backend,
+            'Say "hi".',
+            language="en-us",
+            phoneme_quotes="none",
+            use_spacy=True,
+        )
         assert "\u201c" not in result and "\u201d" not in result
         assert "\u201c" not in result and "\u201d" not in result
 
-    def test_none_quotes_without_spacy(self):
+    def test_none_quotes_without_spacy(self, phoneme_backend):
         """Test no quotes without spaCy."""
-        g2p = get_g2p("en-us", use_spacy=False, phoneme_quotes="none")
-        result = g2p.phonemize('Say "hi".')
+        result = phonemize_with_mode(
+            phoneme_backend,
+            'Say "hi".',
+            language="en-us",
+            phoneme_quotes="none",
+            use_spacy=False,
+        )
         assert "\u201c" not in result and "\u201d" not in result
         assert "\u201c" not in result and "\u201d" not in result

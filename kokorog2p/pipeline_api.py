@@ -185,6 +185,7 @@ def _phonemize_token_spans(
         scan_index = g2p_index
         overlap_spans: list[TokenSpan] = []
         mapped_whitespace: str | None = None
+        mapped_tag: str | None = None
         while (
             scan_index < len(g2p_token_spans)
             and g2p_token_spans[scan_index].char_start < token.char_end
@@ -194,6 +195,10 @@ def _phonemize_token_spans(
             whitespace = overlap_span.meta.get("whitespace")
             if whitespace is not None:
                 mapped_whitespace = str(whitespace)
+            if mapped_tag is None:
+                tag = overlap_span.meta.get("tag")
+                if tag:
+                    mapped_tag = str(tag)
             scan_index += 1
 
         g2p_index = scan_index
@@ -252,12 +257,16 @@ def _phonemize_token_spans(
                 )
 
         # Create phonemized token
+        meta = {**token.meta, "phonemes": phonemes, "whitespace": mapped_whitespace}
+        if mapped_tag and "tag" not in meta:
+            meta["tag"] = mapped_tag
+
         phonemized_token = TokenSpan(
             text=token.text,
             char_start=token.char_start,
             char_end=token.char_end,
             lang=token.lang,
-            meta={**token.meta, "phonemes": phonemes, "whitespace": mapped_whitespace},
+            meta=meta,
         )
         phonemized_tokens.append(phonemized_token)
 
