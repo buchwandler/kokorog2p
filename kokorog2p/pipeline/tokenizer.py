@@ -6,9 +6,101 @@ into ProcessingToken objects with position tracking and metadata.
 
 import re
 from abc import ABC, abstractmethod
+from functools import lru_cache
 from typing import Any
 
 from kokorog2p.pipeline.models import ProcessingToken
+
+
+@lru_cache(maxsize=1)
+def _get_abbreviation_entries() -> list[tuple[str, bool]]:
+    entries: list[tuple[str, bool]] = []
+
+    from kokorog2p.cs.abbreviations import get_expander as get_cs_expander
+    from kokorog2p.de.abbreviations import get_expander as get_de_expander
+    from kokorog2p.en.abbreviations import get_expander as get_en_expander
+    from kokorog2p.es.abbreviations import get_expander as get_es_expander
+    from kokorog2p.fr.abbreviations import get_expander as get_fr_expander
+    from kokorog2p.it.abbreviations import get_expander as get_it_expander
+    from kokorog2p.pt.abbreviations import get_expander as get_pt_expander
+
+    expanders = (
+        get_cs_expander,
+        get_de_expander,
+        get_en_expander,
+        get_es_expander,
+        get_fr_expander,
+        get_it_expander,
+        get_pt_expander,
+    )
+
+    for get_expander in expanders:
+        expander = get_expander()
+        for entry in expander.entries.values():
+            entries.append((entry.abbreviation, entry.case_sensitive))
+
+    return entries
+
+
+def _merge_abbreviation_tokens(
+    tokens: list[ProcessingToken],
+) -> list[ProcessingToken]:
+    if len(tokens) < 2:
+        return tokens
+
+    entries = _get_abbreviation_entries()
+    if not entries:
+        return tokens
+
+    case_sensitive = {
+        abbrev for abbrev, is_case_sensitive in entries if is_case_sensitive
+    }
+    case_insensitive = {
+        abbrev.lower() for abbrev, is_case_sensitive in entries if not is_case_sensitive
+    }
+    max_len = max((len(abbrev) for abbrev, _ in entries), default=0)
+    if max_len == 0:
+        return tokens
+
+    merged: list[ProcessingToken] = []
+    i = 0
+    while i < len(tokens):
+        best_end = None
+        best_text = None
+        combined = ""
+        last_end = tokens[i].char_end
+
+        for j in range(i, len(tokens)):
+            if j > i:
+                if tokens[j - 1].whitespace:
+                    break
+                if tokens[j].char_start != last_end and tokens[j].char_start != 0:
+                    break
+            combined += tokens[j].text
+            last_end = tokens[j].char_end
+            if len(combined) > max_len:
+                break
+
+            if combined in case_sensitive or combined.lower() in case_insensitive:
+                best_end = j
+                best_text = combined
+
+        if best_end is not None and best_end > i:
+            merged.append(
+                ProcessingToken(
+                    text=best_text or combined,
+                    char_start=tokens[i].char_start,
+                    char_end=tokens[best_end].char_end,
+                    whitespace=tokens[best_end].whitespace,
+                )
+            )
+            i = best_end + 1
+            continue
+
+        merged.append(tokens[i])
+        i += 1
+
+    return merged
 
 
 class BaseTokenizer(ABC):
@@ -292,6 +384,8 @@ class RegexTokenizer(BaseTokenizer):
             )
 
             tokens.append(token)
+
+        tokens = _merge_abbreviation_tokens(tokens)
 
         # Detect quote nesting
         self._detect_quote_depth(tokens, use_bracket_matching=self.use_bracket_matching)

@@ -58,6 +58,18 @@ class TestPhonemizeToResult:
         # Punctuation shouldn't cause warnings
         assert all("punctuation" not in w.lower() for w in result.warnings)
 
+    def test_abbreviation_token_span(self):
+        """Test that abbreviations with periods stay in one token."""
+        result = phonemize_to_result("Hello Mr. Smith", lang="en-us")
+
+        token_texts = [token.text for token in result.tokens]
+        assert "Mr." in token_texts
+        assert "." not in token_texts
+
+        mr_token = next(token for token in result.tokens if token.text == "Mr.")
+        assert mr_token.char_start == 6
+        assert mr_token.char_end == 9
+
     def test_return_only_phonemes(self):
         """Test requesting only phonemes, not IDs."""
         result = phonemize_to_result("Hello!", return_ids=False, return_phonemes=True)

@@ -34,6 +34,13 @@ class TestTokenizeWithOffsets:
         # Should keep "don't" as single token
         assert any(t.text == "don't" for t in tokens)
 
+    def test_abbreviation_preserved(self):
+        """Test abbreviations with periods are not split."""
+        tokens = tokenize_with_offsets("Hello Mr. Smith", lang="en-us")
+        assert [t.text for t in tokens] == ["Hello", "Mr.", "Smith"]
+        assert tokens[1].char_start == 6
+        assert tokens[1].char_end == 9
+
     def test_duplicate_words(self):
         """Test that duplicate words get different offsets."""
         tokens = tokenize_with_offsets("the the cat")

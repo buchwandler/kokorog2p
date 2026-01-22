@@ -5,6 +5,7 @@ ensuring that tokenization used for override application matches the tokenizatio
 used for phonemization.
 """
 
+from functools import cache
 from typing import TYPE_CHECKING
 
 from kokorog2p.types import TokenSpan
@@ -81,6 +82,101 @@ def gtoken_to_tokenspan(token: "GToken", clean_text: str) -> TokenSpan:
     )
 
 
+def _normalize_lang(lang: str | None) -> str | None:
+    if not lang:
+        return None
+    return lang.lower().replace("_", "-")
+
+
+@cache
+def _get_abbreviation_entries(lang: str | None) -> list[tuple[str, bool]]:
+    normalized = _normalize_lang(lang) or "en-us"
+    entries: list[tuple[str, bool]] = []
+
+    if normalized.startswith("en"):
+        from kokorog2p.en.abbreviations import get_expander
+    elif normalized.startswith("de"):
+        from kokorog2p.de.abbreviations import get_expander
+    elif normalized.startswith("fr"):
+        from kokorog2p.fr.abbreviations import get_expander
+    elif normalized.startswith("es"):
+        from kokorog2p.es.abbreviations import get_expander
+    elif normalized.startswith("pt"):
+        from kokorog2p.pt.abbreviations import get_expander
+    elif normalized.startswith("it"):
+        from kokorog2p.it.abbreviations import get_expander
+    elif normalized.startswith("cs"):
+        from kokorog2p.cs.abbreviations import get_expander
+    else:
+        return entries
+
+    expander = get_expander()
+    for entry in expander.entries.values():
+        entries.append((entry.abbreviation, entry.case_sensitive))
+
+    return entries
+
+
+def _merge_abbreviation_tokens(
+    tokens: list[TokenSpan],
+    lang: str | None,
+) -> list[TokenSpan]:
+    if len(tokens) < 2:
+        return tokens
+
+    entries = _get_abbreviation_entries(lang)
+    if not entries:
+        return tokens
+
+    case_sensitive = {
+        abbrev for abbrev, is_case_sensitive in entries if is_case_sensitive
+    }
+    case_insensitive = {
+        abbrev.lower() for abbrev, is_case_sensitive in entries if not is_case_sensitive
+    }
+    max_len = max((len(abbrev) for abbrev, _ in entries), default=0)
+    if max_len == 0:
+        return tokens
+
+    merged: list[TokenSpan] = []
+    i = 0
+    while i < len(tokens):
+        best_end = None
+        best_text = None
+        combined = ""
+        last_end = tokens[i].char_end
+
+        for j in range(i, len(tokens)):
+            if j > i and tokens[j].char_start != last_end:
+                break
+            combined += tokens[j].text
+            last_end = tokens[j].char_end
+            if len(combined) > max_len:
+                break
+
+            if combined in case_sensitive or combined.lower() in case_insensitive:
+                best_end = j
+                best_text = combined
+
+        if best_end is not None and best_end > i:
+            merged.append(
+                TokenSpan(
+                    text=best_text or combined,
+                    char_start=tokens[i].char_start,
+                    char_end=tokens[best_end].char_end,
+                    lang=tokens[i].lang,
+                    meta=tokens[i].meta,
+                )
+            )
+            i = best_end + 1
+            continue
+
+        merged.append(tokens[i])
+        i += 1
+
+    return merged
+
+
 def tokenize_with_offsets(
     text: str,
     *,
@@ -142,7 +238,7 @@ def tokenize_with_offsets(
             )
         )
 
-    return tokens
+    return _merge_abbreviation_tokens(tokens, lang)
 
 
 def gtokens_to_tokenspans(

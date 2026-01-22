@@ -36,18 +36,20 @@ Represents a single token with its phonemization and metadata:
 * ``char_start`` and ``char_end`` are **character offsets** in the clean text (after markup removal)
 * ``char_end`` is **exclusive** (Python slice convention: ``text[char_start:char_end]``)
 * Multiple tokens can reference the same text position if tokenization creates sub-parts
+* Whitespace is inferred from offsets (tokens are words/punctuation only)
+* Abbreviations keep trailing periods in the same token (e.g., ``Mr.``)
 * Phonemes are stored in ``meta["phonemes"]`` after phonemization
 
 **Example:**
 
 .. code-block:: python
 
-   text = "Hello world!"
+   text = "Hello Mr. Smith!"
    tokens = tokenize_with_offsets(text)
    # TokenSpan(text="Hello", char_start=0, char_end=5, ...)
-   # TokenSpan(text=" ", char_start=5, char_end=6, ...)
-   # TokenSpan(text="world", char_start=6, char_end=11, ...)
-   # TokenSpan(text="!", char_start=11, char_end=12, ...)
+   # TokenSpan(text="Mr.", char_start=6, char_end=9, ...)
+   # TokenSpan(text="Smith", char_start=10, char_end=15, ...)
+   # TokenSpan(text="!", char_start=15, char_end=16, ...)
 
 OverrideSpan
 ~~~~~~~~~~~~

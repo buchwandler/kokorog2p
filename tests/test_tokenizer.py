@@ -49,6 +49,17 @@ class TestRegexTokenizer:
         assert tokens[0].text == "I'm"
         assert tokens[3].text == "don't"
 
+    def test_abbreviation_not_split(self, tokenizer):
+        """Test that abbreviations with periods are preserved."""
+        tokens = tokenizer.tokenize("Hello Mr. Smith")
+
+        assert len(tokens) == 3
+        assert tokens[0].text == "Hello"
+        assert tokens[1].text == "Mr."
+        assert tokens[2].text == "Smith"
+        assert tokens[1].char_start == 6
+        assert tokens[1].char_end == 9
+
     def test_position_tracking(self, tokenizer):
         """Test that character positions are tracked correctly."""
         tokens = tokenizer.tokenize("Hello world")
