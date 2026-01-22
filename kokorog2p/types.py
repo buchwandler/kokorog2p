@@ -19,6 +19,7 @@ class TokenSpan:
         char_start: Start position in clean_text (inclusive).
         char_end: End position in clean_text (exclusive).
         lang: Optional language override for this token.
+        extended_text: Optional expanded text for phonemization.
         meta: Additional metadata (rating, tag, etc.).
     """
 
@@ -26,6 +27,7 @@ class TokenSpan:
     char_start: int
     char_end: int
     lang: str | None = None
+    extended_text: str | None = None
     meta: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -75,6 +77,7 @@ class PhonemizeResult:
     Attributes:
         clean_text: Text with markup removed (only words and whitespace).
         tokens: List of token spans with offset information.
+        extended_text: Text after expansions used for phonemization.
         phonemes: Phoneme string (space-separated), or None if token_ids
             requested instead.
         token_ids: Token IDs for model input (numpy array), or None if
@@ -85,6 +88,7 @@ class PhonemizeResult:
 
     clean_text: str
     tokens: list[TokenSpan]
+    extended_text: str | None = None
     phonemes: str | None = None
     token_ids: list[int] | None = None
     warnings: list[str] = field(default_factory=list)

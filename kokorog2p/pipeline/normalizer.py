@@ -199,6 +199,26 @@ class TextNormalizer(ABC):
 
         return result, all_steps
 
+    def _apply_rules(
+        self, text: str, rules: list[NormalizationRule] | None = None
+    ) -> str:
+        """Apply normalization rules without tracking steps.
+
+        Args:
+            text: Text to normalize.
+            rules: Optional list of rules to apply (defaults to all rules).
+
+        Returns:
+            Normalized text.
+        """
+        if not text:
+            return text
+
+        result = text
+        for rule in rules or self._rules:
+            result, _ = rule.apply(result, track_changes=False)
+        return result
+
     def __call__(self, text: str) -> str:
         """Normalize text (convenience method that discards step tracking).
 

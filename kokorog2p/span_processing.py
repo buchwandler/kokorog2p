@@ -51,6 +51,7 @@ def apply_overrides_to_tokens(
             char_start=t.char_start,
             char_end=t.char_end,
             lang=t.lang,
+            extended_text=t.extended_text,
             meta=dict(t.meta),  # Copy meta
         )
         for t in tokens

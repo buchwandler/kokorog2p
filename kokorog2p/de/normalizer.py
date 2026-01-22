@@ -158,7 +158,7 @@ class GermanNormalizer(TextNormalizer):
         self.add_rule(
             NormalizationRule(
                 name="temperature_fahrenheit_celsius",
-                pattern=r"(-?\d+)\s*°\s*([FCfc])\b",
+                pattern=r"(-?\d+)\s*°?\s*([FCfc])\b",
                 replacement=_normalize_temperature_de,
                 description="Temperature: 37°C → siebenunddreißig Grad Celsius",
             )
@@ -278,4 +278,41 @@ class GermanNormalizer(TextNormalizer):
             Normalized text
         """
         result, _ = self.normalize(text)
+        return result
+
+    def normalize_token(
+        self,
+        text: str,
+        *,
+        before: str = "",
+        after: str = "",
+        apply_rules: bool = True,
+        expand_abbreviations: bool | None = None,
+    ) -> str:
+        """Normalize a single token using the full rule set."""
+        if not text:
+            return text
+
+        if expand_abbreviations is None:
+            expand_abbreviations = self.expand_abbreviations
+
+        result = text
+        if expand_abbreviations and self.abbrev_expander:
+            entry = self.abbrev_expander.get_abbreviation(result, case_sensitive=True)
+            if entry is None:
+                entry = self.abbrev_expander.get_abbreviation(
+                    result, case_sensitive=False
+                )
+            if entry is not None:
+                if self.abbrev_expander.context_detector:
+                    context = self.abbrev_expander.context_detector.detect_context(
+                        result, before, after
+                    )
+                    result = entry.get_expansion(context)
+                else:
+                    result = entry.expansion
+
+        if apply_rules:
+            result = self._apply_rules(result)
+
         return result

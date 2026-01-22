@@ -29,6 +29,7 @@ Represents a single token with its phonemization and metadata:
        char_start: int        # Character offset start (0)
        char_end: int          # Character offset end (5)
        lang: str | None = None  # Language override ("en-us", "fr", etc.)
+       extended_text: str | None = None  # Expanded text for phonemization
        meta: dict[str, Any] = field(default_factory=dict)  # Metadata including phonemes
 
 **Key Properties:**
@@ -38,6 +39,7 @@ Represents a single token with its phonemization and metadata:
 * Multiple tokens can reference the same text position if tokenization creates sub-parts
 * Whitespace is inferred from offsets (tokens are words/punctuation only)
 * Abbreviations keep trailing periods in the same token (e.g., ``Mr.``)
+* ``extended_text`` holds optional expansions (e.g., ``Mr.`` → ``Mister`` or ``1`` → ``one``)
 * Phonemes are stored in ``meta["phonemes"]`` after phonemization
 
 **Example:**
@@ -91,9 +93,28 @@ The complete phonemization output:
    class PhonemizeResult:
        clean_text: str                  # Text with markup removed
        tokens: list[TokenSpan]          # Token-level information with offsets
+       extended_text: str | None        # Expanded text for phonemization
        phonemes: str | None             # Concatenated phoneme string
        token_ids: list[int] | None      # Optional token IDs for model input
        warnings: list[str]              # Alignment warnings
+
+Extended Text Layer
+-------------------
+
+Span alignment always uses ``clean_text`` offsets. When abbreviations or numbers
+are expanded for phonemization, the expanded form is stored on each token's
+``extended_text`` and in ``PhonemizeResult.extended_text``. This keeps character
+offsets stable while allowing the phonemizer to speak the expanded form.
+
+Example:
+
+.. code-block:: python
+
+   text = "Meet Mr. Smith"
+   result = phonemize_to_result(text)
+   # TokenSpan(text="Mr.", extended_text="Mister", char_start=5, char_end=8, ...)
+   # result.clean_text == "Meet Mr. Smith"
+   # result.extended_text == "Meet Mister Smith"
 
 Character Offset Coordinate System
 -----------------------------------

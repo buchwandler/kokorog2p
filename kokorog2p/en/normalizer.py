@@ -195,7 +195,7 @@ class EnglishNormalizer(TextNormalizer):
         self.add_rule(
             NormalizationRule(
                 name="temperature_fahrenheit_celsius",
-                pattern=r"(-?\d+)\s*°\s*([FCfc])(\.?)(?=\s|[,;:!?]|$)",
+                pattern=r"(-?\d+)\s*°?\s*([FCfc])(\.?)(?=\s|[,;:!?]|$)",
                 replacement=_normalize_temperature,
                 description="Temperature: 98°F → ninety eight degrees Fahrenheit",
             )
@@ -588,6 +588,69 @@ class EnglishNormalizer(TextNormalizer):
             text = result
 
         return text, all_steps
+
+    def normalize_token(
+        self,
+        text: str,
+        *,
+        before: str = "",
+        after: str = "",
+        apply_rules: bool = True,
+        expand_abbreviations: bool | None = None,
+    ) -> str:
+        """Normalize a single token using the full rule set.
+
+        Args:
+            text: Token text to normalize.
+            before: Text before the token (for context detection).
+            after: Text after the token (for context detection).
+            apply_rules: Whether to apply normalization rules.
+            expand_abbreviations: Override abbreviation expansion.
+
+        Returns:
+            Normalized token text.
+        """
+        if not text:
+            return text
+
+        if expand_abbreviations is None:
+            expand_abbreviations = self.expand_abbreviations
+
+        result = text
+
+        if apply_rules:
+            time_temp_rules = [
+                rule
+                for rule in self._rules
+                if rule.name in ("time_with_minutes", "temperature_fahrenheit_celsius")
+            ]
+            result = self._apply_rules(result, time_temp_rules)
+
+        if expand_abbreviations and self.abbrev_expander:
+            entry = self.abbrev_expander.get_abbreviation(result, case_sensitive=True)
+            if entry is None:
+                entry = self.abbrev_expander.get_abbreviation(
+                    result, case_sensitive=False
+                )
+            if entry is not None:
+                if self.abbrev_expander.context_detector:
+                    context = self.abbrev_expander.context_detector.detect_context(
+                        result, before, after
+                    )
+                    result = entry.get_expansion(context)
+                else:
+                    result = entry.expansion
+
+        if apply_rules:
+            other_rules = [
+                rule
+                for rule in self._rules
+                if rule.name
+                not in ("time_with_minutes", "temperature_fahrenheit_celsius")
+            ]
+            result = self._apply_rules(result, other_rules)
+
+        return result
 
     def add_abbreviation(
         self,

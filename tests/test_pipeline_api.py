@@ -1,5 +1,7 @@
 """Tests for pipeline-friendly phonemization API."""
 
+import pytest
+
 from kokorog2p import phonemize_to_result
 from kokorog2p.types import OverrideSpan
 
@@ -24,6 +26,7 @@ class TestPhonemizeToResult:
         overrides = [OverrideSpan(0, 5, {"ph": "hɛˈloʊ"})]
         result = phonemize_to_result("Hello world!", overrides=overrides)
 
+        assert result.phonemes is not None
         assert "hɛˈloʊ" in result.phonemes
         assert len(result.warnings) == 0
 
@@ -34,6 +37,7 @@ class TestPhonemizeToResult:
 
         # "Welt" should be phonemized as German
         assert result.tokens[1].lang == "de"
+        assert result.phonemes is not None
         assert len(result.phonemes) > 0
 
     def test_duplicate_words_with_different_overrides(self):
@@ -46,6 +50,7 @@ class TestPhonemizeToResult:
         result = phonemize_to_result("the cat the dog", overrides=overrides)
 
         # Both overrides should be applied
+        assert result.phonemes is not None
         assert "ðə" in result.phonemes
         assert "ði" in result.phonemes
         assert len(result.warnings) == 0
@@ -54,9 +59,52 @@ class TestPhonemizeToResult:
         """Test that punctuation is handled correctly."""
         result = phonemize_to_result("Hello, world!")
 
+        assert result.phonemes is not None
         assert "," in result.phonemes or "!" in result.phonemes
         # Punctuation shouldn't cause warnings
         assert all("punctuation" not in w.lower() for w in result.warnings)
+
+    def test_abbreviation_sentence_phonemes(self):
+        """Test abbreviations don't lose phonemes in sentences."""
+        text = "Meet Mr. Schmidt, Mrs. Johnson, Ms. Anderson, and Dr. Brown."
+        result = phonemize_to_result(text, lang="en-us")
+
+        assert not any("no phonemes generated" in w.lower() for w in result.warnings)
+
+        token_map = {token.text: token for token in result.tokens}
+        for abbrev in ("Mr.", "Mrs.", "Ms.", "Dr."):
+            phonemes = token_map[abbrev].meta.get("phonemes", "")
+            assert phonemes
+            assert not phonemes.startswith(",")
+
+        and_token = next(token for token in result.tokens if token.text == "and")
+        assert and_token.meta.get("phonemes")
+
+    def test_number_expansion_extended_text(self):
+        """Test digit tokens expand into extended_text."""
+        try:
+            import num2words  # noqa: F401
+        except ImportError:
+            pytest.skip("num2words not installed")
+
+        result = phonemize_to_result("I have 1 cat.", lang="en-us")
+
+        number_token = next(token for token in result.tokens if token.text == "1")
+        assert number_token.extended_text
+        assert number_token.extended_text != "1"
+        assert number_token.meta.get("phonemes")
+        assert result.extended_text is not None
+        assert "one" in result.extended_text
+
+    def test_temperature_expansion_extended_text(self):
+        """Test temperature tokens expand into extended_text."""
+        result = phonemize_to_result("It's 30C.", lang="en-us")
+
+        temp_token = next(token for token in result.tokens if token.text == "30C")
+        assert temp_token.extended_text == "thirty degrees Celsius"
+        assert temp_token.meta.get("phonemes")
+        assert result.extended_text is not None
+        assert "thirty degrees Celsius" in result.extended_text
 
     def test_abbreviation_token_span(self):
         """Test that abbreviations with periods stay in one token."""
@@ -128,6 +176,7 @@ class TestPhonemizeToResult:
         )
 
         # Should still apply override
+        assert result.phonemes is not None
         assert "hɛˈloʊ" in result.phonemes
 
     def test_span_alignment_with_duplicates(self):
@@ -204,6 +253,7 @@ class TestPhonemizeToResult:
         )
 
         # Phoneme override should be used (not language phonemization)
+        assert result.phonemes is not None
         assert "bɔ̃ʒuʁ" in result.phonemes
         assert result.tokens[0].lang == "fr"
 
@@ -228,6 +278,7 @@ class TestPhonemizeToResult:
         ]
         result = phonemize_to_result(text, overrides=overrides)
 
+        assert result.phonemes is not None
         assert "ði" in result.phonemes
         assert "ðə" in result.phonemes
         assert len(result.warnings) == 0

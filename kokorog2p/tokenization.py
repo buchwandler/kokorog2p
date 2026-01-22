@@ -78,6 +78,7 @@ def gtoken_to_tokenspan(token: "GToken", clean_text: str) -> TokenSpan:
         char_start=0,
         char_end=len(token.text),
         lang=None,
+        extended_text=None,
         meta={"phonemes": token.phonemes} if token.phonemes else {},
     )
 
@@ -165,6 +166,7 @@ def _merge_abbreviation_tokens(
                     char_start=tokens[i].char_start,
                     char_end=tokens[best_end].char_end,
                     lang=tokens[i].lang,
+                    extended_text=tokens[i].extended_text,
                     meta=tokens[i].meta,
                 )
             )
@@ -234,6 +236,7 @@ def tokenize_with_offsets(
                 char_start=match.start(),
                 char_end=match.end(),
                 lang=None,
+                extended_text=None,
                 meta={},
             )
         )
@@ -314,6 +317,7 @@ def gtokens_to_tokenspans(
             char_start=token_start,
             char_end=token_end,
             lang=None,  # GToken doesn't have lang
+            extended_text=None,
             meta=meta,
         )
         token_spans.append(token_span)
