@@ -25,6 +25,10 @@ class TestPhonemizeToResult:
         result = phonemize_to_result(text)
         assert result.phonemes == "“ˈI kˈænt…ɔɹ ʃˈʊdᵊnt,” ˈI ɹᵻplˈId."
 
+        text = "But I'd've listened if you'd've given me a chance..."
+        result = phonemize_to_result(text)
+        assert result.phonemes == "bˌʌt ˈIdəv lˈɪsᵊnd ɪf jˈudəv ɡˈɪvən mˌi ɐ ʧˈæns…"
+
     def test_with_phoneme_override(self):
         """Test phonemization with phoneme override."""
         overrides = [OverrideSpan(0, 5, {"ph": "hɛˈloʊ"})]
@@ -356,6 +360,22 @@ class TestPhonemizeToResult:
         assert len(i_tokens) == 2
         assert all(token.meta.get("phonemes") for token in i_tokens)
 
+    def test_nested_contractions_with_quotes(self):
+        """Ensure nested contractions survive spaCy punctuation tags."""
+        from kokorog2p import get_g2p
+
+        text = (
+            "'I'd've liked to've met you sooner...' he said. "
+            "\"Maybe things'd've been different...\""
+        )
+        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        result = phonemize_to_result(text, g2p=g2p)
+
+        assert result.phonemes == g2p.phonemize(text)
+
+        token = next(token for token in result.tokens if token.text == "things'd've")
+        assert token.meta.get("phonemes")
+
     def test_various_contractions_preserved(self):
         """Test that various types of contractions preserve all phonemes."""
         test_cases = [
@@ -364,6 +384,7 @@ class TestPhonemizeToResult:
             ("We're ready", "We're"),
             ("They've gone", "They've"),
             ("She'll come", "She'll"),
+            ("I'd've listened", "I'd've"),
         ]
 
         for text, contraction in test_cases:
@@ -376,9 +397,9 @@ class TestPhonemizeToResult:
                     contraction_token = token
                     break
 
-            assert contraction_token is not None, (
-                f"{contraction} should be a token in '{text}'"
-            )
+            assert (
+                contraction_token is not None
+            ), f"{contraction} should be a token in '{text}'"
 
             # Check that it has phonemes
             phonemes = contraction_token.meta.get("phonemes", "")

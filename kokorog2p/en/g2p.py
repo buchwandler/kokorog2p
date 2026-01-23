@@ -444,6 +444,7 @@ class EnglishG2P(G2PBase):
             gtoken = ptoken.to_gtoken()
 
             # Handle punctuation
+            has_alnum = any(c.isalnum() for c in ptoken.text)
             is_punct_tag = ptoken.pos_tag in (
                 ".",
                 ",",
@@ -457,9 +458,9 @@ class EnglishG2P(G2PBase):
                 "#",
                 "NFP",
             )
-            is_punct_text = ptoken.text and not any(c.isalnum() for c in ptoken.text)
+            is_punct_text = ptoken.text and not has_alnum
 
-            if is_punct_tag or is_punct_text:
+            if is_punct_text or (is_punct_tag and not has_alnum):
                 gtoken.phonemes = self._get_punct_phonemes(ptoken.text, ptoken.pos_tag)
                 gtoken.set("rating", 4)
 
