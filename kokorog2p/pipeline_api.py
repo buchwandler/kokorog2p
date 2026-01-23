@@ -5,6 +5,7 @@ It supports deterministic override application, per-span language switching, and
 direct token ID output.
 """
 
+import unicodedata
 from collections.abc import Callable, Sequence
 from difflib import SequenceMatcher
 from functools import cache
@@ -330,7 +331,7 @@ def _map_position_to_normalized(
             if tag == "equal":
                 return j1 + (pos - i1)
             if tag == "insert":
-                return j2
+                return j1
             if tag == "delete":
                 return j1
             if i2 == i1:
@@ -537,6 +538,7 @@ def _phonemize_token_spans(  # noqa: C901
     phonemized_tokens: list[TokenSpan] = []
     g2p_cache: dict[str, G2PBase] = {default_lang: g2p}
     g2p_index = 0
+    carry_alnum_end: int | None = None
 
     for token in token_spans:
         # Determine language for this token
@@ -545,6 +547,8 @@ def _phonemize_token_spans(  # noqa: C901
         token_end = token.meta.get("_extended_char_end", token.char_end)
         use_overlap_mapping = token_lang == default_lang and "ph" not in token.meta
         mapped_parts: list[str] = []
+        if carry_alnum_end is not None and token_start >= carry_alnum_end:
+            carry_alnum_end = None
 
         while (
             g2p_index < len(g2p_token_spans)
@@ -571,8 +575,55 @@ def _phonemize_token_spans(  # noqa: C901
                 if tag:
                     mapped_tag = str(tag)
             scan_index += 1
+        if overlap_spans:
+            overlap_alnum_end = max(
+                (
+                    span.char_end
+                    for span in overlap_spans
+                    if any(c.isalnum() for c in span.text)
+                ),
+                default=None,
+            )
+            if overlap_alnum_end is not None and overlap_alnum_end > token_end:
+                carry_alnum_end = max(carry_alnum_end or 0, overlap_alnum_end)
 
-        g2p_index = scan_index
+        token_is_punct = _is_punctuation_token(token)
+        drop_due_to_carry = (
+            token_is_punct
+            and carry_alnum_end is not None
+            and token_start < carry_alnum_end
+        )
+        if drop_due_to_carry:
+            token.meta["_drop"] = True
+            overlap_spans = []
+            mapped_tag = None
+            g2p_index = scan_index
+        elif token_is_punct and overlap_spans:
+            overlap_has_alnum = any(
+                any(c.isalnum() for c in span.text) for span in overlap_spans
+            )
+            if overlap_has_alnum:
+                token.meta["_drop"] = True
+                first_alnum = next(
+                    (
+                        idx
+                        for idx, span in enumerate(overlap_spans)
+                        if any(c.isalnum() for c in span.text)
+                    ),
+                    None,
+                )
+                if first_alnum is not None:
+                    g2p_index = g2p_index + first_alnum
+                overlap_spans = [
+                    span
+                    for span in overlap_spans
+                    if not any(c.isalnum() for c in span.text)
+                ]
+                mapped_tag = None
+            else:
+                g2p_index = scan_index
+        else:
+            g2p_index = scan_index
 
         # Get G2P instance for this language
         if token_lang not in g2p_cache:
@@ -634,10 +685,21 @@ def _phonemize_token_spans(  # noqa: C901
 
             phonemes = "".join(mapped_parts)
             if not phonemes and token.text.strip() and not _is_punctuation(token.text):
-                warnings.append(
-                    f"No phonemes generated for token '{token.text}' "
-                    f"at position {token.char_start}"
-                )
+                # fallback: re-phonemize token directly
+                try:
+                    token_text = token.extended_text or token.text
+                    gtokens = token_g2p(token_text)
+                    phoneme_parts = []
+                    for gt in gtokens:
+                        if gt.phonemes:
+                            phoneme_parts.append(gt.phonemes)
+                            if gt.whitespace:
+                                phoneme_parts.append(gt.whitespace)
+                    phonemes = "".join(phoneme_parts).strip()
+                except Exception as e:
+                    warnings.append(
+                        f"Fallback token phonemization failed for '{token.text}': {e}"
+                    )
 
         # Create phonemized token
         meta = {**token.meta, "phonemes": phonemes, "whitespace": mapped_whitespace}
@@ -672,6 +734,8 @@ def _build_phoneme_string(tokens: list[TokenSpan], clean_text: str) -> str:
     parts: list[str] = []
 
     for i, token in enumerate(tokens):
+        if token.meta.get("_drop"):
+            continue
         phonemes = token.meta.get("phonemes", "")
         whitespace = token.meta.get("whitespace")
 
@@ -701,36 +765,13 @@ def _build_phoneme_string(tokens: list[TokenSpan], clean_text: str) -> str:
 
 
 def _is_punctuation(text: str) -> bool:
-    """Check if text is punctuation.
-
-    Args:
-        text: Text to check.
-
-    Returns:
-        True if text is punctuation.
-    """
     if not text:
         return False
-    # Common punctuation characters
-    punct = {
-        ",",
-        ".",
-        "!",
-        "?",
-        ";",
-        ":",
-        "-",
-        "—",
-        "...",
-        "…",
-        "(",
-        ")",
-        "[",
-        "]",
-        "{",
-        "}",
-    }
-    return text.strip() in punct or all(not c.isalnum() for c in text)
+    s = text.strip()
+    if not s:
+        return False
+    # treat as punctuation if every char is Unicode punctuation or symbol
+    return all(unicodedata.category(ch)[0] in {"P", "S"} for ch in s)
 
 
 def _is_punctuation_token(token: TokenSpan) -> bool:

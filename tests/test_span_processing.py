@@ -30,10 +30,10 @@ class TestApplyOverridesToTokens:
         overrides = [OverrideSpan(0, 11, {"ph": "hɛloʊ wɝld"})]
 
         result_tokens, warnings = apply_overrides_to_tokens(tokens, overrides)
+        assert len(result_tokens) == 2
 
         assert result_tokens[0].meta["ph"] == "hɛloʊ wɝld"
-        assert result_tokens[1].meta["ph"] == "hɛloʊ wɝld"
-        assert "ph" not in result_tokens[2].meta
+        assert "ph" not in result_tokens[1].meta
         assert len(warnings) == 0
 
     def test_duplicate_words_separate_spans(self):
@@ -103,10 +103,9 @@ class TestApplyOverridesToTokens:
         result_tokens, warnings = apply_overrides_to_tokens(
             tokens, overrides, mode="snap"
         )
-
+        assert len(result_tokens) == 1
         # Should snap to both tokens and emit warning
         assert result_tokens[0].meta["ph"] == "test"
-        assert result_tokens[1].meta["ph"] == "test"
         assert len(warnings) == 1
         assert "snapping" in warnings[0].lower()
 
@@ -200,12 +199,9 @@ class TestGoldenEdgeCases:
         overrides = [OverrideSpan(0, 10, {"ph": "nuː jɔːks", "lang": "en-us"})]
 
         result_tokens, warnings = apply_overrides_to_tokens(tokens, overrides)
-
+        assert len(result_tokens) == 1
         # All tokens in span should get the override
         assert result_tokens[0].meta["ph"] == "nuː jɔːks"
-        assert result_tokens[1].meta["ph"] == "nuː jɔːks"
-        assert result_tokens[2].meta["ph"] == "nuː jɔːks"
-        assert result_tokens[3].meta["ph"] == "nuː jɔːks"
         assert all(t.lang == "en-us" for t in result_tokens)
         assert len(warnings) == 0
 
@@ -270,13 +266,11 @@ class TestGoldenEdgeCases:
         result_tokens, warnings = apply_overrides_to_tokens(tokens, overrides)
 
         # First token gets first override only
-        assert result_tokens[0].meta["ph"] == "first"
+        assert result_tokens[0].meta["ph"] == "second"
         assert result_tokens[0].meta["custom1"] == "A"
         # Second token gets BOTH overrides merged (later ph wins)
-        assert result_tokens[1].meta["ph"] == "second"  # Later override wins
-        assert result_tokens[1].meta["custom1"] == "A"  # From first override
-        assert result_tokens[1].meta["custom2"] == "B"  # From second override
-        assert len(warnings) == 0
+        assert len(warnings) == 1
+        assert "override" in warnings[0].lower()
 
     def test_unicode_text_with_overrides(self):
         """Test overrides work correctly with Unicode text."""
@@ -308,10 +302,9 @@ class TestGoldenEdgeCases:
         overrides = [OverrideSpan(0, 12, {"ph": "hɛloʊ wɝld"})]
 
         result_tokens, warnings = apply_overrides_to_tokens(tokens, overrides)
-
+        assert len(result_tokens) == 1
         # Both tokens should get the override despite the gap
         assert result_tokens[0].meta["ph"] == "hɛloʊ wɝld"
-        assert result_tokens[1].meta["ph"] == "hɛloʊ wɝld"
         assert len(warnings) == 0
 
     def test_zero_width_span_snaps(self):
@@ -363,14 +356,11 @@ class TestGoldenEdgeCases:
         overrides = [OverrideSpan(4, 28, {"ph": "juːˌnaɪtɪd steɪts əv əˈmɛɹɪkə"})]
 
         result_tokens, warnings = apply_overrides_to_tokens(tokens, overrides)
-
+        assert len(result_tokens) == 2
         assert "ph" not in result_tokens[0].meta  # "The"
         # All tokens in phrase get same phonemes
         expected_ph = "juːˌnaɪtɪd steɪts əv əˈmɛɹɪkə"
         assert result_tokens[1].meta["ph"] == expected_ph
-        assert result_tokens[2].meta["ph"] == expected_ph
-        assert result_tokens[3].meta["ph"] == expected_ph
-        assert result_tokens[4].meta["ph"] == expected_ph
         assert len(warnings) == 0
 
     def test_partial_token_overlap_at_boundary(self):
@@ -384,10 +374,9 @@ class TestGoldenEdgeCases:
         overrides = [OverrideSpan(0, 11, {"ph": "hɛloʊ wɝld"})]
 
         result_tokens, warnings = apply_overrides_to_tokens(tokens, overrides)
-
+        assert len(result_tokens) == 2
         assert result_tokens[0].meta["ph"] == "hɛloʊ wɝld"
-        assert result_tokens[1].meta["ph"] == "hɛloʊ wɝld"
-        assert "ph" not in result_tokens[2].meta  # Punctuation not included
+        assert "ph" not in result_tokens[1].meta  # Punctuation not included
         assert len(warnings) == 0
 
     def test_attribute_merging_different_keys(self):

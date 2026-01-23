@@ -38,6 +38,91 @@ class TestPhonemizeToResult:
         assert "hɛˈloʊ" in result.phonemes
         assert len(result.warnings) == 0
 
+    def test_phrase_ph_override_new_york_is_applied_once(self):
+        """
+        If an override span with 'ph' covers multiple tokens ("New" + "York"),
+        the phonemes should appear ONCE in the output (not once per token).
+        """
+        text = "New York"
+        # "New York" spans chars [0..8) in ASCII: New(0-3) space(3) York(4-8)
+        overrides = [OverrideSpan(0, 8, {"ph": "nuː jɔːk"})]
+
+        result = phonemize_to_result(text, overrides=overrides, lang="en-us")
+
+        assert result.phonemes is not None
+        assert result.phonemes.count("nuː jɔːk") == 1, result.phonemes
+        assert len(result.warnings) == 0
+
+        # Optional: ensure it became a single token (only true if you implement merging)
+        merged = [t for t in result.tokens if t.text == "New York"]
+        assert len(merged) == 1
+        assert merged[0].meta.get("ph") == "nuː jɔːk"
+        assert merged[0].meta.get("phonemes") == "nuː jɔːk"
+
+    def test_phrase_ph_override_new_york_twice_two_spans(self):
+        """
+        Spans are positional, so if the phrase appears twice,
+        you need two OverrideSpans.
+        This test ensures each occurrence is overridden (and each appears once).
+        """
+        text = "New York New York"
+        # indices: first "New York" = 0..8, second "New York" = 9..17
+        overrides = [
+            OverrideSpan(0, 8, {"ph": "nuː jɔːk"}),
+            OverrideSpan(9, 17, {"ph": "nuː jɔːk"}),
+        ]
+
+        result = phonemize_to_result(text, overrides=overrides, lang="en-us")
+
+        assert result.phonemes is not None
+        assert result.phonemes.count("nuː jɔːk") == 2, result.phonemes
+        assert len(result.warnings) == 0
+
+    def test_with_multiple_phoneme_override(self):
+        """Test phonemization with phoneme override."""
+        overrides = [OverrideSpan(6, 14, {"ph": "nuː jɔːk"})]
+        result = phonemize_to_result("Hello New York!", overrides=overrides)
+
+        assert result.phonemes is not None
+        assert "nuː jɔːk" in result.phonemes
+        assert len(result.warnings) == 0
+
+    def test_phrase_language_override_new_york_is_phonemized_in_english(self):
+        """
+        Override a multi-token phrase ("New York") with a language switch.
+        This should force those tokens to be re-phonemized using the English G2P.
+        """
+        text = "Ich liebe New York."
+        # Indices:
+        # "Ich"(0-3) " "(3) "liebe"(4-9) " "(9) "New"(10-13) "
+        # "(13) "York"(14-18) "."(18-19)
+        overrides = [OverrideSpan(10, 18, {"lang": "en-us"})]
+
+        result = phonemize_to_result(text, overrides=overrides, lang="de")
+
+        assert result.phonemes is not None and len(result.phonemes) > 0
+
+        # Find the specific tokens
+        new = next(t for t in result.tokens if t.text == "New")
+        york = next(t for t in result.tokens if t.text == "York")
+        ich = next(t for t in result.tokens if t.text == "Ich")
+
+        # Language was applied to BOTH tokens in the phrase
+        assert new.lang == "en-us"
+        assert york.lang == "en-us"
+
+        # They should have produced phonemes (i.e., they didn't disappear)
+        assert new.meta.get("phonemes"), new.meta
+        assert york.meta.get("phonemes"), york.meta
+
+        # Surrounding tokens should NOT be marked as English
+        assert ich.lang != "en-us"
+
+        # Optional: keep this weaker if you sometimes get non-critical warnings
+        assert not any(
+            "Failed to load G2P" in w for w in result.warnings
+        ), result.warnings
+
     def test_with_language_override(self):
         """Test phonemization with language override."""
         overrides = [OverrideSpan(6, 10, {"lang": "de"})]
@@ -375,6 +460,127 @@ class TestPhonemizeToResult:
 
         token = next(token for token in result.tokens if token.text == "things'd've")
         assert token.meta.get("phonemes")
+
+    def test_leading_quote_does_not_duplicate_pronoun(self):
+        """Ensure quote+word spans don't double count phonemes."""
+        from kokorog2p import get_g2p
+
+        text = (
+            "His words hung in the air like smoke... "
+            "\"I can't... or shouldn't,\" I replied, confused by his hostility.'"
+        )
+        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        result = phonemize_to_result(text, g2p=g2p)
+
+        assert result.phonemes == g2p.phonemize(text)
+
+        i_tokens = [token for token in result.tokens if token.text == "I"]
+        assert len(i_tokens) == 2
+        assert all(token.meta.get("phonemes") for token in i_tokens)
+
+    def test_adjacent_quotes_without_space(self):
+        """Ensure back-to-back quotes don't duplicate words."""
+        from kokorog2p import get_g2p
+
+        text = "He said, \"I\" 'I'."
+        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        result = phonemize_to_result(text, g2p=g2p)
+
+        assert result.phonemes == g2p.phonemize(text)
+
+        i_tokens = [token for token in result.tokens if token.text == "I"]
+        assert len(i_tokens) == 2
+        assert all(token.meta.get("phonemes") for token in i_tokens)
+
+    def test_punctuation_inside_quotes(self):
+        """Ensure quoted punctuation doesn't duplicate pronouns."""
+        from kokorog2p import get_g2p
+
+        text = '"I," he said. "I."'
+        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        result = phonemize_to_result(text, g2p=g2p)
+
+        assert result.phonemes == g2p.phonemize(text)
+
+        i_tokens = [token for token in result.tokens if token.text == "I"]
+        assert len(i_tokens) == 2
+        assert all(token.meta.get("phonemes") for token in i_tokens)
+
+    def test_nested_quotes_with_contractions(self):
+        """Ensure nested quotes keep contraction phonemes."""
+        from kokorog2p import get_g2p
+
+        text = "He said, \"She whispered, 'I'd've...'.\""
+        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        result = phonemize_to_result(text, g2p=g2p)
+
+        assert result.phonemes == g2p.phonemize(text)
+
+        token = next(token for token in result.tokens if token.text == "I'd've")
+        assert token.meta.get("phonemes")
+
+    def test_multiple_ellipsis_positions(self):
+        """Ensure multiple ellipses normalize without drift."""
+        from kokorog2p import get_g2p
+
+        text = "Wait... now... later..."
+        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        result = phonemize_to_result(text, g2p=g2p)
+
+        assert result.phonemes == g2p.phonemize(text)
+
+    def test_contractions_with_trailing_punctuation(self):
+        """Ensure contractions with punctuation keep phonemes."""
+        from kokorog2p import get_g2p
+
+        text = "\"I'd've,\" she paused. \"You'd've.\""
+        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        result = phonemize_to_result(text, g2p=g2p)
+
+        assert result.phonemes == g2p.phonemize(text)
+
+        contractions = {"I'd've", "You'd've"}
+        for contraction in contractions:
+            token = next(token for token in result.tokens if token.text == contraction)
+            assert token.meta.get("phonemes")
+
+    def test_abbreviation_inside_quotes_with_ellipsis(self):
+        """Ensure abbreviations inside quotes keep phonemes."""
+        from kokorog2p import get_g2p
+
+        text = 'He said, "Dr. Smith..." and left.'
+        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        result = phonemize_to_result(text, g2p=g2p)
+
+        assert result.phonemes == g2p.phonemize(text)
+
+        dr_token = next(token for token in result.tokens if token.text == "Dr.")
+        assert dr_token.meta.get("phonemes")
+
+    def test_language_override_inside_quotes(self):
+        """Ensure language overrides survive quoted text."""
+        text = 'She said, "Hallo Welt!"'
+        start = text.index("Welt")
+        overrides = [OverrideSpan(start, start + len("Welt"), {"lang": "de"})]
+
+        result = phonemize_to_result(text, lang="en-us", overrides=overrides)
+
+        token = next(token for token in result.tokens if token.text == "Welt")
+        assert token.lang == "de"
+        assert token.meta.get("phonemes")
+
+    def test_override_inside_quoted_word(self):
+        """Ensure overrides apply when G2P merges quote+word spans."""
+        text = 'He said, "I."'
+        start = text.index("I")
+        overrides = [OverrideSpan(start, start + 1, {"ph": "ˈaI"})]
+
+        result = phonemize_to_result(text, overrides=overrides)
+
+        token = next(token for token in result.tokens if token.text == "I")
+        assert token.meta.get("phonemes") == "ˈaI"
+        assert result.phonemes is not None
+        assert result.phonemes.count("ˈaI") == 1
 
     def test_various_contractions_preserved(self):
         """Test that various types of contractions preserve all phonemes."""
