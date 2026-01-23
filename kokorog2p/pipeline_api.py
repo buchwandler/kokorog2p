@@ -5,7 +5,8 @@ It supports deterministic override application, per-span language switching, and
 direct token ID output.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from difflib import SequenceMatcher
 from functools import cache
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -258,12 +259,7 @@ def _call_g2p_without_abbreviations(g2p: "G2PBase", text: str) -> list["GToken"]
         original_expand = g2p_any.expand_abbreviations
         g2p_any.expand_abbreviations = False
 
-    normalizer: Any = getattr(g2p_any, "_normalizer", None)
-    if normalizer is None and hasattr(g2p_any, "normalizer"):
-        try:
-            normalizer = g2p_any.normalizer
-        except Exception:
-            normalizer = None
+    normalizer: Any = _get_g2p_normalizer(g2p_any)
 
     if normalizer is not None and hasattr(normalizer, "expand_abbreviations"):
         original_abbrev = getattr(normalizer, "abbrev_expander", None)
@@ -285,6 +281,88 @@ def _call_g2p_without_abbreviations(g2p: "G2PBase", text: str) -> list["GToken"]
                 normalizer_any.expand_abbreviations = expand_value
             if hasattr(normalizer_any, "abbrev_expander"):
                 normalizer_any.abbrev_expander = abbrev_expander
+
+
+def _get_g2p_normalizer(g2p: Any) -> Any | None:
+    normalizer: Any = getattr(g2p, "_normalizer", None)
+    if normalizer is None and hasattr(g2p, "normalizer"):
+        try:
+            normalizer = g2p.normalizer
+        except Exception:
+            normalizer = None
+    return normalizer
+
+
+def _normalize_for_g2p_alignment(text: str, g2p: "G2PBase") -> str:
+    normalizer = _get_g2p_normalizer(g2p)
+    if normalizer is None or not text:
+        return text
+
+    original_expand = None
+    original_abbrev = None
+
+    if hasattr(normalizer, "expand_abbreviations"):
+        original_expand = normalizer.expand_abbreviations
+        normalizer.expand_abbreviations = False
+        if hasattr(normalizer, "abbrev_expander"):
+            original_abbrev = normalizer.abbrev_expander
+            normalizer.abbrev_expander = None
+
+    try:
+        return normalizer(text)
+    finally:
+        if original_expand is not None:
+            normalizer.expand_abbreviations = original_expand
+        if hasattr(normalizer, "abbrev_expander"):
+            normalizer.abbrev_expander = original_abbrev
+
+
+def _map_position_to_normalized(
+    pos: int, opcodes: Sequence[tuple[str, int, int, int, int]]
+) -> int:
+    if not opcodes:
+        return pos
+
+    for tag, i1, i2, j1, j2 in opcodes:
+        if pos < i1:
+            return pos + (j1 - i1)
+        if i1 <= pos <= i2:
+            if tag == "equal":
+                return j1 + (pos - i1)
+            if tag == "insert":
+                return j2
+            if tag == "delete":
+                return j1
+            if i2 == i1:
+                return j1
+            rel = pos - i1
+            orig_len = i2 - i1
+            new_len = j2 - j1
+            return j1 + int(round(rel * new_len / orig_len))
+
+    last_i2 = opcodes[-1][2]
+    last_j2 = opcodes[-1][4]
+    return pos + (last_j2 - last_i2)
+
+
+def _align_tokens_to_normalized_text(
+    tokens: list[TokenSpan],
+    original_text: str,
+    normalized_text: str,
+) -> None:
+    if original_text == normalized_text:
+        return
+
+    opcodes = SequenceMatcher(None, original_text, normalized_text).get_opcodes()
+    for token in tokens:
+        token_start = token.meta.get("_extended_char_start", token.char_start)
+        token_end = token.meta.get("_extended_char_end", token.char_end)
+        mapped_start = _map_position_to_normalized(token_start, opcodes)
+        mapped_end = _map_position_to_normalized(token_end, opcodes)
+        if mapped_end < mapped_start:
+            mapped_end = mapped_start
+        token.meta["_extended_char_start"] = mapped_start
+        token.meta["_extended_char_end"] = mapped_end
 
 
 def phonemize_to_result(
@@ -378,6 +456,9 @@ def phonemize_to_result(
             lang,
             use_normalizer_rules=use_normalizer_rules,
         )
+        normalized_text = _normalize_for_g2p_alignment(extended_text, g2p)
+        _align_tokens_to_normalized_text(token_spans, extended_text, normalized_text)
+        extended_text = normalized_text
         gtokens = _call_g2p_without_abbreviations(g2p, extended_text)
         ensure_gtoken_positions(gtokens, extended_text)
         g2p_token_spans = gtokens_to_tokenspans(gtokens, extended_text)

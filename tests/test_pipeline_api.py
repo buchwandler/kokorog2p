@@ -21,6 +21,10 @@ class TestPhonemizeToResult:
         assert len(result.token_ids) > 0
         assert len(result.warnings) == 0
 
+        text = "'I can't... or shouldn't,' I replied."
+        result = phonemize_to_result(text)
+        assert result.phonemes == "“ˈI kˈænt…ɔɹ ʃˈʊdᵊnt,” ˈI ɹᵻplˈId."
+
     def test_with_phoneme_override(self):
         """Test phonemization with phoneme override."""
         overrides = [OverrideSpan(0, 5, {"ph": "hɛˈloʊ"})]
@@ -337,6 +341,21 @@ class TestPhonemizeToResult:
 
         assert result.phonemes == expected
 
+    def test_normalization_alignment_preserves_pronouns(self):
+        """Ensure G2P normalization doesn't drop token phonemes."""
+        from kokorog2p import get_g2p
+
+        text = "'I can't... or shouldn't,' I replied."
+        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        result = phonemize_to_result(text, g2p=g2p)
+
+        expected = g2p.phonemize(text)
+        assert result.phonemes == expected
+
+        i_tokens = [token for token in result.tokens if token.text == "I"]
+        assert len(i_tokens) == 2
+        assert all(token.meta.get("phonemes") for token in i_tokens)
+
     def test_various_contractions_preserved(self):
         """Test that various types of contractions preserve all phonemes."""
         test_cases = [
@@ -357,9 +376,9 @@ class TestPhonemizeToResult:
                     contraction_token = token
                     break
 
-            assert (
-                contraction_token is not None
-            ), f"{contraction} should be a token in '{text}'"
+            assert contraction_token is not None, (
+                f"{contraction} should be a token in '{text}'"
+            )
 
             # Check that it has phonemes
             phonemes = contraction_token.meta.get("phonemes", "")
