@@ -120,7 +120,7 @@ class TestPhonemizeToResult:
 
         # Optional: keep this weaker if you sometimes get non-critical warnings
         assert not any(
-            "Failed to load G2P" in w for w in result.warnings
+            "failed to load" in w.lower() for w in result.warnings
         ), result.warnings
 
     def test_with_language_override(self):
@@ -157,12 +157,87 @@ class TestPhonemizeToResult:
         # Punctuation shouldn't cause warnings
         assert all("punctuation" not in w.lower() for w in result.warnings)
 
+    def test_punctuation_normalization_dash_ellipsis(self):
+        """Ensure dash and ellipsis normalize to Kokoro punctuation."""
+        from kokorog2p.vocab import validate_for_kokoro
+
+        result = phonemize_to_result("Wait - now", lang="en-us")
+        assert result.phonemes is not None
+        assert "—" in result.phonemes
+        assert "-" not in result.phonemes
+        assert validate_for_kokoro(result.phonemes)[0]
+
+        result = phonemize_to_result("Bonjour — monde!", lang="fr")
+        assert result.phonemes is not None
+        assert "—" in result.phonemes
+
+        result = phonemize_to_result("Wait...what?!", lang="en-us")
+        assert result.phonemes is not None
+        assert "…" in result.phonemes
+        assert "..." not in result.phonemes
+
+    def test_model_version_ids_v11(self):
+        """Ensure IDs are encoded using the 1.1 vocab when required."""
+        from kokorog2p.base import G2PBase
+        from kokorog2p.token import GToken
+        from kokorog2p.vocab import ids_to_phonemes, validate_for_kokoro
+
+        class DummyZhG2P(G2PBase):
+            def __init__(self):
+                super().__init__(language="zh")
+
+            def __call__(self, text: str):
+                return [
+                    GToken(
+                        text=text,
+                        tag="X",
+                        whitespace="",
+                        phonemes="ㄋㄧ2ㄏㄠ3",
+                    )
+                ]
+
+            def lookup(self, word: str, tag: str | None = None):
+                return None
+
+            def get_target_model(self) -> str:
+                return "1.1"
+
+        g2p = DummyZhG2P()
+        result = phonemize_to_result(
+            "nihao",
+            lang="zh",
+            g2p=g2p,
+            return_ids=True,
+            return_phonemes=True,
+        )
+
+        assert result.phonemes is not None
+        assert result.token_ids is not None
+        assert validate_for_kokoro(result.phonemes, model="1.1")[0]
+        decoded = ids_to_phonemes(result.token_ids, model="1.1")
+        assert decoded == result.phonemes
+
+    def test_alignment_repeated_substrings(self):
+        """Ensure repeated substrings keep deterministic overrides."""
+        text = "the the the"
+        overrides = [
+            OverrideSpan(0, 3, {"ph": "ðə"}),
+            OverrideSpan(4, 7, {"ph": "ði"}),
+            OverrideSpan(8, 11, {"ph": "ðə"}),
+        ]
+        result = phonemize_to_result(text, overrides=overrides, alignment="span")
+
+        assert result.phonemes is not None
+        assert result.phonemes.count("ðə") == 2
+        assert result.phonemes.count("ði") == 1
+        assert not any("[ALIGNMENT]" in w for w in result.warnings)
+
     def test_abbreviation_sentence_phonemes(self):
         """Test abbreviations don't lose phonemes in sentences."""
         text = "Meet Mr. Schmidt, Mrs. Johnson, Ms. Anderson, and Dr. Brown."
         result = phonemize_to_result(text, lang="en-us")
 
-        assert not any("no phonemes generated" in w.lower() for w in result.warnings)
+        assert not any("no phonemes" in w.lower() for w in result.warnings)
 
         token_map = {token.text: token for token in result.tokens}
         for abbrev in ("Mr.", "Mrs.", "Ms.", "Dr."):
@@ -198,6 +273,16 @@ class TestPhonemizeToResult:
         assert temp_token.meta.get("phonemes")
         assert result.extended_text is not None
         assert "thirty degrees Celsius" in result.extended_text
+
+    def test_abbreviation_expansion_metadata(self):
+        """Ensure abbreviation expansion retains offsets and meta flag."""
+        result = phonemize_to_result("Dr. Smith", lang="en-us")
+
+        token = next(token for token in result.tokens if token.text == "Dr.")
+        assert token.char_start == 0
+        assert token.char_end == 3
+        assert token.extended_text
+        assert token.meta.get("_extended_text_changed") is True
 
     def test_abbreviation_token_span(self):
         """Test that abbreviations with periods stay in one token."""
@@ -296,6 +381,7 @@ class TestPhonemizeToResult:
         assert any(
             "snapping" in w.lower() or "overlap" in w.lower() for w in result.warnings
         )
+        assert any("[2:8]" in w for w in result.warnings)
 
     def test_no_overlap_warning(self):
         """Test that non-overlapping override generates warning."""
@@ -305,6 +391,7 @@ class TestPhonemizeToResult:
 
         # Should warn about no overlap
         assert any("overlap" in w.lower() for w in result.warnings)
+        assert any("[100:105]" in w for w in result.warnings)
 
     def test_german_phonemization(self):
         """Test phonemization in German."""
@@ -354,12 +441,56 @@ class TestPhonemizeToResult:
         """Test reusing G2P instance for performance."""
         from kokorog2p import get_g2p
 
-        g2p = get_g2p("en-us")
+        g2p = get_g2p("en-us", use_spacy=False)
         result1 = phonemize_to_result("Hello!", g2p=g2p)
         result2 = phonemize_to_result("World!", g2p=g2p)
 
         assert result1.phonemes is not None
         assert result2.phonemes is not None
+
+    def test_normalizer_state_restored(self):
+        """Ensure normalizer abbreviation settings are restored after calls."""
+        from kokorog2p import get_g2p
+
+        g2p = get_g2p("en-us", use_spacy=False)
+        normalizer = getattr(g2p, "_normalizer", None) or getattr(
+            g2p, "normalizer", None
+        )
+        if normalizer is None or not hasattr(normalizer, "expand_abbreviations"):
+            pytest.skip("G2P normalizer not available")
+
+        original_expand = normalizer.expand_abbreviations
+        phonemize_to_result("Dr. Smith", g2p=g2p)
+        assert normalizer.expand_abbreviations == original_expand
+
+    @pytest.mark.slow
+    def test_normalizer_thread_safety(self):
+        """Ensure concurrent calls do not corrupt normalizer state."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        from kokorog2p import get_g2p
+
+        g2p = get_g2p("en-us")
+        normalizer = getattr(g2p, "_normalizer", None) or getattr(
+            g2p, "normalizer", None
+        )
+        if normalizer is None or not hasattr(normalizer, "expand_abbreviations"):
+            pytest.skip("G2P normalizer not available")
+
+        text = "Dr. Smith arrived."
+
+        original_expand = normalizer.expand_abbreviations
+
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            results = list(
+                executor.map(
+                    lambda _: phonemize_to_result(text, g2p=g2p).phonemes,
+                    range(16),
+                )
+            )
+
+        assert all(result == results[0] for result in results)
+        assert normalizer.expand_abbreviations == original_expand
 
     def test_long_text_with_multiple_overrides(self):
         """Test longer text with multiple overrides."""

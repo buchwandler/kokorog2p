@@ -261,7 +261,7 @@ class ItalianNormalizer(TextNormalizer):
             NormalizationRule(
                 name="ellipsis",
                 pattern="\u2026",  # Horizontal ellipsis (…)
-                replacement="...",
+                replacement="…",
                 description="Normalize ellipsis character",
             )
         )
@@ -271,7 +271,7 @@ class ItalianNormalizer(TextNormalizer):
             NormalizationRule(
                 name="dash_em",
                 pattern="\u2014",  # Em dash (—)
-                replacement="-",
+                replacement="—",
                 description="Normalize em-dash",
             )
         )
@@ -280,7 +280,7 @@ class ItalianNormalizer(TextNormalizer):
             NormalizationRule(
                 name="dash_en",
                 pattern="\u2013",  # En dash (–)
-                replacement="-",
+                replacement="—",
                 description="Normalize en-dash",
             )
         )

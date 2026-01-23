@@ -5,11 +5,13 @@ It supports deterministic override application, per-span language switching, and
 direct token ID output.
 """
 
+import threading
 import unicodedata
 from collections.abc import Callable, Sequence
 from difflib import SequenceMatcher
 from functools import cache
 from typing import TYPE_CHECKING, Any, Literal
+from weakref import WeakKeyDictionary
 
 from kokorog2p.punctuation import normalize_punctuation
 from kokorog2p.span_processing import apply_overrides_to_tokens
@@ -24,6 +26,49 @@ from kokorog2p.vocab import filter_for_kokoro, phonemes_to_ids, validate_for_kok
 if TYPE_CHECKING:
     from kokorog2p.base import G2PBase
     from kokorog2p.token import GToken
+
+
+_G2P_LOCKS: "WeakKeyDictionary[object, threading.RLock]" = WeakKeyDictionary()
+
+
+def _get_g2p_lock(g2p: Any) -> threading.RLock:
+    try:
+        lock = _G2P_LOCKS.get(g2p)
+        if lock is None:
+            lock = threading.RLock()
+            _G2P_LOCKS[g2p] = lock
+        return lock
+    except TypeError:
+        return threading.RLock()
+
+
+def _get_target_model(g2p: Any) -> str:
+    if g2p is None:
+        return "1.0"
+    if hasattr(g2p, "get_target_model"):
+        try:
+            model = g2p.get_target_model()
+            if model:
+                return str(model)
+        except Exception:
+            pass
+    version = getattr(g2p, "version", None)
+    return str(version) if version else "1.0"
+
+
+def _merge_target_model(current: str, candidate: str) -> str:
+    if candidate == "1.1" or current == "1.1":
+        return "1.1"
+    return current or candidate
+
+
+def _normalize_punctuation_output(text: str) -> str:
+    if not text:
+        return text
+    normalized = normalize_punctuation(text)
+    if "-" in normalized:
+        normalized = normalized.replace("-", "—")
+    return normalized
 
 
 def _normalize_lang(lang: str | None) -> str | None:
@@ -231,8 +276,12 @@ def _apply_extended_text(
 
         if expanded and expanded != token.text:
             token.extended_text = expanded
+            token.meta["_extended_text_changed"] = True
+            token.meta["_extended_text"] = expanded
         else:
             token.extended_text = None
+            token.meta.pop("_extended_text_changed", None)
+            token.meta.pop("_extended_text", None)
 
         token_text = token.extended_text or token.text
         token.meta["_extended_char_start"] = extended_pos
@@ -255,33 +304,35 @@ def _call_g2p_without_abbreviations(g2p: "G2PBase", text: str) -> list["GToken"]
     original_expand = None
     normalizer_states: list[tuple[object, bool | None, object | None]] = []
     g2p_any: Any = g2p
+    lock = _get_g2p_lock(g2p_any)
 
-    if hasattr(g2p_any, "expand_abbreviations"):
-        original_expand = g2p_any.expand_abbreviations
-        g2p_any.expand_abbreviations = False
+    with lock:
+        if hasattr(g2p_any, "expand_abbreviations"):
+            original_expand = g2p_any.expand_abbreviations
+            g2p_any.expand_abbreviations = False
 
-    normalizer: Any = _get_g2p_normalizer(g2p_any)
+        normalizer: Any = _get_g2p_normalizer(g2p_any)
 
-    if normalizer is not None and hasattr(normalizer, "expand_abbreviations"):
-        original_abbrev = getattr(normalizer, "abbrev_expander", None)
-        normalizer_states.append(
-            (normalizer, normalizer.expand_abbreviations, original_abbrev)
-        )
-        normalizer.expand_abbreviations = False
-        if hasattr(normalizer, "abbrev_expander"):
-            normalizer.abbrev_expander = None
+        if normalizer is not None and hasattr(normalizer, "expand_abbreviations"):
+            original_abbrev = getattr(normalizer, "abbrev_expander", None)
+            normalizer_states.append(
+                (normalizer, normalizer.expand_abbreviations, original_abbrev)
+            )
+            normalizer.expand_abbreviations = False
+            if hasattr(normalizer, "abbrev_expander"):
+                normalizer.abbrev_expander = None
 
-    try:
-        return g2p_any(text)
-    finally:
-        if original_expand is not None:
-            g2p_any.expand_abbreviations = original_expand
-        for normalizer_obj, expand_value, abbrev_expander in normalizer_states:
-            normalizer_any: Any = normalizer_obj
-            if expand_value is not None:
-                normalizer_any.expand_abbreviations = expand_value
-            if hasattr(normalizer_any, "abbrev_expander"):
-                normalizer_any.abbrev_expander = abbrev_expander
+        try:
+            return g2p_any(text)
+        finally:
+            if original_expand is not None:
+                g2p_any.expand_abbreviations = original_expand
+            for normalizer_obj, expand_value, abbrev_expander in normalizer_states:
+                normalizer_any: Any = normalizer_obj
+                if expand_value is not None:
+                    normalizer_any.expand_abbreviations = expand_value
+                if hasattr(normalizer_any, "abbrev_expander"):
+                    normalizer_any.abbrev_expander = abbrev_expander
 
 
 def _get_g2p_normalizer(g2p: Any) -> Any | None:
@@ -298,24 +349,26 @@ def _normalize_for_g2p_alignment(text: str, g2p: "G2PBase") -> str:
     normalizer = _get_g2p_normalizer(g2p)
     if normalizer is None or not text:
         return text
+    lock = _get_g2p_lock(g2p)
 
-    original_expand = None
-    original_abbrev = None
+    with lock:
+        original_expand = None
+        original_abbrev = None
 
-    if hasattr(normalizer, "expand_abbreviations"):
-        original_expand = normalizer.expand_abbreviations
-        normalizer.expand_abbreviations = False
-        if hasattr(normalizer, "abbrev_expander"):
-            original_abbrev = normalizer.abbrev_expander
-            normalizer.abbrev_expander = None
+        if hasattr(normalizer, "expand_abbreviations"):
+            original_expand = normalizer.expand_abbreviations
+            normalizer.expand_abbreviations = False
+            if hasattr(normalizer, "abbrev_expander"):
+                original_abbrev = normalizer.abbrev_expander
+                normalizer.abbrev_expander = None
 
-    try:
-        return normalizer(text)
-    finally:
-        if original_expand is not None:
-            normalizer.expand_abbreviations = original_expand
-        if hasattr(normalizer, "abbrev_expander"):
-            normalizer.abbrev_expander = original_abbrev
+        try:
+            return normalizer(text)
+        finally:
+            if original_expand is not None:
+                normalizer.expand_abbreviations = original_expand
+            if hasattr(normalizer, "abbrev_expander"):
+                normalizer.abbrev_expander = original_abbrev
 
 
 def _map_position_to_normalized(
@@ -350,20 +403,50 @@ def _align_tokens_to_normalized_text(
     tokens: list[TokenSpan],
     original_text: str,
     normalized_text: str,
-) -> None:
+) -> list[str]:
+    warnings: list[str] = []
     if original_text == normalized_text:
-        return
+        return warnings
+    if len(original_text) == len(normalized_text):
+        return warnings
 
     opcodes = SequenceMatcher(None, original_text, normalized_text).get_opcodes()
+    prev_end = 0
+    norm_len = len(normalized_text)
+
     for token in tokens:
         token_start = token.meta.get("_extended_char_start", token.char_start)
         token_end = token.meta.get("_extended_char_end", token.char_end)
         mapped_start = _map_position_to_normalized(token_start, opcodes)
         mapped_end = _map_position_to_normalized(token_end, opcodes)
+        mapped_start = max(0, min(mapped_start, norm_len))
+        mapped_end = max(0, min(mapped_end, norm_len))
+
+        if mapped_start < prev_end:
+            warnings.append(
+                f"[ALIGNMENT] token '{token.text}' [{token_start}:{token_end}] "
+                f"mapped start {mapped_start} < {prev_end} (clamped)"
+            )
+            mapped_start = prev_end
+
         if mapped_end < mapped_start:
+            warnings.append(
+                f"[ALIGNMENT] token '{token.text}' [{token_start}:{token_end}] "
+                f"mapped end {mapped_end} < {mapped_start} (clamped)"
+            )
             mapped_end = mapped_start
+
+        if mapped_end == mapped_start and token_end > token_start:
+            warnings.append(
+                f"[ALIGNMENT] token '{token.text}' [{token_start}:{token_end}] "
+                f"mapped to empty span at {mapped_start}"
+            )
+
         token.meta["_extended_char_start"] = mapped_start
         token.meta["_extended_char_end"] = mapped_end
+        prev_end = mapped_end
+
+    return warnings
 
 
 def phonemize_to_result(
@@ -458,7 +541,10 @@ def phonemize_to_result(
             use_normalizer_rules=use_normalizer_rules,
         )
         normalized_text = _normalize_for_g2p_alignment(extended_text, g2p)
-        _align_tokens_to_normalized_text(token_spans, extended_text, normalized_text)
+        alignment_warnings = _align_tokens_to_normalized_text(
+            token_spans, extended_text, normalized_text
+        )
+        warnings.extend(alignment_warnings)
         extended_text = normalized_text
         gtokens = _call_g2p_without_abbreviations(g2p, extended_text)
         ensure_gtoken_positions(gtokens, extended_text)
@@ -477,7 +563,7 @@ def phonemize_to_result(
             warnings.extend(override_warnings)
 
     # Phonemize tokens based on language and overrides
-    phonemized_tokens, phonemize_warnings = _phonemize_token_spans(
+    phonemized_tokens, phonemize_warnings, target_model = _phonemize_token_spans(
         token_spans, g2p_token_spans, g2p, lang
     )
     warnings.extend(phonemize_warnings)
@@ -492,18 +578,34 @@ def phonemize_to_result(
     # Build token IDs if requested (independent of return_phonemes)
     token_ids: list[int] | None = None
     if return_ids and phoneme_str is not None:
-        is_valid, invalid = validate_for_kokoro(phoneme_str)
+        is_valid, invalid = validate_for_kokoro(phoneme_str, model=target_model)
         if not is_valid:
             warnings.append(
-                "Phoneme string contains chars not in Kokoro vocab; "
-                "they will be dropped: " + "".join(sorted(set(invalid)))
+                "[VOCAB] invalid chars for model {} dropped: {}".format(
+                    target_model,
+                    "".join(sorted(set(invalid))),
+                )
             )
-            phoneme_str = filter_for_kokoro(phoneme_str, replacement="")
+            phoneme_str = filter_for_kokoro(
+                phoneme_str, replacement="", model=target_model
+            )
         try:
-            token_ids = phonemes_to_ids(phoneme_str)
+            token_ids = phonemes_to_ids(phoneme_str, model=target_model)
         except Exception as e:
-            warnings.append(f"Failed to convert phonemes to IDs: {e}")
+            warnings.append(
+                "[VOCAB] failed to convert phonemes to IDs for model "
+                f"{target_model}: {e}"
+            )
             token_ids = None
+
+    if warnings:
+        seen: set[str] = set()
+        deduped: list[str] = []
+        for warning in warnings:
+            if warning not in seen:
+                deduped.append(warning)
+                seen.add(warning)
+        warnings = deduped
 
     return PhonemizeResult(
         clean_text=clean_text,
@@ -520,7 +622,7 @@ def _phonemize_token_spans(  # noqa: C901
     g2p_token_spans: list[TokenSpan],
     g2p: "G2PBase",
     default_lang: str,
-) -> tuple[list[TokenSpan], list[str]]:
+) -> tuple[list[TokenSpan], list[str], str]:
     """Phonemize token spans, handling per-span language switching.
 
     Args:
@@ -537,6 +639,7 @@ def _phonemize_token_spans(  # noqa: C901
     warnings: list[str] = []
     phonemized_tokens: list[TokenSpan] = []
     g2p_cache: dict[str, G2PBase] = {default_lang: g2p}
+    target_model = _get_target_model(g2p)
     g2p_index = 0
     carry_alnum_end: int | None = None
 
@@ -628,16 +731,21 @@ def _phonemize_token_spans(  # noqa: C901
         # Get G2P instance for this language
         if token_lang not in g2p_cache:
             try:
-                g2p_cache[token_lang] = get_g2p(token_lang, markdown_syntax="disabled")
+                g2p_cache[token_lang] = get_g2p(
+                    token_lang,
+                    markdown_syntax="disabled",
+                    version=target_model,
+                )
             except Exception as e:
                 warnings.append(
-                    f"Failed to load G2P for language '{token_lang}' "
-                    f"(token '{token.text}'): {e}"
+                    f"[G2P] failed to load language '{token_lang}' for token "
+                    f"'{token.text}' [{token.char_start}:{token.char_end}]: {e}"
                 )
                 # Fall back to default language
                 token_lang = default_lang
 
         token_g2p = g2p_cache[token_lang]
+        target_model = _merge_target_model(target_model, _get_target_model(token_g2p))
 
         # Check if phoneme override is present
         if "ph" in token.meta:
@@ -660,13 +768,13 @@ def _phonemize_token_spans(  # noqa: C901
                     phonemes = ""
                     if token.text.strip() and not _is_punctuation(token.text):
                         warnings.append(
-                            f"No phonemes generated for token '{token.text}' "
-                            f"at position {token.char_start}"
+                            f"[G2P] no phonemes for token '{token.text}' "
+                            f"[{token.char_start}:{token.char_end}] lang='{token_lang}'"
                         )
             except Exception as e:
                 warnings.append(
-                    f"Phonemization failed for token '{token.text}' "
-                    f"at position {token.char_start}: {e}"
+                    f"[G2P] phonemization failed for token '{token.text}' "
+                    f"[{token.char_start}:{token.char_end}] lang='{token_lang}': {e}"
                 )
                 phonemes = ""
         else:
@@ -698,7 +806,8 @@ def _phonemize_token_spans(  # noqa: C901
                     phonemes = "".join(phoneme_parts).strip()
                 except Exception as e:
                     warnings.append(
-                        f"Fallback token phonemization failed for '{token.text}': {e}"
+                        f"[G2P] fallback phonemization failed for token "
+                        f"'{token.text}' [{token.char_start}:{token.char_end}]: {e}"
                     )
 
         # Create phonemized token
@@ -718,7 +827,7 @@ def _phonemize_token_spans(  # noqa: C901
         )
         phonemized_tokens.append(phonemized_token)
 
-    return phonemized_tokens, warnings
+    return phonemized_tokens, warnings, target_model
 
 
 def _build_phoneme_string(tokens: list[TokenSpan], clean_text: str) -> str:
@@ -737,13 +846,33 @@ def _build_phoneme_string(tokens: list[TokenSpan], clean_text: str) -> str:
         if token.meta.get("_drop"):
             continue
         phonemes = token.meta.get("phonemes", "")
+        token_is_punct = _is_punctuation_token(token)
         whitespace = token.meta.get("whitespace")
+        if whitespace == "" and token.extended_text:
+            whitespace = None
+
+        normalized_token_text = _normalize_punctuation_output(token.text)
+        if token_is_punct and phonemes:
+            normalized_phonemes = _normalize_punctuation_output(str(phonemes))
+            if _is_quote_punctuation(normalized_phonemes) and _is_quote_punctuation(
+                normalized_token_text
+            ):
+                phonemes = normalized_phonemes
+            elif (
+                normalized_token_text
+                and normalized_phonemes != normalized_token_text
+                and _is_punctuation(normalized_phonemes)
+            ):
+                phonemes = normalized_token_text
+            else:
+                phonemes = normalized_phonemes
 
         if not phonemes:
             # No phonemes - might be punctuation or failed phonemization
             # Check if it's punctuation and include as-is
-            if _is_punctuation_token(token):
-                parts.append(token.text)
+            if token_is_punct:
+                if normalized_token_text:
+                    parts.append(normalized_token_text)
                 if whitespace:
                     parts.append(str(whitespace))
             continue
@@ -759,7 +888,10 @@ def _build_phoneme_string(tokens: list[TokenSpan], clean_text: str) -> str:
             next_token = tokens[i + 1]
             gap = next_token.char_start - token.char_end
             if gap > 0:
-                parts.append(clean_text[token.char_end : next_token.char_start])
+                start = max(0, min(token.char_end, len(clean_text)))
+                end = max(0, min(next_token.char_start, len(clean_text)))
+                if end > start:
+                    parts.append(clean_text[start:end])
 
     return "".join(parts).strip()
 
@@ -772,6 +904,12 @@ def _is_punctuation(text: str) -> bool:
         return False
     # treat as punctuation if every char is Unicode punctuation or symbol
     return all(unicodedata.category(ch)[0] in {"P", "S"} for ch in s)
+
+
+def _is_quote_punctuation(text: str) -> bool:
+    if not text:
+        return False
+    return any(ch in {'"', "\u201c", "\u201d"} for ch in text.strip())
 
 
 def _is_punctuation_token(token: TokenSpan) -> bool:

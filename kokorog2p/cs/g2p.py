@@ -488,8 +488,8 @@ class CzechG2P(G2PBase):
     @staticmethod
     def _get_punct_phonemes(text: str) -> str:
         """Get phonemes for punctuation tokens."""
-        puncts = frozenset(";:,.!?-\"'()[]")
-        return "".join(c for c in text if c in puncts)
+        puncts = frozenset(";:,.!?-\"'()[]—…")
+        return "".join("—" if c == "-" else c for c in text if c in puncts)
 
     def lookup(self, word: str, tag: str | None = None) -> str | None:
         """Look up a word in the dictionary.

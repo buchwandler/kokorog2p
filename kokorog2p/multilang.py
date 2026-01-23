@@ -13,7 +13,10 @@ Example:
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from typing import Any, Final
+
+from kokorog2p.types import OverrideSpan
 
 try:
     from lingua import Language, LanguageDetectorBuilder
@@ -118,35 +121,31 @@ def _map_from_lingua_language(lingua_lang: Any, allowed: list[str]) -> str:
     return base_code
 
 
-def preprocess_multilang(
-    text: str,
-    default_language: str = "en-us",
-    allowed_languages: list[str] | None = None,
-    confidence_threshold: float = 0.7,
-) -> list[Any]:
-    """Detect word-level languages and return OverrideSpan objects.
+def _pick_allowed_language(base_code: str, allowed: list[str]) -> str | None:
+    for allowed_code in allowed:
+        if allowed_code == base_code or allowed_code.startswith(base_code + "-"):
+            return allowed_code
+    return None
 
-    Returns OverrideSpan objects for language switching.
 
-    Args:
-        text: Input text to annotate.
-        default_language: Base language for unmarked words.
-        allowed_languages: Language codes to detect (must include default_language).
-        confidence_threshold: Minimum confidence (0.0-1.0) to accept detection.
-
-    Returns:
-        List of OverrideSpan objects with language overrides for detected words.
-
-    Raises:
-        ImportError: If lingua-language-detector is not installed.
-        ValueError: If allowed_languages is missing or default_language not allowed.
-    """
-    if not LINGUA_AVAILABLE:
-        raise ImportError(
-            "lingua-language-detector is required for preprocess_multilang. "
-            "Install with: pip install lingua-language-detector"
+def _detect_script_language(token: str, allowed: list[str]) -> str | None:
+    if re.search(r"[\uac00-\ud7a3]", token):
+        return _pick_allowed_language("ko", allowed)
+    if re.search(r"[\u3040-\u30ff\u31f0-\u31ff]", token):
+        return _pick_allowed_language("ja", allowed)
+    if re.search(r"[\u4e00-\u9fff]", token):
+        return _pick_allowed_language("zh", allowed) or _pick_allowed_language(
+            "ja", allowed
         )
+    if re.search(r"[\u0590-\u05ff]", token):
+        return _pick_allowed_language("he", allowed)
+    return None
 
+
+def _validate_languages(
+    default_language: str,
+    allowed_languages: list[str] | None,
+) -> tuple[list[str], str, list[Any]]:
     if allowed_languages is None or len(allowed_languages) == 0:
         raise ValueError("allowed_languages must be specified and non-empty")
 
@@ -159,16 +158,31 @@ def preprocess_multilang(
     if not lingua_languages:
         raise ValueError("allowed_languages do not map to lingua languages")
 
-    detector = (
+    return normalized_allowed, normalized_default, lingua_languages
+
+
+def _build_language_detector(lingua_languages: list[Any]) -> Any:
+    return (
         LanguageDetectorBuilder.from_languages(*lingua_languages)  # type: ignore
         .with_preloaded_language_models()
         .build()
     )
 
+
+def _make_language_detector(
+    detector: Any,
+    normalized_allowed: list[str],
+    normalized_default: str,
+    confidence_threshold: float,
+    min_token_length: int,
+) -> Callable[[str], str]:
     cache: dict[str, str] = {}
 
     def detect_language(word: str) -> str:
-        if len(word) < 3 or not any(c.isalnum() for c in word):
+        script_lang = _detect_script_language(word, normalized_allowed)
+        if script_lang:
+            return script_lang
+        if len(word) < min_token_length or not any(c.isalnum() for c in word):
             return normalized_default
         if word in cache:
             return cache[word]
@@ -190,29 +204,171 @@ def preprocess_multilang(
         cache[word] = detected
         return detected
 
-    from kokorog2p.types import OverrideSpan
+    return detect_language
 
+
+def _overlaps_range(
+    start: int,
+    end: int,
+    covered_ranges: list[tuple[int, int]],
+) -> bool:
+    return any(
+        start < span_end and end > span_start for span_start, span_end in covered_ranges
+    )
+
+
+def _collect_phrase_overrides(
+    text: str,
+    phrase_overrides: dict[str, str] | None,
+    normalized_allowed: list[str],
+) -> tuple[list[OverrideSpan], list[tuple[int, int]]]:
+    overrides: list[OverrideSpan] = []
+    covered_ranges: list[tuple[int, int]] = []
+    if not phrase_overrides:
+        return overrides, covered_ranges
+
+    for phrase, lang_code in phrase_overrides.items():
+        if not phrase:
+            continue
+        normalized_lang = _normalize_language(lang_code)
+        if normalized_lang not in normalized_allowed:
+            continue
+        for match in re.finditer(re.escape(phrase), text):
+            start = match.start()
+            end = match.end()
+            if _overlaps_range(start, end, covered_ranges):
+                continue
+            overrides.append(
+                OverrideSpan(
+                    char_start=start,
+                    char_end=end,
+                    attrs={"lang": normalized_lang},
+                )
+            )
+            covered_ranges.append((start, end))
+
+    return overrides, covered_ranges
+
+
+def _collect_token_overrides(
+    text: str,
+    detect_language: Callable[[str], str],
+    normalized_default: str,
+    covered_ranges: list[tuple[int, int]],
+) -> list[OverrideSpan]:
     overrides: list[OverrideSpan] = []
     offset = 0
 
     for token in WORD_OR_PUNCT_REGEX.findall(text):
         token_start = offset
         token_end = offset + len(token)
-
-        if token.isalnum() or any(ch.isalnum() for ch in token):
-            detected = detect_language(token)
-            if detected != normalized_default:
-                overrides.append(
-                    OverrideSpan(
-                        char_start=token_start,
-                        char_end=token_end,
-                        attrs={"lang": detected},
-                    )
-                )
-
         offset = token_end
 
+        if token.isspace():
+            continue
+
+        if _overlaps_range(token_start, token_end, covered_ranges):
+            continue
+
+        if not any(ch.isalnum() for ch in token):
+            continue
+
+        trimmed = re.sub(r"^\W+|\W+$", "", token, flags=re.UNICODE)
+        detect_text = trimmed if trimmed else token
+        if not detect_text:
+            continue
+
+        detected = detect_language(detect_text)
+        if detected != normalized_default:
+            overrides.append(
+                OverrideSpan(
+                    char_start=token_start,
+                    char_end=token_end,
+                    attrs={"lang": detected},
+                )
+            )
+
     return overrides
+
+
+def _dedupe_overrides(overrides: list[OverrideSpan]) -> list[OverrideSpan]:
+    if not overrides:
+        return overrides
+
+    seen: set[tuple[int, int, str]] = set()
+    deduped: list[OverrideSpan] = []
+    for override in sorted(overrides, key=lambda o: (o.char_start, o.char_end)):
+        lang_value = override.attrs.get("lang", "")
+        key = (override.char_start, override.char_end, lang_value)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(override)
+
+    return deduped
+
+
+def preprocess_multilang(
+    text: str,
+    default_language: str = "en-us",
+    allowed_languages: list[str] | None = None,
+    confidence_threshold: float = 0.7,
+    phrase_overrides: dict[str, str] | None = None,
+    min_token_length: int = 3,
+) -> list[Any]:
+    """Detect word-level languages and return OverrideSpan objects.
+
+    Returns OverrideSpan objects for language switching.
+
+    Args:
+        text: Input text to annotate.
+        default_language: Base language for unmarked words.
+        allowed_languages: Language codes to detect (must include default_language).
+        confidence_threshold: Minimum confidence (0.0-1.0) to accept detection.
+        phrase_overrides: Optional dict mapping exact phrases to language codes.
+        min_token_length: Minimum token length for detection (default: 3).
+
+    Returns:
+        List of OverrideSpan objects with language overrides for detected words.
+
+    Raises:
+        ImportError: If lingua-language-detector is not installed.
+        ValueError: If allowed_languages is missing or default_language not allowed.
+    """
+    if not LINGUA_AVAILABLE:
+        raise ImportError(
+            "lingua-language-detector is required for preprocess_multilang. "
+            "Install with: pip install lingua-language-detector"
+        )
+
+    normalized_allowed, normalized_default, lingua_languages = _validate_languages(
+        default_language,
+        allowed_languages,
+    )
+    detector = _build_language_detector(lingua_languages)
+    detect_language = _make_language_detector(
+        detector,
+        normalized_allowed,
+        normalized_default,
+        confidence_threshold,
+        min_token_length,
+    )
+
+    overrides, covered_ranges = _collect_phrase_overrides(
+        text,
+        phrase_overrides,
+        normalized_allowed,
+    )
+    overrides.extend(
+        _collect_token_overrides(
+            text,
+            detect_language,
+            normalized_default,
+            covered_ranges,
+        )
+    )
+
+    return _dedupe_overrides(overrides)
 
 
 __all__ = ["preprocess_multilang"]

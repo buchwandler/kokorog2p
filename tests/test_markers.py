@@ -50,8 +50,8 @@ class TestParseDelimited:
         text = "Start @unmatched end"
         clean, ranges, warnings = parse_delimited(text)
 
-        # Implementation removes the marker but emits a warning
-        assert clean == "Start unmatched end"
+        # Implementation keeps the marker as literal and emits a warning
+        assert clean == "Start @unmatched end"
         assert ranges == []
         assert len(warnings) == 1
         assert "Unmatched opening marker" in warnings[0]
@@ -61,24 +61,20 @@ class TestParseDelimited:
         text = "Start word@ end"
         clean, ranges, warnings = parse_delimited(text)
 
-        # Implementation removes the marker (treats as opening then unmatched)
-        assert clean == "Start word end"
+        # Implementation keeps the marker as literal (treats as opening then unmatched)
+        assert clean == "Start word@ end"
         assert ranges == []
         # Should get an unmatched warning
         assert len(warnings) == 1
 
     def test_nested_markers(self):
-        """Test apparent nesting is handled as multiple pairs."""
+        """Test apparent nesting emits warning."""
         text = "@outer @inner@ outer@"
         clean, ranges, warnings = parse_delimited(text)
 
-        # Implementation treats this as two pairs: "@outer @" and "@inner@"
-        # Result: "outer @inner@ outer" -> two separate ranges
         assert clean == "outer inner outer"
-        # Actually creates two separate marked ranges without nesting
         assert len(ranges) == 2
-        # No warnings because it's parsed as separate pairs
-        assert len(warnings) == 0
+        assert any("nested" in warning.lower() for warning in warnings)
 
     def test_custom_marker(self):
         """Test using custom marker character."""
@@ -321,6 +317,7 @@ class TestIntegration:
         result = phonemize_to_result(clean, lang="en-us", overrides=overrides)
 
         # Both "the" instances should be in the result
+        assert result.phonemes is not None
         assert "ðə" in result.phonemes
         assert "ði" in result.phonemes
 

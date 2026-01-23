@@ -203,7 +203,7 @@ class GermanNormalizer(TextNormalizer):
             NormalizationRule(
                 name="ellipsis_unicode",
                 pattern="\u2026",  # Ellipsis (…)
-                replacement="...",
+                replacement="…",
                 description="Normalize Unicode ellipsis",
             )
         )

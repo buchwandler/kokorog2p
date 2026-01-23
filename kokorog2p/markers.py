@@ -20,8 +20,6 @@ Example:
     >>> result = phonemize_to_result(clean_text, lang="de", overrides=overrides)
 """
 
-import re
-
 from kokorog2p.types import OverrideSpan
 
 
@@ -66,89 +64,94 @@ def parse_delimited(
         ('Unmatched @marker', [], ['Unmatched opening marker at position 10'])
 
         >>> parse_delimited("Nested @outer @inner@ outer@")
-        ('Nested outer inner outer', [(7, 23)],
-         ['Nested markers detected at position 14'])
+        ('Nested outer inner outer', [(7, 13), (18, 24)],
+         ['Nested markers detected at position 7'])
     """
     clean_parts: list[str] = []
     marked_ranges: list[tuple[int, int]] = []
     warnings: list[str] = []
 
-    # Escape the marker and escape character for regex
-    escaped_marker = re.escape(marker)
-    escaped_escape = re.escape(escape)
+    marker_positions: list[int] = []
+    i = 0
+    while i < len(text):
+        if text.startswith(escape, i) and i + len(escape) < len(text):
+            i += len(escape) + 1
+            continue
+        if text.startswith(marker, i):
+            marker_positions.append(i)
+            i += len(marker)
+            continue
+        i += 1
 
-    # Build regex pattern to match escaped markers or regular markers
-    # This pattern matches either:
-    # 1. Escaped marker (e.g., \@)
-    # 2. Regular marker (e.g., @)
-    pattern = f"({escaped_escape}{escaped_marker}|{escaped_marker})"
-
-    current_pos = 0  # Position in clean_text
-    text_pos = 0  # Position in original text
+    current_pos = 0
     in_marker = False
     marker_start_pos = -1
     marker_start_clean_pos = -1
-    nesting_level = 0
-
-    # Split by pattern and iterate
-    parts = re.split(pattern, text)
+    marker_index = 0
 
     i = 0
-    while i < len(parts):
-        part = parts[i]
+    while i < len(text):
+        if text.startswith(escape, i) and i + len(escape) < len(text):
+            next_char = text[i + len(escape)]
+            if next_char == marker or next_char == escape:
+                clean_parts.append(next_char)
+                current_pos += 1
+                i += len(escape) + 1
+                continue
 
-        # Check if this part is an escaped marker
-        if part == f"{escape}{marker}":
-            # Add literal marker to clean text
-            clean_parts.append(marker)
-            current_pos += len(marker)
-            text_pos += len(part)
-
-        # Check if this part is a marker
-        elif part == marker:
+        if marker_index < len(marker_positions) and i == marker_positions[marker_index]:
             if not in_marker:
-                # Opening marker
                 in_marker = True
-                marker_start_pos = text_pos
+                marker_start_pos = i
                 marker_start_clean_pos = current_pos
-                nesting_level += 1
             else:
-                # Closing marker
-                nesting_level -= 1
+                marked_ranges.append((marker_start_clean_pos, current_pos))
+                in_marker = False
+                next_marker = (
+                    marker_positions[marker_index + 1]
+                    if marker_index + 1 < len(marker_positions)
+                    else None
+                )
+                if next_marker is not None:
+                    between = text[i + len(marker) : next_marker]
+                    if between and not any(ch.isspace() for ch in between):
+                        warnings.append(
+                            f"Nested markers detected at position {marker_start_pos}"
+                        )
+                marker_start_pos = -1
+                marker_start_clean_pos = -1
+            marker_index += 1
+            i += len(marker)
+            continue
 
-                if nesting_level == 0:
-                    # Valid pair
-                    marked_ranges.append((marker_start_clean_pos, current_pos))
-                    in_marker = False
-                    marker_start_pos = -1
-                    marker_start_clean_pos = -1
-                else:
-                    # Nested marker - emit warning
-                    warnings.append(f"Nested markers detected at position {text_pos}")
-
-            text_pos += len(marker)
-
-        else:
-            # Regular text
-            if in_marker and nesting_level > 1:
-                # We're inside nested markers - count as part of marked text
-                clean_parts.append(part)
-                current_pos += len(part)
-            else:
-                # Regular text outside markers or in first level
-                clean_parts.append(part)
-                current_pos += len(part)
-
-            text_pos += len(part)
-
+        clean_parts.append(text[i])
+        current_pos += 1
         i += 1
 
-    # Check for unmatched opening marker
+    clean_text = "".join(clean_parts)
+
     if in_marker:
         warnings.append(f"Unmatched opening marker at position {marker_start_pos}")
+        insert_pos = max(0, min(marker_start_clean_pos, len(clean_text)))
+        clean_text = clean_text[:insert_pos] + marker + clean_text[insert_pos:]
 
-    clean_text = "".join(clean_parts)
-    return clean_text, marked_ranges, warnings
+    sanitized_ranges: list[tuple[int, int]] = []
+    last_end = 0
+    for start, end in sorted(marked_ranges, key=lambda r: (r[0], r[1])):
+        start = max(0, min(start, len(clean_text)))
+        end = max(0, min(end, len(clean_text)))
+        if end < start:
+            warnings.append(f"Invalid marker range ({start}, {end}); skipping")
+            continue
+        if start < last_end:
+            warnings.append(
+                f"Overlapping marker ranges detected at ({start}, {end}); skipping"
+            )
+            continue
+        sanitized_ranges.append((start, end))
+        last_end = end
+
+    return clean_text, sanitized_ranges, warnings
 
 
 def apply_marker_overrides(

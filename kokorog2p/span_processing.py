@@ -15,6 +15,10 @@ def apply_overrides_to_tokens(
     overrides: list[OverrideSpan],
     mode: Literal["snap", "strict"] = "snap",
 ) -> tuple[list[TokenSpan], list[str]]:
+    def _format_token(token: TokenSpan) -> str:
+        lang = f" lang='{token.lang}'" if token.lang else ""
+        return f"'{token.text}' [{token.char_start}:{token.char_end}]{lang}"
+
     warnings: list[str] = []
     modified_tokens = [
         TokenSpan(
@@ -38,8 +42,8 @@ def apply_overrides_to_tokens(
 
         if not overlapping_indices:
             warnings.append(
-                f"Override span ({override.char_start}, {override.char_end}) "
-                f"does not overlap any tokens; skipping"
+                f"[OVERRIDE] span [{override.char_start}:{override.char_end}] "
+                "does not overlap any tokens; skipping"
             )
             continue
 
@@ -61,13 +65,17 @@ def apply_overrides_to_tokens(
         if partial_overlap and not exact_match:
             if mode == "strict":
                 warnings.append(
-                    f"Override span ({override.char_start}, {override.char_end}) "
-                    f"partially overlaps token boundaries; skipping (strict mode)"
+                    f"[OVERRIDE] span [{override.char_start}:{override.char_end}] "
+                    "partially overlaps token boundaries "
+                    f"(first {_format_token(first_token)}, last "
+                    f"{_format_token(last_token)}); skipping (strict mode)"
                 )
                 continue
             warnings.append(
-                f"Override span ({override.char_start}, {override.char_end}) "
-                f"partially overlaps token boundaries; snapping to tokens "
+                f"[OVERRIDE] span [{override.char_start}:{override.char_end}] "
+                "partially overlaps token boundaries "
+                f"(first {_format_token(first_token)}, last "
+                f"{_format_token(last_token)}); snapping to tokens "
                 f"{first_idx}-{last_idx}"
             )
 

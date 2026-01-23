@@ -108,6 +108,8 @@ class TestApplyOverridesToTokens:
         assert result_tokens[0].meta["ph"] == "test"
         assert len(warnings) == 1
         assert "snapping" in warnings[0].lower()
+        assert "Hello" in warnings[0]
+        assert "[0:5]" in warnings[0]
 
     def test_partial_overlap_strict_mode(self):
         """Test partial overlap in strict mode."""
@@ -124,6 +126,8 @@ class TestApplyOverridesToTokens:
         assert "ph" not in result_tokens[1].meta
         assert len(warnings) == 1
         assert "skipping" in warnings[0].lower()
+        assert "Hello" in warnings[0]
+        assert "[0:5]" in warnings[0]
 
     def test_no_overlap_warning(self):
         """Test override with no overlapping tokens."""
@@ -135,6 +139,7 @@ class TestApplyOverridesToTokens:
         assert "ph" not in result_tokens[0].meta
         assert len(warnings) == 1
         assert "does not overlap" in warnings[0]
+        assert "[10:15]" in warnings[0]
 
     def test_multiple_overrides_same_token(self):
         """Test multiple overrides on same token (last wins)."""

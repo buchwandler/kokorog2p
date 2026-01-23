@@ -66,6 +66,44 @@ class TestPreprocessMultilang:
         assert result[0].char_start == 0
         assert result[0].char_end == 6
 
+    def test_phrase_override(self):
+        text = "Ich mag New York."
+        result = preprocess_multilang(
+            text,
+            default_language="de",
+            allowed_languages=["de", "en-us"],
+            phrase_overrides={"New York": "en-us"},
+        )
+
+        assert len(result) == 1
+        assert result[0].char_start == 8
+        assert result[0].char_end == 16
+        assert result[0].attrs == {"lang": "en-us"}
+
+    def test_punctuation_adjacent_token_detection(self):
+        text = "Bonjour, World!"
+        result = preprocess_multilang(
+            text,
+            default_language="en-us",
+            allowed_languages=["en-us", "fr"],
+        )
+
+        assert len(result) == 1
+        assert result[0].char_start == 0
+        assert result[0].char_end == 7
+        assert result[0].attrs == {"lang": "fr"}
+
+    def test_script_based_detection(self):
+        text = "Hello 안녕하세요"
+        result = preprocess_multilang(
+            text,
+            default_language="en-us",
+            allowed_languages=["en-us", "ko"],
+        )
+
+        assert len(result) == 1
+        assert result[0].attrs == {"lang": "ko"}
+
     def test_requires_default_language_in_allowed(self):
         with pytest.raises(ValueError):
             preprocess_multilang(
