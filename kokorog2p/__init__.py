@@ -87,10 +87,24 @@ except ImportError:
     __version_tuple__ = (0, 0, 0)
 
 # Lazy imports for optional dependencies
-_g2p_cache: dict[str, G2PBase] = {}
+_g2p_cache: dict[tuple[object, ...], G2PBase] = {}
 
 # Backend type hint
 BackendType = Literal["kokorog2p", "espeak", "goruut"]
+
+
+def _stable_repr(value: Any) -> object:
+    if value is None or isinstance(value, str | int | float | bool):
+        return repr(value)
+    if isinstance(value, list | tuple):
+        return tuple(_stable_repr(item) for item in value)
+    if isinstance(value, dict):
+        items = [(_stable_repr(key), _stable_repr(val)) for key, val in value.items()]
+        return tuple(sorted(items, key=repr))
+    if isinstance(value, set | frozenset):
+        items = [_stable_repr(item) for item in value]
+        return tuple(sorted(items, key=repr))
+    return repr(value)
 
 
 def get_g2p(
@@ -115,11 +129,13 @@ def get_g2p(
     Args:
         language: Language code (e.g., 'en-us', 'en-gb', 'zh', 'ja', 'fr', etc.).
         use_espeak_fallback: Whether to use espeak for out-of-vocabulary words
-            (only applies when backend="espeak").
+            when using the dictionary-based "kokorog2p" backend. Ignored when
+            backend is set to "espeak" (espeak is the primary backend).
         use_goruut_fallback: Whether to use goruut for out-of-vocabulary words
-            (only applies when backend="espeak").
+            when using the dictionary-based "kokorog2p" backend. Ignored when
+            backend is set to "goruut" (goruut is the primary backend).
         use_spacy: Whether to use spaCy for tokenization and POS tagging
-            (only applies to English).
+            (only applies to English). Used by the "kokorog2p" backend.
         backend: Phonemization backend to use: "kokorog2p", "espeak", "goruut".
             The goruut backend requires pygoruut to be installed.
         load_silver: If True, load silver tier dictionary (~100k extra entries).
@@ -182,9 +198,26 @@ def get_g2p(
         )
 
     # Check cache (include all relevant parameters in cache key)
+    kwargs_key = None
+    if kwargs:
+        kwargs_key = tuple(
+            sorted(
+                ((key, _stable_repr(value)) for key, value in kwargs.items()),
+                key=lambda item: item[0],
+            )
+        )
     cache_key = (
-        f"{lang}:{use_espeak_fallback}:{use_goruut_fallback}:{use_spacy}:{backend}:{load_silver}:{load_gold}"
-        f":{version}:{phoneme_quotes}:{strict}"
+        lang,
+        use_espeak_fallback,
+        use_goruut_fallback,
+        use_spacy,
+        backend,
+        load_silver,
+        load_gold,
+        version,
+        phoneme_quotes,
+        strict,
+        kwargs_key,
     )
     if cache_key in _g2p_cache:
         return _g2p_cache[cache_key]
@@ -323,11 +356,13 @@ def phonemize(
         text: Input text to convert.
         language: Language code (e.g., 'en-us', 'en-gb').
         use_espeak_fallback: Whether to use espeak for out-of-vocabulary words
-            (only applies when backend="espeak").
+            when using the dictionary-based "kokorog2p" backend. Ignored when
+            backend is set to "espeak" (espeak is the primary backend).
         use_goruut_fallback: Whether to use goruut for out-of-vocabulary words
-            (only applies when backend="goruut").
+            when using the dictionary-based "kokorog2p" backend. Ignored when
+            backend is set to "goruut" (goruut is the primary backend).
         use_spacy: Whether to use spaCy for tokenization and POS tagging
-            (only applies to English with espeak backend).
+            (only applies to English). Used by the "kokorog2p" backend.
         backend: Phonemization backend to use: "kokorog2p", "espeak", "goruut".
             The goruut backend requires pygoruut to be installed.
 
@@ -365,11 +400,13 @@ def tokenize(
         text: Input text to convert.
         language: Language code (e.g., 'en-us', 'en-gb').
         use_espeak_fallback: Whether to use espeak for out-of-vocabulary words
-            (only applies when backend="espeak").
+            when using the dictionary-based "kokorog2p" backend. Ignored when
+            backend is set to "espeak" (espeak is the primary backend).
         use_goruut_fallback: Whether to use goruut for out-of-vocabulary words
-            (only applies when backend="goruut").
+            when using the dictionary-based "kokorog2p" backend. Ignored when
+            backend is set to "goruut" (goruut is the primary backend).
         use_spacy: Whether to use spaCy for tokenization and POS tagging
-            (only applies to English with espeak backend).
+            (only applies to English). Used by the "kokorog2p" backend.
         backend: Phonemization backend: "kokorog2p", "espeak", "goruut".
             The goruut backend requires pygoruut to be installed.
 
@@ -397,6 +434,32 @@ def clear_cache() -> None:
     This can be useful when you need to free memory or reset state.
     """
     _g2p_cache.clear()
+
+
+def reset_abbreviations() -> None:
+    """Reset abbreviation expanders to their default state."""
+    from kokorog2p.cs.abbreviations import reset_expander as reset_cs
+    from kokorog2p.de.abbreviations import reset_expander as reset_de
+    from kokorog2p.en.abbreviations import reset_expander as reset_en
+    from kokorog2p.es.abbreviations import reset_expander as reset_es
+    from kokorog2p.fr.abbreviations import reset_expander as reset_fr
+    from kokorog2p.it.abbreviations import reset_expander as reset_it
+    from kokorog2p.pt.abbreviations import reset_expander as reset_pt
+
+    reset_cs()
+    reset_de()
+    reset_en()
+    reset_es()
+    reset_fr()
+    reset_it()
+    reset_pt()
+
+    _g2p_cache.clear()
+
+    from kokorog2p import pipeline_api
+
+    pipeline_api._get_abbreviation_expander.cache_clear()
+    pipeline_api._get_language_normalizer.cache_clear()
 
 
 # New span-based API
@@ -427,6 +490,7 @@ __all__ = [
     "tokenize",
     "get_g2p",
     "clear_cache",
+    "reset_abbreviations",
     # New span-based API (recommended for pipelines)
     "phonemize_to_result",
     "tokenize_with_offsets",

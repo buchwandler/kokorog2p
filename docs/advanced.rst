@@ -849,12 +849,12 @@ The ``strict`` parameter works with all backends:
    # Goruut backend with strict mode
    g2p_goruut = get_g2p("en-us", backend="goruut", strict=True)
 
-   # Dictionary-based with fallback (strict applies to fallback only)
+   # Dictionary-based with fallback (strict controls fallback/init errors)
    g2p_dict = get_g2p(
        "en-us",
        backend="kokorog2p",
        use_espeak_fallback=True,
-       strict=True  # Affects espeak fallback behavior
+       strict=True  # Affects fallback initialization and errors
    )
 
 Next Steps

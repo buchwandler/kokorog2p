@@ -6,101 +6,43 @@ into ProcessingToken objects with position tracking and metadata.
 
 import re
 from abc import ABC, abstractmethod
-from functools import lru_cache
 from typing import Any
 
+from kokorog2p.abbreviation_utils import merge_abbreviation_tokens
 from kokorog2p.pipeline.models import ProcessingToken
-
-
-@lru_cache(maxsize=1)
-def _get_abbreviation_entries() -> list[tuple[str, bool]]:
-    entries: list[tuple[str, bool]] = []
-
-    from kokorog2p.cs.abbreviations import get_expander as get_cs_expander
-    from kokorog2p.de.abbreviations import get_expander as get_de_expander
-    from kokorog2p.en.abbreviations import get_expander as get_en_expander
-    from kokorog2p.es.abbreviations import get_expander as get_es_expander
-    from kokorog2p.fr.abbreviations import get_expander as get_fr_expander
-    from kokorog2p.it.abbreviations import get_expander as get_it_expander
-    from kokorog2p.pt.abbreviations import get_expander as get_pt_expander
-
-    expanders = (
-        get_cs_expander,
-        get_de_expander,
-        get_en_expander,
-        get_es_expander,
-        get_fr_expander,
-        get_it_expander,
-        get_pt_expander,
-    )
-
-    for get_expander in expanders:
-        expander = get_expander()
-        for entry in expander.entries.values():
-            entries.append((entry.abbreviation, entry.case_sensitive))
-
-    return entries
 
 
 def _merge_abbreviation_tokens(
     tokens: list[ProcessingToken],
+    lang: str | None,
 ) -> list[ProcessingToken]:
-    if len(tokens) < 2:
-        return tokens
+    def is_break(
+        prev: ProcessingToken, current: ProcessingToken, last_end: int
+    ) -> bool:
+        if prev.whitespace:
+            return True
+        if current.char_start != last_end and current.char_start != 0:
+            return True
+        return False
 
-    entries = _get_abbreviation_entries()
-    if not entries:
-        return tokens
+    def build_token(
+        start: ProcessingToken,
+        end: ProcessingToken,
+        text: str,
+    ) -> ProcessingToken:
+        return ProcessingToken(
+            text=text,
+            char_start=start.char_start,
+            char_end=end.char_end,
+            whitespace=end.whitespace,
+        )
 
-    case_sensitive = {
-        abbrev for abbrev, is_case_sensitive in entries if is_case_sensitive
-    }
-    case_insensitive = {
-        abbrev.lower() for abbrev, is_case_sensitive in entries if not is_case_sensitive
-    }
-    max_len = max((len(abbrev) for abbrev, _ in entries), default=0)
-    if max_len == 0:
-        return tokens
-
-    merged: list[ProcessingToken] = []
-    i = 0
-    while i < len(tokens):
-        best_end = None
-        best_text = None
-        combined = ""
-        last_end = tokens[i].char_end
-
-        for j in range(i, len(tokens)):
-            if j > i:
-                if tokens[j - 1].whitespace:
-                    break
-                if tokens[j].char_start != last_end and tokens[j].char_start != 0:
-                    break
-            combined += tokens[j].text
-            last_end = tokens[j].char_end
-            if len(combined) > max_len:
-                break
-
-            if combined in case_sensitive or combined.lower() in case_insensitive:
-                best_end = j
-                best_text = combined
-
-        if best_end is not None and best_end > i:
-            merged.append(
-                ProcessingToken(
-                    text=best_text or combined,
-                    char_start=tokens[i].char_start,
-                    char_end=tokens[best_end].char_end,
-                    whitespace=tokens[best_end].whitespace,
-                )
-            )
-            i = best_end + 1
-            continue
-
-        merged.append(tokens[i])
-        i += 1
-
-    return merged
+    return merge_abbreviation_tokens(
+        tokens,
+        lang,
+        is_break=is_break,
+        build_token=build_token,
+    )
 
 
 class BaseTokenizer(ABC):
@@ -110,7 +52,12 @@ class BaseTokenizer(ABC):
     tracking positions, quotes, and other metadata.
     """
 
-    def __init__(self, track_positions: bool = True, phoneme_quotes: str = "curly"):
+    def __init__(
+        self,
+        track_positions: bool = True,
+        phoneme_quotes: str = "curly",
+        lang: str | None = None,
+    ):
         """Initialize the tokenizer.
 
         Args:
@@ -119,9 +66,11 @@ class BaseTokenizer(ABC):
                 - "curly": Use directional quotes " and " (default)
                 - "ascii": Use ASCII double quote "
                 - "none": Strip quotes from phoneme output
+            lang: Optional language code for abbreviation merging.
         """
         self.track_positions = track_positions
         self.phoneme_quotes = phoneme_quotes
+        self.lang = lang
 
         # Validate phoneme_quotes parameter
         if phoneme_quotes not in ("curly", "ascii", "none"):
@@ -328,6 +277,7 @@ class RegexTokenizer(BaseTokenizer):
         use_bracket_matching: bool = True,
         phoneme_quotes: str = "curly",
         contraction_pattern: str | None = None,
+        lang: str | None = None,
     ):
         """Initialize the regex tokenizer.
 
@@ -337,8 +287,9 @@ class RegexTokenizer(BaseTokenizer):
             phoneme_quotes: Quote style for phoneme output
             contraction_pattern: Custom regex pattern for contractions
                                 (default: handles standard English contractions)
+            lang: Optional language code for abbreviation merging.
         """
-        super().__init__(track_positions, phoneme_quotes)
+        super().__init__(track_positions, phoneme_quotes, lang)
         self.use_bracket_matching = use_bracket_matching
 
         # Default pattern for English contractions
@@ -385,7 +336,7 @@ class RegexTokenizer(BaseTokenizer):
 
             tokens.append(token)
 
-        tokens = _merge_abbreviation_tokens(tokens)
+        tokens = _merge_abbreviation_tokens(tokens, self.lang)
 
         # Detect quote nesting
         self._detect_quote_depth(tokens, use_bracket_matching=self.use_bracket_matching)
@@ -409,6 +360,7 @@ class SpacyTokenizer(BaseTokenizer):
         track_positions: bool = True,
         use_bracket_matching: bool = True,
         phoneme_quotes: str = "curly",
+        lang: str | None = None,
     ):
         """Initialize the spaCy tokenizer.
 
@@ -417,8 +369,9 @@ class SpacyTokenizer(BaseTokenizer):
             track_positions: Whether to track character positions
             use_bracket_matching: Whether to use bracket-matching for quotes
             phoneme_quotes: Quote style for phoneme output
+            lang: Optional language code for abbreviation merging.
         """
-        super().__init__(track_positions, phoneme_quotes)
+        super().__init__(track_positions, phoneme_quotes, lang)
         self.nlp = nlp
         self.use_bracket_matching = use_bracket_matching
 

@@ -164,6 +164,7 @@ class EnglishG2P(G2PBase):
                 track_positions=True,
                 use_bracket_matching=True,
                 phoneme_quotes=self.phoneme_quotes,
+                lang=self.language,
             )
         return self._regex_tokenizer
 
@@ -176,6 +177,7 @@ class EnglishG2P(G2PBase):
                 track_positions=True,
                 use_bracket_matching=True,
                 phoneme_quotes=self.phoneme_quotes,
+                lang=self.language,
             )
         return self._spacy_tokenizer
 

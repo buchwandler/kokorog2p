@@ -315,7 +315,7 @@ def preprocess_multilang(
     confidence_threshold: float = 0.7,
     phrase_overrides: dict[str, str] | None = None,
     min_token_length: int = 3,
-) -> list[Any]:
+) -> list[OverrideSpan]:
     """Detect word-level languages and return OverrideSpan objects.
 
     Returns OverrideSpan objects for language switching.

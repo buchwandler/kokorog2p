@@ -4,13 +4,18 @@ This module provides Czech-specific abbreviation expansion,
 including titles, days, months, streets, and common abbreviations.
 """
 
+from __future__ import annotations
+
+import warnings
+
 from kokorog2p.pipeline.abbreviations import (
     AbbreviationEntry,
     AbbreviationExpander,
 )
 
 # Singleton instance
-_expander_instance = None
+_expander_instance: CzechAbbreviationExpander | None = None
+_expander_context_detection: bool | None = None
 
 
 class CzechAbbreviationExpander(AbbreviationExpander):
@@ -590,9 +595,25 @@ def get_expander(enable_context_detection: bool = True) -> CzechAbbreviationExpa
     Returns:
         The Czech abbreviation expander instance.
     """
-    global _expander_instance
+    global _expander_instance, _expander_context_detection
     if _expander_instance is None:
         _expander_instance = CzechAbbreviationExpander(
             enable_context_detection=enable_context_detection
         )
+        _expander_context_detection = enable_context_detection
+    elif _expander_context_detection != enable_context_detection:
+        warnings.warn(
+            "Czech abbreviation expander already initialized with "
+            f"enable_context_detection={_expander_context_detection}. "
+            "Call reset_abbreviations() to rebuild with new settings.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     return _expander_instance
+
+
+def reset_expander() -> None:
+    """Reset the singleton abbreviation expander."""
+    global _expander_instance, _expander_context_detection
+    _expander_instance = None
+    _expander_context_detection = None

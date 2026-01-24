@@ -4,6 +4,8 @@ This module contains a comprehensive list of common English abbreviations
 and their expansions, organized by category.
 """
 
+import warnings
+
 from kokorog2p.pipeline.abbreviations import (
     AbbreviationContext,
     AbbreviationEntry,
@@ -1419,7 +1421,8 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
 
 
 # Create a singleton instance for easy access
-_expander = None
+_expander: EnglishAbbreviationExpander | None = None
+_expander_context_detection: bool | None = None
 
 
 def get_expander(enable_context_detection: bool = True) -> EnglishAbbreviationExpander:
@@ -1431,9 +1434,25 @@ def get_expander(enable_context_detection: bool = True) -> EnglishAbbreviationEx
     Returns:
         The abbreviation expander instance
     """
-    global _expander
+    global _expander, _expander_context_detection
     if _expander is None:
         _expander = EnglishAbbreviationExpander(
             enable_context_detection=enable_context_detection
         )
+        _expander_context_detection = enable_context_detection
+    elif _expander_context_detection != enable_context_detection:
+        warnings.warn(
+            "English abbreviation expander already initialized with "
+            f"enable_context_detection={_expander_context_detection}. "
+            "Call reset_abbreviations() to rebuild with new settings.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     return _expander
+
+
+def reset_expander() -> None:
+    """Reset the singleton abbreviation expander."""
+    global _expander, _expander_context_detection
+    _expander = None
+    _expander_context_detection = None

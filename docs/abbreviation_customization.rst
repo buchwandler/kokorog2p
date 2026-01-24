@@ -273,13 +273,19 @@ Changes to abbreviations **persist** across ``get_g2p()`` calls because they mod
    g2p2 = get_g2p("en-us")
    print(g2p2.has_abbreviation("Custom."))  # True
 
-To reset, use ``clear_cache()``:
+To reset, use ``reset_abbreviations()``:
 
 .. code-block:: python
 
-   from kokorog2p import clear_cache
+   from kokorog2p import reset_abbreviations
 
-   clear_cache()  # Clear all cached instances
+   reset_abbreviations()  # Reset abbreviation expanders
+
+.. note::
+
+   ``clear_cache()`` only clears cached G2P instances; it does not reset
+   abbreviation expanders. ``reset_abbreviations()`` resets expanders and
+   clears cached G2P instances.
 
 Advanced: Working with the Expander Directly
 =============================================

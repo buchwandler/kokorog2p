@@ -2,7 +2,7 @@
 
 import pytest
 
-from kokorog2p import clear_cache, get_g2p
+from kokorog2p import clear_cache, get_g2p, reset_abbreviations
 from kokorog2p.en import EnglishG2P
 from kokorog2p.en.abbreviations import get_expander
 
@@ -12,27 +12,8 @@ class TestAbbreviationCustomization:
 
     def setup_method(self):
         """Clear cache and reset abbreviations before each test."""
+        reset_abbreviations()
         clear_cache()
-        # Reset Dr. to original state in case it was modified
-        expander = get_expander()
-        expander.remove_abbreviation("Dr.")
-        # Re-add the original Dr. abbreviation
-        from kokorog2p.pipeline.abbreviations import (
-            AbbreviationContext,
-            AbbreviationEntry,
-        )
-
-        expander.add_abbreviation(
-            AbbreviationEntry(
-                abbreviation="Dr.",
-                expansion="Doctor",
-                context_expansions={
-                    AbbreviationContext.PLACE: "Drive",
-                    AbbreviationContext.TITLE: "Doctor",
-                },
-                description="Doctor (title) or Drive (place)",
-            )
-        )
 
     def test_remove_abbreviation(self):
         """Test removing an existing abbreviation."""
@@ -155,6 +136,20 @@ class TestAbbreviationCustomization:
         result = g2p.remove_abbreviation("NonExistent.")
         assert result is False
 
+    def test_reset_abbreviations(self):
+        """Custom abbreviations should clear after reset."""
+        g2p = get_g2p("en-us", use_spacy=False)
+        g2p.add_abbreviation("Custom.", "Customized")
+        assert g2p.has_abbreviation("Custom.")
+
+        clear_cache()
+        g2p_cached = get_g2p("en-us", use_spacy=False)
+        assert g2p_cached.has_abbreviation("Custom.")
+
+        reset_abbreviations()
+        g2p_reset = get_g2p("en-us", use_spacy=False)
+        assert not g2p_reset.has_abbreviation("Custom.")
+
     def test_case_sensitivity(self):
         """Test case-sensitive abbreviation handling."""
         g2p = get_g2p("en-us")
@@ -237,6 +232,7 @@ class TestExpanderMethods:
 
     def test_expander_get_abbreviation(self):
         """Test getting abbreviation entry."""
+        reset_abbreviations()
         expander = get_expander()
 
         entry = expander.get_abbreviation("Mr.")  # Use Mr. which is stable
@@ -246,10 +242,18 @@ class TestExpanderMethods:
 
     def test_expander_nonexistent_abbreviation(self):
         """Test getting nonexistent abbreviation."""
+        reset_abbreviations()
         expander = get_expander()
 
         entry = expander.get_abbreviation("NonExistent.")
         assert entry is None
+
+    def test_expander_context_warning(self):
+        """Warn when expander settings change after init."""
+        reset_abbreviations()
+        get_expander(enable_context_detection=True)
+        with pytest.warns(RuntimeWarning, match="enable_context_detection"):
+            get_expander(enable_context_detection=False)
 
 
 if __name__ == "__main__":

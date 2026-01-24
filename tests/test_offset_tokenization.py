@@ -1,7 +1,13 @@
 """Tests for offset-aware tokenization."""
 
+from kokorog2p import get_g2p, reset_abbreviations
 from kokorog2p.token import GToken
-from kokorog2p.tokenization import gtokens_to_tokenspans, tokenize_with_offsets
+from kokorog2p.tokenization import (
+    ensure_gtoken_positions,
+    gtoken_to_tokenspan,
+    gtokens_to_tokenspans,
+    tokenize_with_offsets,
+)
 
 
 class TestTokenizeWithOffsets:
@@ -40,6 +46,19 @@ class TestTokenizeWithOffsets:
         assert [t.text for t in tokens] == ["Hello", "Mr.", "Smith"]
         assert tokens[1].char_start == 6
         assert tokens[1].char_end == 9
+
+    def test_abbreviation_update_reflects_in_tokenization(self):
+        """Custom abbreviations should merge without restarting."""
+        reset_abbreviations()
+        g2p = get_g2p("en-us", use_spacy=False)
+        g2p.add_abbreviation("X.Y.", "Ex Why")
+
+        tokens = tokenize_with_offsets("X.Y.", lang="en-us")
+        assert [t.text for t in tokens] == ["X.Y."]
+        assert tokens[0].char_start == 0
+        assert tokens[0].char_end == 4
+
+        reset_abbreviations()
 
     def test_duplicate_words(self):
         """Test that duplicate words get different offsets."""
@@ -149,3 +168,27 @@ class TestGtokensToTokenspans:
         """Test with empty GToken list."""
         token_spans = gtokens_to_tokenspans([], "Hello")
         assert len(token_spans) == 0
+
+
+class TestGtokenToTokenspan:
+    """Tests for single-token conversion."""
+
+    def test_gtoken_to_tokenspan_with_current_pos(self):
+        """Token conversion should respect current position."""
+        token = GToken(text="the", phonemes="ðə")
+        span = gtoken_to_tokenspan(token, "the the", current_pos=4)
+        assert span.char_start == 4
+        assert span.char_end == 7
+
+
+class TestEnsureGtokenPositions:
+    """Tests for ensure_gtoken_positions."""
+
+    def test_positions_skip_whitespace(self):
+        """Position inference should skip whitespace consistently."""
+        gtokens = [GToken(text="Hello"), GToken(text="world")]
+        ensure_gtoken_positions(gtokens, "Hello   world")
+        assert gtokens[0].get("char_start") == 0
+        assert gtokens[0].get("char_end") == 5
+        assert gtokens[1].get("char_start") == 8
+        assert gtokens[1].get("char_end") == 13

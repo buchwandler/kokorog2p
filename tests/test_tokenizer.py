@@ -5,6 +5,7 @@ Tests the BaseTokenizer, RegexTokenizer, and SpacyTokenizer classes.
 
 import pytest
 
+from kokorog2p import get_g2p, reset_abbreviations
 from kokorog2p.pipeline.tokenizer import RegexTokenizer, SpacyTokenizer
 
 
@@ -59,6 +60,22 @@ class TestRegexTokenizer:
         assert tokens[2].text == "Smith"
         assert tokens[1].char_start == 6
         assert tokens[1].char_end == 9
+
+    def test_custom_abbreviation_merge(self):
+        """Tokenization should reflect custom abbreviations."""
+        reset_abbreviations()
+        g2p = get_g2p("en-us", use_spacy=False)
+        g2p.add_abbreviation("X.Y.", "Ex Why")
+
+        tokenizer = RegexTokenizer(
+            track_positions=True, use_bracket_matching=True, lang="en-us"
+        )
+        tokens = tokenizer.tokenize("X.Y.")
+        assert [t.text for t in tokens] == ["X.Y."]
+        assert tokens[0].char_start == 0
+        assert tokens[0].char_end == 4
+
+        reset_abbreviations()
 
     def test_position_tracking(self, tokenizer):
         """Test that character positions are tracked correctly."""

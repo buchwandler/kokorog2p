@@ -14,6 +14,8 @@ Main Functions
 
 .. autofunction:: kokorog2p.clear_cache
 
+.. autofunction:: kokorog2p.reset_abbreviations
+
 Base Classes
 ------------
 

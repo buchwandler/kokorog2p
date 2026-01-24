@@ -16,6 +16,7 @@ import pathlib
 import shutil
 import sys
 import tempfile
+import warnings
 import weakref
 from pathlib import Path
 from typing import Any
@@ -347,8 +348,17 @@ class EspeakLibrary:
         # Collect all phoneme chunks
         result_parts = []
         while text_ptr.contents.value is not None:
+            prev_value = text_ptr.contents.value
             phonemes = func(text_ptr, text_mode, mode)
             if phonemes:
                 result_parts.append(phonemes.decode("utf-8"))
+            if text_ptr.contents.value == prev_value:
+                warnings.warn(
+                    "espeak_TextToPhonemes made no progress; "
+                    "stopping to avoid infinite loop.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                break
 
         return " ".join(result_parts)

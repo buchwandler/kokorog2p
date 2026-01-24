@@ -10,6 +10,8 @@ import sys
 
 import pytest
 
+from kokorog2p.backends.espeak.api import EspeakLibrary
+
 
 @pytest.mark.espeak
 class TestEspeakBackend:
@@ -197,6 +199,28 @@ class TestEspeakBackend:
         """Test empty string handling."""
         result = espeak_backend.remove_punctuation("")
         assert result == ""
+
+
+def test_text_to_phonemes_no_progress_guard():
+    """EspeakLibrary should stop when pointer does not advance."""
+
+    class DummyLib:
+        def __init__(self) -> None:
+            self.calls = 0
+
+            def _func(text_ptr, text_mode, phoneme_mode):
+                self.calls += 1
+                return b"a"
+
+            self.espeak_TextToPhonemes = _func
+
+    dummy = DummyLib()
+    library = EspeakLibrary.__new__(EspeakLibrary)
+    library._lib = dummy
+
+    result = library.text_to_phonemes("abc")
+    assert result == "a"
+    assert dummy.calls == 1
 
     def test_remove_punctuation_complex_sentence(self, espeak_backend):
         """Test complex sentence with mixed punctuation."""

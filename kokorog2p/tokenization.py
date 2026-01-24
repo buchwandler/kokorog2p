@@ -5,9 +5,9 @@ ensuring that tokenization used for override application matches the tokenizatio
 used for phonemization.
 """
 
-from functools import cache
 from typing import TYPE_CHECKING
 
+from kokorog2p.abbreviation_utils import merge_abbreviation_tokens
 from kokorog2p.types import TokenSpan
 
 if TYPE_CHECKING:
@@ -36,147 +36,116 @@ def ensure_gtoken_positions(gtokens: list["GToken"], text: str) -> list["GToken"
             current_pos = max(current_pos, char_end)
             continue
 
-        while current_pos < len(text) and text[current_pos].isspace():
-            current_pos += 1
-
-        token_text = gtoken.text
-        if not token_text:
-            gtoken.set("char_start", current_pos)
-            gtoken.set("char_end", current_pos)
-            continue
-
-        token_start = text.find(token_text, current_pos)
-        if token_start == -1:
-            token_start = current_pos
-        token_end = token_start + len(token_text)
-
+        token_start, token_end, current_pos = _infer_token_offsets(
+            gtoken.text, text, current_pos
+        )
         gtoken.set("char_start", token_start)
         gtoken.set("char_end", token_end)
-        current_pos = token_end
 
     return gtokens
 
 
-def gtoken_to_tokenspan(token: "GToken", clean_text: str) -> TokenSpan:
+def gtoken_to_tokenspan(
+    token: "GToken",
+    clean_text: str,
+    *,
+    current_pos: int = 0,
+) -> TokenSpan:
     """Convert a GToken to a TokenSpan with computed char offsets.
 
     Since GTokens don't track character offsets, we compute them by
-    scanning the clean_text. This is only used for legacy codepath.
+    scanning the clean_text using the same matching rules as
+    gtokens_to_tokenspans.
 
     Args:
         token: GToken to convert.
         clean_text: The clean text to compute offsets from.
+        current_pos: Starting position for token matching.
 
     Returns:
         TokenSpan with computed offsets.
     """
-    # For now, we don't have char offsets in GToken
-    # This is a placeholder that returns zero offsets
-    # Real implementation will come from direct tokenization
+    token_start, token_end, _ = _resolve_gtoken_offsets(token, clean_text, current_pos)
     return TokenSpan(
         text=token.text,
-        char_start=0,
-        char_end=len(token.text),
+        char_start=token_start,
+        char_end=token_end,
         lang=None,
         extended_text=None,
-        meta={"phonemes": token.phonemes} if token.phonemes else {},
+        meta=_build_gtoken_meta(token),
     )
-
-
-def _normalize_lang(lang: str | None) -> str | None:
-    if not lang:
-        return None
-    return lang.lower().replace("_", "-")
-
-
-@cache
-def _get_abbreviation_entries(lang: str | None) -> list[tuple[str, bool]]:
-    normalized = _normalize_lang(lang) or "en-us"
-    entries: list[tuple[str, bool]] = []
-
-    if normalized.startswith("en"):
-        from kokorog2p.en.abbreviations import get_expander
-    elif normalized.startswith("de"):
-        from kokorog2p.de.abbreviations import get_expander
-    elif normalized.startswith("fr"):
-        from kokorog2p.fr.abbreviations import get_expander
-    elif normalized.startswith("es"):
-        from kokorog2p.es.abbreviations import get_expander
-    elif normalized.startswith("pt"):
-        from kokorog2p.pt.abbreviations import get_expander
-    elif normalized.startswith("it"):
-        from kokorog2p.it.abbreviations import get_expander
-    elif normalized.startswith("cs"):
-        from kokorog2p.cs.abbreviations import get_expander
-    else:
-        return entries
-
-    expander = get_expander()
-    for entry in expander.entries.values():
-        entries.append((entry.abbreviation, entry.case_sensitive))
-
-    return entries
 
 
 def _merge_abbreviation_tokens(
     tokens: list[TokenSpan],
     lang: str | None,
 ) -> list[TokenSpan]:
-    if len(tokens) < 2:
-        return tokens
+    def is_break(prev: TokenSpan, current: TokenSpan, last_end: int) -> bool:
+        return current.char_start != last_end
 
-    entries = _get_abbreviation_entries(lang)
-    if not entries:
-        return tokens
+    def build_token(start: TokenSpan, end: TokenSpan, text: str) -> TokenSpan:
+        return TokenSpan(
+            text=text,
+            char_start=start.char_start,
+            char_end=end.char_end,
+            lang=start.lang,
+            extended_text=start.extended_text,
+            meta=start.meta,
+        )
 
-    case_sensitive = {
-        abbrev for abbrev, is_case_sensitive in entries if is_case_sensitive
-    }
-    case_insensitive = {
-        abbrev.lower() for abbrev, is_case_sensitive in entries if not is_case_sensitive
-    }
-    max_len = max((len(abbrev) for abbrev, _ in entries), default=0)
-    if max_len == 0:
-        return tokens
+    return merge_abbreviation_tokens(
+        tokens,
+        lang,
+        is_break=is_break,
+        build_token=build_token,
+    )
 
-    merged: list[TokenSpan] = []
-    i = 0
-    while i < len(tokens):
-        best_end = None
-        best_text = None
-        combined = ""
-        last_end = tokens[i].char_end
 
-        for j in range(i, len(tokens)):
-            if j > i and tokens[j].char_start != last_end:
-                break
-            combined += tokens[j].text
-            last_end = tokens[j].char_end
-            if len(combined) > max_len:
-                break
+def _infer_token_offsets(
+    token_text: str,
+    clean_text: str,
+    current_pos: int,
+) -> tuple[int, int, int]:
+    pos = current_pos
+    while pos < len(clean_text) and clean_text[pos].isspace():
+        pos += 1
 
-            if combined in case_sensitive or combined.lower() in case_insensitive:
-                best_end = j
-                best_text = combined
+    if not token_text:
+        return pos, pos, pos
 
-        if best_end is not None and best_end > i:
-            merged.append(
-                TokenSpan(
-                    text=best_text or combined,
-                    char_start=tokens[i].char_start,
-                    char_end=tokens[best_end].char_end,
-                    lang=tokens[i].lang,
-                    extended_text=tokens[i].extended_text,
-                    meta=tokens[i].meta,
-                )
-            )
-            i = best_end + 1
-            continue
+    token_start = clean_text.find(token_text, pos)
+    if token_start == -1:
+        token_start = pos
+    token_end = token_start + len(token_text)
+    return token_start, token_end, token_end
 
-        merged.append(tokens[i])
-        i += 1
 
-    return merged
+def _build_gtoken_meta(token: "GToken") -> dict[str, object]:
+    meta: dict[str, object] = {}
+    if token.phonemes:
+        meta["phonemes"] = token.phonemes
+    if token.rating:
+        meta["rating"] = token.rating
+    if token.tag:
+        meta["tag"] = token.tag
+    meta["whitespace"] = token.whitespace
+    return meta
+
+
+def _resolve_gtoken_offsets(
+    token: "GToken",
+    clean_text: str,
+    current_pos: int,
+) -> tuple[int, int, int]:
+    char_start = token.get("char_start")
+    char_end = token.get("char_end")
+    if char_start is not None and char_end is not None:
+        return char_start, char_end, max(current_pos, char_end)
+
+    token_start, token_end, next_pos = _infer_token_offsets(
+        token.text, clean_text, current_pos
+    )
+    return token_start, token_end, next_pos
 
 
 def tokenize_with_offsets(
@@ -271,59 +240,18 @@ def gtokens_to_tokenspans(
     current_pos = 0
 
     for gtoken in gtokens:
-        char_start = gtoken.get("char_start")
-        char_end = gtoken.get("char_end")
-
-        if char_start is not None and char_end is not None:
-            token_start = char_start
-            token_end = char_end
-        else:
-            # Skip ahead to find this token in clean_text
-            # Handle whitespace by advancing past it
-            while current_pos < len(clean_text) and clean_text[current_pos].isspace():
-                current_pos += 1
-
-            if current_pos >= len(clean_text):
-                # Reached end of text
-                break
-
-            # Find the token text starting at current_pos
-            token_text = gtoken.text
-            token_start = clean_text.find(token_text, current_pos)
-
-            if token_start == -1:
-                # Token not found - this could happen with normalization differences
-                # Use best guess: current position
-                token_start = current_pos
-                token_end = current_pos + len(token_text)
-            else:
-                token_end = token_start + len(token_text)
-
-        token_text = gtoken.text
-
-        # Build meta dict from GToken
-        meta: dict[str, object] = {}
-        if gtoken.phonemes:
-            meta["phonemes"] = gtoken.phonemes
-        if gtoken.rating:
-            meta["rating"] = gtoken.rating
-        if gtoken.tag:
-            meta["tag"] = gtoken.tag
-        meta["whitespace"] = gtoken.whitespace
-
-        # Create TokenSpan
+        token_start, token_end, current_pos = _resolve_gtoken_offsets(
+            gtoken, clean_text, current_pos
+        )
         token_span = TokenSpan(
-            text=token_text,
+            text=gtoken.text,
             char_start=token_start,
             char_end=token_end,
-            lang=None,  # GToken doesn't have lang
+            lang=None,
             extended_text=None,
-            meta=meta,
+            meta=_build_gtoken_meta(gtoken),
         )
         token_spans.append(token_span)
-
-        # Advance position
-        current_pos = token_end
 
     return token_spans
 
