@@ -137,6 +137,9 @@ class TestLexicon:
         ps, rating = us_lexicon.get_special_case("a", "DT", None, None)
         assert ps == "ɐ"
 
+        ps, rating = us_lexicon.get_special_case("a", None, None, None)
+        assert ps == "ˈA"
+
         ps2, rating2 = us_lexicon.get_special_case("A", None, None, None)
         assert ps2 == "ˈA"
 
