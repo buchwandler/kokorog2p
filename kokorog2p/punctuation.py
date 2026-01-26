@@ -263,6 +263,23 @@ class Punctuation:
         i = 0
         while i < len(text):
             char = text[i]
+            # Three dots (...) with 2 spaces
+            if i + 6 < len(text) and text[i : i + 7] == " . . . ":
+                result.append("…")
+                i += 7
+                continue
+
+            # Three dots (...) with space
+            if i + 5 < len(text) and text[i : i + 6] == ". . . ":
+                result.append("…")
+                i += 6
+                continue
+
+            # Three dots (...) with space
+            if i + 5 < len(text) and text[i : i + 6] == " . . .":
+                result.append("…")
+                i += 6
+                continue
 
             # Multi-character sequences: check longest first
             # Spaced ellipsis (. . .)

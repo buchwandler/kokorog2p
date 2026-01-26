@@ -4,7 +4,7 @@ from kokorog2p import get_g2p, phonemize, tokenize
 
 # Optional convenience wrappers (skip tests if not present)
 try:
-    from kokorog2p import phonemes, phoneme_ids
+    from kokorog2p import phoneme_ids, phonemes
 except Exception:  # pragma: no cover
     phonemes = None
     phoneme_ids = None
@@ -18,7 +18,9 @@ except Exception:  # pragma: no cover
 
 
 def test_phonemize_returns_result_shape():
-    r = phonemize("Hello world!", language="en-us", return_ids=True, return_phonemes=True)
+    r = phonemize(
+        "Hello world!", language="en-us", return_ids=True, return_phonemes=True
+    )
     assert r.clean_text is not None
     assert isinstance(r.tokens, list)
     assert (r.phonemes is None) or isinstance(r.phonemes, str)
@@ -32,7 +34,7 @@ def test_tokenize_matches_phonemize_tokens_text_and_offsets():
     r = phonemize(text, language="en-us", return_ids=False, return_phonemes=False)
 
     assert len(toks) == len(r.tokens)
-    for a, b in zip(toks, r.tokens):
+    for a, b in zip(toks, r.tokens, strict=False):
         assert a.text == b.text
         assert a.char_start == b.char_start
         assert a.char_end == b.char_end
@@ -42,7 +44,9 @@ def test_cached_g2p_instance_is_used_and_outputs_match():
     text = "Hello world!"
     g2p = get_g2p(language="en-us")
 
-    r1 = phonemize(text, language="en-us", g2p=g2p, return_ids=True, return_phonemes=True)
+    r1 = phonemize(
+        text, language="en-us", g2p=g2p, return_ids=True, return_phonemes=True
+    )
     r2 = phonemize(text, language="en-us", return_ids=True, return_phonemes=True)
 
     # The caching use-case: providing g2p should not change results.
@@ -70,4 +74,3 @@ def test_phoneme_ids_wrapper_matches_result():
     ids = phoneme_ids(text, language="en-us")
     assert r.token_ids is not None
     assert ids == r.token_ids
-

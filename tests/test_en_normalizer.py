@@ -106,6 +106,8 @@ class TestEnglishNormalizer:
     def test_spaced_dots_to_ellipsis(self, normalizer):
         """Test spaced dots are normalized to ellipsis."""
         assert normalizer("Wait . . .") == "Wait…"
+        assert normalizer("Wait. . . ") == "Wait…"
+        assert normalizer("Wait . . . ") == "Wait…"
 
     def test_ellipsis_spacing_cleanup(self, normalizer):
         """Test spaces around ellipsis are removed."""

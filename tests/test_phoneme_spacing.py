@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from kokorog2p import phonemize_to_result
+from kokorog2p import phonemize
 from kokorog2p.en.g2p import EnglishG2P
 
 
@@ -27,7 +27,7 @@ class TestPhonemeSpacing:
         if request.param == "english_g2p":
             return g2p.phonemize
 
-        return lambda text: phonemize_to_result(text, g2p=g2p).phonemes or ""
+        return lambda text: phonemize(text, g2p=g2p).phonemes or ""
 
     def test_double_quotes_no_extra_spaces(self, phonemizer):
         """Double quotes should not have extra spaces around them."""
@@ -90,6 +90,13 @@ class TestPhonemeSpacing:
         assert "\u201c" in result or "\u201d" in result, "Should contain curly quotes"
         assert "‹" not in result, "Should not contain single left guillemet"
         assert "›" not in result, "Should not contain single right guillemet"
+
+    def test_ellipses(self, phonemizer):
+        """Ellispes"""
+        text = "Test . . . here."
+        result = phonemizer(text)
+
+        assert "…" in result, "Should contain ellipses"
 
 
 class TestBenchmarkWrapperSpacing:

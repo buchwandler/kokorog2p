@@ -439,6 +439,30 @@ class TestMainAPI:
 
 
 @pytest.mark.spacy
+class TestEnNormalization:
+    """Comprehensive tests for normalization handling with spaCy."""
+
+    @pytest.fixture
+    def g2p_spacy(self):
+        """Create an EnglishG2P instance with spaCy enabled."""
+        from kokorog2p.en import EnglishG2P
+
+        return EnglishG2P(language="en-us", use_spacy=True, use_espeak_fallback=False)
+
+    def test_en_ellipses(self, g2p_spacy):
+        """Test 'don't' is phonemized as a single word, not 'do' + 'n't'."""
+        tokens = g2p_spacy("Don't . . . worry.")
+
+        # Should have 2 word tokens (Don't, worry)
+        word_tokens = [t for t in tokens if t.text not in (" ", ".")]
+        assert len(word_tokens) == 3
+        assert word_tokens[0].text == "Don't"
+        assert word_tokens[0].phonemes == "dˈOnt"
+        assert word_tokens[1].text == "…"
+        assert word_tokens[1].phonemes == "…"
+
+
+@pytest.mark.spacy
 class TestContractionMerging:
     """Comprehensive tests for contraction handling with spaCy.
 

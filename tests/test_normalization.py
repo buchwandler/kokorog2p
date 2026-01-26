@@ -79,6 +79,9 @@ class TestEllipsisNormalization:
     def test_normalize_spaced_dots(self, punct):
         """Spaced dots (. . .) → ellipsis."""
         assert punct.normalize("Wait. . .") == "Wait…"
+        assert punct.normalize("Wait . . .") == "Wait…"
+        assert punct.normalize("Wait. . . ") == "Wait…"
+        assert punct.normalize("Wait . . . ") == "Wait…"
 
     def test_normalize_two_dots(self, punct):
         """Two dots (..) → ellipsis."""
