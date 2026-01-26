@@ -14,7 +14,7 @@ Basic Usage
 .. code-block:: python
 
    from kokorog2p.markers import parse_delimited, apply_marker_overrides
-   from kokorog2p import phonemize_to_result
+   from kokorog2p import phonemize
 
    # Step 1: Parse marked text
    text = "Ich mag @New York@. @Hi@ Klaus."
@@ -30,7 +30,7 @@ Basic Usage
    overrides = apply_marker_overrides(clean_text, ranges, assignments)
 
    # Step 3: Phonemize with overrides
-   result = phonemize_to_result(clean_text, lang="de", overrides=overrides)
+   result = phonemize(clean_text, language="de", overrides=overrides)
    print(result.phonemes)
 
 API Reference
@@ -94,7 +94,7 @@ Converts marked ranges and attribute assignments to ``OverrideSpan`` objects.
                - Dict: 1-based index mapping (e.g., {1: {...}, 2: {...}})
 
        Returns:
-           list: List of OverrideSpan objects for phonemize_to_result
+           list: List of OverrideSpan objects for phonemize
        """
 
 **Examples:**
@@ -249,7 +249,7 @@ Directly specify phonemes for a word:
    assignments = {1: {"ph": "pɪˈkɑːn"}}
    overrides = apply_marker_overrides(clean_text, ranges, assignments)
 
-   result = phonemize_to_result(clean_text, overrides=overrides)
+   result = phonemize(clean_text, overrides=overrides)
    # "pecan" pronounced as /pɪˈkɑːn/
 
 Language Switch (lang)
@@ -268,7 +268,7 @@ Switch language for specific words:
    }
    overrides = apply_marker_overrides(clean_text, ranges, assignments)
 
-   result = phonemize_to_result(clean_text, lang="en-us", overrides=overrides)
+   result = phonemize(clean_text, language="en-us", overrides=overrides)
    # "Bonjour" uses French G2P, "Hola" uses Spanish G2P
 
 Combined Attributes
@@ -322,7 +322,7 @@ Handling Duplicate Words
        2: {"ph": "ði"},  # Second "the" (emphasized)
    }
    overrides = apply_marker_overrides(clean_text, ranges, assignments)
-   result = phonemize_to_result(clean_text, overrides=overrides)
+   result = phonemize(clean_text, overrides=overrides)
 
 Multi-Word Spans
 ~~~~~~~~~~~~~~~~
@@ -350,7 +350,7 @@ Mixed Language Text
        2: {"lang": "en-us"},  # "Performance"
    }
    overrides = apply_marker_overrides(clean_text, ranges, assignments)
-   result = phonemize_to_result(clean_text, lang="de", overrides=overrides)
+   result = phonemize(clean_text, language="de", overrides=overrides)
 
 Error Handling
 --------------
@@ -386,7 +386,7 @@ Using Markers (Convenient)
    text = "I like @coffee@."
    clean_text, ranges, _ = parse_delimited(text)
    overrides = apply_marker_overrides(clean_text, ranges, {1: {"ph": "ˈkɔfi"}})
-   result = phonemize_to_result(clean_text, overrides=overrides)
+   result = phonemize(clean_text, overrides=overrides)
 
 Direct Spans (More Control)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -395,7 +395,7 @@ Direct Spans (More Control)
 
    text = "I like coffee."
    overrides = [OverrideSpan(7, 13, {"ph": "ˈkɔfi"})]
-   result = phonemize_to_result(text, overrides=overrides)
+   result = phonemize(text, overrides=overrides)
 
 **When to Use Markers:**
 

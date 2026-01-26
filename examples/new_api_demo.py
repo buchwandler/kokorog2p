@@ -5,14 +5,14 @@ This script shows how to use the pipeline-friendly API for deterministic
 phonemization with overrides.
 """
 
-from kokorog2p import OverrideSpan, phonemize_to_result
+from kokorog2p import OverrideSpan, phonemize
 
 # Example 1: Simple phonemization with the new API
 print("=" * 70)
 print("Example 1: Simple phonemization")
 print("=" * 70)
 
-result = phonemize_to_result("Hello world!")
+result = phonemize("Hello world!")
 print(f"Text: {result.clean_text}")
 print(f"Phonemes: {result.phonemes}")
 print(f"Token IDs: {result.token_ids[:10]}...")  # First 10 IDs
@@ -28,7 +28,7 @@ print("=" * 70)
 text = "Hello world!"
 # Override "Hello" to use custom phonemes
 overrides = [OverrideSpan(0, 5, {"ph": "hɛˈloʊ"})]
-result = phonemize_to_result(text, overrides=overrides)
+result = phonemize(text, overrides=overrides)
 
 print(f"Text: {result.clean_text}")
 print(f"Phonemes: {result.phonemes}")
@@ -46,7 +46,7 @@ overrides = [
     OverrideSpan(0, 3, {"ph": "ðə"}),  # First "the" (unstressed)
     OverrideSpan(8, 11, {"ph": "ði"}),  # Second "the" (stressed)
 ]
-result = phonemize_to_result(text, overrides=overrides)
+result = phonemize(text, overrides=overrides)
 
 print(f"Text: {result.clean_text}")
 print(f"Phonemes: {result.phonemes}")
@@ -64,7 +64,7 @@ overrides = [
     OverrideSpan(6, 13, {"lang": "fr"}),
     OverrideSpan(14, 18, {"lang": "de"}),
 ]
-result = phonemize_to_result(text, lang="en-us", overrides=overrides)
+result = phonemize(text, language="en-us", overrides=overrides)
 
 print(f"Text: {result.clean_text}")
 print(f"Phonemes: {result.phonemes}")
@@ -80,7 +80,7 @@ print("=" * 70)
 text = "Say Bonjour nicely"
 # Override both phonemes AND language
 overrides = [OverrideSpan(4, 11, {"ph": "bɔ̃ʒuʁ", "lang": "fr"})]
-result = phonemize_to_result(text, lang="en-us", overrides=overrides)
+result = phonemize(text, language="en-us", overrides=overrides)
 
 print(f"Text: {result.clean_text}")
 print(f"Phonemes: {result.phonemes}")
@@ -96,7 +96,7 @@ print("=" * 70)
 text = "Hello world"
 # Override that partially overlaps tokens (will snap and warn)
 overrides = [OverrideSpan(2, 8, {"ph": "test"})]
-result = phonemize_to_result(text, overrides=overrides)
+result = phonemize(text, overrides=overrides)
 
 print(f"Text: {result.clean_text}")
 print(f"Warnings: {result.warnings}")
@@ -108,14 +108,9 @@ print("=" * 70)
 print("Example 8: Reusing G2P for performance")
 print("=" * 70)
 
-from kokorog2p import get_g2p  # noqa: E402
-
-g2p = get_g2p("en-us")
-
-# Process multiple texts with same G2P instance
 texts = ["Hello!", "World!", "Test!"]
 for text in texts:
-    result = phonemize_to_result(text, g2p=g2p)
+    result = phonemize(text)
     print(f"{text} -> {result.phonemes}")
 
 print("\n" + "=" * 70)

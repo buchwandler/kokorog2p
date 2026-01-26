@@ -39,7 +39,7 @@ class TestHebrewG2P:
         """Test the phonemize convenience function."""
         text = "שלום"  # shalom
         result = phonemize(text, language="he")
-        assert isinstance(result, str)
+        assert isinstance(result.phonemes, str)
 
     def test_repr(self):
         """Test string representation."""
@@ -133,7 +133,7 @@ class TestHebrewG2PIntegration:
         """Test phonemize function with Hebrew."""
         text = "שלום"
         result = phonemize(text, language="he")
-        assert isinstance(result, str)
+        assert isinstance(result.phonemes, str)
 
     def test_extra_kwargs_passed_to_phonikud(self):
         """Test that extra kwargs are passed to phonikud."""

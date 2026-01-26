@@ -519,10 +519,10 @@ def phonemize_to_result(
 
     # Get or create G2P instance
     if g2p is None:
-        g2p = get_g2p(lang, markdown_syntax="disabled")
+        g2p = get_g2p(lang)
 
     g2p_token_spans: list[TokenSpan]
-    extended_text: str | None = None
+    extended_text: str = ""
 
     if alignment == "span":
         # Use new span-based alignment
@@ -569,14 +569,14 @@ def phonemize_to_result(
     warnings.extend(phonemize_warnings)
 
     # Build phoneme string if needed for output OR for IDs
-    phoneme_str: str | None = None
+    phoneme_str: str = ""
     if return_phonemes or return_ids:
         phoneme_str = _build_phoneme_string(phonemized_tokens, clean_text)
 
-    phonemes: str | None = phoneme_str if return_phonemes else None
+    phonemes: str = phoneme_str if return_phonemes else ""
 
     # Build token IDs if requested (independent of return_phonemes)
-    token_ids: list[int] | None = None
+    token_ids: list[int] = []
     if return_ids and phoneme_str is not None:
         is_valid, invalid = validate_for_kokoro(phoneme_str, model=target_model)
         if not is_valid:
@@ -596,7 +596,7 @@ def phonemize_to_result(
                 "[VOCAB] failed to convert phonemes to IDs for model "
                 f"{target_model}: {e}"
             )
-            token_ids = None
+            token_ids = []
 
     if warnings:
         seen: set[str] = set()
@@ -733,7 +733,6 @@ def _phonemize_token_spans(  # noqa: C901
             try:
                 g2p_cache[token_lang] = get_g2p(
                     token_lang,
-                    markdown_syntax="disabled",
                     version=target_model,
                 )
             except Exception as e:

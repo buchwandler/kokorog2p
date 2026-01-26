@@ -173,16 +173,16 @@ Examples
    from kokorog2p import phonemize
 
    # Basic phonemization
-   print(phonemize("Guten Tag", language="de"))
+   print(str(phonemize("Guten Tag", language="de")))
    # → ɡuːtn̩ taːk
 
    # Phonological rules
-   print(phonemize("ich", language="de"))      # → ɪç (ich-Laut)
-   print(phonemize("ach", language="de"))      # → ax (ach-Laut)
-   print(phonemize("Tag", language="de"))      # → taːk (final devoicing)
+   print(str(phonemize("ich", language="de")))      # → ɪç (ich-Laut)
+   print(str(phonemize("ach", language="de")))      # → ax (ach-Laut)
+   print(str(phonemize("Tag", language="de")))      # → taːk (final devoicing)
 
    # Numbers
-   print(phonemize("Ich habe 42 Euro.", language="de"))
+   print(str(phonemize("Ich habe 42 Euro.", language="de")))
    # → ɪç haːbə t͡svaɪ̯ʊntfɪɐ̯t͡sɪç ɔɪ̯ʁo.
 
 French (fr)
@@ -623,7 +623,7 @@ Usage
 
 .. code-block:: python
 
-   from kokorog2p import phonemize_to_result
+   from kokorog2p import phonemize
    from kokorog2p.multilang import preprocess_multilang
 
    text = "Das Meeting war great!"
@@ -633,7 +633,7 @@ Usage
        allowed_languages=["de", "en-us"],
    )
 
-   result = phonemize_to_result(text, lang="de", overrides=overrides)
+   result = phonemize(text, lang="de", overrides=overrides, result_type="result")
 
 Examples
 ~~~~~~~~
@@ -642,7 +642,7 @@ Examples
 
 .. code-block:: python
 
-   from kokorog2p import phonemize_to_result
+   from kokorog2p import phonemize
    from kokorog2p.multilang import preprocess_multilang
 
    text = "Ich gehe zum Meeting. Let's discuss the Roadmap!"
@@ -651,7 +651,7 @@ Examples
        default_language="de",
        allowed_languages=["de", "en-us"],
    )
-   result = phonemize_to_result(text, lang="de", overrides=overrides)
+   result = phonemize(text, lang="de", overrides=overrides, result_type="result")
    print(result.phonemes)
 
 **English with German:**
@@ -663,10 +663,10 @@ Examples
        default_language="en-us",
        allowed_languages=["en-us", "de"],
    )
-   result = phonemize_to_result(
+   result = phonemize(
        "Hello, mein Freund! This is wunderbar.",
-       lang="en-us",
-       overrides=overrides
+       language="en-us",
+       overrides=overrides)
    )
    print(result.phonemes)
 
@@ -679,10 +679,10 @@ Examples
        default_language="fr",
        allowed_languages=["fr", "en-us", "de"],
    )
-   result = phonemize_to_result(
+   result = phonemize(
        "Bonjour! The Meeting ist wichtig.",
-       lang="fr",
-       overrides=overrides
+       language="fr",
+       overrides=overrides,
    )
    print(result.phonemes)
 

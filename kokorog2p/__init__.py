@@ -51,6 +51,9 @@ from kokorog2p.phonemes import (
     validate_phonemes,
 )
 
+# New span-based API
+from kokorog2p.pipeline_api import phonemize_to_result
+
 # Punctuation handling
 from kokorog2p.punctuation import (
     KOKORO_PUNCTUATION,
@@ -62,6 +65,8 @@ from kokorog2p.punctuation import (
 
 # Core classes
 from kokorog2p.token import GToken
+from kokorog2p.tokenization import tokenize_with_offsets
+from kokorog2p.types import OverrideSpan, PhonemizeResult, TokenSpan
 
 # Vocabulary encoding/decoding for Kokoro model
 from kokorog2p.vocab import N_TOKENS, PAD_IDX, decode, encode, filter_for_kokoro
@@ -342,90 +347,185 @@ def get_g2p(
 def phonemize(
     text: str,
     language: str = "en-us",
+    *,
+    overrides: list[OverrideSpan] | None = None,
+    return_ids: bool = True,
+    return_phonemes: bool = True,
+    alignment: Literal["span", "legacy"] = "span",
+    overlap: Literal["snap", "strict"] = "snap",
+    use_normalizer_rules: bool = True,
     use_espeak_fallback: bool = True,
     use_goruut_fallback: bool = False,
     use_spacy: bool = True,
-    backend: BackendType = "kokorog2p",
-) -> str:
-    """Convert text to phonemes.
+    backend: "BackendType" = "kokorog2p",
+    g2p: "G2PBase | None" = None,
+) -> PhonemizeResult:
+    """Phonemize text using the unified kokorog2p pipeline.
 
-    This is a convenience function that creates a G2P instance and converts
-    the text to a phoneme string.
+    This is the primary public entry point for turning text into phonemes (and
+    optionally tokens or token IDs) in a consistent way.
+
+    Internally, this function delegates to the same implementation used by
+    span-based override phonemization (the former ``phonemize_to_result`` path),
+    ensuring that:
+
+    - The phoneme string returned here is identical to the one in the returned
+      :class:`~kokorog2p.types.PhonemizeResult`.
+    - Tokenization and character offsets are deterministic and match the
+      phoneme output.
+    - Kokoro-model vocabulary validation/filtering is applied when producing
+      token IDs (and when necessary to make the phoneme string ID-safe).
 
     Args:
-        text: Input text to convert.
-        language: Language code (e.g., 'en-us', 'en-gb').
-        use_espeak_fallback: Whether to use espeak for out-of-vocabulary words
-            when using the dictionary-based "kokorog2p" backend. Ignored when
-            backend is set to "espeak" (espeak is the primary backend).
-        use_goruut_fallback: Whether to use goruut for out-of-vocabulary words
-            when using the dictionary-based "kokorog2p" backend. Ignored when
-            backend is set to "goruut" (goruut is the primary backend).
-        use_spacy: Whether to use spaCy for tokenization and POS tagging
-            (only applies to English). Used by the "kokorog2p" backend.
-        backend: Phonemization backend to use: "kokorog2p", "espeak", "goruut".
-            The goruut backend requires pygoruut to be installed.
+        text:
+            Input text to phonemize. This should be plain text (no markup).
+            Punctuation may be normalized (e.g. ``...`` → ``…``, ``-`` → ``—``)
+            to match Kokoro-compatible forms.
+        language:
+            Language code (e.g. ``"en-us"``, ``"en-gb"``, ``"de"``, ``"fr"``).
+            Used both for tokenization/alignment and for constructing a default
+            G2P instance when ``g2p`` is not provided.
+        overrides:
+            Optional span-based overrides applied by character offsets.
+            Overrides can inject phonemes (``{"ph": "…"}``) and/or change the
+            language of a span (``{"lang": "de"}``) for that region.
+        return_ids:
+            Whether to include token IDs in the returned result.
+        return_phonemes:
+            Whether to include the phoneme string in the returned result.
+        alignment:
+            Alignment mode for applying overrides and token offsets:
+
+            - ``"span"`` (default): deterministic offset-based alignment using
+              :func:`~kokorog2p.pipeline.tokenize`.
+            - ``"legacy"``: backward-compatible alignment based on the backend's
+              own tokenization. This may differ slightly across backends and
+              languages.
+        overlap:
+            How to handle overrides that partially overlap a token boundary:
+
+            - ``"snap"`` (default): apply to intersecting tokens and emit a
+              warning when boundaries only partially overlap.
+            - ``"strict"``: skip partial overlaps and emit a warning.
+        use_normalizer_rules:
+            Whether to apply language normalizer rules when building the internal
+            alignment text used for span mapping.
+        use_espeak_fallback:
+            When constructing a G2P instance for the dictionary-based
+            ``"kokorog2p"`` backend, fall back to eSpeak for out-of-vocabulary
+            words. Ignored if ``g2p`` is provided.
+        use_goruut_fallback:
+            When constructing a G2P instance for the dictionary-based
+            ``"kokorog2p"`` backend, fall back to goru·ut for out-of-vocabulary
+            words. Ignored if ``g2p`` is provided.
+        use_spacy:
+            When constructing a G2P instance, whether to use spaCy for
+            tokenization/POS tagging (English only). Ignored if ``g2p`` is
+            provided.
+        backend:
+            When constructing a G2P instance, select the backend:
+            ``"kokorog2p"``, ``"espeak"``, or ``"goruut"``. Ignored if ``g2p`` is
+            provided.
+        g2p:
+            Optional pre-created G2P instance to reuse across calls (useful for
+            caching/performance). If provided, this function will use it directly
+            and will NOT call :func:`~kokorog2p.get_g2p` (so ``backend`` and the
+            fallback/spaCy construction flags are ignored for this call).
 
     Returns:
-        Phoneme string.
+        A :class:`~kokorog2p.types.PhonemizeResult` containing tokens, phonemes,
+        token_ids, and warnings (depending on ``return_*`` flags).
 
-    Example:
-        >>> phonemize("Hello world!")
-        'hˈɛlO wˈɜɹld!'
-        >>> # Using goruut backend
-        >>> phonemize("Hello world!", backend="goruut")
-        'həlˈO wˈɜɹld'
+    Examples:
+        Basic phonemization:
+
+        >>> phonemize("Hello world!", language="en-us").phonemes
+        'h…'
+
+        Token IDs (model-ready):
+
+        >>> phonemize("Hello world!").token_ids
+        [ ... ]
+
+        Reusing a cached G2P instance:
+
+        >>> g2p = get_g2p(language="en-us")
+        >>> phonemize("Hello world!", g2p=g2p).phonemes
+        'h…'
+
+        Full traceable result (tokens + warnings):
+
+        >>> span = [OverrideSpan(6, 10, {"lang": "de"})]
+        >>> r = phonemize("Hello Welt!", overrides=span)
+        >>> r.tokens[1].lang
+        'de'
     """
-    g2p = get_g2p(
-        language=language,
-        use_espeak_fallback=use_espeak_fallback,
-        use_goruut_fallback=use_goruut_fallback,
-        use_spacy=use_spacy,
-        backend=backend,
+    if g2p is None:
+        g2p = get_g2p(
+            language=language,
+            use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
+            use_spacy=use_spacy,
+            backend=backend,
+        )
+
+    return phonemize_to_result(
+        clean_text=text,
+        lang=language,
+        overrides=overrides,
+        return_ids=return_ids,
+        return_phonemes=return_phonemes,
+        alignment=alignment,
+        overlap=overlap,
+        use_normalizer_rules=use_normalizer_rules,
+        g2p=g2p,
     )
-    return g2p.phonemize(text)
+
+
+def phonemes(*args, **kwargs) -> str:
+    """Get phoneme string from text using phonemize()."""
+    return (
+        phonemize(*args, **kwargs, return_phonemes=True, return_ids=False).phonemes
+        or ""
+    )
+
+
+def phoneme_ids(*args, **kwargs) -> list[int]:
+    """Get token IDs from text using phonemize()."""
+    return (
+        phonemize(*args, **kwargs, return_phonemes=False, return_ids=True).token_ids
+        or []
+    )
 
 
 def tokenize(
     text: str,
     language: str = "en-us",
-    use_espeak_fallback: bool = True,
-    use_goruut_fallback: bool = False,
-    use_spacy: bool = True,
-    backend: BackendType = "kokorog2p",
-) -> list[GToken]:
+    *,
+    keep_punct: bool = True,
+) -> list[TokenSpan]:
     """Convert text to a list of tokens with phonemes.
 
     Args:
         text: Input text to convert.
         language: Language code (e.g., 'en-us', 'en-gb').
-        use_espeak_fallback: Whether to use espeak for out-of-vocabulary words
-            when using the dictionary-based "kokorog2p" backend. Ignored when
-            backend is set to "espeak" (espeak is the primary backend).
-        use_goruut_fallback: Whether to use goruut for out-of-vocabulary words
-            when using the dictionary-based "kokorog2p" backend. Ignored when
-            backend is set to "goruut" (goruut is the primary backend).
-        use_spacy: Whether to use spaCy for tokenization and POS tagging
-            (only applies to English). Used by the "kokorog2p" backend.
-        backend: Phonemization backend: "kokorog2p", "espeak", "goruut".
-            The goruut backend requires pygoruut to be installed.
+        keep_punct: Whether to include punctuation tokens.
 
     Returns:
-        List of GToken objects with phonemes assigned.
+        List of TokenSpan objects with char offsets.
 
     Example:
-        >>> tokens = tokenize("Hello world!")
-        >>> for token in tokens:
-        ...     print(f"{token.text} -> {token.phonemes}")
+        >>> tokens = tokenize("Hello world!", language="en-us")
+        >>> for t in tokens:
+        ...     print(f"{t.text} [{t.char_start}:{t.char_end}]")
+        Hello [0:5]
+        world [6:11]
+        ! [11:12]
     """
-    g2p = get_g2p(
-        language=language,
-        use_espeak_fallback=use_espeak_fallback,
-        use_goruut_fallback=use_goruut_fallback,
-        use_spacy=use_spacy,
-        backend=backend,
-    )
-    return g2p(text)
+
+    # same as tokenize_with_offsets + punctuation normalization
+    text = normalize_punctuation(text)
+    return tokenize_with_offsets(text, lang=language, keep_punct=keep_punct)
 
 
 def clear_cache() -> None:
@@ -462,20 +562,9 @@ def reset_abbreviations() -> None:
     pipeline_api._get_language_normalizer.cache_clear()
 
 
-# New span-based API
-from kokorog2p.pipeline_api import phonemize_to_result  # noqa: E402
-from kokorog2p.types import (  # noqa: E402
-    OverrideSpan,
-    PhonemizeResult,
-    TokenSpan,
-)
-from kokorog2p.tokenization import tokenize_with_offsets  # noqa: E402
-
 # Marker-based helper
-from kokorog2p.markers import (  # noqa: E402
-    apply_marker_overrides,
-    parse_delimited,
-)
+from kokorog2p.markers import apply_marker_overrides  # noqa: E402
+from kokorog2p.markers import parse_delimited  # noqa: E402
 
 # Public API
 __all__ = [
@@ -488,12 +577,12 @@ __all__ = [
     # Main functions
     "phonemize",
     "tokenize",
+    "phonemes",
+    "phoneme_ids",
     "get_g2p",
     "clear_cache",
     "reset_abbreviations",
     # New span-based API (recommended for pipelines)
-    "phonemize_to_result",
-    "tokenize_with_offsets",
     "TokenSpan",
     "OverrideSpan",
     "PhonemizeResult",

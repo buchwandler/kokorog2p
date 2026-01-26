@@ -278,10 +278,10 @@ application and supports per-token language switching.
 ### Quick Example
 
 ```python
-from kokorog2p import phonemize_to_result, OverrideSpan
+from kokorog2p import phonemize, OverrideSpan
 
 # Simple phonemization
-result = phonemize_to_result("Hello world!")
+result = phonemize("Hello world!")
 print(result.phonemes)    # 'həlˈoʊ wˈɜɹld!'
 print(result.token_ids)   # [50, 83, 54, ...]
 
@@ -291,13 +291,13 @@ overrides = [
     OverrideSpan(0, 3, {"ph": "ðə"}),   # First "the"
     OverrideSpan(8, 11, {"ph": "ði"}),  # Second "the"
 ]
-result = phonemize_to_result(text, overrides=overrides)
+result = phonemize(text, overrides=overrides)
 # Both overrides applied correctly!
 
 # Language switching within text
 text = "Hello Bonjour world"
 overrides = [OverrideSpan(6, 13, {"lang": "fr"})]
-result = phonemize_to_result(text, lang="en-us", overrides=overrides)
+result = phonemize(text, lang="en-us", overrides=overrides)
 # "Bonjour" phonemized with French G2P
 ```
 
@@ -335,7 +335,7 @@ pip install lingua-language-detector
 ### Basic Usage
 
 ```python
-from kokorog2p import phonemize_to_result
+from kokorog2p import phonemize
 from kokorog2p.multilang import preprocess_multilang
 
 text = "Ich gehe zum Meeting. Let's discuss the Roadmap!"
@@ -344,7 +344,7 @@ clean_text, overrides = preprocess_multilang(
     default_language="de",
     allowed_languages=["de", "en-us"],
 )
-result = phonemize_to_result(clean_text, lang="de", overrides=overrides)
+result = phonemize(clean_text, lang="de", overrides=overrides)
 ```
 
 ### Confidence Threshold

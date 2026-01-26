@@ -18,7 +18,7 @@ Basic Usage
 
 .. code-block:: python
 
-   from kokorog2p import phonemize_to_result
+   from kokorog2p import phonemize
    from kokorog2p.multilang import preprocess_multilang
 
    text = "Schöne World"
@@ -28,7 +28,8 @@ Basic Usage
        allowed_languages=["en-us", "de"],
    )
 
-   result = phonemize_to_result(text, lang="en-us", overrides=overrides)
+   result = phonemize(text, language="en-us", overrides=overrides)
+
 
 Confidence Tuning
 ~~~~~~~~~~~~~~~~~

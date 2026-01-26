@@ -2,16 +2,17 @@
 
 import pytest
 
-from kokorog2p import phonemize_to_result
+from kokorog2p import phonemize
+from kokorog2p.pipeline_api import phonemize_to_result
 from kokorog2p.types import OverrideSpan
 
 
 class TestPhonemizeToResult:
-    """Tests for phonemize_to_result function."""
+    """Tests for phonemize function."""
 
     def test_simple_phonemization(self):
         """Test simple phonemization without overrides."""
-        result = phonemize_to_result("Hello world!")
+        result = phonemize("Hello world!")
 
         assert result.clean_text == "Hello world!"
         assert len(result.tokens) > 0
@@ -22,17 +23,17 @@ class TestPhonemizeToResult:
         assert len(result.warnings) == 0
 
         text = "'I can't... or shouldn't,' I replied."
-        result = phonemize_to_result(text)
+        result = phonemize(text)
         assert result.phonemes == "“ˈI kˈænt…ɔɹ ʃˈʊdᵊnt,” ˈI ɹᵻplˈId."
 
         text = "But I'd've listened if you'd've given me a chance..."
-        result = phonemize_to_result(text)
+        result = phonemize(text)
         assert result.phonemes == "bˌʌt ˈIdəv lˈɪsᵊnd ɪf jˈudəv ɡˈɪvən mˌi ɐ ʧˈæns…"
 
     def test_with_phoneme_override(self):
         """Test phonemization with phoneme override."""
         overrides = [OverrideSpan(0, 5, {"ph": "hɛˈloʊ"})]
-        result = phonemize_to_result("Hello world!", overrides=overrides)
+        result = phonemize("Hello world!", overrides=overrides)
 
         assert result.phonemes is not None
         assert "hɛˈloʊ" in result.phonemes
@@ -47,7 +48,7 @@ class TestPhonemizeToResult:
         # "New York" spans chars [0..8) in ASCII: New(0-3) space(3) York(4-8)
         overrides = [OverrideSpan(0, 8, {"ph": "nuː jɔːk"})]
 
-        result = phonemize_to_result(text, overrides=overrides, lang="en-us")
+        result = phonemize(text, overrides=overrides, language="en-us")
 
         assert result.phonemes is not None
         assert result.phonemes.count("nuː jɔːk") == 1, result.phonemes
@@ -72,7 +73,7 @@ class TestPhonemizeToResult:
             OverrideSpan(9, 17, {"ph": "nuː jɔːk"}),
         ]
 
-        result = phonemize_to_result(text, overrides=overrides, lang="en-us")
+        result = phonemize(text, overrides=overrides, language="en-us")
 
         assert result.phonemes is not None
         assert result.phonemes.count("nuː jɔːk") == 2, result.phonemes
@@ -81,7 +82,7 @@ class TestPhonemizeToResult:
     def test_with_multiple_phoneme_override(self):
         """Test phonemization with phoneme override."""
         overrides = [OverrideSpan(6, 14, {"ph": "nuː jɔːk"})]
-        result = phonemize_to_result("Hello New York!", overrides=overrides)
+        result = phonemize("Hello New York!", overrides=overrides)
 
         assert result.phonemes is not None
         assert "nuː jɔːk" in result.phonemes
@@ -98,7 +99,7 @@ class TestPhonemizeToResult:
         # "(13) "York"(14-18) "."(18-19)
         overrides = [OverrideSpan(10, 18, {"lang": "en-us"})]
 
-        result = phonemize_to_result(text, overrides=overrides, lang="de")
+        result = phonemize(text, language="de", overrides=overrides)
 
         assert result.phonemes is not None and len(result.phonemes) > 0
 
@@ -126,7 +127,7 @@ class TestPhonemizeToResult:
     def test_with_language_override(self):
         """Test phonemization with language override."""
         overrides = [OverrideSpan(6, 10, {"lang": "de"})]
-        result = phonemize_to_result("Hello Welt!", overrides=overrides, lang="en-us")
+        result = phonemize("Hello Welt!", overrides=overrides, language="en-us")
 
         # "Welt" should be phonemized as German
         assert result.tokens[1].lang == "de"
@@ -140,7 +141,7 @@ class TestPhonemizeToResult:
             OverrideSpan(0, 3, {"ph": "ðə"}),  # First "the"
             OverrideSpan(8, 11, {"ph": "ði"}),  # Second "the"
         ]
-        result = phonemize_to_result("the cat the dog", overrides=overrides)
+        result = phonemize("the cat the dog", overrides=overrides)
 
         # Both overrides should be applied
         assert result.phonemes is not None
@@ -150,7 +151,7 @@ class TestPhonemizeToResult:
 
     def test_punctuation_handling(self):
         """Test that punctuation is handled correctly."""
-        result = phonemize_to_result("Hello, world!")
+        result = phonemize("Hello, world!")
 
         assert result.phonemes is not None
         assert "," in result.phonemes or "!" in result.phonemes
@@ -161,17 +162,17 @@ class TestPhonemizeToResult:
         """Ensure dash and ellipsis normalize to Kokoro punctuation."""
         from kokorog2p.vocab import validate_for_kokoro
 
-        result = phonemize_to_result("Wait - now", lang="en-us")
+        result = phonemize("Wait - now", language="en-us")
         assert result.phonemes is not None
         assert "—" in result.phonemes
         assert "-" not in result.phonemes
         assert validate_for_kokoro(result.phonemes)[0]
 
-        result = phonemize_to_result("Bonjour — monde!", lang="fr")
+        result = phonemize("Bonjour — monde!", language="fr")
         assert result.phonemes is not None
         assert "—" in result.phonemes
 
-        result = phonemize_to_result("Wait...what?!", lang="en-us")
+        result = phonemize("Wait...what?!", language="en-us")
         assert result.phonemes is not None
         assert "…" in result.phonemes
         assert "..." not in result.phonemes
@@ -225,7 +226,7 @@ class TestPhonemizeToResult:
             OverrideSpan(4, 7, {"ph": "ði"}),
             OverrideSpan(8, 11, {"ph": "ðə"}),
         ]
-        result = phonemize_to_result(text, overrides=overrides, alignment="span")
+        result = phonemize(text, overrides=overrides, alignment="span")
 
         assert result.phonemes is not None
         assert result.phonemes.count("ðə") == 2
@@ -235,7 +236,7 @@ class TestPhonemizeToResult:
     def test_abbreviation_sentence_phonemes(self):
         """Test abbreviations don't lose phonemes in sentences."""
         text = "Meet Mr. Schmidt, Mrs. Johnson, Ms. Anderson, and Dr. Brown."
-        result = phonemize_to_result(text, lang="en-us")
+        result = phonemize(text, language="en-us")
 
         assert not any("no phonemes" in w.lower() for w in result.warnings)
 
@@ -255,7 +256,7 @@ class TestPhonemizeToResult:
         except ImportError:
             pytest.skip("num2words not installed")
 
-        result = phonemize_to_result("I have 1 cat.", lang="en-us")
+        result = phonemize("I have 1 cat.", language="en-us")
 
         number_token = next(token for token in result.tokens if token.text == "1")
         assert number_token.extended_text
@@ -266,7 +267,7 @@ class TestPhonemizeToResult:
 
     def test_temperature_expansion_extended_text(self):
         """Test temperature tokens expand into extended_text."""
-        result = phonemize_to_result("It's 30C.", lang="en-us")
+        result = phonemize("It's 30C.", language="en-us")
 
         temp_token = next(token for token in result.tokens if token.text == "30C")
         assert temp_token.extended_text == "thirty degrees Celsius"
@@ -276,7 +277,7 @@ class TestPhonemizeToResult:
 
     def test_abbreviation_expansion_metadata(self):
         """Ensure abbreviation expansion retains offsets and meta flag."""
-        result = phonemize_to_result("Dr. Smith", lang="en-us")
+        result = phonemize("Dr. Smith", language="en-us")
 
         token = next(token for token in result.tokens if token.text == "Dr.")
         assert token.char_start == 0
@@ -286,7 +287,7 @@ class TestPhonemizeToResult:
 
     def test_abbreviation_token_span(self):
         """Test that abbreviations with periods stay in one token."""
-        result = phonemize_to_result("Hello Mr. Smith", lang="en-us")
+        result = phonemize("Hello Mr. Smith", language="en-us")
 
         token_texts = [token.text for token in result.tokens]
         assert "Mr." in token_texts
@@ -298,42 +299,40 @@ class TestPhonemizeToResult:
 
     def test_return_only_phonemes(self):
         """Test requesting only phonemes, not IDs."""
-        result = phonemize_to_result("Hello!", return_ids=False, return_phonemes=True)
+        result = phonemize("Hello!", return_ids=False, return_phonemes=True)
 
         assert result.phonemes is not None
-        assert result.token_ids is None
+        assert len(result.token_ids) == 0
 
     def test_return_only_ids(self):
         """Test requesting only IDs, not phonemes."""
-        result = phonemize_to_result("Hello!", return_ids=True, return_phonemes=False)
+        result = phonemize("Hello!", return_ids=True, return_phonemes=False)
 
-        assert result.phonemes is None
+        assert result.phonemes == ""
         assert result.token_ids is not None
         assert len(result.token_ids) > 0
         assert all(isinstance(tid, int) for tid in result.token_ids)
 
     def test_return_ids_only_for_hello_world(self):
         """Test requesting only IDs, not phonemes, for 'Hello, world!'."""
-        result = phonemize_to_result(
-            "Hello, world!", return_ids=True, return_phonemes=False
-        )
+        result = phonemize("Hello, world!", return_ids=True, return_phonemes=False)
 
         assert result.token_ids is not None
         assert len(result.token_ids) > 0
         assert all(isinstance(tid, int) for tid in result.token_ids)
-        assert result.phonemes is None
+        assert result.phonemes == ""
         assert not any("failed to convert" in w.lower() for w in result.warnings)
 
     def test_return_both(self):
         """Test requesting both phonemes and IDs."""
-        result = phonemize_to_result("Hello!", return_ids=True, return_phonemes=True)
+        result = phonemize("Hello!", return_ids=True, return_phonemes=True)
 
         assert result.phonemes is not None
         assert result.token_ids is not None
 
     def test_empty_text(self):
         """Test with empty text."""
-        result = phonemize_to_result("")
+        result = phonemize("")
 
         assert result.clean_text == ""
         assert len(result.tokens) == 0
@@ -341,7 +340,7 @@ class TestPhonemizeToResult:
 
     def test_whitespace_only(self):
         """Test with whitespace-only text."""
-        result = phonemize_to_result("   ")
+        result = phonemize("   ")
 
         assert len(result.tokens) == 0
         assert result.phonemes == ""
@@ -349,9 +348,7 @@ class TestPhonemizeToResult:
     def test_legacy_alignment(self):
         """Test legacy word-based alignment."""
         overrides = [OverrideSpan(0, 5, {"ph": "hɛˈloʊ"})]
-        result = phonemize_to_result(
-            "Hello world!", overrides=overrides, alignment="legacy"
-        )
+        result = phonemize("Hello world!", overrides=overrides, alignment="legacy")
 
         # Should still apply override
         assert result.phonemes is not None
@@ -364,9 +361,7 @@ class TestPhonemizeToResult:
             OverrideSpan(0, 3, {"ph": "ðə"}),
             OverrideSpan(8, 11, {"ph": "ði"}),
         ]
-        result = phonemize_to_result(
-            "the cat the dog", overrides=overrides, alignment="span"
-        )
+        result = phonemize("the cat the dog", overrides=overrides, alignment="span")
 
         # Should have no warnings about duplicate alignment
         assert len(result.warnings) == 0
@@ -375,7 +370,7 @@ class TestPhonemizeToResult:
         """Test that partial overlap generates warning."""
         # Override that partially overlaps token boundary
         overrides = [OverrideSpan(2, 8, {"ph": "test"})]
-        result = phonemize_to_result("Hello world!", overrides=overrides)
+        result = phonemize("Hello world!", overrides=overrides)
 
         # Should have warning about snapping
         assert any(
@@ -387,7 +382,7 @@ class TestPhonemizeToResult:
         """Test that non-overlapping override generates warning."""
         # Override outside text range
         overrides = [OverrideSpan(100, 105, {"ph": "test"})]
-        result = phonemize_to_result("Hello!", overrides=overrides)
+        result = phonemize("Hello!", overrides=overrides)
 
         # Should warn about no overlap
         assert any("overlap" in w.lower() for w in result.warnings)
@@ -395,7 +390,7 @@ class TestPhonemizeToResult:
 
     def test_german_phonemization(self):
         """Test phonemization in German."""
-        result = phonemize_to_result("Hallo Welt!", lang="de")
+        result = phonemize("Hallo Welt!", language="de")
 
         assert result.phonemes is not None
         assert len(result.phonemes) > 0
@@ -408,8 +403,8 @@ class TestPhonemizeToResult:
             OverrideSpan(6, 13, {"lang": "fr"}),  # "Bonjour"
             OverrideSpan(18, 22, {"lang": "de"}),  # "Welt"
         ]
-        result = phonemize_to_result(
-            "Hello Bonjour and Welt!", lang="en-us", overrides=overrides
+        result = phonemize(
+            "Hello Bonjour and Welt!", language="en-us", overrides=overrides
         )
 
         # Should phonemize successfully with different languages
@@ -419,7 +414,7 @@ class TestPhonemizeToResult:
     def test_custom_attributes_preserved(self):
         """Test that custom attributes are preserved in tokens."""
         overrides = [OverrideSpan(0, 5, {"rate": "fast", "volume": "loud"})]
-        result = phonemize_to_result("Hello world!", overrides=overrides)
+        result = phonemize("Hello world!", overrides=overrides)
 
         # Custom attributes should be in token meta
         assert result.tokens[0].meta.get("rate") == "fast"
@@ -428,9 +423,7 @@ class TestPhonemizeToResult:
     def test_phoneme_override_with_language(self):
         """Test phoneme override combined with language override."""
         overrides = [OverrideSpan(0, 7, {"ph": "bɔ̃ʒuʁ", "lang": "fr"})]
-        result = phonemize_to_result(
-            "Bonjour monde!", lang="en-us", overrides=overrides
-        )
+        result = phonemize("Bonjour monde!", language="en-us", overrides=overrides)
 
         # Phoneme override should be used (not language phonemization)
         assert result.phonemes is not None
@@ -500,7 +493,7 @@ class TestPhonemizeToResult:
             OverrideSpan(0, 3, {"ph": "ði"}),  # "The"
             OverrideSpan(31, 34, {"ph": "ðə"}),  # "the" (second occurrence)
         ]
-        result = phonemize_to_result(text, overrides=overrides)
+        result = phonemize(text, overrides=overrides)
 
         assert result.phonemes is not None
         assert "ði" in result.phonemes
@@ -510,10 +503,10 @@ class TestPhonemizeToResult:
     def test_contraction_apostrophe_s_preserved(self):
         """Test that contractions with 's preserve the apostrophe-s in phonemes.
 
-        Bug: phonemize_to_result was dropping the 's in "What's", producing
+        Bug: phonemize was dropping the 's in "What's", producing
         only 'wˌʌt' instead of something like 'wˌʌts' or 'wˌʌt s'.
         """
-        result = phonemize_to_result("What's your problem?")
+        result = phonemize("What's your problem?")
 
         # The input text should be preserved
         assert result.clean_text == "What's your problem?"
@@ -550,14 +543,14 @@ class TestPhonemizeToResult:
         assert len(result.phonemes) > 0
 
     def test_matches_g2p_without_overrides(self):
-        """Test that phonemize_to_result matches g2p output without overrides."""
+        """Test that phonemize matches g2p output without overrides."""
         from kokorog2p import get_g2p
 
         text = "What's your problem?"
-        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        g2p = get_g2p("en-us")
         expected = g2p.phonemize(text)
 
-        result = phonemize_to_result(text, g2p=g2p)
+        result = phonemize(text)
 
         assert result.phonemes == expected
 
@@ -567,7 +560,7 @@ class TestPhonemizeToResult:
 
         text = "'I can't... or shouldn't,' I replied."
         g2p = get_g2p("en-us", markdown_syntax="disabled")
-        result = phonemize_to_result(text, g2p=g2p)
+        result = phonemize(text)
 
         expected = g2p.phonemize(text)
         assert result.phonemes == expected
@@ -585,7 +578,7 @@ class TestPhonemizeToResult:
             "\"Maybe things'd've been different...\""
         )
         g2p = get_g2p("en-us", markdown_syntax="disabled")
-        result = phonemize_to_result(text, g2p=g2p)
+        result = phonemize(text)
 
         assert result.phonemes == g2p.phonemize(text)
 
@@ -601,7 +594,7 @@ class TestPhonemizeToResult:
             "\"I can't... or shouldn't,\" I replied, confused by his hostility.'"
         )
         g2p = get_g2p("en-us", markdown_syntax="disabled")
-        result = phonemize_to_result(text, g2p=g2p)
+        result = phonemize(text)
 
         assert result.phonemes == g2p.phonemize(text)
 
@@ -615,7 +608,7 @@ class TestPhonemizeToResult:
 
         text = "He said, \"I\" 'I'."
         g2p = get_g2p("en-us", markdown_syntax="disabled")
-        result = phonemize_to_result(text, g2p=g2p)
+        result = phonemize(text)
 
         assert result.phonemes == g2p.phonemize(text)
 
@@ -629,7 +622,7 @@ class TestPhonemizeToResult:
 
         text = '"I," he said. "I."'
         g2p = get_g2p("en-us", markdown_syntax="disabled")
-        result = phonemize_to_result(text, g2p=g2p)
+        result = phonemize(text)
 
         assert result.phonemes == g2p.phonemize(text)
 
@@ -643,7 +636,7 @@ class TestPhonemizeToResult:
 
         text = "He said, \"She whispered, 'I'd've...'.\""
         g2p = get_g2p("en-us", markdown_syntax="disabled")
-        result = phonemize_to_result(text, g2p=g2p)
+        result = phonemize(text)
 
         assert result.phonemes == g2p.phonemize(text)
 
@@ -656,7 +649,7 @@ class TestPhonemizeToResult:
 
         text = "Wait... now... later..."
         g2p = get_g2p("en-us", markdown_syntax="disabled")
-        result = phonemize_to_result(text, g2p=g2p)
+        result = phonemize(text)
 
         assert result.phonemes == g2p.phonemize(text)
 
@@ -666,7 +659,7 @@ class TestPhonemizeToResult:
 
         text = "\"I'd've,\" she paused. \"You'd've.\""
         g2p = get_g2p("en-us", markdown_syntax="disabled")
-        result = phonemize_to_result(text, g2p=g2p)
+        result = phonemize(text)
 
         assert result.phonemes == g2p.phonemize(text)
 
@@ -681,7 +674,7 @@ class TestPhonemizeToResult:
 
         text = 'He said, "Dr. Smith..." and left.'
         g2p = get_g2p("en-us", markdown_syntax="disabled")
-        result = phonemize_to_result(text, g2p=g2p)
+        result = phonemize(text)
 
         assert result.phonemes == g2p.phonemize(text)
 
@@ -694,7 +687,7 @@ class TestPhonemizeToResult:
         start = text.index("Welt")
         overrides = [OverrideSpan(start, start + len("Welt"), {"lang": "de"})]
 
-        result = phonemize_to_result(text, lang="en-us", overrides=overrides)
+        result = phonemize(text, language="en-us", overrides=overrides)
 
         token = next(token for token in result.tokens if token.text == "Welt")
         assert token.lang == "de"
@@ -706,7 +699,7 @@ class TestPhonemizeToResult:
         start = text.index("I")
         overrides = [OverrideSpan(start, start + 1, {"ph": "ˈaI"})]
 
-        result = phonemize_to_result(text, overrides=overrides)
+        result = phonemize(text, overrides=overrides)
 
         token = next(token for token in result.tokens if token.text == "I")
         assert token.meta.get("phonemes") == "ˈaI"
@@ -725,7 +718,7 @@ class TestPhonemizeToResult:
         ]
 
         for text, contraction in test_cases:
-            result = phonemize_to_result(text)
+            result = phonemize(text)
 
             # Find the contraction token
             contraction_token = None
@@ -752,7 +745,7 @@ class TestPhonemizeToResult:
         Hyphenated words should be tokenized as a single unit and all parts should
         be phonemized together.
         """
-        result = phonemize_to_result("good-looking")
+        result = phonemize("good-looking")
 
         # The input text should be preserved
         assert result.clean_text == "good-looking"
@@ -790,7 +783,7 @@ class TestPhonemizeToResult:
         ]
 
         for text, expected_tokens in test_cases:
-            result = phonemize_to_result(text)
+            result = phonemize(text)
 
             # Check tokenization
             actual_tokens = len(result.tokens)

@@ -47,7 +47,7 @@ Represents a single token with its phonemization and metadata:
 .. code-block:: python
 
    text = "Hello Mr. Smith!"
-   tokens = tokenize_with_offsets(text)
+   tokens = tokenize(text, language="en-us")
    # TokenSpan(text="Hello", char_start=0, char_end=5, ...)
    # TokenSpan(text="Mr.", char_start=6, char_end=9, ...)
    # TokenSpan(text="Smith", char_start=10, char_end=15, ...)
@@ -93,9 +93,9 @@ The complete phonemization output:
    class PhonemizeResult:
        clean_text: str                  # Text with markup removed
        tokens: list[TokenSpan]          # Token-level information with offsets
-       extended_text: str | None        # Expanded text for phonemization
-       phonemes: str | None             # Concatenated phoneme string
-       token_ids: list[int] | None      # Optional token IDs for model input
+       extended_text: str               # Expanded text for phonemization
+       phonemes: str                    # Concatenated phoneme string
+       token_ids: list[int]             # token IDs for model input
        warnings: list[str]              # Alignment warnings
 
 Extended Text Layer
@@ -111,7 +111,7 @@ Example:
 .. code-block:: python
 
    text = "Meet Mr. Smith"
-   result = phonemize_to_result(text)
+   result = phonemize(text)
    # TokenSpan(text="Mr.", extended_text="Mister", char_start=5, char_end=8, ...)
    # result.clean_text == "Meet Mr. Smith"
    # result.extended_text == "Meet Mister Smith"
@@ -187,7 +187,7 @@ The system supports two alignment modes for applying overrides to tokens:
 
 .. code-block:: python
 
-   result = phonemize_to_result(
+   result = phonemize(
        "the cat the dog",
        overrides=[
            OverrideSpan(0, 3, {"ph": "ðə"}),
@@ -218,7 +218,7 @@ The system supports two alignment modes for applying overrides to tokens:
 
 .. code-block:: python
 
-   result = phonemize_to_result(
+   result = phonemize(
        "the cat the dog",
        overrides=[
            OverrideSpan(0, 3, {"ph": "ðə"}),
@@ -231,7 +231,7 @@ The system supports two alignment modes for applying overrides to tokens:
 Overlap Handling
 ----------------
 
-When an override partially overlaps with a token, the system can handle it in two ways via the ``overlap`` parameter in ``phonemize_to_result()``:
+When an override partially overlaps with a token, the system can handle it in two ways via the ``overlap`` parameter in ``phonemize()``:
 
 Snap Mode (Default)
 ~~~~~~~~~~~~~~~~~~~~
@@ -240,7 +240,7 @@ Apply the override and emit a warning:
 
 .. code-block:: python
 
-   result = phonemize_to_result(
+   result = phonemize(
        "category",
        overrides=[OverrideSpan(0, 3, {"ph": "kæt"})],  # "cat" is only part of "category"
        overlap="snap"
@@ -255,7 +255,7 @@ Skip the override and emit a warning on partial overlap:
 
 .. code-block:: python
 
-   result = phonemize_to_result(
+   result = phonemize(
        "category",
        overrides=[OverrideSpan(0, 3, {"ph": "kæt"})],
        overlap="strict"
@@ -276,7 +276,7 @@ Override spans can specify language changes for specific text regions:
        OverrideSpan(6, 13, {"lang": "fr"})  # "Bonjour" in French
    ]
 
-   result = phonemize_to_result(text, overrides=overrides, lang="en-us")
+   result = phonemize(text, language="en-us", overrides=overrides)
    # "Hello" → English G2P
    # "Bonjour" → French G2P
    # "world" → English G2P
@@ -298,7 +298,7 @@ Direct phoneme replacement bypasses G2P processing:
        OverrideSpan(0, 4, {"ph": "ɹˈEd"}),  # "read" as past tense
    ]
 
-   result = phonemize_to_result(text, overrides=overrides)
+   result = phonemize(text, overrides=overrides)
    # Uses provided phonemes for "read" instead of G2P lookup
 
 **Phoneme Override Priority:** If both ``ph`` and ``lang`` are specified, ``ph`` takes precedence:
@@ -323,7 +323,7 @@ Override spans can carry custom attributes for downstream processing:
        })
    ]
 
-   result = phonemize_to_result(text, overrides=overrides)
+   result = phonemize(text, overrides=overrides)
    # Custom attributes stored in token.meta
    for token in result.tokens:
        print(token.meta)  # {"ph": "həlˈO", "speaker": "male", "emphasis": "strong", ...}
@@ -339,10 +339,10 @@ Always use span-based alignment unless you have a specific reason to use legacy 
 .. code-block:: python
 
    # ✅ Good
-   result = phonemize_to_result(text, overrides=overrides)
+   result = phonemize(text, overrides=overrides)
 
    # ❌ Avoid (unless backward compatibility required)
-   result = phonemize_to_result(text, overrides=overrides, alignment="legacy")
+   result = phonemize(text, overrides=overrides, alignment="legacy")
 
 2. Compute Offsets from Clean Text
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -360,17 +360,17 @@ Always compute offsets from the text **after** markup removal:
    # Compute offsets from clean text
    override = OverrideSpan(0, 5, {"ph": "həlˈO"})  # Refers to "Hello" in clean_text
 
-3. Use tokenize_with_offsets() for Debugging
+3. Use tokenize() for Debugging
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Inspect tokenization to understand offset positions:
 
 .. code-block:: python
 
-   from kokorog2p import tokenize_with_offsets
+   from kokorog2p import tokenize
 
    text = "the cat the dog"
-   tokens = tokenize_with_offsets(text)
+   tokens = tokenize(text, language="en-us")
 
    for tok in tokens:
        print(f"{tok.text!r} → [{tok.char_start}:{tok.char_end}]")
@@ -386,7 +386,7 @@ Always inspect ``result.warnings`` to catch alignment issues:
 
 .. code-block:: python
 
-   result = phonemize_to_result(text, overrides=overrides)
+   result = phonemize(text, overrides=overrides)
 
    if result.warnings:
        print("Alignment warnings:")
@@ -406,7 +406,7 @@ Always test your override logic with duplicate words:
        OverrideSpan(0, 3, {"ph": "ðə"}),    # First "the"
        OverrideSpan(12, 15, {"ph": "ði"}),  # Second "the"
    ]
-   result = phonemize_to_result(text, overrides=overrides)
+   result = phonemize(text, overrides=overrides)
    assert len(result.warnings) == 0
 
 Common Pitfalls
@@ -463,11 +463,11 @@ Common Pitfalls
        OverrideSpan(0, 3, {"ph": "ðə"}),
        OverrideSpan(8, 11, {"ph": "ði"}),
    ]
-   result = phonemize_to_result(text, overrides=overrides, alignment="legacy")
+   result = phonemize(text, overrides=overrides, alignment="legacy")
    # Both overrides apply to first "the" only!
 
    # RIGHT: Use span alignment (default)
-   result = phonemize_to_result(text, overrides=overrides)
+   result = phonemize(text, overrides=overrides)
    # Correctly applies to each "the" instance
 
 See Also

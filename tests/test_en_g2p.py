@@ -420,16 +420,16 @@ class TestMainAPI:
         from kokorog2p import phonemize
 
         result = phonemize("hello", use_espeak_fallback=False, use_spacy=False)
-        assert isinstance(result, str)
-        assert len(result) > 0
+        assert isinstance(result.phonemes, str)
+        assert len(result.phonemes) > 0
 
     def test_tokenize_function(self):
         """Test tokenize convenience function."""
-        from kokorog2p import GToken, tokenize
+        from kokorog2p import TokenSpan, tokenize
 
-        tokens = tokenize("hello world", use_espeak_fallback=False, use_spacy=False)
+        tokens = tokenize("hello world")
         assert isinstance(tokens, list)
-        assert all(isinstance(t, GToken) for t in tokens)
+        assert all(isinstance(t, TokenSpan) for t in tokens)
 
     def test_version_available(self):
         """Test version is available."""

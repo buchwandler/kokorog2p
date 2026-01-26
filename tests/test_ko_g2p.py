@@ -262,8 +262,8 @@ class TestKoreanG2PIntegration:
         from kokorog2p import phonemize
 
         result = phonemize("안녕하세요", language="ko")
-        assert isinstance(result, str)
-        assert len(result) > 0
+        assert isinstance(result.phonemes, str)
+        assert len(result.phonemes) > 0
 
     def test_korean_with_overrides(self):
         """Test Korean G2P with span-based overrides."""

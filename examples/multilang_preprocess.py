@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Demo: multilang preprocessing with span-based API."""
 
-from kokorog2p import phonemize_to_result
+from kokorog2p import phonemize
 from kokorog2p.multilang import preprocess_multilang
 
 
@@ -20,7 +20,7 @@ def main() -> None:
         segment = text[span.char_start : span.char_end]
         print(f"  '{segment}' → {span.attrs}")
 
-    result = phonemize_to_result(text, lang="en-us", overrides=overrides)
+    result = phonemize(text, language="en-us", overrides=overrides)
 
     print("\nPhonemes:")
     print(f"  {result.phonemes}")

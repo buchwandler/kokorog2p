@@ -6,7 +6,7 @@ markup syntax.
 
 Example:
     >>> from kokorog2p.markers import parse_delimited, apply_marker_overrides
-    >>> from kokorog2p import phonemize_to_result
+    >>> from kokorog2p import phonemize
     >>>
     >>> text = "Ich mag @New York@. @Hi@ Klaus."
     >>> clean_text, ranges, warnings = parse_delimited(text, marker="@")
@@ -17,7 +17,7 @@ Example:
     ...     2: {"lang": "en-us"},
     ... }
     >>> overrides = apply_marker_overrides(clean_text, ranges, assignments)
-    >>> result = phonemize_to_result(clean_text, lang="de", overrides=overrides)
+    >>> result = phonemize(clean_text, language="de", overrides=overrides)
 """
 
 from kokorog2p.types import OverrideSpan
@@ -173,7 +173,7 @@ def apply_marker_overrides(
                 Example: {1: {"ph": "..."}, 2: {"lang": "..."}}
 
     Returns:
-        List of OverrideSpan objects ready for phonemize_to_result.
+        List of OverrideSpan objects ready for phonemize.
 
     Raises:
         ValueError: If list assignments length doesn't match marked_ranges length,

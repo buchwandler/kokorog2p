@@ -652,7 +652,7 @@ This integrates with the span-based phonemization API.
 
 .. code-block:: python
 
-   from kokorog2p import phonemize_to_result
+   from kokorog2p import phonemize
    from kokorog2p.multilang import preprocess_multilang
 
    text = "Hello, mein Freund! Bonjour!"
@@ -663,7 +663,7 @@ This integrates with the span-based phonemization API.
        confidence_threshold=0.6,
    )
 
-   result = phonemize_to_result(text, lang="de", overrides=overrides)
+   result = phonemize(text, language="de", overrides=overrides)
 
 Confidence Tuning
 ~~~~~~~~~~~~~~~~~
@@ -697,7 +697,7 @@ Combine language detection with other span overrides:
 
 .. code-block:: python
 
-   from kokorog2p import phonemize_to_result, OverrideSpan
+   from kokorog2p import phonemize, OverrideSpan
    from kokorog2p.multilang import preprocess_multilang
 
    text = "Das Meeting ist wichtig"
@@ -714,7 +714,7 @@ Combine language detection with other span overrides:
        OverrideSpan(4, 11, {"ph": "ˈmiːtɪŋ"})  # Custom pronunciation for "Meeting"
    ]
 
-   result = phonemize_to_result(text, lang="de", overrides=all_overrides)
+   result = phonemize(text, language="de", overrides=all_overrides)
 
 
 Error Handling

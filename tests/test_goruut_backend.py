@@ -213,7 +213,7 @@ class TestMainAPIWithGoruutBackend:
         from kokorog2p import phonemize
 
         result = phonemize("Hello world", backend="goruut")
-        assert isinstance(result, str)
+        assert isinstance(result.phonemes, str)
         assert result  # Non-empty
 
     def test_get_g2p_with_goruut(self):
@@ -222,14 +222,6 @@ class TestMainAPIWithGoruutBackend:
 
         g2p = get_g2p("en-us", backend="goruut")
         assert "GoruutOnlyG2P" in type(g2p).__name__
-
-    def test_tokenize_with_goruut(self):
-        """Test tokenize function with goruut backend."""
-        from kokorog2p import tokenize
-
-        tokens = tokenize("Hello", backend="goruut")
-        assert isinstance(tokens, list)
-        assert len(tokens) > 0
 
     def test_cache_works_with_backend(self):
         """Test that cache distinguishes between backends."""
@@ -248,7 +240,7 @@ class TestMainAPIWithGoruutBackend:
         from kokorog2p import phonemize
 
         result = phonemize("Bonjour", language="fr", backend="goruut")
-        assert isinstance(result, str)
+        assert isinstance(result.phonemes, str)
         assert result  # Non-empty
 
     def test_german_with_goruut(self):
@@ -256,5 +248,5 @@ class TestMainAPIWithGoruutBackend:
         from kokorog2p import phonemize
 
         result = phonemize("Hallo", language="de", backend="goruut")
-        assert isinstance(result, str)
+        assert isinstance(result.phonemes, str)
         assert result  # Non-empty

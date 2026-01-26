@@ -86,12 +86,15 @@ class PhonemizeResult:
             symbols, etc.).
     """
 
-    clean_text: str
-    tokens: list[TokenSpan]
-    extended_text: str | None = None
-    phonemes: str | None = None
-    token_ids: list[int] | None = None
+    clean_text: str = ""
+    tokens: list[TokenSpan] = field(default_factory=list)
+    extended_text: str = ""
+    phonemes: str = ""
+    token_ids: list[int] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+
+    def __str__(self) -> str:
+        return self.phonemes or ""
 
 
 __all__ = [

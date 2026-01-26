@@ -64,7 +64,7 @@ You can specify the language explicitly:
    cs_phonemes = phonemize("Dobrý den", language="cs")
 
    # Mixed-language (German with English words)
-   from kokorog2p import phonemize_to_result
+   from kokorog2p import phonemize
    from kokorog2p.multilang import preprocess_multilang
 
    text = "Das Meeting war great!"
@@ -73,8 +73,8 @@ You can specify the language explicitly:
        default_language="de",
        allowed_languages=["de", "en-us"],
    )
-   result = phonemize_to_result(text, lang="de", overrides=overrides)
-   mixed_phonemes = result.phonemes
+   mixed_phonemes = phonemize(text, lang="de", overrides=overrides,
+                      resturn_type="phonemes")
 
 Using G2P Instances
 -------------------
@@ -182,7 +182,7 @@ Mixed-Language
 
 .. code-block:: python
 
-   from kokorog2p import phonemize_to_result
+   from kokorog2p import phonemize
    from kokorog2p.multilang import preprocess_multilang
 
    text = "Das Meeting war great!"
@@ -191,7 +191,7 @@ Mixed-Language
        default_language="de",
        allowed_languages=["de", "en-us"],
    )
-   result = phonemize_to_result(text, lang="de", overrides=overrides)
+   result = phonemize(text, language="de", overrides=overrides)
 
    for token in result.tokens:
        print(f"{token.text} ({token.lang}) → {token.phonemes}")
