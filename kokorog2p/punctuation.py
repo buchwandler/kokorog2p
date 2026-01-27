@@ -16,7 +16,7 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 from re import Pattern
-from typing import Final
+from typing import ClassVar, Final
 
 # =============================================================================
 # Kokoro-supported punctuation
@@ -44,8 +44,7 @@ KOKORO_PUNCTUATION: Final[frozenset[str]] = frozenset(
 )
 
 # Default marks for preserve/restore operations
-DEFAULT_MARKS: Final[str] = ';:,.!?—…"()""'
-
+DEFAULT_MARKS: Final[str] = ';:,.!?—…"()\u201c\u201d'
 
 # =============================================================================
 # Unicode normalization mappings
@@ -104,9 +103,9 @@ PUNCTUATION_NORMALIZATION: Final[dict[str, str]] = {
     "？": "?",  # fullwidth question mark
     "¡": "!",  # inverted exclamation (Spanish)
     "¿": "?",  # inverted question mark (Spanish)
-    "⁉": "?!",  # exclamation question mark
-    "⁈": "?!",  # question exclamation mark
-    "‼": "!!",  # double exclamation
+    "⁉": "?",  # exclamation question mark
+    "⁈": "!",  # question exclamation mark
+    "‼": "!",  # double exclamation
     "⸮": "?",  # reversed question mark
     # Parentheses and brackets
     "［": "(",  # fullwidth left bracket
@@ -227,15 +226,46 @@ class Punctuation:
         """Set the punctuation marks."""
         if isinstance(value, Pattern):
             # Wrap pattern to catch surrounding spaces
-            self._marks_re = re.compile(r"((" + value.pattern + r")|\s)+")
+            self._marks_re = re.compile(rf"\s*(?:{value.pattern})\s*", value.flags)
             self._marks = None
         elif isinstance(value, str):
-            self._marks = "".join(set(value))
+            self._marks = "".join(dict.fromkeys(value))
             # Build regex: zero or more spaces + one or more marks + zero or more spaces
             escaped = re.escape(self._marks)
             self._marks_re = re.compile(rf"(\s*[{escaped}]+\s*)+")
         else:
             raise ValueError("Punctuation marks must be a string or re.Pattern")
+
+    # One-pass matcher for multi-character sequences (order handled by regex engine).
+    _SEQ_RE: ClassVar[re.Pattern[str]] = re.compile(
+        r"(?P<spaced_ellipsis> ?\. \. \. ?)"  # " . . . ", ". . . ", " . . .", ". . ."
+        r"|(?P<dot_run>\.{2,})"  # "..", "...", "....", etc.
+        r"|(?P<fullwidth_dot_run>．{2,})"  # "．．．" (and longer)
+        r"|(?P<middle_dot_run>・{3,})"  # "・・・" (and longer)
+        r"|(?P<spaced_double_hyphen> -- )"  # " -- "
+        r"|(?P<double_hyphen>--)"  # "--"
+        r"|(?P<spaced_hyphen> - )"  # " - "
+    )
+
+    # Build once (important: normalization wins over
+    # removal, matching your if/elif order)
+    _CHAR_MAP: ClassVar[dict[str, str | None]] = {
+        k: v for k, v in PUNCTUATION_NORMALIZATION.items() if len(k) == 1
+    }
+    for _ch in REMOVE_PUNCTUATION:
+        _CHAR_MAP.setdefault(_ch, None)
+    _TRANSLATE_TABLE: ClassVar[dict[int, str | None]] = str.maketrans(_CHAR_MAP)
+
+    @classmethod
+    def _replace_seq(cls, m: re.Match[str]) -> str:
+        g = m.lastgroup
+        if g in ("spaced_ellipsis", "dot_run", "fullwidth_dot_run", "middle_dot_run"):
+            return "…"
+        if g in ("spaced_double_hyphen", "spaced_hyphen"):
+            return " — "
+        if g == "double_hyphen":
+            return "—"
+        return m.group(0)
 
     def normalize(self, text: str) -> str:
         """Normalize Unicode punctuation to Kokoro-compatible equivalents.
@@ -259,94 +289,8 @@ class Punctuation:
             >>> punct.normalize("Wait - now")
             'Wait — now'
         """
-        result = []
-        i = 0
-        while i < len(text):
-            char = text[i]
-            # Three dots (...) with 2 spaces
-            if i + 6 < len(text) and text[i : i + 7] == " . . . ":
-                result.append("…")
-                i += 7
-                continue
-
-            # Three dots (...) with space
-            if i + 5 < len(text) and text[i : i + 6] == ". . . ":
-                result.append("…")
-                i += 6
-                continue
-
-            # Three dots (...) with space
-            if i + 5 < len(text) and text[i : i + 6] == " . . .":
-                result.append("…")
-                i += 6
-                continue
-
-            # Multi-character sequences: check longest first
-            # Spaced ellipsis (. . .)
-            if i + 4 < len(text) and text[i : i + 5] == ". . .":
-                result.append("…")
-                i += 5
-                continue
-
-            # Four dots (....)
-            if i + 3 < len(text) and text[i : i + 4] == "....":
-                result.append("…")
-                i += 4
-                continue
-
-            # Fullwidth ellipsis (．．．)
-            if i + 2 < len(text) and text[i : i + 3] == "．．．":
-                result.append("…")
-                i += 3
-                continue
-
-            # Japanese middle dot ellipsis (・・・)
-            if i + 2 < len(text) and text[i : i + 3] == "・・・":
-                result.append("…")
-                i += 3
-                continue
-
-            # Three dots (...)
-            if i + 2 < len(text) and text[i : i + 3] == "...":
-                result.append("…")
-                i += 3
-                continue
-
-            # Spaced double hyphen ( -- )
-            if i + 3 < len(text) and text[i : i + 4] == " -- ":
-                result.append(" — ")
-                i += 4
-                continue
-
-            # Double hyphen (--)
-            if i + 1 < len(text) and text[i : i + 2] == "--":
-                result.append("—")
-                i += 2
-                continue
-
-            # Spaced hyphen ( - )
-            if i + 2 < len(text) and text[i : i + 3] == " - ":
-                result.append(" — ")
-                i += 3
-                continue
-
-            # Two dots (..)
-            if i + 1 < len(text) and text[i : i + 2] == "..":
-                result.append("…")
-                i += 2
-                continue
-
-            # Single character normalization
-            if char in PUNCTUATION_NORMALIZATION:
-                result.append(PUNCTUATION_NORMALIZATION[char])
-            elif char in REMOVE_PUNCTUATION:
-                # Skip characters that should be removed
-                pass
-            else:
-                result.append(char)
-            i += 1
-
-        return "".join(result)
+        text = self._SEQ_RE.sub(self._replace_seq, text)
+        return text.translate(self._TRANSLATE_TABLE)
 
     def remove(self, text: str | list[str]) -> str | list[str]:
         """Remove all punctuation marks, replacing with spaces.
@@ -366,9 +310,8 @@ class Punctuation:
         """
 
         def _remove_single(t: str) -> str:
-            if self._marks_re is None:
-                return t
-            return re.sub(self._marks_re, " ", t).strip()
+            t = self.normalize(t)
+            return self._marks_re.sub(" ", t).strip() if self._marks_re else t
 
         if isinstance(text, str):
             return _remove_single(text)
@@ -488,11 +431,29 @@ class Punctuation:
                 text = []
 
             elif not text:
-                # No more text, append marks
-                mark_str = "".join(m.mark for m in marks)
-                mark_str = re.sub(r" ", word_sep, mark_str)
-                punctuated.append(mark_str)
-                marks = []
+                # No more text chunks, but still marks left.
+                # Emit punctuation-only lines grouped by their original index,
+                # preserving line boundaries (and filling gaps if needed).
+                while marks:
+                    next_idx = marks[0].index
+
+                    # If there are missing lines between current pos and next mark index,
+                    # preserve the line count by emitting empty lines.
+                    while pos < next_idx:
+                        punctuated.append("" if strip else (word_sep or ""))
+                        pos += 1
+
+                    # Collect all marks for this line index
+                    same_line: list[MarkIndex] = []
+                    while marks and marks[0].index == next_idx:
+                        same_line.append(marks.pop(0))
+
+                    mark_str = "".join(m.mark for m in same_line)
+                    mark_str = re.sub(r" ", word_sep, mark_str)
+
+                    suffix = "" if strip or mark_str.endswith(word_sep) else word_sep
+                    punctuated.append(mark_str + suffix)
+                    pos += 1
 
             else:
                 current_mark = marks[0]
@@ -579,7 +540,12 @@ def filter_punctuation(text: str) -> str:
     # Remove any remaining unsupported punctuation
     result = []
     for char in normalized:
-        if char.isalnum() or char.isspace() or char in KOKORO_PUNCTUATION:
+        if (
+            char.isalnum()
+            or char.isspace()
+            or char in KOKORO_PUNCTUATION
+            or char == "''"
+        ):
             result.append(char)
         # Skip unsupported punctuation
     return "".join(result)

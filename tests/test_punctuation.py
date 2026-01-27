@@ -110,8 +110,8 @@ class TestPunctuationNormalization:
     def test_normalize_triple_dots(self, punct):
         """Three dots should become ellipsis."""
         assert punct.normalize("Hello...world") == "Hello…world"
-        assert punct.normalize("Hello . . .world") == "Hello …world"
-        assert punct.normalize("Hello. . . world") == "Hello… world"
+        assert punct.normalize("Hello . . .world") == "Hello…world"
+        assert punct.normalize("Hello. . . world") == "Hello…world"
 
     def test_normalize_double_dots(self, punct):
         """Two dots should become ellipsis."""

@@ -74,3 +74,13 @@ def test_phoneme_ids_wrapper_matches_result():
     ids = phoneme_ids(text, language="en-us")
     assert r.token_ids is not None
     assert ids == r.token_ids
+
+
+def test_phonemize():
+    text = "Hello . . . world!"
+    result = phonemize(text, alignment="span")
+    assert result.clean_text == "Hello…world!"
+    assert "…" in result.phonemes
+    result = phonemize(text, alignment="legacy")
+    assert result.clean_text == "Hello…world!"
+    assert "…" in result.phonemes
