@@ -23,7 +23,7 @@ from typing import ClassVar, Final
 # =============================================================================
 
 # Punctuation marks in Kokoro's vocabulary (from kokoro_config.json)
-# These are: ; : , . ! ? — … " ( ) " " (space)
+# These are: ; : , . ! ? — … " ( ) " "
 KOKORO_PUNCTUATION: Final[frozenset[str]] = frozenset(
     [
         ";",
@@ -39,7 +39,6 @@ KOKORO_PUNCTUATION: Final[frozenset[str]] = frozenset(
         ")",
         "\u201c",  # " left curly quote
         "\u201d",  # " right curly quote
-        " ",  # space
     ]
 )
 
@@ -168,7 +167,7 @@ class Punctuation:
 
     This class provides methods to:
     1. Normalize Unicode punctuation to Kokoro-compatible marks
-    2. Remove punctuation entirely
+    2. remove configured marks
     3. Preserve punctuation positions for later restoration
 
     Examples:
@@ -238,13 +237,20 @@ class Punctuation:
 
     # One-pass matcher for multi-character sequences (order handled by regex engine).
     _SEQ_RE: ClassVar[re.Pattern[str]] = re.compile(
-        r"(?P<spaced_ellipsis> ?\. \. \. ?)"  # " . . . ", ". . . ", " . . .", ". . ."
+        # Allow variable whitespace (spaces/tabs/newlines)
+        # around/between dots and hyphens.
+        # This makes normalization robust to inputs like
+        # ".  . .", "\t.\n.\t.", "  -   ".
+        r"(?P<spaced_ellipsis>\s*\.\s+\.\s+\.\s*)"  # ". . ." with any
+        # whitespace between
         r"|(?P<dot_run>\.{2,})"  # "..", "...", "....", etc.
         r"|(?P<fullwidth_dot_run>．{2,})"  # "．．．" (and longer)
         r"|(?P<middle_dot_run>・{3,})"  # "・・・" (and longer)
-        r"|(?P<spaced_double_hyphen> -- )"  # " -- "
+        # Hyphen-as-dash only when surrounded by whitespace,
+        # but allow variable whitespace.
+        r"|(?P<spaced_double_hyphen>\s+--\s+)"  # " -- " (or tabs/newlines)
         r"|(?P<double_hyphen>--)"  # "--"
-        r"|(?P<spaced_hyphen> - )"  # " - "
+        r"|(?P<spaced_hyphen>\s+-\s+)"  # " - " (or tabs/newlines)
     )
 
     # Build once (important: normalization wins over
@@ -253,7 +259,9 @@ class Punctuation:
         k: v for k, v in PUNCTUATION_NORMALIZATION.items() if len(k) == 1
     }
     for _ch in REMOVE_PUNCTUATION:
-        _CHAR_MAP.setdefault(_ch, None)
+        # Replacing with space is safer than deletion: it avoids merging words
+        # like "hello/world" -> "helloworld".
+        _CHAR_MAP.setdefault(_ch, " ")
     _TRANSLATE_TABLE: ClassVar[dict[int, str | None]] = str.maketrans(_CHAR_MAP)
 
     @classmethod
@@ -417,10 +425,9 @@ class Punctuation:
         if isinstance(text, str):
             text = [text]
         text = list(text)  # Make a copy
-
+        marks = list(marks)  # Do not mutate caller's list (we pop in some branches)
         punctuated: list[str] = []
         pos = 0
-
         while text or marks:
             if not marks:
                 # No more marks, append remaining text
@@ -437,7 +444,8 @@ class Punctuation:
                 while marks:
                     next_idx = marks[0].index
 
-                    # If there are missing lines between current pos and next mark index,
+                    # If there are missing lines between current
+                    # pos and next mark index,
                     # preserve the line count by emitting empty lines.
                     while pos < next_idx:
                         punctuated.append("" if strip else (word_sep or ""))
@@ -537,14 +545,27 @@ def filter_punctuation(text: str) -> str:
     """
     punct = Punctuation()
     normalized = punct.normalize(text)
-    # Remove any remaining unsupported punctuation
-    result = []
-    for char in normalized:
+    # Remove any remaining unsupported punctuation.
+    # Special-case: keep ASCII hyphen '-' when it is *word-internal*
+    # (e.g. mother-in-law),
+    # because some lexica contain hyphenated entries and
+    # we want the token to remain intact.
+    result: list[str] = []
+    for i, char in enumerate(normalized):
+        keep_inword_hyphen = (
+            char == "-"
+            and 0 < i < len(normalized) - 1
+            and normalized[i - 1].isalnum()
+            and normalized[i + 1].isalnum()
+        )
         if (
             char.isalnum()
             or char.isspace()
             or char in KOKORO_PUNCTUATION
-            or char == "''"
+            # Keep ASCII apostrophe for contractions after
+            # normalization (don’t -> don't)
+            or char == "'"
+            or keep_inword_hyphen
         ):
             result.append(char)
         # Skip unsupported punctuation

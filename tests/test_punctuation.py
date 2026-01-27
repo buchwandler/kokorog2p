@@ -6,6 +6,7 @@ Tests cover:
 3. Preserve/restore round-trips
 4. Edge cases (multiple punctuation, quotes, ellipses)
 5. Kokoro vocabulary compliance
+6. Robust whitespace handling for multi-char sequences
 """
 
 import re
@@ -47,13 +48,12 @@ class TestKokoroPunctuation:
             ")",
             "\u201c",  # " left curly quote
             "\u201d",  # " right curly quote
-            " ",
         }
         assert expected == KOKORO_PUNCTUATION
 
     def test_kokoro_punctuation_size(self):
-        """Should have exactly 14 punctuation marks (including space)."""
-        assert len(KOKORO_PUNCTUATION) == 14  # ;:,.!?—…"()"" plus space
+        """Should have exactly 13 punctuation marks."""
+        assert len(KOKORO_PUNCTUATION) == 13  # ;:,.!?—…"()""
 
     def test_is_kokoro_punctuation(self):
         """Test is_kokoro_punctuation function."""
@@ -71,7 +71,7 @@ class TestKokoroPunctuation:
         assert is_kokoro_punctuation(")")
         assert is_kokoro_punctuation("\u201c")  # " left curly quote
         assert is_kokoro_punctuation("\u201d")  # " right curly quote
-        assert is_kokoro_punctuation(" ")
+        assert not is_kokoro_punctuation(" ")
 
         # Not in vocab
         assert not is_kokoro_punctuation("-")
@@ -113,6 +113,11 @@ class TestPunctuationNormalization:
         assert punct.normalize("Hello . . .world") == "Hello…world"
         assert punct.normalize("Hello. . . world") == "Hello…world"
 
+    def test_normalize_spaced_ellipsis_var_whitespace(self, punct):
+        """Spaced ellipsis should tolerate tabs/newlines and multiple spaces."""
+        assert punct.normalize("Hello .  .\t.  world") == "Hello…world"
+        assert punct.normalize("Hello\t.\n.\t.\nworld") == "Hello…world"
+
     def test_normalize_double_dots(self, punct):
         """Two dots should become ellipsis."""
         assert punct.normalize("Hello..world") == "Hello…world"
@@ -125,6 +130,17 @@ class TestPunctuationNormalization:
         """Japanese middle dots should become ellipsis."""
         assert punct.normalize("Hello・・・world") == "Hello…world"
 
+    # Hyphens/dashes with variable whitespace
+    def test_normalize_spaced_hyphen_var_whitespace(self, punct):
+        """Hyphen-as-dash should tolerate tabs/newlines and multiple spaces."""
+        assert punct.normalize("Wait   -   now") == "Wait — now"
+        assert punct.normalize("Wait\t-\nnow") == "Wait — now"
+        assert punct.normalize("Wait \t-- \nnow") == "Wait — now"
+
+    def test_normalize_inword_hyphen_is_preserved(self, punct):
+        """In-word hyphens should remain (dictionary entries may contain '-')."""
+        assert punct.normalize("mother-in-law") == "mother-in-law"
+
     # Quotes
     def test_normalize_single_quotes_to_double(self, punct):
         """Single quotes remain as apostrophes (for contractions)."""
@@ -133,6 +149,10 @@ class TestPunctuationNormalization:
     def test_normalize_curly_single_quotes(self, punct):
         """Curly single quotes normalize to straight apostrophe."""
         assert punct.normalize("'Hello'") == "'Hello'"
+        assert punct.normalize("‘Hello’") == "'Hello'"
+
+    def test_normalize_curly_apostrophe_in_word(self, punct):
+        assert punct.normalize("don’t") == "don't"
 
     def test_normalize_guillemets(self, punct):
         """Guillemets should become double quotes."""
@@ -206,21 +226,29 @@ class TestPunctuationNormalization:
 
     # Removed characters
     def test_normalize_removes_tilde(self, punct):
-        """Tilde should be removed."""
-        assert punct.normalize("Hello~world") == "Helloworld"
+        """Unsupported separators should not merge words (prefer spacing)."""
+        assert punct.normalize("Hello~world") == "Hello world"
 
     def test_normalize_removes_at_sign(self, punct):
-        """At sign should be removed."""
-        assert punct.normalize("Hello@world") == "Helloworld"
+        """Unsupported separators should not merge words (prefer spacing)."""
+        assert punct.normalize("Hello@world") == "Hello world"
 
     def test_normalize_removes_hash(self, punct):
-        """Hash should be removed."""
-        assert punct.normalize("Hello#world") == "Helloworld"
+        """Unsupported separators should not merge words (prefer spacing)."""
+        assert punct.normalize("Hello#world") == "Hello world"
 
     def test_normalize_removes_symbols(self, punct):
-        """Various symbols should be removed."""
+        """Various symbols should be removed/replaced safely (no word merging)."""
         text = "Hello†‡§¶world"
-        assert punct.normalize(text) == "Helloworld"
+        result = punct.normalize(text)
+        # Ensure symbols are gone and words aren't merged
+        assert (
+            "†" not in result
+            and "‡" not in result
+            and "§" not in result
+            and "¶" not in result
+        )
+        assert re.search(r"Hello\s+world", result)
 
 
 class TestNormalizePunctuationFunction:
@@ -368,6 +396,15 @@ class TestPunctuationRestore:
         text, marks = punct.preserve("...")
         restored = punct.restore([], marks)
         assert "..." in "".join(restored)
+
+    def test_restore_does_not_mutate_marks(self, punct):
+        """restore() should not mutate the caller's marks list."""
+        chunks, marks = punct.preserve("Hello, world!")
+        marks_copy = list(marks)
+
+        _ = punct.restore(["H", "W"], marks)
+
+        assert marks == marks_copy
 
 
 class TestPreserveRestoreRoundTrip:
@@ -522,14 +559,28 @@ class TestFilterPunctuation:
         """Should remove invalid punctuation."""
         text = "Hello~world!"
         result = filter_punctuation(text)
-        # ~ is removed (not replaced with space since it's not a word separator)
-        assert result == "Helloworld!"
+        # Unsupported punctuation should not merge words
+        assert result == "Hello world!"
 
     def test_filter_normalizes_first(self):
         """Should normalize before filtering."""
         text = "Hello！"  # Fullwidth
         result = filter_punctuation(text)
         assert result == "Hello!"
+
+    def test_filter_keeps_apostrophe(self):
+        """Apostrophes should be preserved for contractions."""
+        assert filter_punctuation("don't!") == "don't!"
+        assert filter_punctuation("don’t!") == "don't!"
+
+    def test_filter_keeps_inword_hyphen(self):
+        """In-word hyphen should be preserved for lexicon lookups (mother-in-law)."""
+        assert filter_punctuation("mother-in-law") == "mother-in-law"
+
+    def test_filter_keeps_dash_as_em_dash_when_spaced(self):
+        """A spaced hyphen is treated as a dash and normalized to em-dash."""
+        # normalize(): " - " -> " — "
+        assert filter_punctuation("wait - now") == "wait — now"
 
     def test_filter_complex(self):
         """Complex case with normalize and filter."""
