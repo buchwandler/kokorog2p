@@ -13,9 +13,10 @@ Design goals:
 
 from __future__ import annotations
 
+import os
 import re
 from abc import ABC, abstractmethod
-from pathlib import Path
+from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from typing import Any
 
 from kokorog2p.backends.espeak.voice import Voice
@@ -30,7 +31,7 @@ class EspeakPhonemizerBase(ABC):
     def __init__(self) -> None:
         """Initialize the phonemizer."""
         self._version: tuple[int, ...] | None = None
-        self._data_path: Path | None = None
+        self._data_path: PurePath | None = None
         self._current_voice: Voice | None = None
 
     # --- Required API -----------------------------------------------------
@@ -91,7 +92,7 @@ class EspeakPhonemizerBase(ABC):
         return None
 
     @property
-    def data_path(self) -> Path | None:
+    def data_path(self) -> PurePath | None:
         """espeak-ng data path, if discoverable/known."""
         return None
 
@@ -119,17 +120,33 @@ class EspeakPhonemizerBase(ABC):
         return tuple(int(p) for p in parts) if parts else (0,)
 
     @staticmethod
-    def _parse_version_output(text: str) -> tuple[tuple[int, ...], Path | None]:
+    def _parse_version_output(text: str) -> tuple[tuple[int, ...], PurePath | None]:
         """Parse CLI '--version' output that may contain 'Data at: ...'."""
         m = _VERSION_RE.search(text)
         ver = tuple(int(x) for x in m.group(1).split(".")) if m else (0,)
 
         dm = _DATA_AT_RE.search(text)
-        data_path: Path | None = None
+        data_path: PurePath | None = None
         if dm:
             data_str = dm.group(1).strip().strip('"').strip("'")
             if data_str:
-                data_path = Path(data_str).expanduser()
+                data_str = os.path.expanduser(data_str)
+                # Windows absolute (drive or UNC)
+                if re.match(r"^[A-Za-z]:[\\/]", data_str) or data_str.startswith(
+                    "\\\\"
+                ):
+                    data_path = PureWindowsPath(data_str)
+                # POSIX absolute
+                elif data_str.startswith("/"):
+                    data_path = PurePosixPath(data_str)
+                else:
+                    # relative: keep current OS flavor
+                    data_path = (
+                        PureWindowsPath(data_str)
+                        if os.name == "nt"
+                        else PurePosixPath(data_str)
+                    )
+
         return ver, data_path
 
     def _resolve_voice(self, language: str) -> tuple[str, Voice]:

@@ -4,7 +4,7 @@ import os
 import re
 import shutil
 import subprocess
-from pathlib import Path
+from pathlib import Path, PurePath
 
 from kokorog2p.backends.espeak.phonemizer_base import EspeakPhonemizerBase
 from kokorog2p.backends.espeak.voice import Voice
@@ -34,7 +34,11 @@ class CliPhonemizer(EspeakPhonemizerBase):
 
         if data_path is None:
             data_path = find_espeak_data()
-        self._data_path = Path(data_path) if data_path is not None else None
+        self._data_path = (
+            data_path
+            if isinstance(data_path, PurePath)
+            else (Path(data_path) if data_path is not None else None)
+        )
         self.set_voice(language)
 
     def _exe(self) -> str:
@@ -47,11 +51,22 @@ class CliPhonemizer(EspeakPhonemizerBase):
             or "espeak-ng"
         )
 
+    @classmethod
+    def is_available(cls) -> bool:
+        env = os.environ.get("KOKOROG2P_ESPEAK_EXECUTABLE")
+        return bool(env or shutil.which("espeak-ng") or shutil.which("espeak"))
+
     @property
     def version(self) -> tuple[int, ...]:
         if self._version is None:
             exe = self._exe()
-            p = subprocess.run([exe, "--version"], text=True, capture_output=True)
+            try:
+                p = subprocess.run([exe, "--version"], text=True, capture_output=True)
+            except FileNotFoundError as e:
+                raise EspeakCliError(
+                    "espeak-ng CLI executable not found. Install espeak-ng (or espeak) "
+                    "or set KOKOROG2P_ESPEAK_EXECUTABLE to the full path of the binary."
+                ) from e
             s = (p.stdout or "") + "\n" + (p.stderr or "")
             ver, data = self._parse_version_output(s)
             self._version = ver
@@ -82,7 +97,13 @@ class CliPhonemizer(EspeakPhonemizerBase):
         if self.data_path:
             cmd.append(f"--path={self.data_path}")
 
-        p = subprocess.run(cmd, text=True, encoding="utf-8", capture_output=True)
+        try:
+            p = subprocess.run(cmd, text=True, encoding="utf-8", capture_output=True)
+        except FileNotFoundError as e:
+            raise EspeakCliError(
+                "espeak-ng CLI executable not found. Install espeak-ng (or espeak) "
+                "or set KOKOROG2P_ESPEAK_EXECUTABLE to the full path of the binary."
+            ) from e
         if p.returncode != 0:
             raise EspeakCliError(
                 f"espeak-ng failed (rc={p.returncode}): {p.stderr.strip()}"
@@ -126,13 +147,19 @@ class CliPhonemizer(EspeakPhonemizerBase):
         if self.data_path:
             cmd.append(f"--path={self.data_path}")
 
-        p = subprocess.run(
-            cmd,
-            input=text,
-            text=True,
-            encoding="utf-8",
-            capture_output=True,
-        )
+        try:
+            p = subprocess.run(
+                cmd,
+                input=text,
+                text=True,
+                encoding="utf-8",
+                capture_output=True,
+            )
+        except FileNotFoundError as e:
+            raise EspeakCliError(
+                "espeak-ng CLI executable not found. Install espeak-ng (or espeak) "
+                "or set KOKOROG2P_ESPEAK_EXECUTABLE to the full path of the binary."
+            ) from e
         if p.returncode != 0:
             raise EspeakCliError(
                 f"espeak-ng failed (rc={p.returncode}): {p.stderr.strip()}"
