@@ -297,7 +297,7 @@ class TestPhonemizerBaseHelpers:
         ver, data = EspeakPhonemizerBase._parse_version_output(text)
         assert ver == (1, 50)
         assert data is not None
-        assert str(data).endswith("/usr/lib/espeak-ng-data")
+        assert data.as_posix().endswith("/usr/lib/espeak-ng-data")
 
     def test_resolve_voice_regular_prefers_first_identifier_per_language(self):
         voices = [
@@ -337,7 +337,7 @@ class TestPhonemizer:
         assert isinstance(p.version, tuple)
         assert len(p.version) >= 2
 
-    def test_phonemize(self, has_espeak):
+    def test_phonemize(self, has_espeak, has_espeak_cli):
         """Test basic phonemization."""
         if not has_espeak:
             pytest.skip("espeak not available")
@@ -350,15 +350,16 @@ class TestPhonemizer:
         result = p.phonemize("hello")
         assert isinstance(result, str)
         assert len(result) > 0
-        p2 = CliPhonemizer()
-        p2.set_voice("en-us")
+        if has_espeak_cli:
+            p2 = CliPhonemizer()
+            p2.set_voice("en-us")
 
-        result2 = p2.phonemize("hello")
-        assert isinstance(result2, str)
-        assert len(result2) > 0
-        assert result == result2
+            result2 = p2.phonemize("hello")
+            assert isinstance(result2, str)
+            assert len(result2) > 0
+            assert result == result2
 
-    def test_set_voice(self, has_espeak):
+    def test_set_voice(self, has_espeak, has_espeak_cli):
         """Test voice selection."""
         if not has_espeak:
             pytest.skip("espeak not available")
@@ -368,10 +369,11 @@ class TestPhonemizer:
         p = Phonemizer()
         p.set_voice("en-us")
         p.set_voice("en-gb")
-        p2 = CliPhonemizer()
-        p2.set_voice("en-us")
-        p2.set_voice("en-gb")
-        assert p.phonemize("hello") == p2.phonemize("hello")
+        if has_espeak_cli:
+            p2 = CliPhonemizer()
+            p2.set_voice("en-us")
+            p2.set_voice("en-gb")
+            assert p.phonemize("hello") == p2.phonemize("hello")
 
 
 @pytest.mark.espeak
@@ -523,10 +525,12 @@ class TestMultipleInstances:
         assert p1.version == p2.version
         assert p1.library_path == p2.library_path
 
-    def test_independent_voices(self, has_espeak):
+    def test_independent_voices(self, has_espeak, has_espeak_cli):
         """Test instances have independent voice selection."""
         if not has_espeak:
             pytest.skip("espeak not available")
+        if not has_espeak_cli:
+            pytest.skip("espeak CLI not available")
 
         from kokorog2p.backends.espeak import CliPhonemizer, Phonemizer
 
@@ -550,7 +554,7 @@ class TestMultipleInstances:
 class TestLibraryInfo:
     """Tests for library information."""
 
-    def test_version_tuple(self, has_espeak):
+    def test_version_tuple(self, has_espeak, has_espeak_cli):
         """Test version format."""
         if not has_espeak:
             pytest.skip("espeak not available")
@@ -560,9 +564,10 @@ class TestLibraryInfo:
         p = Phonemizer()
         assert p.version >= (1, 48)
         assert all(isinstance(v, int) for v in p.version)
-        p_cli = CliPhonemizer()
-        assert p_cli.version >= (1, 48)
-        assert all(isinstance(v, int) for v in p_cli.version)
+        if has_espeak_cli:
+            p_cli = CliPhonemizer()
+            assert p_cli.version >= (1, 48)
+            assert all(isinstance(v, int) for v in p_cli.version)
 
     def test_library_path(self, has_espeak):
         """Test library path."""
@@ -590,7 +595,7 @@ class TestLibraryInfo:
 class TestTieCharacter:
     """Tests for tie character handling."""
 
-    def test_with_separator(self, has_espeak):
+    def test_with_separator(self, has_espeak, has_espeak_cli):
         """Test output with separator."""
         if not has_espeak:
             pytest.skip("espeak not available")
@@ -602,13 +607,14 @@ class TestTieCharacter:
 
         result = p.phonemize("Jackie", use_tie=False)
         assert "_" in result
-        p_cli = CliPhonemizer()
-        p_cli.set_voice("en-us")
+        if has_espeak_cli:
+            p_cli = CliPhonemizer()
+            p_cli.set_voice("en-us")
 
-        result = p_cli.phonemize("Jackie", use_tie=False)
-        assert "_" in result
+            result = p_cli.phonemize("Jackie", use_tie=False)
+            assert "_" in result
 
-    def test_with_tie(self, has_espeak):
+    def test_with_tie(self, has_espeak, has_espeak_cli):
         """Test output with tie character."""
         if not has_espeak:
             pytest.skip("espeak not available")
@@ -621,12 +627,13 @@ class TestTieCharacter:
         if p.version >= (1, 49):
             result = p.phonemize("Jackie", use_tie=True)
             assert "͡" in result or "_" not in result
-        p_cli = CliPhonemizer()
-        p_cli.set_voice("en-us")
+        if has_espeak_cli:
+            p_cli = CliPhonemizer()
+            p_cli.set_voice("en-us")
 
-        if p_cli.version >= (1, 49):
-            result = p_cli.phonemize("Jackie", use_tie=True)
-            assert "͡" in result or "_" not in result
+            if p_cli.version >= (1, 49):
+                result = p_cli.phonemize("Jackie", use_tie=True)
+                assert "͡" in result or "_" not in result
 
 
 @pytest.mark.espeak

@@ -56,3 +56,25 @@ def get_kokoro_v11_zh_vocab() -> dict[str, int]:
     """
     config = load_kokoro_v11_zh_config()
     return config["vocab"]
+
+
+def load_kokoro_v11_de_config() -> dict[str, Any]:
+    """Load the Kokoro v1.1-de model configuration.
+
+    This is the German-specific model)
+
+    Returns:
+        Dictionary containing the model configuration including vocabulary.
+    """
+    config_file = files(__package__).joinpath("kokoro_config_v1.1_de.json")
+    return json.loads(config_file.read_text(encoding="utf-8"))
+
+
+def get_kokoro_v11_de_vocab() -> dict[str, int]:
+    """Get the Kokoro v1.1-de vocabulary mapping.
+
+    Returns:
+        Dictionary mapping tokens to indices.
+    """
+    config = load_kokoro_v11_de_config()
+    return config["vocab"]

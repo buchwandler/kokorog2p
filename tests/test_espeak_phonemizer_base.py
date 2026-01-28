@@ -63,7 +63,7 @@ class TestEspeakPhonemizerBaseHelpers:
         ver, data = EspeakPhonemizerBase._parse_version_output(s)
         assert ver == (1, 50)
         assert data is not None
-        assert str(data).endswith("/usr/lib/espeak-ng-data")
+        assert data.as_posix().endswith("/usr/lib/espeak-ng-data")
 
     def test_parse_version_output_handles_no_data_path(self):
         s = "eSpeak NG text-to-speech: 1.52.0\n"

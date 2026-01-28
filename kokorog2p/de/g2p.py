@@ -151,9 +151,13 @@ def normalize_to_kokoro(phonemes: str) -> str:
 
     # Replace affricates with tie bars with precomposed versions
     phonemes = phonemes.replace("t͡s", "ʦ")  # U+02A6
+    phonemes = phonemes.replace("t^s", "ʦ")  # U+02A6
     phonemes = phonemes.replace("t͡ʃ", "ʧ")  # U+02A7
+    phonemes = phonemes.replace("t^ʃ", "ʧ")  # U+02A7
     phonemes = phonemes.replace("d͡ʒ", "ʤ")  # U+02A4
+    phonemes = phonemes.replace("d^ʒ", "ʤ")  # U+02A4
     phonemes = phonemes.replace("p͡f", "pf")  # No precomposed, use sequence
+    phonemes = phonemes.replace("p^f", "pf")  # No precomposed, use sequence
 
     # Remove non-syllabic markers from diphthongs (U+032F)
     # The diphthongs work without this marker in Kokoro

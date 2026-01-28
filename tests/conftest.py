@@ -35,6 +35,17 @@ def has_espeak() -> bool:
         return False
 
 
+@pytest.fixture(scope="session")
+def has_espeak_cli() -> bool:
+    """Check if the espeak CLI is available."""
+    try:
+        from kokorog2p.backends.espeak.cli_wrapper import CliPhonemizer
+
+        return CliPhonemizer.is_available()
+    except (ImportError, OSError):
+        return False
+
+
 @pytest.fixture
 def espeak_backend():
     """Create an EspeakBackend instance for testing."""
@@ -49,6 +60,10 @@ def espeak_backend_cli():
     """Create an EspeakBackend instance for testing."""
     pytest.importorskip("espeakng_loader")
     from kokorog2p.backends.espeak import EspeakBackend
+    from kokorog2p.backends.espeak.cli_wrapper import CliPhonemizer
+
+    if not CliPhonemizer.is_available():
+        pytest.skip("espeak CLI not available")
 
     return EspeakBackend(language="en-us", use_cli=True)
 

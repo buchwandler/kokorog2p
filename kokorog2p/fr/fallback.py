@@ -40,7 +40,7 @@ class FrenchFallback(_FrenchNormalizeMixin, FallbackBase["EspeakBackend"]):
     def _create_backend(self) -> EspeakBackend:
         from kokorog2p.backends.espeak import EspeakBackend
 
-        return EspeakBackend(language="fr-fr", use_cli=self.use_cli)
+        return EspeakBackend(language="fr", use_cli=self.use_cli)
 
     def _postprocess_word(self, phonemes: str) -> str:
         return self._normalize_french_phonemes(phonemes)

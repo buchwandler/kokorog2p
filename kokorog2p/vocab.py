@@ -46,6 +46,20 @@ def _load_vocab_reverse_v11_zh() -> dict[int, str]:
 
 
 @lru_cache(maxsize=1)
+def _load_vocab_v11_de() -> dict[str, int]:
+    """Load and cache the Kokoro v1.1-de vocabulary."""
+    from kokorog2p.data import get_kokoro_v11_de_vocab
+
+    return get_kokoro_v11_de_vocab()
+
+
+@lru_cache(maxsize=1)
+def _load_vocab_reverse_v11_de() -> dict[int, str]:
+    """Load and cache the reverse v1.1-de vocabulary mapping."""
+    return {v: k for k, v in _load_vocab_v11_de().items()}
+
+
+@lru_cache(maxsize=1)
 def _load_config() -> dict:
     """Load and cache the full Kokoro config."""
     return load_kokoro_config()
@@ -69,6 +83,10 @@ def get_vocab(model: str = "1.0") -> dict[str, int]:
     """
     if model == "1.1":
         return _load_vocab_v11_zh()
+    elif model == "1.1-zh":
+        return _load_vocab_v11_zh()
+    elif model == "1.1-de":
+        return _load_vocab_v11_de()
     return _load_vocab()
 
 
@@ -83,6 +101,10 @@ def get_vocab_reverse(model: str = "1.0") -> dict[int, str]:
     """
     if model == "1.1":
         return _load_vocab_reverse_v11_zh()
+    elif model == "1.1-zh":
+        return _load_vocab_reverse_v11_zh()
+    elif model == "1.1-de":
+        return _load_vocab_reverse_v11_de()
     return _load_vocab_reverse()
 
 

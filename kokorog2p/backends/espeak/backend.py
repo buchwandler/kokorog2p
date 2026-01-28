@@ -63,6 +63,14 @@ class EspeakBackend:
                 )
         elif self._phonemizer is None and self.use_cli:
             self._phonemizer = CliPhonemizer(language=self.language, tie_char=self.tie)
+        if self._phonemizer is not None and self._phonemizer.voice is None:
+            try:
+                self._phonemizer.set_voice(self.language)
+            except Exception:
+                if not isinstance(self._phonemizer, CliPhonemizer):
+                    self._phonemizer = CliPhonemizer(
+                        language=self.language, tie_char=self.tie
+                    )
         return cast(EspeakPhonemizerBase, self._phonemizer)
 
     @property

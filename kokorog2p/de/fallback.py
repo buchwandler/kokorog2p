@@ -40,7 +40,7 @@ class GermanEspeakFallback(_GermanNormalizeMixin, FallbackBase["EspeakBackend"])
     def _create_backend(self) -> EspeakBackend:
         from kokorog2p.backends.espeak import EspeakBackend
 
-        return EspeakBackend(language="de-de", use_cli=self.use_cli)
+        return EspeakBackend(language="de", use_cli=self.use_cli)
 
     def _postprocess_word(self, phonemes: str) -> str:
         return self._normalize_german_phonemes(phonemes)
