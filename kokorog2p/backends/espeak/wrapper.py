@@ -11,8 +11,7 @@ Licensed under the Apache License, Version 2.0
 import ctypes.util
 import os
 import pathlib
-import re
-from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
+from pathlib import Path
 from typing import Any
 
 from kokorog2p.backends.espeak.api import PHONEMES_IPA, EspeakLibrary
@@ -103,16 +102,9 @@ def find_espeak_data() -> Path | None:
     return None
 
 
-def _coerce_pure_path(data_str: str) -> PurePath:
+def _coerce_path(data_str: str) -> Path:
     s = os.path.expanduser(data_str.strip().strip('"').strip("'"))
-    # Windows absolute (drive or UNC)
-    if re.match(r"^[A-Za-z]:[\\/]", s) or s.startswith("\\\\"):
-        return PureWindowsPath(s)
-    # POSIX absolute
-    if s.startswith("/"):
-        return PurePosixPath(s)
-    # relative: keep current OS flavor
-    return PureWindowsPath(s) if os.name == "nt" else PurePosixPath(s)
+    return Path(s)
 
 
 class Phonemizer(EspeakPhonemizerBase):
@@ -189,7 +181,7 @@ class Phonemizer(EspeakPhonemizerBase):
             version_str, data_str = self._api.get_info()
             self._version = self._parse_version_string(version_str)
             if data_str and self._data_path is None:
-                self._data_path = _coerce_pure_path(data_str)
+                self._data_path = _coerce_path(data_str)
         return self._version
 
     @property
@@ -198,11 +190,11 @@ class Phonemizer(EspeakPhonemizerBase):
         return self._api.library_path
 
     @property
-    def data_path(self) -> PurePath | None:
+    def data_path(self) -> Path | None:
         if self._data_path is None:
             _, data_str = self._api.get_info()
             if data_str:
-                self._data_path = _coerce_pure_path(data_str)
+                self._data_path = _coerce_path(data_str)
         return self._data_path
 
     @property

@@ -4,7 +4,7 @@ import os
 import re
 import shutil
 import subprocess
-from pathlib import Path, PurePath
+from pathlib import Path
 
 from kokorog2p.backends.espeak.phonemizer_base import EspeakPhonemizerBase
 from kokorog2p.backends.espeak.voice import Voice
@@ -34,10 +34,8 @@ class CliPhonemizer(EspeakPhonemizerBase):
 
         if data_path is None:
             data_path = find_espeak_data()
-        self._data_path = (
-            data_path
-            if isinstance(data_path, PurePath)
-            else (Path(data_path) if data_path is not None else None)
+        self._data_path: Path | None = (
+            Path(data_path) if data_path is not None else None
         )
         self.set_voice(language)
 

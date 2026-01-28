@@ -42,24 +42,28 @@ class TestApplyStress:
     def test_remove_all_stress(self):
         """Test removing all stress markers."""
         result = apply_stress("hˈɛlˌO", -2)
+        assert result is not None
         assert PRIMARY_STRESS not in result
         assert SECONDARY_STRESS not in result
 
     def test_demote_stress(self):
         """Test demoting primary to secondary stress."""
         result = apply_stress("hˈɛlO", -1)
+        assert result is not None
         assert PRIMARY_STRESS not in result
         assert SECONDARY_STRESS in result
 
     def test_neutral_with_primary(self):
         """Test neutral stress with existing primary."""
         result = apply_stress("hˈɛlO", 0)
+        assert result is not None
         # Should demote primary to secondary
         assert SECONDARY_STRESS in result
 
     def test_add_secondary_stress(self):
         """Test adding secondary stress to unstressed word."""
         result = apply_stress("hɛlO", 0.5)
+        assert result is not None
         assert SECONDARY_STRESS in result
 
 

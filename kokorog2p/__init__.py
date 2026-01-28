@@ -104,11 +104,13 @@ def _stable_repr(value: Any) -> object:
     if isinstance(value, list | tuple):
         return tuple(_stable_repr(item) for item in value)
     if isinstance(value, dict):
-        items = [(_stable_repr(key), _stable_repr(val)) for key, val in value.items()]
-        return tuple(sorted(items, key=repr))
+        dict_items = [
+            (_stable_repr(key), _stable_repr(val)) for key, val in value.items()
+        ]
+        return tuple(sorted(dict_items, key=repr))
     if isinstance(value, set | frozenset):
-        items = [_stable_repr(item) for item in value]
-        return tuple(sorted(items, key=repr))
+        set_items = [_stable_repr(item) for item in value]
+        return tuple(sorted(set_items, key=repr))
     return repr(value)
 
 
@@ -491,7 +493,7 @@ def phonemize(
     )
 
 
-def phonemes(*args, **kwargs) -> str:
+def phonemes(*args: Any, **kwargs: Any) -> str:
     """Get phoneme string from text using phonemize()."""
     return (
         phonemize(*args, **kwargs, return_phonemes=True, return_ids=False).phonemes
@@ -499,7 +501,7 @@ def phonemes(*args, **kwargs) -> str:
     )
 
 
-def phoneme_ids(*args, **kwargs) -> list[int]:
+def phoneme_ids(*args: Any, **kwargs: Any) -> list[int]:
     """Get token IDs from text using phonemize()."""
     return (
         phonemize(*args, **kwargs, return_phonemes=False, return_ids=True).token_ids

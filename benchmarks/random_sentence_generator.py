@@ -8,6 +8,7 @@ Generates test sentences covering:
 """
 
 import random
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -189,7 +190,7 @@ BASE_WORDS = [
 ]
 
 # Abbreviations (from kokorog2p/en/abbreviations.py)
-ABBREVIATIONS = {
+ABBREVIATIONS: dict[str, list[str]] = {
     "titles": ["Mr.", "Mrs.", "Ms.", "Dr.", "Prof.", "Rev."],
     "places": ["St.", "Ave.", "Rd.", "Blvd.", "Ln.", "Ct."],
     "days": ["Mon.", "Tue.", "Wed.", "Thu.", "Fri.", "Sat.", "Sun."],
@@ -214,7 +215,7 @@ ABBREVIATIONS = {
 }
 
 # Number formats to test
-NUMBER_FORMATS = {
+NUMBER_FORMATS: dict[str, list[str | int]] = {
     "cardinal": [0, 1, 5, 10, 42, 100, 1000, 2024],
     "ordinal_suffix": ["1st", "2nd", "3rd", "4th", "21st", "42nd", "100th"],
     "decimal": ["3.14", "0.5", "99.99", "1.0"],
@@ -236,7 +237,11 @@ class TestCase:
 
 
 class SentenceGenerator:
-    def __init__(self, seed: int = 42, g2p=None):
+    def __init__(
+        self,
+        seed: int = 42,
+        g2p: Callable[[str], list[Any]] | None = None,
+    ) -> None:
         self.rng = random.Random(seed)
         self.g2p = g2p
 
@@ -569,7 +574,7 @@ class SentenceGenerator:
         if number_format is None or number_format not in NUMBER_FORMATS:
             number_format = self.rng.choice(list(NUMBER_FORMATS.keys()))
 
-        number = self.rng.choice(NUMBER_FORMATS[number_format])
+        number: str | int = self.rng.choice(NUMBER_FORMATS[number_format])
         words = self._random_words(self.rng.randint(2, 4))
 
         # Create different sentence patterns
@@ -600,7 +605,7 @@ class SentenceGenerator:
         abbrev = self.rng.choice(ABBREVIATIONS[abbrev_cat])
 
         number_format = self.rng.choice(list(NUMBER_FORMATS.keys()))
-        number = self.rng.choice(NUMBER_FORMATS[number_format])
+        number: str | int = self.rng.choice(NUMBER_FORMATS[number_format])
 
         words = self._random_words(self.rng.randint(1, 3))
 
@@ -703,6 +708,7 @@ if __name__ == "__main__":
     from collections import Counter
 
     # Import G2P to show expected phonemes
+    g2p: Callable[[str], list[Any]] | None = None
     try:
         import sys
         from pathlib import Path
@@ -713,7 +719,6 @@ if __name__ == "__main__":
         g2p = EnglishG2P(language="en-us", use_espeak_fallback=True, use_spacy=True)
         has_g2p = True
     except ImportError:
-        g2p = None
         has_g2p = False
         print("Note: kokorog2p not available, showing text only (not phonemes)\n")
 

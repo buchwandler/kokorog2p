@@ -252,7 +252,7 @@ def test_text_to_phonemes_no_progress_guard():
 
     dummy = DummyLib()
     library = EspeakLibrary.__new__(EspeakLibrary)
-    library._lib = dummy
+    library._lib = dummy  # type: ignore[assignment]
 
     result = library.text_to_phonemes("abc")
     assert result == "a"
@@ -484,6 +484,8 @@ class TestPickling:
 
         assert p1.version == p2.version
         assert p1.library_path == p2.library_path
+        assert p1.voice is not None
+        assert p2.voice is not None
         assert p1.voice.language == p2.voice.language
 
     def test_pickle_preserves_results(self, has_espeak):
@@ -536,6 +538,9 @@ class TestMultipleInstances:
         p2.set_voice("en-us")
         p3.set_voice("de")
 
+        assert p1.voice is not None
+        assert p2.voice is not None
+        assert p3.voice is not None
         assert p1.voice.language == "fr-fr"
         assert p2.voice.language == "en-us"
         assert p3.voice.language == "de"
@@ -555,9 +560,9 @@ class TestLibraryInfo:
         p = Phonemizer()
         assert p.version >= (1, 48)
         assert all(isinstance(v, int) for v in p.version)
-        p = CliPhonemizer()
-        assert p.version >= (1, 48)
-        assert all(isinstance(v, int) for v in p.version)
+        p_cli = CliPhonemizer()
+        assert p_cli.version >= (1, 48)
+        assert all(isinstance(v, int) for v in p_cli.version)
 
     def test_library_path(self, has_espeak):
         """Test library path."""
@@ -597,10 +602,10 @@ class TestTieCharacter:
 
         result = p.phonemize("Jackie", use_tie=False)
         assert "_" in result
-        p = CliPhonemizer()
-        p.set_voice("en-us")
+        p_cli = CliPhonemizer()
+        p_cli.set_voice("en-us")
 
-        result = p.phonemize("Jackie", use_tie=False)
+        result = p_cli.phonemize("Jackie", use_tie=False)
         assert "_" in result
 
     def test_with_tie(self, has_espeak):
@@ -616,11 +621,11 @@ class TestTieCharacter:
         if p.version >= (1, 49):
             result = p.phonemize("Jackie", use_tie=True)
             assert "͡" in result or "_" not in result
-        p = CliPhonemizer()
-        p.set_voice("en-us")
+        p_cli = CliPhonemizer()
+        p_cli.set_voice("en-us")
 
-        if p.version >= (1, 49):
-            result = p.phonemize("Jackie", use_tie=True)
+        if p_cli.version >= (1, 49):
+            result = p_cli.phonemize("Jackie", use_tie=True)
             assert "͡" in result or "_" not in result
 
 
@@ -641,6 +646,7 @@ class TestTempDirectory:
         p = Phonemizer()
         p.set_voice("en-us")
 
+        assert p._api.temp_dir is not None
         temp_dir = pathlib.Path(p._api.temp_dir)
         assert temp_dir.exists()
         files = list(temp_dir.iterdir())

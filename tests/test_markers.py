@@ -237,8 +237,8 @@ class TestApplyMarkerOverrides:
     def test_empty_ranges(self):
         """Test with no ranges."""
         clean_text = "Hello world"
-        ranges = []
-        assignments = {}
+        ranges: list[tuple[int, int]] = []
+        assignments: dict[int, dict[str, str]] = {}
 
         overrides = apply_marker_overrides(clean_text, ranges, assignments)
 
@@ -247,10 +247,10 @@ class TestApplyMarkerOverrides:
     def test_list_assignment_length_mismatch(self):
         """Test list assignment with wrong count raises ValueError."""
         clean_text = "I like coffee and tea"
-        ranges = [(7, 13), (18, 21)]
+        ranges: list[tuple[int, int]] = [(7, 13), (18, 21)]
 
         # Only one assignment but two ranges - should raise
-        assignments = [{"ph": "ˈkɔfi"}]
+        assignments: list[dict[str, str]] = [{"ph": "ˈkɔfi"}]
 
         with pytest.raises(ValueError, match="does not match"):
             apply_marker_overrides(clean_text, ranges, assignments)

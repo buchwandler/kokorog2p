@@ -149,7 +149,7 @@ class TestMismatchInfo:
 
         info = MismatchInfo(line_num=0, expected=2, actual=3)
         with pytest.raises(FrozenInstanceError):
-            info.line_num = 1
+            info.line_num = 1  # type: ignore[misc]
 
 
 class TestMismatchStats:

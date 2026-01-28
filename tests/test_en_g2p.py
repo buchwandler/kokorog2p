@@ -20,7 +20,7 @@ def phonemize_with_backend(
 
 
 @pytest.fixture(params=["g2p", "pipeline"])
-def phoneme_backend(request) -> Literal["g2p", "pipeline"]:
+def phoneme_backend(request: pytest.FixtureRequest) -> Literal["g2p", "pipeline"]:
     return request.param
 
 

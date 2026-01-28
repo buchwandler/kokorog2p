@@ -204,7 +204,7 @@ class TestPhonemizeToResult:
             def __init__(self):
                 super().__init__(language="zh")
 
-            def __call__(self, text: str):
+            def __call__(self, text: str) -> list[GToken]:
                 return [
                     GToken(
                         text=text,
@@ -214,7 +214,7 @@ class TestPhonemizeToResult:
                     )
                 ]
 
-            def lookup(self, word: str, tag: str | None = None):
+            def lookup(self, word: str, tag: str | None = None) -> str | None:
                 return None
 
             def get_target_model(self) -> str:

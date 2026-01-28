@@ -8,6 +8,7 @@ Licensed under the Apache License, Version 2.0
 """
 
 import re
+from typing import cast
 
 from kokorog2p.backends.espeak.cli_wrapper import CliPhonemizer
 from kokorog2p.backends.espeak.phonemizer_base import EspeakPhonemizerBase
@@ -47,7 +48,7 @@ class EspeakBackend:
         self.with_stress = with_stress
         self.tie = tie
         self.use_cli = use_cli
-        self._phonemizer: Phonemizer | None = None
+        self._phonemizer: EspeakPhonemizerBase | None = None
 
     @property
     def wrapper(self) -> EspeakPhonemizerBase:
@@ -62,7 +63,7 @@ class EspeakBackend:
                 )
         elif self._phonemizer is None and self.use_cli:
             self._phonemizer = CliPhonemizer(language=self.language, tie_char=self.tie)
-        return self._phonemizer
+        return cast(EspeakPhonemizerBase, self._phonemizer)
 
     @property
     def is_british(self) -> bool:

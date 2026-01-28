@@ -1,6 +1,9 @@
+from collections.abc import Callable
+
 import pytest
 
 from kokorog2p import get_g2p, phonemize, tokenize
+from kokorog2p.types import PhonemizeResult, TokenSpan
 
 # Optional convenience wrappers (skip tests if not present)
 try:
@@ -15,6 +18,11 @@ try:
 except Exception:  # pragma: no cover
     phonemize_to_result = None
     tokenize_with_offsets = None
+
+phonemes: Callable[..., str] | None
+phoneme_ids: Callable[..., list[int]] | None
+phonemize_to_result: Callable[..., PhonemizeResult] | None
+tokenize_with_offsets: Callable[..., list[TokenSpan]] | None
 
 
 def test_phonemize_returns_result_shape():
@@ -62,6 +70,7 @@ def test_cached_g2p_instance_is_used_and_outputs_match():
 def test_phonemes_wrapper_matches_result():
     text = "Hello world!"
     r = phonemize(text, language="en-us", return_ids=False, return_phonemes=True)
+    assert phonemes is not None
     s = phonemes(text, language="en-us")
     assert r.phonemes is not None
     assert s == r.phonemes
@@ -71,6 +80,7 @@ def test_phonemes_wrapper_matches_result():
 def test_phoneme_ids_wrapper_matches_result():
     text = "Hello world!"
     r = phonemize(text, language="en-us", return_ids=True, return_phonemes=False)
+    assert phoneme_ids is not None
     ids = phoneme_ids(text, language="en-us")
     assert r.token_ids is not None
     assert ids == r.token_ids

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import importlib
 from collections.abc import Callable, Sequence
-from typing import Protocol, TypeVar
+from typing import Protocol, TypeVar, cast
+
+from kokorog2p.pipeline.abbreviations import AbbreviationExpander
 
 
 class AbbreviationToken(Protocol):
@@ -35,23 +38,26 @@ def get_abbreviation_entries(lang: str | None) -> list[tuple[str, bool]]:
     normalized = _normalize_lang(lang)
     entries: list[tuple[str, bool]] = []
 
+    module_name: str | None = None
     if normalized.startswith("en"):
-        from kokorog2p.en.abbreviations import get_expander
+        module_name = "kokorog2p.en.abbreviations"
     elif normalized.startswith("de"):
-        from kokorog2p.de.abbreviations import get_expander
+        module_name = "kokorog2p.de.abbreviations"
     elif normalized.startswith("fr"):
-        from kokorog2p.fr.abbreviations import get_expander
+        module_name = "kokorog2p.fr.abbreviations"
     elif normalized.startswith("es"):
-        from kokorog2p.es.abbreviations import get_expander
+        module_name = "kokorog2p.es.abbreviations"
     elif normalized.startswith("pt"):
-        from kokorog2p.pt.abbreviations import get_expander
+        module_name = "kokorog2p.pt.abbreviations"
     elif normalized.startswith("it"):
-        from kokorog2p.it.abbreviations import get_expander
+        module_name = "kokorog2p.it.abbreviations"
     elif normalized.startswith("cs"):
-        from kokorog2p.cs.abbreviations import get_expander
+        module_name = "kokorog2p.cs.abbreviations"
     else:
         return entries
 
+    module = importlib.import_module(module_name)
+    get_expander = cast(Callable[[], AbbreviationExpander], module.get_expander)
     expander = get_expander()
     for entry in expander.entries.values():
         entries.append((entry.abbreviation, entry.case_sensitive))

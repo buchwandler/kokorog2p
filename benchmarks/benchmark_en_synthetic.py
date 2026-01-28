@@ -136,7 +136,7 @@ class FailureAnalyzer:
 
         return "unknown"
 
-    def record_failure(self, result: TestResult):
+    def record_failure(self, result: TestResult) -> None:
         """Record a failure for analysis."""
         self.failures_by_category[result.category].append(result)
         self.failures_by_type[result.failure_type or "unknown"] += 1
@@ -442,7 +442,7 @@ class QuotesContractionsBenchmark:
 
         return results
 
-    def print_results(self, results: BenchmarkResults):
+    def print_results(self, results: BenchmarkResults) -> None:
         """Print formatted results to console."""
         print(f"\n{'=' * 70}")
         print("RESULTS")

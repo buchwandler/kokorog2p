@@ -5,14 +5,16 @@ It supports deterministic override application, per-span language switching, and
 direct token ID output.
 """
 
+import importlib
 import threading
 import unicodedata
 from collections.abc import Callable, Sequence
 from difflib import SequenceMatcher
 from functools import cache
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 from weakref import WeakKeyDictionary
 
+from kokorog2p.pipeline.abbreviations import AbbreviationExpander
 from kokorog2p.punctuation import normalize_punctuation
 from kokorog2p.span_processing import apply_overrides_to_tokens
 from kokorog2p.tokenization import (
@@ -78,28 +80,31 @@ def _normalize_lang(lang: str | None) -> str | None:
 
 
 @cache
-def _get_abbreviation_expander(lang: str | None):
+def _get_abbreviation_expander(lang: str | None) -> AbbreviationExpander | None:
     normalized = _normalize_lang(lang)
     if not normalized:
         normalized = "en-us"
 
+    module_name: str | None = None
     if normalized.startswith("en"):
-        from kokorog2p.en.abbreviations import get_expander
+        module_name = "kokorog2p.en.abbreviations"
     elif normalized.startswith("de"):
-        from kokorog2p.de.abbreviations import get_expander
+        module_name = "kokorog2p.de.abbreviations"
     elif normalized.startswith("fr"):
-        from kokorog2p.fr.abbreviations import get_expander
+        module_name = "kokorog2p.fr.abbreviations"
     elif normalized.startswith("es"):
-        from kokorog2p.es.abbreviations import get_expander
+        module_name = "kokorog2p.es.abbreviations"
     elif normalized.startswith("pt"):
-        from kokorog2p.pt.abbreviations import get_expander
+        module_name = "kokorog2p.pt.abbreviations"
     elif normalized.startswith("it"):
-        from kokorog2p.it.abbreviations import get_expander
+        module_name = "kokorog2p.it.abbreviations"
     elif normalized.startswith("cs"):
-        from kokorog2p.cs.abbreviations import get_expander
+        module_name = "kokorog2p.cs.abbreviations"
     else:
         return None
 
+    module = importlib.import_module(module_name)
+    get_expander = cast(Callable[[], AbbreviationExpander], module.get_expander)
     return get_expander()
 
 

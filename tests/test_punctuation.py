@@ -659,4 +659,4 @@ class TestMarkIndex:
 
         mark = MarkIndex(index=0, mark=",", position=Position.MIDDLE)
         with pytest.raises(FrozenInstanceError):
-            mark.index = 1
+            mark.index = 1  # type: ignore[misc]

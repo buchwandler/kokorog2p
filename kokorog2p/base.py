@@ -36,6 +36,8 @@ class G2PBase(ABC):
         self.use_goruut_fallback = use_goruut_fallback
         self.use_cli = use_cli
         self.strict = strict
+        self.load_silver: bool | None = None
+        self.load_gold: bool | None = None
 
     @property
     def is_british(self) -> bool:
@@ -110,6 +112,30 @@ class G2PBase(ABC):
             Phoneme string or None if not found.
         """
         raise NotImplementedError
+
+    def add_abbreviation(
+        self,
+        abbreviation: str,
+        expansion: str | dict[str, str],
+        description: str = "",
+        case_sensitive: bool = False,
+    ) -> None:
+        """Add or update a custom abbreviation (if supported)."""
+        raise NotImplementedError("This G2P does not support abbreviations")
+
+    def remove_abbreviation(
+        self, abbreviation: str, case_sensitive: bool = False
+    ) -> bool:
+        """Remove an abbreviation (if supported)."""
+        return False
+
+    def has_abbreviation(self, abbreviation: str, case_sensitive: bool = False) -> bool:
+        """Check if an abbreviation exists (if supported)."""
+        return False
+
+    def list_abbreviations(self) -> list[str]:
+        """List abbreviations (if supported)."""
+        return []
 
     def __repr__(self) -> str:
         """Return a string representation."""

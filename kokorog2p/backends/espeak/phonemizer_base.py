@@ -16,7 +16,7 @@ from __future__ import annotations
 import os
 import re
 from abc import ABC, abstractmethod
-from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
+from pathlib import Path
 from typing import Any
 
 from kokorog2p.backends.espeak.voice import Voice
@@ -30,8 +30,11 @@ class EspeakPhonemizerBase(ABC):
 
     def __init__(self) -> None:
         """Initialize the phonemizer."""
+        self._reset_state()
+
+    def _reset_state(self) -> None:
         self._version: tuple[int, ...] | None = None
-        self._data_path: PurePath | None = None
+        self._data_path: Path | None = None
         self._current_voice: Voice | None = None
 
     # --- Required API -----------------------------------------------------
@@ -74,7 +77,7 @@ class EspeakPhonemizerBase(ABC):
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         """Restore from pickle."""
-        self.__init__()
+        self._reset_state()
         self._version = state["version"]
         self._data_path = state["data_path"]
         self._current_voice = state["voice"]
@@ -92,7 +95,7 @@ class EspeakPhonemizerBase(ABC):
         return None
 
     @property
-    def data_path(self) -> PurePath | None:
+    def data_path(self) -> Path | None:
         """espeak-ng data path, if discoverable/known."""
         return None
 
@@ -120,32 +123,18 @@ class EspeakPhonemizerBase(ABC):
         return tuple(int(p) for p in parts) if parts else (0,)
 
     @staticmethod
-    def _parse_version_output(text: str) -> tuple[tuple[int, ...], PurePath | None]:
+    def _parse_version_output(text: str) -> tuple[tuple[int, ...], Path | None]:
         """Parse CLI '--version' output that may contain 'Data at: ...'."""
         m = _VERSION_RE.search(text)
         ver = tuple(int(x) for x in m.group(1).split(".")) if m else (0,)
 
         dm = _DATA_AT_RE.search(text)
-        data_path: PurePath | None = None
+        data_path: Path | None = None
         if dm:
             data_str = dm.group(1).strip().strip('"').strip("'")
             if data_str:
                 data_str = os.path.expanduser(data_str)
-                # Windows absolute (drive or UNC)
-                if re.match(r"^[A-Za-z]:[\\/]", data_str) or data_str.startswith(
-                    "\\\\"
-                ):
-                    data_path = PureWindowsPath(data_str)
-                # POSIX absolute
-                elif data_str.startswith("/"):
-                    data_path = PurePosixPath(data_str)
-                else:
-                    # relative: keep current OS flavor
-                    data_path = (
-                        PureWindowsPath(data_str)
-                        if os.name == "nt"
-                        else PurePosixPath(data_str)
-                    )
+                data_path = Path(data_str)
 
         return ver, data_path
 
@@ -154,6 +143,7 @@ class EspeakPhonemizerBase(ABC):
         if not language:
             raise RuntimeError('Invalid voice code ""')
 
+        available: dict[str, str] = {}
         if "mb" in language:
             voices = self.list_voices("mbrola")
             available = {
@@ -165,7 +155,6 @@ class EspeakPhonemizerBase(ABC):
             voices = self.list_voices(language)
             if not voices:
                 voices = self.list_voices()
-            available: dict[str, str] = {}
             for v in voices:
                 if v.language and v.language not in available:
                     available[v.language] = v.identifier
