@@ -9,6 +9,8 @@ Licensed under the Apache License, Version 2.0
 
 import re
 
+from kokorog2p.backends.espeak.cli_wrapper import CliPhonemizer
+from kokorog2p.backends.espeak.phonemizer_base import EspeakPhonemizerBase
 from kokorog2p.backends.espeak.wrapper import Phonemizer
 from kokorog2p.phonemes import from_espeak
 
@@ -31,6 +33,7 @@ class EspeakBackend:
         language: str = "en-us",
         with_stress: bool = True,
         tie: str = "^",
+        use_cli: bool = False,
     ) -> None:
         """Initialize the espeak backend.
 
@@ -38,18 +41,27 @@ class EspeakBackend:
             language: Language code (e.g., "en-us", "en-gb", "fr-fr").
             with_stress: Whether to include stress markers in output.
             tie: Tie character mode. "^" uses tie character for affricates.
+            use_cli: If True, force use of CLI phonemizer instead of library.
         """
         self.language = language
         self.with_stress = with_stress
         self.tie = tie
+        self.use_cli = use_cli
         self._phonemizer: Phonemizer | None = None
 
     @property
-    def wrapper(self) -> Phonemizer:
+    def wrapper(self) -> EspeakPhonemizerBase:
         """Get the underlying Phonemizer instance (lazy initialization)."""
-        if self._phonemizer is None:
-            self._phonemizer = Phonemizer()
-            self._phonemizer.set_voice(self.language)
+        if self._phonemizer is None and not self.use_cli:
+            try:
+                self._phonemizer = Phonemizer()
+                self._phonemizer.set_voice(self.language)
+            except Exception:
+                self._phonemizer = CliPhonemizer(
+                    language=self.language, tie_char=self.tie
+                )
+        elif self._phonemizer is None and self.use_cli:
+            self._phonemizer = CliPhonemizer(language=self.language, tie_char=self.tie)
         return self._phonemizer
 
     @property

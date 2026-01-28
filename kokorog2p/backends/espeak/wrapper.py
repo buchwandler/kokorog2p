@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from kokorog2p.backends.espeak.api import PHONEMES_IPA, EspeakLibrary
+from kokorog2p.backends.espeak.phonemizer_base import EspeakPhonemizerBase
 from kokorog2p.backends.espeak.voice import (
     Voice,
     struct_to_voice,
@@ -101,7 +102,7 @@ def find_espeak_data() -> Path | None:
     return None
 
 
-class Phonemizer:
+class Phonemizer(EspeakPhonemizerBase):
     """High-level interface for espeak-ng phonemization.
 
     This class provides a simple API for converting text to phonemes using
@@ -125,9 +126,7 @@ class Phonemizer:
         Raises:
             RuntimeError: If espeak-ng library cannot be loaded.
         """
-        self._version: tuple[int, ...] | None = None
-        self._data_path: Path | None = None
-        self._current_voice: Voice | None = None
+        super().__init__()  # <-- shared state init here
 
         # Find library and data paths
         lib_path = self._custom_library or find_espeak_library()
@@ -173,13 +172,10 @@ class Phonemizer:
 
     @property
     def version(self) -> tuple[int, ...]:
-        """Get espeak version as tuple of integers."""
         if self._version is None:
             version_str, data_str = self._api.get_info()
-            # Parse version string (e.g., "1.51.1" or "1.51.1-dev")
-            version_clean = version_str.strip().split()[0].replace("-dev", "")
-            self._version = tuple(int(x) for x in version_clean.split("."))
-            if data_str:
+            self._version = self._parse_version_string(version_str)
+            if data_str and self._data_path is None:
                 self._data_path = pathlib.Path(data_str)
         return self._version
 
@@ -190,7 +186,6 @@ class Phonemizer:
 
     @property
     def data_path(self) -> Path | None:
-        """Get path to espeak data directory."""
         if self._data_path is None:
             _, data_str = self._api.get_info()
             if data_str:
@@ -201,6 +196,10 @@ class Phonemizer:
     def voice(self) -> Voice | None:
         """Get the currently selected voice."""
         return self._current_voice
+
+    @property
+    def voice_language(self) -> str | None:
+        return self._current_voice.language if self._current_voice else None
 
     def list_voices(self, filter_name: str | None = None) -> list[Voice]:
         """List available voices.
@@ -230,41 +229,11 @@ class Phonemizer:
         return voices
 
     def set_voice(self, language: str) -> None:
-        """Set the voice for phonemization.
+        identifier, _ = self._resolve_voice(language)
 
-        Args:
-            language: Language code (e.g., "en-us", "en-gb", "fr-fr").
-
-        Raises:
-            RuntimeError: If the voice cannot be set.
-        """
-        if not language:
-            raise RuntimeError('Invalid voice code ""')
-
-        # Check if this is an mbrola voice
-        if "mb" in language:
-            # Mbrola voices use identifier format "mb/{voice}"
-            available = {
-                v.identifier[3:]: v.identifier for v in self.list_voices("mbrola")
-            }
-        else:
-            # Regular espeak voices - map language to identifier
-            available: dict[str, str] = {}
-            for v in self.list_voices():
-                if v.language and v.language not in available:
-                    available[v.language] = v.identifier
-
-        # Find voice identifier
-        if language not in available:
-            raise RuntimeError(f'Invalid voice code "{language}"')
-
-        identifier = available[language]
-
-        # Set the voice
         if self._api.set_voice_by_name(identifier) != 0:
             raise RuntimeError(f'Failed to set voice "{language}"')
 
-        # Update current voice
         voice_struct = self._api.get_current_voice()
         self._current_voice = struct_to_voice(voice_struct)
 

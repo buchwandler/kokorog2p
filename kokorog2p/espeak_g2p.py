@@ -9,11 +9,10 @@ Licensed under the Apache License, Version 2.0
 """
 
 import logging
-import re
 
 from kokorog2p.base import G2PBase
 from kokorog2p.token import GToken
-from kokorog2p.tokenization import ensure_gtoken_positions
+from kokorog2p.tokenization import ensure_gtoken_positions, tokenize_with_offsets
 
 logger = logging.getLogger(__name__)
 
@@ -193,64 +192,60 @@ class EspeakOnlyG2P(G2PBase):
         if not text or not text.strip():
             return []
 
-        tokens = []
+        tokens: list[GToken] = []
+        token_spans = tokenize_with_offsets(text, keep_punct=True)
+        for idx, span in enumerate(token_spans):
+            next_start = (
+                token_spans[idx + 1].char_start
+                if idx + 1 < len(token_spans)
+                else len(text)
+            )
+            whitespace = text[span.char_end : next_start]
+            is_punct = not any(c.isalnum() for c in span.text)
 
-        # Simple tokenization by whitespace and punctuation
-        # Split keeping punctuation as separate tokens
-        pattern = r"(\s+|[,.!?;:\"'()\[\]{}—–\-])"
-        parts = re.split(pattern, text)
-
-        for part in parts:
-            if not part:
-                continue
-
-            if part.isspace():
-                # Add whitespace to previous token
-                if tokens:
-                    tokens[-1].whitespace = part
-                continue
-
-            # Check if punctuation
-            if len(part) == 1 and part in ",.!?;:\"'()[]{}—–-":
+            if is_punct:
                 token = GToken(
-                    text=part,
+                    text=span.text,
                     tag="PUNCT",
-                    whitespace="",
-                    phonemes=part,  # Keep punctuation as-is
+                    whitespace=whitespace,
+                    phonemes=span.text,
                 )
+                token.set("char_start", span.char_start)
+                token.set("char_end", span.char_end)
                 tokens.append(token)
                 continue
 
-            # Phonemize using espeak
             try:
-                phonemes = self.espeak_backend.word_phonemes(part)
+                phonemes = self.espeak_backend.word_phonemes(span.text)
             except Exception as e:
                 if self.strict:
                     if isinstance(e, RuntimeError):
                         raise RuntimeError(
-                            f"EspeakOnlyG2P failed to process word '{part}' "
+                            f"EspeakOnlyG2P failed to process word '{span.text}' "
                             f"with espeak-ng. This usually means espeak-ng is "
                             f"not properly installed or initialized. "
                             f"Original error: {e}"
                         ) from e
                     else:
                         raise RuntimeError(
-                            f"Unexpected error processing word '{part}': {e}"
+                            f"Unexpected error processing word '{span.text}': {e}"
                         ) from e
                 else:
                     logger.error(
-                        f"EspeakOnlyG2P failed to process word '{part}': {e}. "
+                        f"EspeakOnlyG2P failed to process word '{span.text}': {e}. "
                         f"Returning None (strict=False mode)."
                     )
                     phonemes = None
 
             token = GToken(
-                text=part,
-                tag="X",  # Unknown tag
-                whitespace="",
+                text=span.text,
+                tag="X",
+                whitespace=whitespace,
                 phonemes=phonemes if phonemes else None,
             )
             token.rating = "espeak" if phonemes else None
+            token.set("char_start", span.char_start)
+            token.set("char_end", span.char_end)
             tokens.append(token)
 
         ensure_gtoken_positions(tokens, text)

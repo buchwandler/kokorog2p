@@ -17,6 +17,7 @@ class G2PBase(ABC):
         language: str = "en-us",
         use_espeak_fallback: bool = True,
         use_goruut_fallback: bool = False,
+        use_cli: bool = False,
         strict: bool = True,
     ) -> None:
         """
@@ -26,12 +27,14 @@ class G2PBase(ABC):
             language: Language code (e.g., 'en-us', 'en-gb').
             use_espeak_fallback: Whether to use espeak for OOV words.
             use_goruut_fallback: Whether to use goruut for OOV words.
+            use_cli: If True, use CLI phonemizer instead of library bindings.
             strict: If True, raise exceptions on errors. If False, log warnings
                 and return empty results (backward compatible mode).
         """
         self.language = language
         self.use_espeak_fallback = use_espeak_fallback
         self.use_goruut_fallback = use_goruut_fallback
+        self.use_cli = use_cli
         self.strict = strict
 
     @property

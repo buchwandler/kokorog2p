@@ -28,6 +28,7 @@ class EnglishG2P(G2PBase):
         language: str = "en-us",
         use_espeak_fallback: bool = True,
         use_goruut_fallback: bool = False,
+        use_cli: bool = False,
         use_spacy: bool = True,
         expand_abbreviations: bool = True,
         enable_context_detection: bool = True,
@@ -45,6 +46,7 @@ class EnglishG2P(G2PBase):
             language: Language code ('en-us' or 'en-gb').
             use_espeak_fallback: Whether to use espeak for OOV words.
             use_goruut_fallback: Whether to use goruut for OOV words.
+            use_cli: Whether to use the espeak CLI instead of the library.
             use_spacy: Whether to use spaCy for tokenization and POS tagging.
             expand_abbreviations: Whether to expand common abbreviations.
             enable_context_detection: Context-aware abbreviation expansion.
@@ -90,13 +92,13 @@ class EnglishG2P(G2PBase):
             language=language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
+            use_cli=use_cli,
             strict=strict,
         )
 
         self.version = version
         self.unk = unk
         self.use_spacy = use_spacy
-        self.use_goruut_fallback = use_goruut_fallback
         self.expand_abbreviations = expand_abbreviations
         self.enable_context_detection = enable_context_detection
         self.phoneme_quotes = phoneme_quotes
@@ -124,7 +126,9 @@ class EnglishG2P(G2PBase):
             if self.use_goruut_fallback:
                 self._fallback = GoruutFallback(british=self.is_british)
             elif self.use_espeak_fallback:
-                self._fallback = EspeakFallback(british=self.is_british)
+                self._fallback = EspeakFallback(
+                    british=self.is_british, use_cli=self.use_cli
+                )
         return self._fallback
 
     @property

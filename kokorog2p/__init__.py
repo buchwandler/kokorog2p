@@ -116,6 +116,7 @@ def get_g2p(
     language: str = "en-us",
     use_espeak_fallback: bool = True,
     use_goruut_fallback: bool = False,
+    use_cli: bool = False,
     use_spacy: bool = True,
     backend: BackendType = "kokorog2p",
     load_silver: bool = True,
@@ -141,6 +142,8 @@ def get_g2p(
             backend is set to "goruut" (goruut is the primary backend).
         use_spacy: Whether to use spaCy for tokenization and POS tagging
             (only applies to English). Used by the "kokorog2p" backend.
+        use_cli: If True, force use of CLI espeak phonemizer instead of
+            library bindings. Only applies when backend="espeak".
         backend: Phonemization backend to use: "kokorog2p", "espeak", "goruut".
             The goruut backend requires pygoruut to be installed.
         load_silver: If True, load silver tier dictionary (~100k extra entries).
@@ -215,6 +218,7 @@ def get_g2p(
         lang,
         use_espeak_fallback,
         use_goruut_fallback,
+        use_cli,
         use_spacy,
         backend,
         load_silver,
@@ -239,7 +243,9 @@ def get_g2p(
         # Use espeak backend for all languages
         from kokorog2p.espeak_g2p import EspeakOnlyG2P
 
-        g2p = EspeakOnlyG2P(language=language, strict=strict, version=version, **kwargs)
+        g2p = EspeakOnlyG2P(
+            language=language, strict=strict, version=version, use_cli=use_cli, **kwargs
+        )
 
     elif lang.startswith("en"):
         from kokorog2p.en import EnglishG2P
@@ -248,6 +254,7 @@ def get_g2p(
             language=language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
+            use_cli=use_cli,
             use_spacy=use_spacy,
             load_silver=load_silver,
             load_gold=load_gold,
@@ -356,6 +363,7 @@ def phonemize(
     use_normalizer_rules: bool = True,
     use_espeak_fallback: bool = True,
     use_goruut_fallback: bool = False,
+    use_cli: bool = False,
     use_spacy: bool = True,
     backend: "BackendType" = "kokorog2p",
     g2p: "G2PBase | None" = None,
@@ -465,6 +473,7 @@ def phonemize(
             language=language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
+            use_cli=use_cli,
             use_spacy=use_spacy,
             backend=backend,
         )

@@ -11,28 +11,39 @@ import sys
 import pytest
 
 from kokorog2p.backends.espeak.api import EspeakLibrary
+from kokorog2p.backends.espeak.phonemizer_base import EspeakPhonemizerBase
+from kokorog2p.backends.espeak.voice import Voice
 
 
 @pytest.mark.espeak
 class TestEspeakBackend:
     """Tests for the EspeakBackend class."""
 
-    def test_creation(self, espeak_backend):
+    def test_creation(self, espeak_backend, espeak_backend_cli):
         """Test backend creation with default parameters."""
         assert espeak_backend.language == "en-us"
         assert espeak_backend.with_stress is True
         assert espeak_backend.tie == "^"
+        assert espeak_backend.use_cli is False
+        assert espeak_backend_cli.use_cli is True
+        assert espeak_backend_cli.tie == "^"
+        assert espeak_backend_cli.with_stress is True
+        assert espeak_backend_cli.language == "en-us"
 
     def test_is_british(self, espeak_backend, espeak_backend_gb):
         """Test British English detection."""
         assert espeak_backend.is_british is False
         assert espeak_backend_gb.is_british is True
 
-    def test_phonemize_word(self, espeak_backend):
+    def test_phonemize_word(self, espeak_backend, espeak_backend_cli):
         """Test converting a single word to phonemes."""
         result = espeak_backend.phonemize("hello")
+        result_cli = espeak_backend_cli.phonemize("hello")
         assert isinstance(result, str)
         assert len(result) > 0
+        assert isinstance(result_cli, str)
+        assert len(result_cli) > 0
+        assert result == result_cli
 
     def test_multiple_exclamation_marks(self, espeak_backend):
         """Test converting !!!."""
@@ -46,11 +57,13 @@ class TestEspeakBackend:
         assert isinstance(result, str)
         assert len(result) > 0
 
-    def test_phonemize_with_kokoro(self, espeak_backend):
+    def test_phonemize_with_kokoro(self, espeak_backend, espeak_backend_cli):
         """Test phonemization with Kokoro format conversion."""
         result = espeak_backend.phonemize("say", convert_to_kokoro=True)
+        result_cli = espeak_backend_cli.phonemize("say", convert_to_kokoro=True)
         assert isinstance(result, str)
         assert len(result) > 0
+        assert result == result_cli
 
     def test_phonemize_raw_ipa(self, espeak_backend):
         """Test phonemization without Kokoro conversion."""
@@ -72,12 +85,16 @@ class TestEspeakBackend:
         assert isinstance(result, str)
         assert "_" not in result
 
-    def test_version_string(self, espeak_backend):
+    def test_version_string(self, espeak_backend, espeak_backend_cli):
         """Test version string format."""
         version = espeak_backend.version
+        version_cli = espeak_backend_cli.version
         assert isinstance(version, str)
         parts = version.split(".")
         assert len(parts) >= 1
+        assert isinstance(version_cli, str)
+        parts_cli = version_cli.split(".")
+        assert len(parts_cli) >= 1
 
     def test_repr(self, espeak_backend):
         """Test string representation."""
@@ -200,6 +217,25 @@ class TestEspeakBackend:
         result = espeak_backend.remove_punctuation("")
         assert result == ""
 
+    def test_remove_punctuation_complex_sentence(self, espeak_backend):
+        """Test complex sentence with mixed punctuation."""
+        result = espeak_backend.remove_punctuation(
+            "Don't worry, 'they're' happy! What's up??"
+        )
+        assert "Don't" in result
+        assert "they're" in result
+        assert "What's" in result
+        assert "," in result
+        assert "!" in result
+        assert result.count("?") == 1  # Only one ?
+        # Contraction apostrophes present (don't / they're / what's)
+        assert "'" in result
+
+    def test_remove_punctuation_hyphen_compound_words(self, espeak_backend):
+        """Test hyphens in compound words are preserved."""
+        result = espeak_backend.remove_punctuation("state-of-the-art technology")
+        assert result == "state-of-the-art technology"
+
 
 def test_text_to_phonemes_no_progress_guard():
     """EspeakLibrary should stop when pointer does not advance."""
@@ -222,23 +258,67 @@ def test_text_to_phonemes_no_progress_guard():
     assert result == "a"
     assert dummy.calls == 1
 
-    def test_remove_punctuation_complex_sentence(self, espeak_backend):
-        """Test complex sentence with mixed punctuation."""
-        result = espeak_backend.remove_punctuation(
-            "Don't worry, 'they're' happy! What's up??"
-        )
-        assert "Don't" in result
-        assert "they're" in result
-        assert "What's" in result
-        assert "," in result
-        assert "!" in result
-        assert result.count("?") == 1  # Only one ?
-        assert "'" in result  # Contraction apostrophes present
 
-    def test_remove_punctuation_hyphen_compound_words(self, espeak_backend):
-        """Test hyphens in compound words are preserved."""
-        result = espeak_backend.remove_punctuation("state-of-the-art technology")
-        assert result == "state-of-the-art technology"
+class _DummyBase(EspeakPhonemizerBase):
+    """Minimal concrete subclass to unit-test EspeakPhonemizerBase helpers."""
+
+    def __init__(self, voices: list[Voice]) -> None:
+        super().__init__()
+        self._voices = voices
+
+    @property
+    def version(self) -> tuple[int, ...]:
+        return (1, 52, 0)
+
+    def set_voice(self, language: str) -> None:
+        raise NotImplementedError
+
+    def phonemize(self, text: str, use_tie: bool = False) -> str:
+        raise NotImplementedError
+
+    def list_voices(self, filter_name: str | None = None) -> list[Voice]:
+        return list(self._voices)
+
+
+class TestPhonemizerBaseHelpers:
+    """Pure unit tests for shared helper logic (no espeak install required)."""
+
+    def test_parse_version_string_strips_dev_suffix(self):
+        assert EspeakPhonemizerBase._parse_version_string("1.51.1-dev") == (1, 51, 1)
+        assert EspeakPhonemizerBase._parse_version_string("1.51.1-dev foo") == (
+            1,
+            51,
+            1,
+        )
+        assert EspeakPhonemizerBase._parse_version_string("1.50") == (1, 50)
+
+    def test_parse_version_output_extracts_data_path(self):
+        text = "eSpeak NG text-to-speech: 1.50  Data at: /usr/lib/espeak-ng-data\n"
+        ver, data = EspeakPhonemizerBase._parse_version_output(text)
+        assert ver == (1, 50)
+        assert data is not None
+        assert str(data).endswith("/usr/lib/espeak-ng-data")
+
+    def test_resolve_voice_regular_prefers_first_identifier_per_language(self):
+        voices = [
+            Voice(name="A", language="en-us", identifier="en-us"),
+            Voice(
+                name="B", language="en-us", identifier="en-us-variant"
+            ),  # should be ignored
+            Voice(name="C", language="en-gb", identifier="en-gb"),
+        ]
+        d = _DummyBase(voices)
+        identifier, chosen = d._resolve_voice("en-us")
+        assert identifier == "en-us"
+        assert chosen.language == "en-us"
+        assert chosen.identifier == "en-us"
+
+    def test_resolve_voice_raises_on_invalid(self):
+        d = _DummyBase([Voice(language="en-us", identifier="en-us")])
+        with pytest.raises(RuntimeError):
+            d._resolve_voice("")
+        with pytest.raises(RuntimeError):
+            d._resolve_voice("xx-zz-not-a-lang")
 
 
 @pytest.mark.espeak
@@ -262,7 +342,7 @@ class TestPhonemizer:
         if not has_espeak:
             pytest.skip("espeak not available")
 
-        from kokorog2p.backends.espeak import Phonemizer
+        from kokorog2p.backends.espeak import CliPhonemizer, Phonemizer
 
         p = Phonemizer()
         p.set_voice("en-us")
@@ -270,17 +350,28 @@ class TestPhonemizer:
         result = p.phonemize("hello")
         assert isinstance(result, str)
         assert len(result) > 0
+        p2 = CliPhonemizer()
+        p2.set_voice("en-us")
+
+        result2 = p2.phonemize("hello")
+        assert isinstance(result2, str)
+        assert len(result2) > 0
+        assert result == result2
 
     def test_set_voice(self, has_espeak):
         """Test voice selection."""
         if not has_espeak:
             pytest.skip("espeak not available")
 
-        from kokorog2p.backends.espeak import Phonemizer
+        from kokorog2p.backends.espeak import CliPhonemizer, Phonemizer
 
         p = Phonemizer()
         p.set_voice("en-us")
         p.set_voice("en-gb")
+        p2 = CliPhonemizer()
+        p2.set_voice("en-us")
+        p2.set_voice("en-gb")
+        assert p.phonemize("hello") == p2.phonemize("hello")
 
 
 @pytest.mark.espeak
@@ -435,16 +526,19 @@ class TestMultipleInstances:
         if not has_espeak:
             pytest.skip("espeak not available")
 
-        from kokorog2p.backends.espeak import Phonemizer
+        from kokorog2p.backends.espeak import CliPhonemizer, Phonemizer
 
         p1 = Phonemizer()
         p2 = Phonemizer()
+        p3 = CliPhonemizer()
 
         p1.set_voice("fr-fr")
         p2.set_voice("en-us")
+        p3.set_voice("de")
 
         assert p1.voice.language == "fr-fr"
         assert p2.voice.language == "en-us"
+        assert p3.voice.language == "de"
 
 
 @pytest.mark.espeak
@@ -456,9 +550,12 @@ class TestLibraryInfo:
         if not has_espeak:
             pytest.skip("espeak not available")
 
-        from kokorog2p.backends.espeak import Phonemizer
+        from kokorog2p.backends.espeak import CliPhonemizer, Phonemizer
 
         p = Phonemizer()
+        assert p.version >= (1, 48)
+        assert all(isinstance(v, int) for v in p.version)
+        p = CliPhonemizer()
         assert p.version >= (1, 48)
         assert all(isinstance(v, int) for v in p.version)
 
@@ -493,9 +590,14 @@ class TestTieCharacter:
         if not has_espeak:
             pytest.skip("espeak not available")
 
-        from kokorog2p.backends.espeak import Phonemizer
+        from kokorog2p.backends.espeak import CliPhonemizer, Phonemizer
 
         p = Phonemizer()
+        p.set_voice("en-us")
+
+        result = p.phonemize("Jackie", use_tie=False)
+        assert "_" in result
+        p = CliPhonemizer()
         p.set_voice("en-us")
 
         result = p.phonemize("Jackie", use_tie=False)
@@ -506,9 +608,15 @@ class TestTieCharacter:
         if not has_espeak:
             pytest.skip("espeak not available")
 
-        from kokorog2p.backends.espeak import Phonemizer
+        from kokorog2p.backends.espeak import CliPhonemizer, Phonemizer
 
         p = Phonemizer()
+        p.set_voice("en-us")
+
+        if p.version >= (1, 49):
+            result = p.phonemize("Jackie", use_tie=True)
+            assert "͡" in result or "_" not in result
+        p = CliPhonemizer()
         p.set_voice("en-us")
 
         if p.version >= (1, 49):

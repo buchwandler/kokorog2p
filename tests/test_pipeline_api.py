@@ -30,6 +30,23 @@ class TestPhonemizeToResult:
         result = phonemize(text)
         assert result.phonemes == "bˌʌt ˈIdəv lˈɪsᵊnd ɪf jˈudəv ɡˈɪvən mˌi ɐ ʧˈæns…"
 
+    @pytest.mark.espeak
+    def test_span_alignment_espeak_spaced_ellipsis(self):
+        """Ensure espeak span alignment doesn't duplicate words on ellipsis."""
+        pytest.importorskip("espeakng_loader")
+
+        text = "Hello . . . world!"
+        result = phonemize(text, alignment="span", language="en-us", backend="espeak")
+
+        assert result.clean_text == "Hello…world!"
+        assert result.phonemes is not None
+        assert result.phonemes.count("wˈɜɹld") == 1
+        assert "…" in result.phonemes
+
+        ellipsis_tokens = [t for t in result.tokens if t.text == "…"]
+        assert len(ellipsis_tokens) == 1
+        assert not ellipsis_tokens[0].meta.get("_drop")
+
     def test_with_phoneme_override(self):
         """Test phonemization with phoneme override."""
         overrides = [OverrideSpan(0, 5, {"ph": "hɛˈloʊ"})]

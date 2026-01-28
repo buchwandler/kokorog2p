@@ -45,6 +45,15 @@ def espeak_backend():
 
 
 @pytest.fixture
+def espeak_backend_cli():
+    """Create an EspeakBackend instance for testing."""
+    pytest.importorskip("espeakng_loader")
+    from kokorog2p.backends.espeak import EspeakBackend
+
+    return EspeakBackend(language="en-us", use_cli=True)
+
+
+@pytest.fixture
 def espeak_backend_gb():
     """Create a British EspeakBackend instance for testing."""
     pytest.importorskip("espeakng_loader")
