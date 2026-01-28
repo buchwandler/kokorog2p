@@ -150,14 +150,14 @@ def normalize_to_kokoro(phonemes: str) -> str:
         return phonemes
 
     # Replace affricates with tie bars with precomposed versions
-    phonemes = phonemes.replace("t͡s", "ʦ")  # U+02A6
-    phonemes = phonemes.replace("t^s", "ʦ")  # U+02A6
-    phonemes = phonemes.replace("t͡ʃ", "ʧ")  # U+02A7
-    phonemes = phonemes.replace("t^ʃ", "ʧ")  # U+02A7
-    phonemes = phonemes.replace("d͡ʒ", "ʤ")  # U+02A4
-    phonemes = phonemes.replace("d^ʒ", "ʤ")  # U+02A4
-    phonemes = phonemes.replace("p͡f", "pf")  # No precomposed, use sequence
-    phonemes = phonemes.replace("p^f", "pf")  # No precomposed, use sequence
+    # phonemes = phonemes.replace("t͡s", "ʦ")  # U+02A6
+    # phonemes = phonemes.replace("t^s", "ʦ")  # U+02A6
+    # phonemes = phonemes.replace("t͡ʃ", "ʧ")  # U+02A7
+    # phonemes = phonemes.replace("t^ʃ", "ʧ")  # U+02A7
+    # phonemes = phonemes.replace("d͡ʒ", "ʤ")  # U+02A4
+    # phonemes = phonemes.replace("d^ʒ", "ʤ")  # U+02A4
+    # phonemes = phonemes.replace("p͡f", "pf")  # No precomposed, use sequence
+    # phonemes = phonemes.replace("p^f", "pf")  # No precomposed, use sequence
 
     # Remove non-syllabic markers from diphthongs (U+032F)
     # The diphthongs work without this marker in Kokoro
@@ -318,19 +318,19 @@ class GermanG2P(G2PBase):
                         token.phonemes = normalize_to_kokoro(phonemes)
                         token.set("rating", 5)  # Dictionary lookup = highest rating
 
+                # Fallback to espeak or goruut
+                if not phonemes and self._fallback:
+                    phonemes, rating = self._fallback(word)
+                    if phonemes:
+                        token.phonemes = phonemes
+                        token.set("rating", 3)  # Fallback
+
                 # Fallback to rules
                 if not phonemes:
                     phonemes = self._word_to_phonemes(word)
                     if phonemes:
                         token.phonemes = normalize_to_kokoro(phonemes)
-                        token.set("rating", 3)  # Rule-based
-
-                # Fallback to espeak or goruut
-                if not phonemes and self._fallback:
-                    fallback_phonemes, rating = self._fallback(word)
-                    if fallback_phonemes:
-                        token.phonemes = fallback_phonemes
-                        token.set("rating", 2)  # Fallback
+                        token.set("rating", 2)  # Rule-based
 
                 if not phonemes:
                     token.phonemes = "?"
@@ -643,7 +643,7 @@ class GermanG2P(G2PBase):
         """
         if self._lexicon:
             return self._lexicon.lookup(word)
-        return self._word_to_phonemes(word)
+        return None
 
     def phonemize(self, text: str) -> str:
         """Convert text to a phoneme string.
