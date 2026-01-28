@@ -48,7 +48,6 @@ class FallbackBase(ABC, Generic[B]):
         self.use_cli = use_cli
         self._backend: B | None = None
 
-
     @property
     def backend(self) -> B:
         """Lazily initialize the backend."""
@@ -128,4 +127,3 @@ class FallbackBase(ABC, Generic[B]):
         if not raw:
             return ""
         return self._postprocess_text(raw)
-
