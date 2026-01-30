@@ -442,23 +442,39 @@ class Lexicon:
         ctx: TokenContext | None,
     ) -> tuple[str | None, int | None]:
         """Handle -s suffix."""
+        # Avoid false-positive stemming on proper nouns like "Los"/"Angeles".
+        # Allow possessive "'s" even on proper nouns.
+        is_possessive = word.endswith("'s")
+
+        # If we have POS info, skip stemming for proper nouns (except possessive).
+        if tag in {"NNP", "PROPN"} and not is_possessive:
+            return (None, None)
+
+        # If POS is unknown, be conservative: don't stem capitalized tokens
+        # (except possessive "'s").
+        if tag is None and not word.islower() and not is_possessive:
+            return (None, None)
+
         if len(word) < 3 or not word.endswith("s"):
             return (None, None)
-        if not word.endswith("ss") and self.is_known(word[:-1], tag):
-            stem = word[:-1]
-        elif (
-            word.endswith("'s")
-            or (len(word) > 4 and word.endswith("es") and not word.endswith("ies"))
-        ) and self.is_known(word[:-2], tag):
-            stem = word[:-2]
-        elif (
+
+        # Prefer specific suffixes first to reduce accidental matches.
+        if (
             len(word) > 4
             and word.endswith("ies")
             and self.is_known(word[:-3] + "y", tag)
         ):
             stem = word[:-3] + "y"
+        elif (
+            is_possessive
+            or (len(word) > 4 and word.endswith("es") and not word.endswith("ies"))
+        ) and self.is_known(word[:-2], tag):
+            stem = word[:-2]
+        elif not word.endswith("ss") and self.is_known(word[:-1], tag):
+            stem = word[:-1]
         else:
             return (None, None)
+
         stem_ps, rating = self.lookup(stem, tag, stress, ctx)
         return (self._s(stem_ps), rating)
 

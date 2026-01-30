@@ -128,6 +128,16 @@ class TestFromEspeak:
         result = from_espeak("ə^ʊ", british=True)
         assert "Q" in result
 
+    def test_us_word_conversion(self):
+        """Test US word conversion."""
+        result = from_espeak("mˈɜːt^ʃəntʃˌɪp", british=False)
+        assert result == "mˈɜɹʧəntʃˌɪp"
+
+    def test_gb_word_conversion(self):
+        """Test US word conversion."""
+        result = from_espeak("mˈɜːt^ʃəntʃˌɪp", british=True)
+        assert result == "mˈɜːʧəntʃˌɪp"
+
 
 class TestToEspeak:
     """Tests for Kokoro to espeak conversion."""

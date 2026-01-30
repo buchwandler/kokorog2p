@@ -110,7 +110,7 @@ class TestBenchmarkWrapperSpacing:
         if str(benchmark_path) not in sys.path:
             sys.path.insert(0, str(benchmark_path))
 
-        from benchmark_misaki_comparison import KokoroG2PWrapper
+        from benchmark_en_misaki import KokoroG2PWrapper
 
         return KokoroG2PWrapper("en-us")
 

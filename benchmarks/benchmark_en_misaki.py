@@ -12,10 +12,11 @@ The benchmark uses the existing synthetic test data to ensure fair comparison
 on the same input texts.
 
 Usage:
-    python benchmark_misaki_comparison.py
-    python benchmark_misaki_comparison.py --num-tests 1000
-    python benchmark_misaki_comparison.py --output results.json
-    python benchmark_misaki_comparison.py --verbose
+    python benchmark_en_misaki.py
+    python benchmark_en_misaki.py --num-tests 1000
+    python benchmark_en_misaki.py --output results.json
+    python benchmark_en_misaki.py --verbose
+    python benchmark_en_misaki.py --simple
 """
 
 import gc
@@ -24,7 +25,7 @@ import sys
 import time
 import traceback
 import tracemalloc
-from collections import Counter
+from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -68,8 +69,8 @@ class PhonemeAnalysis:
     total_phonemes_misaki: int
     phoneme_differences: dict[str, int]  # phoneme -> count of differences
     common_substitutions: list[
-        tuple[str, str, int]
-    ]  # (kokoro_phoneme, misaki_phoneme, count)
+        tuple[str, str, int, set[str]]
+    ]  # (kokoro_phoneme, misaki_phoneme, count, words)
     length_distribution: dict[str, int]  # "same", "kokoro_longer", "misaki_longer"
 
     def to_dict(self):
@@ -78,8 +79,8 @@ class PhonemeAnalysis:
             "total_phonemes_misaki": self.total_phonemes_misaki,
             "phoneme_differences": self.phoneme_differences,
             "common_substitutions": [
-                {"kokoro": k, "misaki": m, "count": c}
-                for k, m, c in self.common_substitutions[:20]
+                {"kokoro": k, "misaki": m, "count": c, "words": sorted(words)}
+                for k, m, c, words in self.common_substitutions[:20]
             ],
             "length_distribution": self.length_distribution,
         }
@@ -239,6 +240,7 @@ class MisakiComparisonBenchmark:
         num_tests: int = 1000,
         seed: int = 42,
         verbose: bool = False,
+        simple: bool = False,
     ):
         """Initialize benchmark.
 
@@ -252,17 +254,57 @@ class MisakiComparisonBenchmark:
         self.num_tests = num_tests
         self.seed = seed
         self.verbose = verbose
+        self.simple = simple
 
         # Generate test sentences
         print(f"Generating {num_tests} random test sentences...")
-        self.generator = SentenceGenerator(seed=seed)
-        self.test_cases = self.generator.generate_batch(num_tests)
+        self.generator = SentenceGenerator(seed=seed, language=language)
+        self.test_cases = self.generator.generate_batch(num_tests, simple=simple)
         self.test_texts = [tc.text for tc in self.test_cases]
 
         # Count words
         self.total_words = sum(len(text.split()) for text in self.test_texts)
 
         print(f"Generated {len(self.test_texts)} sentences ({self.total_words} words)")
+
+    @staticmethod
+    def _is_word_like(text: str) -> bool:
+        return any(ch.isalnum() for ch in text)
+
+    def _build_clean_phonemes_and_word_map(
+        self, tokens: list[Any]
+    ) -> tuple[str, list[str]]:
+        result = []
+        word_map = []
+
+        for token in tokens:
+            phonemes = getattr(token, "phonemes", "")
+            if not phonemes or phonemes == "❓":
+                continue
+
+            result.append(phonemes)
+
+            token_text = getattr(token, "text", "")
+            if token_text is None:
+                token_text = ""
+            token_text = token_text.strip().lower()
+
+            token_phonemes = phonemes.split()
+            word_map.extend([token_text] * len(token_phonemes))
+
+            if getattr(token, "whitespace", ""):
+                result.append(" ")
+
+        return "".join(result).strip(), word_map
+
+    def _get_word_for_phoneme_index(
+        self, word_map: list[str], index: int
+    ) -> str | None:
+        if 0 <= index < len(word_map):
+            word = word_map[index]
+            if word and self._is_word_like(word):
+                return word
+        return None
 
     def benchmark_library(
         self, wrapper_class, library_name: str
@@ -306,6 +348,7 @@ class MisakiComparisonBenchmark:
         start_time = time.time()
         phoneme_outputs = []
         phoneme_outputs_clean = []
+        phoneme_word_maps = []
         successful = 0
         failed = 0
         errors = []
@@ -319,11 +362,20 @@ class MisakiComparisonBenchmark:
                 phoneme_outputs.append(phonemes)
 
                 # Get clean version for kokorog2p
-                if hasattr(wrapper, "phonemize_clean"):
-                    clean_phonemes = wrapper.phonemize_clean(text)
+                if library_name == "kokorog2p":
+                    clean_phonemes, word_map = self._build_clean_phonemes_and_word_map(
+                        tokens
+                    )
                 else:
-                    clean_phonemes = phonemes  # For misaki, use as-is
+                    if hasattr(wrapper, "phonemize_clean"):
+                        clean_phonemes = wrapper.phonemize_clean(text)
+                    else:
+                        clean_phonemes = phonemes  # For misaki, use as-is
+                    word_map = []
                 phoneme_outputs_clean.append(clean_phonemes)
+
+                if library_name == "kokorog2p":
+                    phoneme_word_maps.append(word_map)
 
                 successful += 1
 
@@ -335,6 +387,8 @@ class MisakiComparisonBenchmark:
             except Exception as e:
                 phoneme_outputs.append("")
                 phoneme_outputs_clean.append("")
+                if library_name == "kokorog2p":
+                    phoneme_word_maps.append([])
                 failed += 1
                 if len(errors) < 10:  # Keep first 10 errors
                     errors.append(
@@ -387,6 +441,9 @@ class MisakiComparisonBenchmark:
         if failed > 0:
             print(f"  Failed: {failed}")
 
+        if library_name == "kokorog2p":
+            self.kokoro_phoneme_word_maps = phoneme_word_maps
+
         return result, phoneme_outputs, phoneme_outputs_clean
 
     def compare_outputs(
@@ -410,11 +467,14 @@ class MisakiComparisonBenchmark:
         phoneme_counter_kokoro = Counter()
         phoneme_counter_misaki = Counter()
         substitutions = Counter()  # (kokoro_phoneme, misaki_phoneme) pairs
+        substitution_words: dict[tuple[str, str], set[str]] = defaultdict(set)
         length_dist = {"same": 0, "kokoro_longer": 0, "misaki_longer": 0}
+        word_maps = getattr(self, "kokoro_phoneme_word_maps", [])
 
         for i, (text, kokoro, misaki) in enumerate(
             zip(self.test_texts, kokoro_outputs, misaki_outputs, strict=False)
         ):
+            word_map = word_maps[i] if i < len(word_maps) else []
             if kokoro == misaki:
                 agreements += 1
             else:
@@ -450,9 +510,14 @@ class MisakiComparisonBenchmark:
 
             # Track substitutions (align by position for same-length outputs)
             if len(kokoro_phonemes) == len(misaki_phonemes):
-                for k_ph, m_ph in zip(kokoro_phonemes, misaki_phonemes, strict=False):
+                for idx, (k_ph, m_ph) in enumerate(
+                    zip(kokoro_phonemes, misaki_phonemes, strict=False)
+                ):
                     if k_ph != m_ph:
                         substitutions[(k_ph, m_ph)] += 1
+                        word = self._get_word_for_phoneme_index(word_map, idx)
+                        if word:
+                            substitution_words[(k_ph, m_ph)].add(word)
 
         agreement_rate = (
             (agreements / len(self.test_texts)) * 100 if self.test_texts else 0
@@ -470,8 +535,11 @@ class MisakiComparisonBenchmark:
             if diff != 0:
                 phoneme_diffs[phoneme] = diff
 
-        # Get top substitutions
-        common_subs = [(k, m, count) for (k, m), count in substitutions.most_common(20)]
+        # Get top substitutions with words
+        common_subs = [
+            (k, m, count, substitution_words.get((k, m), set()))
+            for (k, m), count in substitutions.most_common(20)
+        ]
 
         phoneme_analysis = PhonemeAnalysis(
             total_phonemes_kokoro=total_phonemes_kokoro,
@@ -496,6 +564,7 @@ class MisakiComparisonBenchmark:
         print(f"Total Tests: {self.num_tests}")
         print(f"Total Words: {self.total_words}")
         print(f"Seed: {self.seed}")
+        print(f"Simple mode: {self.simple}")
         print(f"{'=' * 70}\n")
 
         # Benchmark kokorog2p
@@ -527,10 +596,15 @@ class MisakiComparisonBenchmark:
             print(f"    {key}: {count}")
         if phoneme_analysis.common_substitutions:
             print("  Top 5 phoneme substitutions:")
-            for kokoro_ph, misaki_ph, count in phoneme_analysis.common_substitutions[
-                :5
-            ]:
+            for (
+                kokoro_ph,
+                misaki_ph,
+                count,
+                words,
+            ) in phoneme_analysis.common_substitutions[:5]:
                 print(f"    '{kokoro_ph}' ↔ '{misaki_ph}': {count} times")
+                if words:
+                    print(f"      Words: {', '.join(sorted(words))}")
 
         # Calculate comparison metrics
         speedup_factor = (
@@ -612,13 +686,15 @@ class MisakiComparisonBenchmark:
 
         if pa.common_substitutions:
             print("\n  Top 10 Phoneme Substitutions:")
-            for i, (kokoro_ph, misaki_ph, count) in enumerate(
+            for i, (kokoro_ph, misaki_ph, count, words) in enumerate(
                 pa.common_substitutions[:10], 1
             ):
                 print(
                     f"    {i}. '{kokoro_ph}' (kokoro) ↔ "
                     f"'{misaki_ph}' (misaki): {count} times"
                 )
+                if words:
+                    print(f"       Words: {', '.join(sorted(words))}")
 
         if result.differences:
             print("\n  Sample Differences (first 20):")
@@ -678,6 +754,12 @@ def main():
     parser.add_argument(
         "--verbose", action="store_true", help="Print detailed progress"
     )
+    parser.add_argument(
+        "--simple",
+        action="store_true",
+        help="Use simple sentences only (no numbers, abbreviations, "
+        " quotes, or variants)",
+    )
 
     args = parser.parse_args()
 
@@ -687,6 +769,7 @@ def main():
         num_tests=args.num_tests,
         seed=args.seed,
         verbose=args.verbose,
+        simple=args.simple,
     )
 
     result = benchmark.run()

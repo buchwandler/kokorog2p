@@ -14,6 +14,8 @@ import random
 import time
 from dataclasses import dataclass, field
 
+from benchmarks.random_sentence_generator import SentenceGenerator
+
 
 @dataclass
 class BenchmarkResult:
@@ -361,6 +363,8 @@ def run_all_benchmarks(
 
     g2p = FrenchG2P(use_spacy=use_spacy, use_espeak_fallback=True)
 
+    generator = SentenceGenerator(seed=seed, language="fr")
+
     print("\nRunning benchmarks...\n")
 
     # Benchmark 1: Accuracy vs Gold Dictionary
@@ -378,7 +382,9 @@ def run_all_benchmarks(
                 print(f"  {word}: {expected} -> {got}")
 
     # Benchmark 2: G2P Throughput
-    sample_words = random.sample(list(gold.keys()), min(sample_size, len(gold)))
+    word_pool = generator.words_data["base_words"]
+    sample_words = (word_pool * (sample_size // len(word_pool) + 1))[:sample_size]
+    random.shuffle(sample_words)
     result = benchmark_throughput(
         g2p,
         sample_words,
@@ -414,18 +420,8 @@ def run_all_benchmarks(
             print(f"  {word} -> {phonemes}")
 
     # Benchmark 5: Sentence throughput
-    sample_sentences = [
-        "Bonjour, comment allez-vous?",
-        "C'était une belle journée d'été.",
-        "Il fait beau aujourd'hui.",
-        "J'aime le café au lait.",
-        "Le commissaire Dupont arriva à 14h30.",
-        "M. Martin et Mme Dubois sont là.",
-        "Elle savait qu'il faisait attention.",
-        "Ses mains tremblaient de froid.",
-        "Le train partira demain matin.",
-        "La France est un beau pays.",
-    ] * 100  # 1000 sentences
+    sentence_cases = generator.generate_batch(total=1000, simple=True)
+    sample_sentences = [tc.text for tc in sentence_cases]
 
     result = benchmark_sentence_throughput(
         g2p,

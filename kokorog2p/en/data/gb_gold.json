@@ -66252,6 +66252,7 @@
   "read": {
     "ADJ": "ɹˈɛd",
     "DEFAULT": "ɹˈiːd",
+    "VBP": "ɹˈiːd",
     "VBD": "ɹˈɛd",
     "VBN": "ɹˈɛd"
   },
@@ -68044,6 +68045,7 @@
   "reread": {
     "DEFAULT": "ɹiːɹˈiːd",
     "NOUN": "ɹˈiːɹiːd",
+    "VBP": "ɹiːɹˈiːd",
     "VBD": "ɹiːɹˈɛd",
     "VBN": "ɹiːɹˈɛd"
   },
@@ -89067,6 +89069,7 @@
   },
   "wound": {
     "DEFAULT": "wˈuːnd",
+    "VBP": "wˈuːnd",
     "VBD": "wˈWnd",
     "VBN": "wˈWnd"
   },

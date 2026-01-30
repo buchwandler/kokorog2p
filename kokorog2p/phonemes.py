@@ -166,6 +166,8 @@ _ESPEAK_MAPPINGS: Final[dict[str, str]] = {
     # Palatalization (remove, except before O/Q)
     "ʲO": "jO",
     "ʲQ": "jQ",
+    "ʲo": "jo",
+    "ʲə": "jə",
     "ʲ": "",
 }
 
@@ -276,6 +278,7 @@ def from_espeak(phonemes: str, british: bool = False) -> str:
         result = result.replace("ɪə", "iə")
         result = result.replace("ː", "")
 
+    # ps = ps.replace('o', 'ɔ') # for espeak < 1.52
     # Remove tie characters (both Unicode and ASCII)
     result = result.replace("͡", "").replace("^", "")
 

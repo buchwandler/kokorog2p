@@ -7,225 +7,15 @@ Generates test sentences covering:
 - Numbers (cardinals, ordinals, decimals, fractions)
 """
 
+import json
 import random
+import string
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
-CONTRACTIONS = [
-    "don't",
-    "can't",
-    "won't",
-    "I'm",
-    "we're",
-    "they're",
-    "you're",
-    "she's",
-    "he's",
-    "it's",
-    "that's",
-    "what's",
-    "who's",
-    "there's",
-    "isn't",
-    "aren't",
-    "wasn't",
-    "weren't",
-    "hasn't",
-    "haven't",
-    "hadn't",
-    "doesn't",
-    "didn't",
-    "wouldn't",
-    "shouldn't",
-    "couldn't",
-    "I've",
-    "we've",
-    "you've",
-    "they've",
-    "I'd",
-    "we'd",
-    "you'd",
-    "they'd",
-    "he'd",
-    "she'd",
-    "I'll",
-    "we'll",
-    "you'll",
-    "they'll",
-    "he'll",
-    "she'll",
-    "it'll",
-    "that'll",
-]
-
-INFORMAL_CONTRACTIONS = [
-    "gonna",
-    "wanna",
-    "gotta",
-    "kinda",
-    "sorta",
-    "outta",
-    "lemme",
-    "gimme",
-    "dunno",
-    "hafta",
-    "lotsa",
-]
-
-APOSTROPHES = {
-    "standard": "'",
-    "right_quote": "’",
-    "left_quote": "‘",
-    "grave": "`",
-    "acute": "´",
-    "modifier": "ʹ",
-    "prime": "′",
-    "fullwidth": "＇",
-}
-
-QUOTE_PAIRS = {
-    "ascii_double": ('"', '"'),
-    "curly_double": ("\u201c", "\u201d"),
-    "curly_single": ("\u2018", "\u2019"),
-    "guillemets": ("«", "»"),
-    "single_low_high": ("\u201a", "\u2019"),
-    "double_low_high": ("\u201e", "\u201d"),
-    "asian_corner": ("「", "」"),
-    "fullwidth": ("＂", "＂"),
-    "prime_double": ("″", "″"),
-}
-
-PUNCTUATION = [";", ":", ",", ".", "!", "?", "—", "…"]
-
-PUNCTUATION_VARIANTS = {
-    "ellipsis_dots": "...",
-    "ellipsis_spaced": ". . .",
-    "ellipsis_four": "....",
-    "ellipsis_two": "..",
-    "ellipsis_char": "…",
-    "hyphen": "-",
-    "en_dash": "–",
-    "em_dash": "—",
-    "double_hyphen": "--",
-    "horizontal_bar": "―",
-    "figure_dash": "‒",
-    "minus_sign": "−",
-    "double_exclaim": "!!",
-    "triple_exclaim": "!!!",
-    "double_question": "??",
-    "interrobang": "?!",
-    "reverse_interrobang": "!?",
-}
-
-# Dash variants - all should normalize to em dash in vocab
-DASH_VARIANTS = {
-    "hyphen": "-",  # U+002D (hyphen-minus)
-    "en_dash": "–",  # U+2013
-    "em_dash": "—",  # U+2014
-    "double_hyphen": "--",  # Two hyphens (common in typing)
-    "horizontal_bar": "―",  # U+2015
-    "figure_dash": "‒",  # U+2012
-    "minus_sign": "−",  # U+2212
-}
-
-BASE_WORDS = [
-    "hello",
-    "world",
-    "test",
-    "example",
-    "simple",
-    "word",
-    "great",
-    "quick",
-    "brown",
-    "fox",
-    "jumps",
-    "over",
-    "lazy",
-    "dog",
-    "the",
-    "and",
-    "but",
-    "or",
-    "so",
-    "yet",
-    "for",
-    "nor",
-    "said",
-    "asked",
-    "replied",
-    "think",
-    "know",
-    "see",
-    "go",
-    "come",
-    "take",
-    "make",
-    "get",
-    "give",
-    "tell",
-    "work",
-    "call",
-    "try",
-    "feel",
-    "leave",
-    "put",
-    "mean",
-    "keep",
-    "let",
-    "begin",
-    "seem",
-    "help",
-    "show",
-    "hear",
-    "play",
-    "run",
-    "move",
-    "like",
-    "live",
-    "believe",
-    "bring",
-    "write",
-]
-
-# Abbreviations (from kokorog2p/en/abbreviations.py)
-ABBREVIATIONS: dict[str, list[str]] = {
-    "titles": ["Mr.", "Mrs.", "Ms.", "Dr.", "Prof.", "Rev."],
-    "places": ["St.", "Ave.", "Rd.", "Blvd.", "Ln.", "Ct."],
-    "days": ["Mon.", "Tue.", "Wed.", "Thu.", "Fri.", "Sat.", "Sun."],
-    "months": [
-        "Jan.",
-        "Feb.",
-        "Mar.",
-        "Apr.",
-        "Jun.",
-        "Jul.",
-        "Aug.",
-        "Sep.",
-        "Oct.",
-        "Nov.",
-        "Dec.",
-    ],
-    "time": ["A.M.", "P.M.", "EST", "PST", "GMT"],
-    "academic": ["Ph.D.", "M.D.", "B.A.", "M.A.", "B.S.", "M.S."],
-    "common": ["etc.", "vs.", "e.g.", "i.e.", "no.", "vol.", "pg.", "approx."],
-    "measurements": ["in.", "ft.", "mi.", "oz.", "lb.", "gal."],
-    "directional": ["N.", "S.", "E.", "W.", "NE.", "NW.", "SE.", "SW."],
-}
-
-# Number formats to test
-NUMBER_FORMATS: dict[str, list[str | int]] = {
-    "cardinal": [0, 1, 5, 10, 42, 100, 1000, 2024],
-    "ordinal_suffix": ["1st", "2nd", "3rd", "4th", "21st", "42nd", "100th"],
-    "decimal": ["3.14", "0.5", "99.99", "1.0"],
-    "percentage": ["50%", "100%", "33.3%", "0.1%"],
-    "fraction": ["1/2", "3/4", "2/3", "1/4"],
-    "currency": ["$5", "$1.99", "$1000", "$0.99"],
-    "year": [1984, 2000, 2024, 1776],
-    "phone": ["555-1234", "555-0100"],
-    "time": ["3:00", "12:30", "9:45"],
-}
+DEFAULT_WORDS_PATH = Path(__file__).parent / "data" / "en_us_words.json"
 
 
 @dataclass
@@ -240,21 +30,157 @@ class SentenceGenerator:
     def __init__(
         self,
         seed: int = 42,
+        language: str = "en",
         g2p: Callable[[str], list[Any]] | None = None,
+        words_path: str | Path | None = None,
     ) -> None:
         self.rng = random.Random(seed)
+        self.language = language
         self.g2p = g2p
+        self.words_path = self._resolve_words_path(language, words_path)
+        self.words_data = self._load_words_data(self.words_path)
+
+    @staticmethod
+    def _resolve_words_path(language: str, words_path: str | Path | None) -> Path:
+        if words_path:
+            return Path(words_path)
+        normalized = (language or "en").lower()
+        if normalized in {"en", "en-us", "en_us"}:
+            base = "en_us"
+        elif normalized in {"en-gb", "en_gb"}:
+            base = "en_gb"
+        else:
+            base = normalized.split("-")[0]
+        candidate = Path(__file__).parent / "data" / f"{base}_words.json"
+        if candidate.exists():
+            return candidate
+        raise FileNotFoundError(
+            f"No words file for language '{language}' at {candidate}"
+        )
+
+    def _load_words_data(self, words_path: Path) -> dict[str, Any]:
+        with open(words_path, encoding="utf-8") as handle:
+            data = json.load(handle)
+        self._validate_words_data(data, words_path)
+        return data
+
+    @staticmethod
+    def _validate_words_data(data: dict[str, Any], words_path: Path) -> None:
+        required_lists = [
+            "templates",
+            "subjects_base",
+            "subjects_3s",
+            "verbs_base",
+            "verbs_3s",
+            "objects",
+            "places",
+            "times",
+            "adverbs",
+            "aux_base",
+            "base_words",
+            "punctuation",
+            "contractions",
+            "informal_contractions",
+        ]
+        required_dicts = [
+            "apostrophes",
+            "quote_pairs",
+            "punctuation_variants",
+            "dash_variants",
+            "abbreviations",
+            "number_formats",
+        ]
+        missing_lists = [
+            key
+            for key in required_lists
+            if key not in data or not isinstance(data[key], list) or not data[key]
+        ]
+        missing_dicts = [
+            key
+            for key in required_dicts
+            if key not in data or not isinstance(data[key], dict) or not data[key]
+        ]
+        if missing_lists or missing_dicts:
+            missing = missing_lists + missing_dicts
+            missing_list = ", ".join(missing)
+            raise ValueError(f"Missing or empty keys in {words_path}: {missing_list}")
+
+        formatter = string.Formatter()
+        template_fields: set[str] = set()
+        for template in data.get("templates", []):
+            if not isinstance(template, str):
+                raise ValueError(f"Invalid template in {words_path}: {template}")
+            for _, field_name, _, _ in formatter.parse(template):
+                if field_name:
+                    template_fields.add(field_name)
+
+        missing_template_fields = [
+            field
+            for field in template_fields
+            if field not in data or not isinstance(data[field], list) or not data[field]
+        ]
+        if missing_template_fields:
+            missing_list = ", ".join(missing_template_fields)
+            raise ValueError(
+                f"Missing or empty template fields in {words_path}: {missing_list}"
+            )
+
+    def _get_list(self, key: str) -> list[Any]:
+        value = self.words_data.get(key)
+        if not isinstance(value, list) or not value:
+            raise ValueError(f"Missing or empty '{key}' in {self.words_path}")
+        return value
+
+    def _get_dict(self, key: str) -> dict[str, Any]:
+        value = self.words_data.get(key)
+        if not isinstance(value, dict) or not value:
+            raise ValueError(f"Missing or empty '{key}' in {self.words_path}")
+        return value
+
+    def _choose_word(self, key: str) -> str:
+        return self.rng.choice(self._get_list(key))
+
+    def _render_template(self, template: str) -> str:
+        formatter = string.Formatter()
+        values: dict[str, str] = {}
+        for _, field_name, _, _ in formatter.parse(template):
+            if field_name and field_name not in values:
+                values[field_name] = self._choose_word(field_name)
+        return template.format_map(values)
+
+    def _choose_end_punctuation(self) -> str:
+        options = self.words_data.get("end_punctuation")
+        if options:
+            return self.rng.choice(options)
+        return "."
 
     def _random_word(self) -> str:
-        return self.rng.choice(BASE_WORDS)
+        return self._choose_word("base_words")
 
     def _random_words(self, count: int) -> list[str]:
         return [self._random_word() for _ in range(count)]
 
+    def generate_simple_sentence(self) -> TestCase:
+        template = self._choose_word("templates")
+        text = self._render_template(template).strip()
+        if text and text[-1] not in ".!?":
+            text = f"{text}{self._choose_end_punctuation()}"
+        if text:
+            text = text[0].upper() + text[1:]
+        return TestCase(
+            text=text,
+            category="simple_sentences",
+            params={"template": template},
+            expected_phonemes=self._generate_expected_phonemes(text),
+        )
+
     def _apply_apostrophe(self, contraction: str, apostrophe_type: str) -> str:
-        if apostrophe_type not in APOSTROPHES:
-            apostrophe_type = "standard"
-        apostrophe = APOSTROPHES[apostrophe_type]
+        apostrophes = self._get_dict("apostrophes")
+        if apostrophe_type not in apostrophes:
+            apostrophe_type = (
+                "standard" if "standard" in apostrophes else next(iter(apostrophes))
+            )
+        apostrophe = apostrophes[apostrophe_type]
         result = contraction.replace("'", apostrophe)
         result = result.replace("'", apostrophe)
         result = result.replace("`", apostrophe)
@@ -306,13 +232,20 @@ class SentenceGenerator:
     def generate_contraction_test(
         self, apostrophe_type: str = "standard", num_contractions: int = 1
     ) -> TestCase:
+        contractions_list = self._get_list("contractions")
+        informal_list = self._get_list("informal_contractions")
+        all_contractions = contractions_list + informal_list
         contractions = self.rng.sample(
-            CONTRACTIONS + INFORMAL_CONTRACTIONS,
-            min(num_contractions, len(CONTRACTIONS) + len(INFORMAL_CONTRACTIONS)),
+            all_contractions, min(num_contractions, len(all_contractions))
         )
         contractions = [
             self._apply_apostrophe(c, apostrophe_type) for c in contractions
         ]
+        apostrophes = self._get_dict("apostrophes")
+        if apostrophe_type not in apostrophes:
+            apostrophe_type = (
+                "standard" if "standard" in apostrophes else next(iter(apostrophes))
+            )
 
         if num_contractions == 1:
             words = self._random_words(2)
@@ -332,15 +265,20 @@ class SentenceGenerator:
             params={
                 "apostrophe_type": apostrophe_type,
                 "num_contractions": num_contractions,
-                "apostrophe_char": APOSTROPHES[apostrophe_type],
+                "apostrophe_char": apostrophes[apostrophe_type],
             },
             expected_phonemes=self._generate_expected_phonemes(text),
         )
 
     def generate_quote_test(self, quote_type: str = "ascii_double") -> TestCase:
-        if quote_type not in QUOTE_PAIRS:
-            quote_type = "ascii_double"
-        left_quote, right_quote = QUOTE_PAIRS[quote_type]
+        quote_pairs = self._get_dict("quote_pairs")
+        if quote_type not in quote_pairs:
+            quote_type = (
+                "ascii_double"
+                if "ascii_double" in quote_pairs
+                else next(iter(quote_pairs))
+            )
+        left_quote, right_quote = quote_pairs[quote_type]
         words = self._random_words(self.rng.randint(1, 4))
         quoted_text = " ".join(words)
         intro = self.rng.choice(["She said", "He asked", "They replied", "I think"])
@@ -357,11 +295,13 @@ class SentenceGenerator:
         )
 
     def generate_punctuation_test(self, punct_type: str | None = None) -> TestCase:
+        punctuation = self._get_list("punctuation")
+        punct_variants = self._get_dict("punctuation_variants")
         if punct_type is None:
-            punct = self.rng.choice(PUNCTUATION)
+            punct = self.rng.choice(punctuation)
             variant_name = "standard"
-        elif punct_type in PUNCTUATION_VARIANTS:
-            punct = PUNCTUATION_VARIANTS[punct_type]
+        elif punct_type in punct_variants:
+            punct = punct_variants[punct_type]
             variant_name = punct_type
         else:
             punct = punct_type
@@ -394,10 +334,12 @@ class SentenceGenerator:
         )
 
     def generate_nested_quote_test(self) -> TestCase:
-        outer_type = self.rng.choice(list(QUOTE_PAIRS.keys()))
-        inner_type = self.rng.choice(["curly_single", "ascii_double", "curly_double"])
-        outer_left, outer_right = QUOTE_PAIRS[outer_type]
-        inner_left, inner_right = QUOTE_PAIRS[inner_type]
+        quote_pairs = self._get_dict("quote_pairs")
+        quote_keys = list(quote_pairs.keys())
+        outer_type = self.rng.choice(quote_keys)
+        inner_type = self.rng.choice(quote_keys)
+        outer_left, outer_right = quote_pairs[outer_type]
+        inner_left, inner_right = quote_pairs[inner_type]
         inner_words = self._random_words(2)
         outer_words = self._random_words(2)
         inner_text = " ".join(inner_words)
@@ -415,36 +357,54 @@ class SentenceGenerator:
     def generate_quote_with_contraction_test(
         self, apostrophe_type: str = "standard", quote_type: str = "ascii_double"
     ) -> TestCase:
-        left_quote, right_quote = QUOTE_PAIRS.get(
-            quote_type, QUOTE_PAIRS["ascii_double"]
-        )
-        contraction = self.rng.choice(CONTRACTIONS)
+        quote_pairs = self._get_dict("quote_pairs")
+        if quote_type not in quote_pairs:
+            quote_type = (
+                "ascii_double"
+                if "ascii_double" in quote_pairs
+                else next(iter(quote_pairs))
+            )
+        left_quote, right_quote = quote_pairs[quote_type]
+        contractions_list = self._get_list("contractions")
+        contraction = self.rng.choice(contractions_list)
         contraction = self._apply_apostrophe(contraction, apostrophe_type)
         words = self._random_words(self.rng.randint(1, 3))
         quoted = f"{contraction} {' '.join(words)}"
         intro = self.rng.choice(["She said", "He asked", "They replied"])
         text = f"{intro}, {left_quote}{quoted}{right_quote}."
+        apostrophes = self._get_dict("apostrophes")
+        if apostrophe_type not in apostrophes:
+            apostrophe_type = (
+                "standard" if "standard" in apostrophes else next(iter(apostrophes))
+            )
         return TestCase(
             text=text,
             category="quotes_and_contractions",
             params={
                 "apostrophe_type": apostrophe_type,
                 "quote_type": quote_type,
-                "apostrophe_char": APOSTROPHES[apostrophe_type],
+                "apostrophe_char": apostrophes[apostrophe_type],
             },
             expected_phonemes=self._generate_expected_phonemes(text),
         )
 
     def generate_complex_mixed_test(self) -> TestCase:
-        apostrophe_type = self.rng.choice(list(APOSTROPHES.keys()))
-        quote_type = self.rng.choice(list(QUOTE_PAIRS.keys()))
-        punct = self.rng.choice(PUNCTUATION + list(PUNCTUATION_VARIANTS.values()))
-        left_quote, right_quote = QUOTE_PAIRS[quote_type]
+        apostrophes = self._get_dict("apostrophes")
+        quote_pairs = self._get_dict("quote_pairs")
+        punctuation = self._get_list("punctuation")
+        punct_variants = self._get_dict("punctuation_variants")
+        contractions_list = self._get_list("contractions")
+
+        apostrophe_type = self.rng.choice(list(apostrophes.keys()))
+        quote_type = self.rng.choice(list(quote_pairs.keys()))
+        punct = self.rng.choice(punctuation + list(punct_variants.values()))
+        left_quote, right_quote = quote_pairs[quote_type]
         contraction1 = self._apply_apostrophe(
-            self.rng.choice(CONTRACTIONS), apostrophe_type
+            self.rng.choice(contractions_list), apostrophe_type
         )
         contraction2 = self._apply_apostrophe(
-            self.rng.choice(CONTRACTIONS), self.rng.choice(list(APOSTROPHES.keys()))
+            self.rng.choice(contractions_list),
+            self.rng.choice(list(apostrophes.keys())),
         )
         words1 = self._random_words(2)
         words2 = self._random_words(2)
@@ -466,9 +426,12 @@ class SentenceGenerator:
         )
 
     def generate_punctuation_adjacent_quote_test(self) -> TestCase:
-        quote_type = self.rng.choice(list(QUOTE_PAIRS.keys()))
-        left_quote, right_quote = QUOTE_PAIRS[quote_type]
-        punct = self.rng.choice(["!", "?", ".", ",", "…", "...", ". . .", "—", "--"])
+        quote_pairs = self._get_dict("quote_pairs")
+        punctuation = self._get_list("punctuation")
+        punct_variants = self._get_dict("punctuation_variants")
+        quote_type = self.rng.choice(list(quote_pairs.keys()))
+        left_quote, right_quote = quote_pairs[quote_type]
+        punct = self.rng.choice(punctuation + list(punct_variants.values()))
         words = self._random_words(3)
         quoted_words = self._random_words(2)
         quoted = " ".join(quoted_words)
@@ -494,12 +457,15 @@ class SentenceGenerator:
 
         All dash variants should normalize to em dash in the output.
         """
+        dash_variants = self._get_dict("dash_variants")
         if dash_type is None:
-            dash_type = self.rng.choice(list(DASH_VARIANTS.keys()))
-        elif dash_type not in DASH_VARIANTS:
-            dash_type = "em_dash"
+            dash_type = self.rng.choice(list(dash_variants.keys()))
+        elif dash_type not in dash_variants:
+            dash_type = (
+                "em_dash" if "em_dash" in dash_variants else next(iter(dash_variants))
+            )
 
-        dash = DASH_VARIANTS[dash_type]
+        dash = dash_variants[dash_type]
         words = self._random_words(self.rng.randint(4, 7))
 
         # Create sentence with dash in middle or at end
@@ -533,10 +499,11 @@ class SentenceGenerator:
         Returns:
             TestCase with abbreviation.
         """
-        if abbrev_category is None or abbrev_category not in ABBREVIATIONS:
-            abbrev_category = self.rng.choice(list(ABBREVIATIONS.keys()))
+        abbreviations = self._get_dict("abbreviations")
+        if abbrev_category is None or abbrev_category not in abbreviations:
+            abbrev_category = self.rng.choice(list(abbreviations.keys()))
 
-        abbrev = self.rng.choice(ABBREVIATIONS[abbrev_category])
+        abbrev = self.rng.choice(abbreviations[abbrev_category])
         words = self._random_words(self.rng.randint(2, 5))
 
         # Create different sentence patterns
@@ -571,10 +538,11 @@ class SentenceGenerator:
         Returns:
             TestCase with numbers.
         """
-        if number_format is None or number_format not in NUMBER_FORMATS:
-            number_format = self.rng.choice(list(NUMBER_FORMATS.keys()))
+        number_formats = self._get_dict("number_formats")
+        if number_format is None or number_format not in number_formats:
+            number_format = self.rng.choice(list(number_formats.keys()))
 
-        number: str | int = self.rng.choice(NUMBER_FORMATS[number_format])
+        number: str | int = self.rng.choice(number_formats[number_format])
         words = self._random_words(self.rng.randint(2, 4))
 
         # Create different sentence patterns
@@ -601,11 +569,14 @@ class SentenceGenerator:
 
     def generate_mixed_abbrev_number_test(self) -> TestCase:
         """Generate test case with both abbreviations and numbers."""
-        abbrev_cat = self.rng.choice(list(ABBREVIATIONS.keys()))
-        abbrev = self.rng.choice(ABBREVIATIONS[abbrev_cat])
+        abbreviations = self._get_dict("abbreviations")
+        number_formats = self._get_dict("number_formats")
 
-        number_format = self.rng.choice(list(NUMBER_FORMATS.keys()))
-        number: str | int = self.rng.choice(NUMBER_FORMATS[number_format])
+        abbrev_cat = self.rng.choice(list(abbreviations.keys()))
+        abbrev = self.rng.choice(abbreviations[abbrev_cat])
+
+        number_format = self.rng.choice(list(number_formats.keys()))
+        number: str | int = self.rng.choice(number_formats[number_format])
 
         words = self._random_words(self.rng.randint(1, 3))
 
@@ -628,12 +599,18 @@ class SentenceGenerator:
         )
 
     def generate_batch(
-        self, total: int = 1000, distribution: dict[str, int] | None = None
+        self,
+        total: int = 1000,
+        distribution: dict[str, int] | None = None,
+        simple: bool = False,
     ) -> list[TestCase]:
+        if simple:
+            return [self.generate_simple_sentence() for _ in range(total)]
         if distribution is None:
             # Default proportions (percentages)
             default_proportions = {
-                "apostrophe_variants": 0.15,  # 15%
+                "simple_sentences": 0.05,  # 5%
+                "apostrophe_variants": 0.13,  # 13%
                 "quote_combinations": 0.10,  # 10%
                 "punctuation_detection": 0.08,  # 8%
                 "quotes_and_contractions": 0.10,  # 10%
@@ -641,36 +618,47 @@ class SentenceGenerator:
                 "punctuation_adjacent_quotes": 0.04,  # 4%
                 "dash_variants": 0.10,  # 10%
                 "complex_mixed": 0.10,  # 10%
-                "abbreviations": 0.15,  # 15% - NEW
-                "numbers": 0.10,  # 10% - NEW
-                "mixed_abbrev_numbers": 0.04,  # 4% - NEW
+                "abbreviations": 0.13,  # 13%
+                "numbers": 0.09,  # 9%
+                "mixed_abbrev_numbers": 0.04,  # 4%
             }
             # Scale proportions to actual counts
             distribution = {k: int(v * total) for k, v in default_proportions.items()}
 
         test_cases = []
 
+        apostrophes = self._get_dict("apostrophes")
+        quote_pairs = self._get_dict("quote_pairs")
+        punctuation = self._get_list("punctuation")
+        punct_variants = self._get_dict("punctuation_variants")
+        dash_variants = self._get_dict("dash_variants")
+        abbreviations = self._get_dict("abbreviations")
+        number_formats = self._get_dict("number_formats")
+
+        for _ in range(distribution.get("simple_sentences", 0)):
+            test_cases.append(self.generate_simple_sentence())
+
         for _ in range(distribution.get("apostrophe_variants", 0)):
-            apostrophe_type = self.rng.choice(list(APOSTROPHES.keys()))
+            apostrophe_type = self.rng.choice(list(apostrophes.keys()))
             num_contractions = self.rng.randint(1, 3)
             test_cases.append(
                 self.generate_contraction_test(apostrophe_type, num_contractions)
             )
 
         for _ in range(distribution.get("quote_combinations", 0)):
-            quote_type = self.rng.choice(list(QUOTE_PAIRS.keys()))
+            quote_type = self.rng.choice(list(quote_pairs.keys()))
             test_cases.append(self.generate_quote_test(quote_type))
 
         for _ in range(distribution.get("punctuation_detection", 0)):
             if self.rng.random() < 0.5:
-                punct_type = self.rng.choice(list(PUNCTUATION_VARIANTS.keys()))
+                punct_type = self.rng.choice(list(punct_variants.keys()))
             else:
-                punct_type = self.rng.choice(PUNCTUATION)
+                punct_type = self.rng.choice(punctuation)
             test_cases.append(self.generate_punctuation_test(punct_type))
 
         for _ in range(distribution.get("quotes_and_contractions", 0)):
-            apostrophe_type = self.rng.choice(list(APOSTROPHES.keys()))
-            quote_type = self.rng.choice(list(QUOTE_PAIRS.keys()))
+            apostrophe_type = self.rng.choice(list(apostrophes.keys()))
+            quote_type = self.rng.choice(list(quote_pairs.keys()))
             test_cases.append(
                 self.generate_quote_with_contraction_test(apostrophe_type, quote_type)
             )
@@ -682,18 +670,18 @@ class SentenceGenerator:
             test_cases.append(self.generate_punctuation_adjacent_quote_test())
 
         for _ in range(distribution.get("dash_variants", 0)):
-            dash_type = self.rng.choice(list(DASH_VARIANTS.keys()))
+            dash_type = self.rng.choice(list(dash_variants.keys()))
             test_cases.append(self.generate_dash_test(dash_type))
 
         for _ in range(distribution.get("complex_mixed", 0)):
             test_cases.append(self.generate_complex_mixed_test())
 
         for _ in range(distribution.get("abbreviations", 0)):
-            abbrev_cat = self.rng.choice(list(ABBREVIATIONS.keys()))
+            abbrev_cat = self.rng.choice(list(abbreviations.keys()))
             test_cases.append(self.generate_abbreviation_test(abbrev_cat))
 
         for _ in range(distribution.get("numbers", 0)):
-            number_format = self.rng.choice(list(NUMBER_FORMATS.keys()))
+            number_format = self.rng.choice(list(number_formats.keys()))
             test_cases.append(self.generate_number_test(number_format))
 
         for _ in range(distribution.get("mixed_abbrev_numbers", 0)):

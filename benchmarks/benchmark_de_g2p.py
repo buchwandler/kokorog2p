@@ -12,6 +12,8 @@ import random
 import time
 from dataclasses import dataclass, field
 
+from random_sentence_generator import SentenceGenerator
+
 
 @dataclass
 class BenchmarkResult:
@@ -306,133 +308,6 @@ def benchmark_phoneme_output(
     )
 
 
-# Common German words for throughput testing
-COMMON_GERMAN_WORDS = [
-    "der",
-    "die",
-    "und",
-    "in",
-    "den",
-    "von",
-    "zu",
-    "das",
-    "mit",
-    "sich",
-    "des",
-    "auf",
-    "für",
-    "ist",
-    "im",
-    "dem",
-    "nicht",
-    "ein",
-    "eine",
-    "als",
-    "auch",
-    "es",
-    "an",
-    "werden",
-    "aus",
-    "er",
-    "hat",
-    "dass",
-    "sie",
-    "nach",
-    "wird",
-    "bei",
-    "einer",
-    "um",
-    "am",
-    "sind",
-    "noch",
-    "wie",
-    "einem",
-    "über",
-    "einen",
-    "so",
-    "zum",
-    "kann",
-    "war",
-    "haben",
-    "nur",
-    "oder",
-    "aber",
-    "vor",
-    "zur",
-    "bis",
-    "mehr",
-    "durch",
-    "man",
-    "sein",
-    "wurde",
-    "sei",
-    "schon",
-    "wenn",
-    "dieser",
-    "dann",
-    "unter",
-    "sehr",
-    "können",
-    "Jahre",
-    "selbst",
-    "ihrer",
-    "gegen",
-    "vom",
-    "hier",
-    "wurden",
-    "wieder",
-    "zwei",
-    "andere",
-    "keine",
-    "allem",
-    "muss",
-    "Zeit",
-    "diesen",
-    "ihm",
-    "Menschen",
-    "hatte",
-    "jetzt",
-    "nach",
-    "neue",
-    "soll",
-    "ersten",
-    "gibt",
-    "diese",
-    "zwischen",
-    "heute",
-    "beiden",
-    "Ende",
-    "jedoch",
-    "Jahr",
-    "ins",
-]
-
-
-# German sample sentences for throughput testing
-GERMAN_SENTENCES = [
-    "Guten Tag, wie geht es Ihnen?",
-    "Berlin ist die Hauptstadt von Deutschland.",
-    "Ich möchte ein Glas Wasser, bitte.",
-    "Das Wetter ist heute sehr schön.",
-    "Können Sie mir bitte helfen?",
-    "Wo ist der nächste Bahnhof?",
-    "Ich spreche ein bisschen Deutsch.",
-    "Das ist sehr interessant.",
-    "Vielen Dank für Ihre Hilfe.",
-    "Auf Wiedersehen und bis bald!",
-    "Die deutsche Sprache ist sehr präzise.",
-    "München liegt im Süden von Deutschland.",
-    "Ich habe zwei Kinder und einen Hund.",
-    "Das Essen in diesem Restaurant ist ausgezeichnet.",
-    "Wir fahren morgen in den Urlaub.",
-    "Der Zug nach Frankfurt fährt um drei Uhr.",
-    "Ich arbeite als Ingenieur bei Siemens.",
-    "Das ist mein Lieblingsfilm.",
-    "Können wir einen Tisch für vier Personen reservieren?",
-    "Die Bibliothek ist montags geschlossen.",
-]
-
-
 def run_all_benchmarks(
     sample_size: int = 10000,
     seed: int = 42,
@@ -462,6 +337,8 @@ def run_all_benchmarks(
     g2p = GermanG2P()
     print(f"Lexicon entries: {len(g2p._lexicon):,}" if g2p._lexicon else "No lexicon")
 
+    generator = SentenceGenerator(seed=seed, language="de")
+
     print("\nRunning benchmarks...\n")
 
     # Benchmark 1: Accuracy vs Gold Dictionary (sampled)
@@ -480,9 +357,8 @@ def run_all_benchmarks(
                 print(f"  {word}: {expected} -> {got}")
 
     # Benchmark 2: G2P Throughput with common words
-    sample_words = (
-        COMMON_GERMAN_WORDS * (sample_size // len(COMMON_GERMAN_WORDS) + 1)
-    )[:sample_size]
+    word_pool = generator.words_data["base_words"]
+    sample_words = (word_pool * (sample_size // len(word_pool) + 1))[:sample_size]
     random.shuffle(sample_words)
     result = benchmark_throughput(
         g2p,
@@ -519,7 +395,8 @@ def run_all_benchmarks(
             print(f"  {word} -> {phonemes}")
 
     # Benchmark 5: Sentence throughput
-    sample_sentences = GERMAN_SENTENCES * 50  # 1000 sentences
+    sentence_cases = generator.generate_batch(total=1000, simple=True)
+    sample_sentences = [tc.text for tc in sentence_cases]
 
     result = benchmark_sentence_throughput(
         g2p,
