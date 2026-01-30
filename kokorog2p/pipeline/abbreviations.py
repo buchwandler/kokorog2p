@@ -6,12 +6,14 @@ phonemization. It supports:
 - Context-aware expansions (St. → Street/Saint based on context)
 - Case-insensitive matching
 - Word boundary detection
+- Optional numeric/context guards for tricky abbreviations (e.g., No., in.)
 """
 
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
+from re import Pattern
 
 
 class AbbreviationContext(Enum):
@@ -35,6 +37,11 @@ class AbbreviationEntry:
         context_expansions: Optional dict of context-specific expansions
         case_sensitive: Whether matching should be case-sensitive
         description: Human-readable description of the abbreviation
+        only_if_preceded_by: Optional regex that must match the text immediately
+            before the abbreviation match (typically anchored with $).
+        only_if_followed_by: Optional regex that must match the text immediately
+            after the abbreviation match (typically anchored with ^ or using
+            atch()).
     """
 
     abbreviation: str
@@ -42,6 +49,8 @@ class AbbreviationEntry:
     context_expansions: dict[AbbreviationContext, str] | None = None
     case_sensitive: bool = False
     description: str = ""
+    only_if_preceded_by: str | Pattern[str] | None = None
+    only_if_followed_by: str | Pattern[str] | None = None
 
     def get_expansion(self, context: AbbreviationContext | None = None) -> str:
         """Get the appropriate expansion for the given context.
@@ -320,11 +329,39 @@ class AbbreviationExpander(ABC):
 
         # Use a replacement function to support context detection
         def replacer(match: re.Match) -> str:
+            start, end = match.span()
+
+            # Optional guard: require something BEFORE the abbreviation.
+            # Intended for units like "in." / "ft." / "oz." to
+            # only expand after numbers:
+            #   "10.0 in." -> "10.0 inch"
+            #   "Wizard of Oz." (NOT preceded by a number) -> unchanged
+            if entry.only_if_preceded_by:
+                pat = entry.only_if_preceded_by
+                if isinstance(pat, str):
+                    pat = re.compile(pat)
+                # Only check a short window for speed and to encourage
+                # end-anchored patterns.
+                window = 80
+                before_slice = text[max(0, start - window) : start]
+                if not pat.search(before_slice):
+                    return match.group(0)
+
+            # Optional guard: require something AFTER the abbreviation.
+            # Intended for things like "No." to only expand when followed by digits:
+            #   "No." -> unchanged
+            #   "No. 244" -> "Number 244"
+            if entry.only_if_followed_by:
+                pat = entry.only_if_followed_by
+                if isinstance(pat, str):
+                    pat = re.compile(pat)
+                if not pat.match(text, end):
+                    return match.group(0)
+
             if not self.enable_context_detection or not self.context_detector:
                 return entry.expansion
 
             # Get surrounding context
-            start, end = match.span()
             before = text[:start].strip()
             after = text[end:].strip()
 

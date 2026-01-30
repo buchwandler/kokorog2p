@@ -9,6 +9,10 @@ Based on misaki by hexgrad, adapted for kokorog2p.
 import re
 from collections.abc import Callable
 
+# Proper thousands grouping like 30,000 or 1,234,567.89
+_THOUSANDS_GROUPED_RE = re.compile(r"^\d{1,3}(?:,\d{3})+(?:\.\d+)?$")
+
+_THOUSANDS_INT_RE = re.compile(r"^\d{1,3}(?:,\d{3})*$")
 # Ordinal suffixes
 ORDINALS = frozenset(["st", "nd", "rd", "th"])
 
@@ -26,11 +30,45 @@ def is_digit(text: str) -> bool:
 
 
 def is_currency_amount(word: str) -> bool:
-    """Check if word looks like a currency amount (e.g., '12.99')."""
-    parts = word.replace(",", "").split(".")
+    """Check if word looks like a currency amount (e.g., '12.99', '30,000.10').
+
+    Rules:
+    - Optional thousands separators, but only valid grouping (1,234,567)
+    - Optional decimal part (.<digits>)
+    - Reject invalid grouping like '12,34' or '1,23,456'
+    - Allow leading-decimal amounts like '.50'
+    """
+    if not word:
+        return False
+
+    # Handle leading-decimal like ".50"
+    if word.startswith("."):
+        return len(word) > 1 and word[1:].isdigit()
+
+    # Split integer/decimal parts (only one dot allowed)
+    parts = word.split(".")
     if len(parts) > 2:
         return False
-    return all(is_digit(p) for p in parts if p)
+
+    int_part = parts[0]
+    frac_part = parts[1] if len(parts) == 2 else None
+
+    # Validate fractional part if present
+    if frac_part is not None and frac_part and not frac_part.isdigit():
+        return False
+    if frac_part is not None and frac_part == "":
+        # trailing dot like "12." -> treat as invalid for currency amounts
+        return False
+
+    # Validate integer part with or without commas
+    if "," in int_part:
+        if not _THOUSANDS_INT_RE.match(int_part):
+            return False
+    else:
+        if not int_part.isdigit():
+            return False
+
+    return True
 
 
 class NumberConverter:
@@ -273,6 +311,10 @@ class NumberConverter:
                 result.append(minus_ps)  # type: ignore
             word = word[1:]
 
+        # If it's explicitly thousands-grouped (e.g. 30,000), treat it as a real
+        # cardinal/decimal/currency amount even if it isn't at the head.
+        grouped_amount = bool(_THOUSANDS_GROUPED_RE.match(word))
+
         # Handle ordinals (1st, 2nd, etc.)
         if is_digit(word) and suffix in ORDINALS:
             if not self._convert_ordinal(word, result, num_flags):
@@ -289,11 +331,11 @@ class NumberConverter:
                 return (None, None)
 
         # Handle phone numbers and sequences (not at head, no decimal)
-        elif not is_head and "." not in word:
+        elif not grouped_amount and not is_head and "." not in word:
             self._convert_phone_sequence(word, result, num_flags)
 
         # Handle IP addresses and version numbers (multiple dots)
-        elif word.count(".") > 1 or not is_head:
+        elif word.count(".") > 1 or (not grouped_amount and not is_head):
             self._convert_dotted_sequence(word, result, num_flags, is_head)
 
         # Handle currency amounts

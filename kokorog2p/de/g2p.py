@@ -134,7 +134,7 @@ def _is_front_vowel_context(prev_chars: str) -> bool:
     return False
 
 
-def normalize_to_kokoro(phonemes: str) -> str:
+def normalize_to_kokoro(phonemes: str, use_tie_replacement: bool = False) -> str:
     """Normalize German phonemes to Kokoro-compatible format.
 
     Converts combining diacritics to precomposed characters that exist
@@ -142,22 +142,28 @@ def normalize_to_kokoro(phonemes: str) -> str:
 
     Args:
         phonemes: IPA phoneme string potentially containing combining diacritics.
+        use_tie_replacement: If True, replace tie characters (͡) with special
+        phonmes. Default is False.
 
     Returns:
         Normalized phoneme string compatible with Kokoro vocab.
     """
     if not phonemes:
         return phonemes
-
-    # Replace affricates with tie bars with precomposed versions
-    # phonemes = phonemes.replace("t͡s", "ʦ")  # U+02A6
-    # phonemes = phonemes.replace("t^s", "ʦ")  # U+02A6
-    # phonemes = phonemes.replace("t͡ʃ", "ʧ")  # U+02A7
-    # phonemes = phonemes.replace("t^ʃ", "ʧ")  # U+02A7
-    # phonemes = phonemes.replace("d͡ʒ", "ʤ")  # U+02A4
-    # phonemes = phonemes.replace("d^ʒ", "ʤ")  # U+02A4
-    # phonemes = phonemes.replace("p͡f", "pf")  # No precomposed, use sequence
-    # phonemes = phonemes.replace("p^f", "pf")  # No precomposed, use sequence
+    # Replace tie characters (U+0361) with special phonemes if requested
+    if use_tie_replacement:
+        phonemes = phonemes.replace("͡", "^")
+        phonemes = phonemes.replace("a^ɪ", "I")
+        phonemes = phonemes.replace("a^ʊ", "W")
+        phonemes = phonemes.replace("d^z", "ʣ")
+        phonemes = phonemes.replace("d^ʒ", "ʤ")
+        phonemes = phonemes.replace("e^ɪ", "A")
+        phonemes = phonemes.replace("o^ʊ", "O")
+        phonemes = phonemes.replace("ə^ʊ", "Q")
+        phonemes = phonemes.replace("s^s", "S")
+        phonemes = phonemes.replace("t^s", "ʦ")
+        phonemes = phonemes.replace("t^ʃ", "ʧ")
+        phonemes = phonemes.replace("ɔ^ɪ", "Y")
 
     # Remove non-syllabic markers from diphthongs (U+032F)
     # The diphthongs work without this marker in Kokoro

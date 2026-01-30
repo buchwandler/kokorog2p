@@ -261,6 +261,43 @@ class TestEnglishAbbreviationExpander:
         )
 
     # =========================================================================
+    # GUARDED ABBREVIATIONS (NUMERIC CONTEXT)
+    # =========================================================================
+
+    def test_no_dot_only_expands_when_followed_by_number(self, expander):
+        """Test No. stays No. unless followed by digits (No. 244 -> number 244)."""
+        assert expander.expand("No.") == "No."
+        assert expander.expand("He said No.") == "He said No."
+        assert expander.expand("No. 244").lower() == "number 244"
+        assert expander.expand("no. 244").lower() == "number 244"
+
+    def test_inch_only_expands_when_preceded_by_number(self, expander):
+        """Test in. expands to inch only after a number."""
+        assert expander.expand("10.0 in. long") == "10.0 inch long"
+        assert expander.expand("5 in.").endswith(
+            "inch"
+        )  # allow minor punctuation/spacing differences
+
+        # "in." used as sentence punctuation should NOT become "inch"
+        assert expander.expand("Check in.") == "Check in."
+        assert expander.expand("Log in. Now.") == "Log in. Now."
+
+    def test_foot_only_expands_when_preceded_by_number(self, expander):
+        """Test ft. expands to foot only after a number, avoids Ft. place names."""
+        assert expander.expand("He is 6 ft. tall") == "He is 6 foot tall"
+        assert expander.expand("Ft. Lauderdale is sunny") == "Ft. Lauderdale is sunny"
+
+    def test_ounce_only_expands_when_preceded_by_number(self, expander):
+        """Test oz. expands to ounce only after a number; avoid Wizard of Oz."""
+        assert expander.expand("Add 8 oz. of sugar") == "Add 8 ounce of sugar"
+        assert expander.expand("Wizard of Oz.") == "Wizard of Oz."
+
+    def test_pound_only_expands_when_preceded_by_number(self, expander):
+        """Test lb. expands to pound only after a number."""
+        assert expander.expand("A 2 lb. bag") == "A 2 pound bag"
+        assert expander.expand("lb. is a unit") == "lb. is a unit"
+
+    # =========================================================================
     # CASE INSENSITIVITY
     # =========================================================================
 
@@ -400,6 +437,21 @@ class TestEnglishNormalizerWithAbbreviations:
         text = "St. Patrick celebrated"
         result = normalizer(text)
         assert "Saint Patrick" in result
+
+    # =========================================================================
+    # GUARDED ABBREVIATIONS IN NORMALIZER
+    # =========================================================================
+
+    def test_no_dot_guard_in_normalizer(self, normalizer):
+        """No. should stay No.; No. 244 should expand to number 244."""
+        assert normalizer("No.") == "No."
+        assert "number 244" in normalizer("No. 244").lower()
+
+    def test_units_guard_in_normalizer(self, normalizer):
+        """Units should expand only when preceded by numbers."""
+        assert "inch" in normalizer("10.0 in. long").lower()
+        assert normalizer("Wizard of Oz.") == "Wizard of Oz."
+        assert normalizer("Ft. Lauderdale").startswith("Ft. Lauderdale")
 
 
 class TestStAbbreviationRobust:

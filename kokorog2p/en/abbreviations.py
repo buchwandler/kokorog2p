@@ -796,6 +796,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="no.",
                 expansion="number",
                 description="Number",
+                only_if_followed_by=r"\s*\d",
             )
         )
 
@@ -804,6 +805,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="vol.",
                 expansion="volume",
                 description="Volume",
+                only_if_followed_by=r"\s*\d",
             )
         )
 
@@ -812,6 +814,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="pg.",
                 expansion="page",
                 description="Page",
+                only_if_followed_by=r"\s*\d",
             )
         )
 
@@ -820,6 +823,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="pp.",
                 expansion="pages",
                 description="Pages",
+                only_if_followed_by=r"\s*\d",
             )
         )
 
@@ -828,6 +832,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="ch.",
                 expansion="chapter",
                 description="Chapter",
+                only_if_followed_by=r"\s*\d",
             )
         )
 
@@ -836,6 +841,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="fig.",
                 expansion="figure",
                 description="Figure",
+                only_if_followed_by=r"\s*\d",
             )
         )
 
@@ -1232,6 +1238,11 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="in.",
                 expansion="inch",
                 description="Inch",
+                # Only expand as a unit when preceded by a number
+                # (10 in., 10.0 in., 1,000 in.)
+                # This avoids false positives in weird sentence-end cases
+                # and proper names.
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 
@@ -1240,6 +1251,8 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="ft.",
                 expansion="foot",
                 description="Foot",
+                # Avoid "Ft. Lauderdale" -> "foot Lauderdale"
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 
@@ -1248,6 +1261,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="yd.",
                 expansion="yard",
                 description="Yard",
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 
@@ -1256,6 +1270,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="mi.",
                 expansion="mile",
                 description="Mile",
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 
@@ -1264,6 +1279,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="mm",
                 expansion="millimeter",
                 description="Millimeter",
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 
@@ -1272,6 +1288,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="cm",
                 expansion="centimeter",
                 description="Centimeter",
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 
@@ -1280,6 +1297,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="km",
                 expansion="kilometer",
                 description="Kilometer",
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 
@@ -1292,6 +1310,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="oz.",
                 expansion="ounce",
                 description="Ounce",
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 
@@ -1300,6 +1319,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="lb.",
                 expansion="pound",
                 description="Pound",
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 
@@ -1308,6 +1328,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="lbs.",
                 expansion="pounds",
                 description="Pounds",
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 
@@ -1316,6 +1337,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="mg",
                 expansion="milligram",
                 description="Milligram",
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 
@@ -1324,6 +1346,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="kg",
                 expansion="kilogram",
                 description="Kilogram",
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 
@@ -1336,6 +1359,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="gal.",
                 expansion="gallon",
                 description="Gallon",
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 
@@ -1344,6 +1368,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="qt.",
                 expansion="quart",
                 description="Quart",
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 
@@ -1352,6 +1377,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="pt.",
                 expansion="pint",
                 description="Pint",
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 
@@ -1360,6 +1386,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="tsp.",
                 expansion="teaspoon",
                 description="Teaspoon",
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 
@@ -1368,6 +1395,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="tbsp.",
                 expansion="tablespoon",
                 description="Tablespoon",
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 
@@ -1380,6 +1408,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="hr.",
                 expansion="hour",
                 description="Hour",
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 
@@ -1388,6 +1417,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="hrs.",
                 expansion="hours",
                 description="Hours",
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 
@@ -1396,6 +1426,7 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="sec.",
                 expansion="second",
                 description="Second",
+                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 

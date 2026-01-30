@@ -20,17 +20,6 @@ class _GermanNormalizeMixin:
 
         # Additional backend-agnostic normalizations
         mappings: dict[str, str] = {
-            "a^ɪ": "I",
-            "a^ʊ": "W",
-            "d^z": "ʣ",
-            "d^ʒ": "ʤ",
-            "e^ɪ": "A",
-            "o^ʊ": "O",
-            "ə^ʊ": "Q",
-            "s^s": "S",
-            "t^s": "ʦ",
-            "t^ʃ": "ʧ",
-            "ɔ^ɪ": "Y",
             # Remove tie characters (seen in espeak output sometimes)
             "͡": "",
             "^": "",
