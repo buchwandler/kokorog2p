@@ -62,6 +62,7 @@ def _fake_num2words(n, to="cardinal", **_kwargs):
             100: "one hundred",
             1984: "one thousand nine hundred and eighty four",  # not used for year-path
             30000: "thirty thousand",
+            100000: "one hundred thousand",
         }
         if n in mapping:
             return mapping[n]
@@ -103,6 +104,13 @@ def converter():
     conv = NumberConverter(_lookup, _stem_s)
     conv._num2words = _fake_num2words  # type: ignore[attr-defined]
     return conv
+
+
+@pytest.fixture
+def converter_real_num2words():
+    """Create a NumberConverter using real num2words."""
+    pytest.importorskip("num2words")
+    return NumberConverter(_lookup, _stem_s)
 
 
 # ---------------------------------------------------------------------------
@@ -215,9 +223,14 @@ class TestEnglishNumberConverter:
         spoken, rating = converter.convert("30,000", is_head=False)
         assert spoken == "thirty thousand"
         assert rating == 4
-        # spoken, rating = converter.convert("100,000", is_head=False)
-        # assert spoken == "hundred thousand"
-        # assert rating == 4
+        spoken, rating = converter.convert("100,000", is_head=False)
+        assert spoken == "one hundred thousand"
+        assert rating == 4
+
+    def test_grouped_thousands_real_num2words(self, converter_real_num2words):
+        spoken, rating = converter_real_num2words.convert("100,000", is_head=False)
+        assert spoken == "one hundred thousand"
+        assert rating == 4
 
     # -----------------------------------------------------------------------
     # Sequence / phone / dotted logic
