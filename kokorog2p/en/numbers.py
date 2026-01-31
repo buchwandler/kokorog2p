@@ -22,11 +22,85 @@ CURRENCIES = {
     "£": ("pound", "pence"),
     "€": ("euro", "cent"),
 }
+# Roman numerals (used in regnal numbers / wars: "World War II", "Henry VIII", ...)
+_ROMAN_VALUES: dict[str, int] = {
+    "I": 1,
+    "V": 5,
+    "X": 10,
+    "L": 50,
+    "C": 100,
+    "D": 500,
+    "M": 1000,
+}
+_ROMAN_MAX = 3999
 
 
 def is_digit(text: str) -> bool:
     """Check if text consists only of digits."""
     return bool(re.match(r"^[0-9]+$", text))
+
+
+def _int_to_roman(n: int) -> str:
+    """Convert int -> canonical Roman numeral (1..3999)."""
+    if not (1 <= n <= _ROMAN_MAX):
+        raise ValueError(n)
+    parts: list[str] = []
+    table: list[tuple[int, str]] = [
+        (1000, "M"),
+        (900, "CM"),
+        (500, "D"),
+        (400, "CD"),
+        (100, "C"),
+        (90, "XC"),
+        (50, "L"),
+        (40, "XL"),
+        (10, "X"),
+        (9, "IX"),
+        (5, "V"),
+        (4, "IV"),
+        (1, "I"),
+    ]
+    for value, sym in table:
+        while n >= value:
+            parts.append(sym)
+            n -= value
+    return "".join(parts)
+
+
+def _roman_to_int(text: str) -> int:
+    """Convert Roman numeral -> int, validating canonical form."""
+    if not text:
+        raise ValueError("empty roman numeral")
+    if text != text.upper():
+        raise ValueError("roman numeral must be uppercase")
+    if any(ch not in _ROMAN_VALUES for ch in text):
+        raise ValueError(f"invalid roman numeral: {text}")
+
+    total = 0
+    prev = 0
+    for ch in reversed(text):
+        v = _ROMAN_VALUES[ch]
+        if v < prev:
+            total -= v
+        else:
+            total += v
+            prev = v
+
+    if not (1 <= total <= _ROMAN_MAX):
+        raise ValueError(f"roman out of range: {text}")
+    # Canonical validation (reject things like "IIV", "VX", ...)
+    if _int_to_roman(total) != text:
+        raise ValueError(f"non-canonical roman numeral: {text}")
+    return total
+
+
+def is_roman_numeral(text: str) -> bool:
+    """Return True if text is a valid canonical Roman numeral (uppercase)."""
+    try:
+        _roman_to_int(text)
+        return True
+    except ValueError:
+        return False
 
 
 def is_currency_amount(word: str) -> bool:
@@ -111,6 +185,21 @@ class NumberConverter:
 
             self._num2words = num2words
         return self._num2words
+
+    def _convert_roman_numeral(
+        self, word: str, result: list[tuple[str, int]], num_flags: set
+    ) -> bool:
+        """Convert a Roman numeral (e.g. II, XIV) to cardinal words."""
+        try:
+            value = _roman_to_int(word)
+        except ValueError:
+            return False
+        try:
+            word_text = self.num2words(value, to="cardinal")
+        except Exception:
+            word_text = str(value)
+        self._extend_num(word_text, result, num_flags, escape=True)
+        return True
 
     def _extend_num(
         self,
@@ -310,43 +399,47 @@ class NumberConverter:
             if minus_ps[0]:
                 result.append(minus_ps)  # type: ignore
             word = word[1:]
-
-        # If it's explicitly thousands-grouped (e.g. 30,000), treat it as a real
-        # cardinal/decimal/currency amount even if it isn't at the head.
-        grouped_amount = bool(_THOUSANDS_GROUPED_RE.match(word))
-
-        # Handle ordinals (1st, 2nd, etc.)
-        if is_digit(word) and suffix in ORDINALS:
-            if not self._convert_ordinal(word, result, num_flags):
+        # Handle Roman numerals early (prevents "II" mid-sentence being treated
+        # as a phone/sequence and read as letters).
+        if is_roman_numeral(word):
+            if not self._convert_roman_numeral(word, result, num_flags):
                 return (None, None)
-
-        # Handle years (4-digit numbers without currency)
-        elif (
-            not result
-            and len(word) == 4
-            and currency not in CURRENCIES
-            and is_digit(word)
-        ):
-            if not self._convert_year(word, result, num_flags):
-                return (None, None)
-
-        # Handle phone numbers and sequences (not at head, no decimal)
-        elif not grouped_amount and not is_head and "." not in word:
-            self._convert_phone_sequence(word, result, num_flags)
-
-        # Handle IP addresses and version numbers (multiple dots)
-        elif word.count(".") > 1 or (not grouped_amount and not is_head):
-            self._convert_dotted_sequence(word, result, num_flags, is_head)
-
-        # Handle currency amounts
-        elif currency in CURRENCIES and is_currency_amount(word):
-            self._convert_currency(word, currency, result, num_flags)
-
-        # Handle regular numbers
         else:
-            if not self._convert_regular_number(word, suffix, result, num_flags):
-                return (None, None)
+            # If it's explicitly thousands-grouped (e.g. 30,000), treat it as a real
+            # cardinal/decimal/currency amount even if it isn't at the head.
+            grouped_amount = bool(_THOUSANDS_GROUPED_RE.match(word))
 
+            # Handle ordinals (1st, 2nd, etc.)
+            if is_digit(word) and suffix in ORDINALS:
+                if not self._convert_ordinal(word, result, num_flags):
+                    return (None, None)
+
+            # Handle years (4-digit numbers without currency)
+            elif (
+                not result
+                and len(word) == 4
+                and currency not in CURRENCIES
+                and is_digit(word)
+            ):
+                if not self._convert_year(word, result, num_flags):
+                    return (None, None)
+
+            # Handle phone numbers and sequences (not at head, no decimal)
+            elif not grouped_amount and not is_head and "." not in word:
+                self._convert_phone_sequence(word, result, num_flags)
+
+            # Handle IP addresses and version numbers (multiple dots)
+            elif word.count(".") > 1 or (not grouped_amount and not is_head):
+                self._convert_dotted_sequence(word, result, num_flags, is_head)
+
+            # Handle currency amounts
+            elif currency in CURRENCIES and is_currency_amount(word):
+                self._convert_currency(word, currency, result, num_flags)
+
+            # Handle regular numbers
+            else:
+                if not self._convert_regular_number(word, suffix, result, num_flags):
+                    return (None, None)
         if not result:
             return (None, None)
 

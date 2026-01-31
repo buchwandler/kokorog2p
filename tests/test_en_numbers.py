@@ -12,7 +12,12 @@ Tests the NumberConverter routing/format handling:
 
 import pytest
 
-from kokorog2p.en.numbers import NumberConverter, is_currency_amount, is_digit
+from kokorog2p.en.numbers import (
+    NumberConverter,
+    is_currency_amount,
+    is_digit,
+    is_roman_numeral,
+)
 
 # ---------------------------------------------------------------------------
 # Stubs: keep tests deterministic and independent of the real lexicon/num2words
@@ -129,6 +134,16 @@ class TestEnglishNumberHelpers:
             "12,34"
         )  # invalid grouping but still split -> not digits
 
+    def test_is_roman_numeral(self):
+        assert is_roman_numeral("II")
+        assert is_roman_numeral("IV")
+        assert is_roman_numeral("XII")
+        assert not is_roman_numeral("")  # empty
+        assert not is_roman_numeral("ii")  # lowercase rejected
+        assert not is_roman_numeral("IIV")  # non-canonical
+        assert not is_roman_numeral("VX")  # non-canonical
+        assert not is_roman_numeral("ABC")  # invalid chars
+
 
 # ---------------------------------------------------------------------------
 # Converter tests
@@ -158,6 +173,21 @@ class TestEnglishNumberConverter:
         assert spoken == "minus five"
         assert rating == 4
 
+    # -----------------------------------------------------------------------
+    # Roman numerals
+    # -----------------------------------------------------------------------
+    def test_roman_ii_converts_to_two_mid_sentence(self, converter):
+        # Primary regression: "World War II" / "Emperor ... II"
+        spoken, rating = converter.convert("II", is_head=False)
+        assert spoken == "two"
+        assert rating == 4
+
+    def test_roman_iv_and_xii(self, converter):
+        spoken, _ = converter.convert("IV", is_head=False)
+        assert spoken == "four"
+        spoken, _ = converter.convert("XII", is_head=False)
+        assert spoken == "twelve"
+
     def test_decimal_leading_point(self, converter):
         spoken, rating = converter.convert(".5")
         assert spoken == "point five"
@@ -185,6 +215,9 @@ class TestEnglishNumberConverter:
         spoken, rating = converter.convert("30,000", is_head=False)
         assert spoken == "thirty thousand"
         assert rating == 4
+        # spoken, rating = converter.convert("100,000", is_head=False)
+        # assert spoken == "hundred thousand"
+        # assert rating == 4
 
     # -----------------------------------------------------------------------
     # Sequence / phone / dotted logic
