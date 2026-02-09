@@ -1238,11 +1238,11 @@ class EnglishAbbreviationExpander(AbbreviationExpander):
                 abbreviation="in.",
                 expansion="inch",
                 description="Inch",
-                # Only expand as a unit when preceded by a number
-                # (10 in., 10.0 in., 1,000 in.)
-                # This avoids false positives in weird sentence-end cases
-                # and proper names.
-                only_if_preceded_by=r"\d[\d,]*(?:\.\d+)?\s*$",
+                # Only expand as a unit when directly preceded by a numeric token
+                # (10 in., 10.0 in., 1,000 in.).
+                # Require a non-word boundary (or start) before the number so
+                # sentence-final "in." and word-attached digits do not expand.
+                only_if_preceded_by=r"(?:^|[^\w.])\d[\d,]*(?:\.\d+)?\s*$",
             )
         )
 

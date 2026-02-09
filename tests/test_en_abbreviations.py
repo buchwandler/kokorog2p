@@ -282,6 +282,16 @@ class TestEnglishAbbreviationExpander:
         assert expander.expand("Check in.") == "Check in."
         assert expander.expand("Log in. Now.") == "Log in. Now."
 
+    def test_inch_does_not_expand_for_sentence_final_in(self, expander):
+        """Regression: sentence-final in. must not become inch."""
+        text = "Open the window to let the air in."
+        assert expander.expand(text) == text
+
+    def test_inch_does_not_expand_after_word_attached_digit(self, expander):
+        """Regression: digits inside a word should not trigger in. -> inch."""
+        text = "Use version2 in. docs."
+        assert expander.expand(text) == text
+
     def test_foot_only_expands_when_preceded_by_number(self, expander):
         """Test ft. expands to foot only after a number, avoids Ft. place names."""
         assert expander.expand("He is 6 ft. tall") == "He is 6 foot tall"
@@ -452,6 +462,11 @@ class TestEnglishNormalizerWithAbbreviations:
         assert "inch" in normalizer("10.0 in. long").lower()
         assert normalizer("Wizard of Oz.") == "Wizard of Oz."
         assert normalizer("Ft. Lauderdale").startswith("Ft. Lauderdale")
+
+    def test_inch_regression_in_normalizer(self, normalizer):
+        """Regression: sentence-final in. must survive normalizer unchanged."""
+        text = "Open the window to let the air in."
+        assert normalizer(text) == text
 
 
 class TestStAbbreviationRobust:
