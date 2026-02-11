@@ -18,10 +18,10 @@ https://en.wikipedia.org/wiki/Standard_German_phonology
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING, Any, Final
 
 from kokorog2p.base import G2PBase
+from kokorog2p.pipeline.tokenizer import RegexTokenizer, SpacyTokenizer
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
 
@@ -198,6 +198,8 @@ class GermanG2P(G2PBase):
         language: str = "de-de",
         use_espeak_fallback: bool = True,
         use_goruut_fallback: bool = False,
+        use_spacy: bool = False,
+        spacy_model: str = "de_core_news_sm",
         use_lexicon: bool = True,
         strip_stress: bool = True,
         load_silver: bool = True,
@@ -213,6 +215,11 @@ class GermanG2P(G2PBase):
             language: Language code (default: 'de-de').
             use_espeak_fallback: Whether to use espeak for OOV words.
             use_goruut_fallback: Whether to use goruut for OOV words.
+            use_spacy: Whether to use spaCy for tokenization and POS tagging.
+                Defaults to False to preserve legacy behavior and avoid requiring
+                spaCy model downloads unless explicitly requested.
+            spacy_model: spaCy German model package to load when use_spacy=True
+                (e.g., "de_core_news_sm", "de_core_news_md", "de_core_news_lg").
             use_lexicon: Whether to use dictionary lookup (default: True).
             strip_stress: Whether to remove stress markers from lexicon output.
             load_silver: If True, load silver tier dictionary if available.
@@ -245,6 +252,13 @@ class GermanG2P(G2PBase):
         self._lexicon: GermanLexicon | None = None
         self._fallback: Any = None
         self._strip_stress = strip_stress
+        self.use_spacy = use_spacy
+        self.spacy_model = spacy_model
+
+        # Initialize spaCy and tokenizers (lazy)
+        self._nlp: object | None = None
+        self._regex_tokenizer: RegexTokenizer | None = None
+        self._spacy_tokenizer: SpacyTokenizer | None = None
 
         # Initialize normalizer
         from kokorog2p.de.normalizer import GermanNormalizer
@@ -283,6 +297,41 @@ class GermanG2P(G2PBase):
             except ImportError:
                 pass
 
+    @property
+    def nlp(self) -> object:
+        """Lazily initialize spaCy."""
+        if self._nlp is None:
+            import spacy
+
+            name = self.spacy_model
+            if not spacy.util.is_package(name):
+                spacy.cli.download(name)  # type: ignore[attr-defined]
+            self._nlp = spacy.load(name, enable=["tok2vec", "tagger"])
+        return self._nlp
+
+    @property
+    def regex_tokenizer(self) -> RegexTokenizer:
+        """Lazily initialize the regex tokenizer."""
+        if self._regex_tokenizer is None:
+            self._regex_tokenizer = RegexTokenizer(
+                track_positions=True,
+                use_bracket_matching=True,
+                lang=self.language,
+            )
+        return self._regex_tokenizer
+
+    @property
+    def spacy_tokenizer(self) -> SpacyTokenizer:
+        """Lazily initialize the spaCy tokenizer."""
+        if self._spacy_tokenizer is None:
+            self._spacy_tokenizer = SpacyTokenizer(
+                nlp=self.nlp,
+                track_positions=True,
+                use_bracket_matching=True,
+                lang=self.language,
+            )
+        return self._spacy_tokenizer
+
     def __call__(self, text: str) -> list[GToken]:
         """Convert text to a list of tokens with phonemes.
 
@@ -298,54 +347,60 @@ class GermanG2P(G2PBase):
         # Normalize text (expand abbreviations, normalize quotes, etc.)
         text = self._normalizer(text)
 
-        tokens: list[GToken] = []
+        tokens = (
+            self._tokenize_spacy(text)
+            if self.use_spacy
+            else self._tokenize_simple(text)
+        )
 
-        # Tokenize by whitespace and punctuation
-        for match in re.finditer(r"(\w+|[^\w\s]+|\s+)", text, re.UNICODE):
-            word = match.group()
-
-            if word.isspace():
-                if tokens:
-                    tokens[-1].whitespace = word
-                continue
-
-            token = GToken(text=word, tag="", whitespace="")
+        for token in tokens:
+            word = token.text
 
             # Handle punctuation
             if not any(c.isalnum() for c in word):
                 token.phonemes = self._get_punct_phonemes(word)
                 token.set("rating", 4)
-            else:
-                # Try lexicon first
-                phonemes = None
-                if self._lexicon:
-                    phonemes = self._lexicon.lookup(word)
-                    if phonemes:
-                        token.phonemes = normalize_to_kokoro(phonemes)
-                        token.set("rating", 5)  # Dictionary lookup = highest rating
+                continue
 
-                # Fallback to espeak or goruut
-                if not phonemes and self._fallback:
-                    phonemes, rating = self._fallback(word)
-                    if phonemes:
-                        token.phonemes = phonemes
-                        token.set("rating", 3)  # Fallback
+            # Try lexicon first
+            phonemes = None
+            if self._lexicon:
+                phonemes = self._lexicon.lookup(word, token.tag)
+                if phonemes:
+                    token.phonemes = normalize_to_kokoro(phonemes)
+                    token.set("rating", 5)  # Dictionary lookup = highest rating
 
-                # Fallback to rules
-                if not phonemes:
-                    phonemes = self._word_to_phonemes(word)
-                    if phonemes:
-                        token.phonemes = normalize_to_kokoro(phonemes)
-                        token.set("rating", 2)  # Rule-based
+            # Fallback to espeak or goruut
+            if not phonemes and self._fallback:
+                fallback_result = self._fallback(word)
+                phonemes = fallback_result[0]
+                if phonemes:
+                    token.phonemes = phonemes
+                    token.set("rating", 3)  # Fallback
 
-                if not phonemes:
-                    token.phonemes = "?"
-                    token.set("rating", 0)
+            # Fallback to rules
+            if not phonemes:
+                phonemes = self._word_to_phonemes(word)
+                if phonemes:
+                    token.phonemes = normalize_to_kokoro(phonemes)
+                    token.set("rating", 2)  # Rule-based
 
-            tokens.append(token)
+            if not phonemes:
+                token.phonemes = "?"
+                token.set("rating", 0)
 
         ensure_gtoken_positions(tokens, text)
         return tokens
+
+    def _tokenize_spacy(self, text: str) -> list[GToken]:
+        """Tokenize text using spaCy."""
+        processing_tokens = self.spacy_tokenizer.tokenize(text)
+        return [ptoken.to_gtoken() for ptoken in processing_tokens]
+
+    def _tokenize_simple(self, text: str) -> list[GToken]:
+        """Tokenize text using regex tokenizer."""
+        processing_tokens = self.regex_tokenizer.tokenize(text)
+        return [ptoken.to_gtoken() for ptoken in processing_tokens]
 
     def _word_to_phonemes(self, word: str) -> str:
         """Convert a single word to phonemes using German rules.

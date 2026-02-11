@@ -143,7 +143,8 @@ def get_g2p(
             when using the dictionary-based "kokorog2p" backend. Ignored when
             backend is set to "goruut" (goruut is the primary backend).
         use_spacy: Whether to use spaCy for tokenization and POS tagging
-            (only applies to English). Used by the "kokorog2p" backend.
+            (applies to English and French, and optionally German).
+            Used by the "kokorog2p" backend.
         use_cli: If True, force use of CLI espeak phonemizer instead of
             library bindings. Only applies when backend="espeak".
         backend: Phonemization backend to use: "kokorog2p", "espeak", "goruut".
@@ -292,6 +293,7 @@ def get_g2p(
             language=language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
+            use_spacy=use_spacy,
             load_silver=load_silver,
             load_gold=load_gold,
             version=version,
@@ -314,6 +316,7 @@ def get_g2p(
             language=language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
+            use_spacy=use_spacy,
             load_silver=load_silver,
             load_gold=load_gold,
             version=version,
@@ -430,7 +433,8 @@ def phonemize(
             words. Ignored if ``g2p`` is provided.
         use_spacy:
             When constructing a G2P instance, whether to use spaCy for
-            tokenization/POS tagging (English only). Ignored if ``g2p`` is
+            tokenization/POS tagging (English/French and optionally German).
+            Ignored if ``g2p`` is
             provided.
         backend:
             When constructing a G2P instance, select the backend:

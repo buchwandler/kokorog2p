@@ -13,6 +13,7 @@ from kokorog2p.fr.fallback import FrenchFallback, FrenchGoruutFallback
 from kokorog2p.fr.lexicon import FrenchLexicon, TokenContext
 from kokorog2p.fr.normalizer import FrenchNormalizer
 from kokorog2p.fr.numbers import expand_currency, expand_numbers, expand_time
+from kokorog2p.pipeline.tokenizer import RegexTokenizer, SpacyTokenizer
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
 
@@ -49,6 +50,7 @@ class FrenchG2P(G2PBase):
         use_espeak_fallback: bool = True,
         use_goruut_fallback: bool = False,
         use_spacy: bool = True,
+        spacy_model: str = "fr_core_news_sm",
         expand_nums: bool = True,
         expand_abbreviations: bool = True,
         enable_context_detection: bool = True,
@@ -65,6 +67,8 @@ class FrenchG2P(G2PBase):
             use_espeak_fallback: Whether to use espeak for OOV words.
             use_goruut_fallback: Whether to use goruut for OOV words.
             use_spacy: Whether to use spaCy for tokenization and POS tagging.
+            spacy_model: spaCy French model package to load when use_spacy=True
+                (e.g., "fr_core_news_sm", "fr_core_news_md", "fr_core_news_lg").
             expand_nums: Whether to expand numbers to words.
             expand_abbreviations: Whether to expand common abbreviations.
             enable_context_detection: Context-aware abbreviation expansion.
@@ -97,6 +101,7 @@ class FrenchG2P(G2PBase):
         self.version = version
         self.unk = unk
         self.use_spacy = use_spacy
+        self.spacy_model = spacy_model
         self.expand_nums = expand_nums
 
         # Initialize normalizer
@@ -114,6 +119,10 @@ class FrenchG2P(G2PBase):
         # Initialize spaCy (lazy)
         self._nlp: object | None = None
 
+        # Initialize tokenizers (lazy)
+        self._regex_tokenizer: RegexTokenizer | None = None
+        self._spacy_tokenizer: SpacyTokenizer | None = None
+
     @property
     def fallback(self) -> FrenchFallback | FrenchGoruutFallback | None:
         """Lazily initialize the appropriate fallback."""
@@ -130,11 +139,34 @@ class FrenchG2P(G2PBase):
         if self._nlp is None:
             import spacy
 
-            name = "fr_core_news_sm"
+            name = self.spacy_model
             if not spacy.util.is_package(name):
                 spacy.cli.download(name)  # type: ignore[attr-defined]
             self._nlp = spacy.load(name, enable=["tok2vec", "tagger"])
         return self._nlp
+
+    @property
+    def regex_tokenizer(self) -> RegexTokenizer:
+        """Lazily initialize the regex tokenizer."""
+        if self._regex_tokenizer is None:
+            self._regex_tokenizer = RegexTokenizer(
+                track_positions=True,
+                use_bracket_matching=True,
+                lang=self.language,
+            )
+        return self._regex_tokenizer
+
+    @property
+    def spacy_tokenizer(self) -> SpacyTokenizer:
+        """Lazily initialize the spaCy tokenizer."""
+        if self._spacy_tokenizer is None:
+            self._spacy_tokenizer = SpacyTokenizer(
+                nlp=self.nlp,
+                track_positions=True,
+                use_bracket_matching=True,
+                lang=self.language,
+            )
+        return self._spacy_tokenizer
 
     def __call__(self, text: str) -> list[GToken]:
         """Convert text to a list of tokens with phonemes.
@@ -238,19 +270,15 @@ class FrenchG2P(G2PBase):
         Returns:
             List of GToken objects.
         """
-        doc = self.nlp(text)  # type: ignore
+        processing_tokens = self.spacy_tokenizer.tokenize(text)
         tokens: list[GToken] = []
 
-        for tk in doc:
-            token = GToken(
-                text=tk.text,
-                tag=tk.pos_,  # Use POS tag for French
-                whitespace=tk.whitespace_,
-            )
+        for ptoken in processing_tokens:
+            token = ptoken.to_gtoken()
 
             # Handle punctuation
-            if tk.pos_ == "PUNCT":
-                token.phonemes = self._get_punct_phonemes(tk.text)
+            if ptoken.text and not any(c.isalnum() for c in ptoken.text):
+                token.phonemes = self._get_punct_phonemes(ptoken.text)
                 token.set("rating", 4)
 
             tokens.append(token)
@@ -266,20 +294,15 @@ class FrenchG2P(G2PBase):
         Returns:
             List of GToken objects.
         """
+        processing_tokens = self.regex_tokenizer.tokenize(text)
         tokens: list[GToken] = []
-        # Simple word/punct split
-        for match in re.finditer(r"(\w+|[^\w\s]+|\s+)", text, re.UNICODE):
-            word = match.group()
-            if word.isspace():
-                if tokens:
-                    tokens[-1].whitespace = word
-                continue
 
-            token = GToken(text=word, tag="", whitespace="")
+        for ptoken in processing_tokens:
+            token = ptoken.to_gtoken()
 
             # Handle punctuation
-            if not any(c.isalnum() for c in word):
-                token.phonemes = self._get_punct_phonemes(word)
+            if ptoken.text and not any(c.isalnum() for c in ptoken.text):
+                token.phonemes = self._get_punct_phonemes(ptoken.text)
                 token.set("rating", 4)
 
             tokens.append(token)

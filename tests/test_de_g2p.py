@@ -23,6 +23,18 @@ class TestGermanG2P:
     def test_creation(self, g2p):
         """Test G2P creation."""
         assert g2p.language == "de-de"
+        assert g2p.use_spacy is False
+
+    def test_custom_spacy_model_option_is_stored(self):
+        """Test custom German spaCy model option is stored."""
+        g2p = GermanG2P(
+            language="de-de",
+            use_spacy=True,
+            spacy_model="de_core_news_md",
+            use_espeak_fallback=False,
+        )
+        assert g2p.use_spacy is True
+        assert g2p.spacy_model == "de_core_news_md"
 
     def test_call_returns_tokens(self, g2p):
         """Test calling G2P returns list of tokens."""
@@ -334,3 +346,21 @@ class TestGermanGetG2P:
         clear_cache()
         g2p_ch = get_g2p("de-ch")  # Swiss German
         assert isinstance(g2p_ch, GermanG2P)
+
+    def test_get_g2p_german_forwards_use_spacy(self):
+        """Test get_g2p forwards use_spacy for German."""
+        from kokorog2p import clear_cache, get_g2p
+
+        clear_cache()
+        g2p = get_g2p("de", use_spacy=True)
+        assert isinstance(g2p, GermanG2P)
+        assert g2p.use_spacy is True
+
+    def test_get_g2p_german_forwards_spacy_model(self):
+        """Test get_g2p forwards custom German spaCy model name."""
+        from kokorog2p import clear_cache, get_g2p
+
+        clear_cache()
+        g2p = get_g2p("de", spacy_model="de_core_news_md")
+        assert isinstance(g2p, GermanG2P)
+        assert g2p.spacy_model == "de_core_news_md"
