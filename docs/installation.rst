@@ -38,6 +38,9 @@ This includes:
 * Context-dependent pronunciation
 * Number and currency expansion
 
+By default, English G2P uses ``en_core_web_md`` for POS tagging (downloaded on first use
+if missing). You can override this with ``spacy_model=...``.
+
 French
 ~~~~~~
 
@@ -225,8 +228,12 @@ If spaCy models are missing:
 
 .. code-block:: bash
 
-   # Download English model
+   # Default English model used by kokorog2p
+   python -m spacy download en_core_web_md
+
+   # Optional alternatives
    python -m spacy download en_core_web_sm
+   python -m spacy download en_core_web_lg
 
 Performance Issues
 ~~~~~~~~~~~~~~~~~~

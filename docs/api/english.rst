@@ -86,6 +86,25 @@ Basic Usage
    g2p_gb = EnglishG2P(language="en-gb")
    tokens = g2p_gb("Hello world!")
 
+spaCy Model Selection
+~~~~~~~~~~~~~~~~~~~~~
+
+English G2P uses spaCy for POS tagging when ``use_spacy=True``. You can choose the
+spaCy English model with ``spacy_model``:
+
+.. code-block:: python
+
+   from kokorog2p.en import EnglishG2P
+
+   # Default model (recommended balance)
+   g2p_md = EnglishG2P(use_spacy=True, spacy_model="en_core_web_md")
+
+   # Smaller model
+   g2p_sm = EnglishG2P(use_spacy=True, spacy_model="en_core_web_sm")
+
+   # Larger model
+   g2p_lg = EnglishG2P(use_spacy=True, spacy_model="en_core_web_lg")
+
 Dictionary Lookup
 ~~~~~~~~~~~~~~~~~
 

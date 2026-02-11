@@ -71,7 +71,8 @@ You can disable specific features for better performance or control:
    g2p = EnglishG2P(
        language="en-us",
        use_espeak_fallback=False,  # Unknown words will have no phonemes
-       use_spacy=True
+       use_spacy=True,
+       spacy_model="en_core_web_md",  # default
    )
 
    # Disable spaCy (faster but no POS tagging)
@@ -89,6 +90,33 @@ You can disable specific features for better performance or control:
        load_silver=False,
        load_gold=False  # No dictionaries, ultra-fast
    )
+
+spaCy Model Selection (English)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+English G2P lets you choose which spaCy model to use for POS tagging. This affects
+homograph and heteronym disambiguation quality (for example, ``lives`` noun vs verb).
+
+.. code-block:: python
+
+   from kokorog2p.en import EnglishG2P
+
+   # Default (recommended balance)
+   g2p_md = EnglishG2P(use_spacy=True, spacy_model="en_core_web_md")
+
+   # Smaller model (lower memory / faster downloads)
+   g2p_sm = EnglishG2P(use_spacy=True, spacy_model="en_core_web_sm")
+
+   # Largest model (highest spaCy English accuracy, highest memory)
+   g2p_lg = EnglishG2P(use_spacy=True, spacy_model="en_core_web_lg")
+
+The same option is also available through ``get_g2p()``:
+
+.. code-block:: python
+
+   from kokorog2p import get_g2p
+
+   g2p = get_g2p("en-us", use_spacy=True, spacy_model="en_core_web_md")
 
 Stress Control
 ~~~~~~~~~~~~~~
@@ -832,7 +860,7 @@ Common Error Scenarios
        g2p = get_g2p("en-us", use_spacy=True)
    except OSError as e:
        print("spaCy model not found")
-       print("Download with: python -m spacy download en_core_web_sm")
+       print("Download with: python -m spacy download en_core_web_md")
 
 Configuring with Different Backends
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

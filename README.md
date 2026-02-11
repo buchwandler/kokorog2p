@@ -29,6 +29,8 @@ provides:
 - **Automatic punctuation normalization** (ellipsis, dashes, apostrophes)
 - **Context-aware abbreviation expansion** (e.g., "St." → "Street" or "Saint" based on
   context)
+- **Configurable spaCy model for English POS tagging** (`spacy_model`, default:
+  `en_core_web_md`)
 - **Number and currency handling** for supported languages
 - **Stress assignment** based on linguistic rules
 
@@ -151,6 +153,16 @@ tokens = g2p("123 Main St.")          # St. → Street (house number pattern)
 tokens = g2p("St. Patrick's Day")     # St. → Saint (saint name recognized)
 tokens = g2p("Visit St. Louis")       # St. → Saint (city name recognized)
 tokens = g2p("Born in 1850, St. Peter")  # St. → Saint (distant number ignored)
+
+# Configure spaCy model size for English POS tagging
+# Default is en_core_web_md (best balance for homograph disambiguation)
+g2p_md = get_g2p("en-us", use_spacy=True, spacy_model="en_core_web_md")
+
+# Lower memory / faster download
+g2p_sm = get_g2p("en-us", use_spacy=True, spacy_model="en_core_web_sm")
+
+# Higher memory / highest spaCy English accuracy
+g2p_lg = get_g2p("en-us", use_spacy=True, spacy_model="en_core_web_lg")
 
 # German with lexicon and number handling
 g2p_de = get_g2p("de")

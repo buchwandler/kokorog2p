@@ -33,6 +33,16 @@ class TestEnglishG2PNoFallback:
         assert english_g2p_no_espeak.use_espeak_fallback is False
         assert english_g2p_no_espeak.use_spacy is False
 
+    def test_custom_spacy_model_option_is_stored(self):
+        """Test constructor accepts custom spaCy model option."""
+        g2p = EnglishG2P(
+            language="en-us",
+            use_espeak_fallback=False,
+            use_spacy=False,
+            spacy_model="en_core_web_sm",
+        )
+        assert g2p.spacy_model == "en_core_web_sm"
+
     def test_is_british(self, english_g2p_no_espeak):
         """Test is_british property."""
         assert english_g2p_no_espeak.is_british is False
@@ -135,6 +145,7 @@ class TestEnglishG2PWithSpacy:
     def test_creation_with_spacy(self, english_g2p_with_spacy):
         """Test G2P creation with spaCy."""
         assert english_g2p_with_spacy.use_spacy is True
+        assert english_g2p_with_spacy.spacy_model == "en_core_web_md"
 
     def test_pos_tagging(self, english_g2p_with_spacy):
         """Test that POS tags are assigned."""
@@ -142,6 +153,33 @@ class TestEnglishG2PWithSpacy:
         # With spaCy, tokens should have POS tags
         word_tokens = [t for t in tokens if t.is_word]
         assert any(t.tag != "" for t in word_tokens)
+
+    def test_lives_verb_pronunciation_with_locative_phrase(
+        self, english_g2p_with_spacy, phoneme_backend
+    ):
+        """Regression: verb 'lives' should map to /lˈɪvz/ in this sentence."""
+        text = "The younger girl is about twelve and lives in Berlin."
+
+        tokens = english_g2p_with_spacy(text)
+        lives_token = [t for t in tokens if t.text.lower() == "lives"][0]
+        assert lives_token.phonemes == "lˈɪvz"
+
+        result = phonemize_with_backend(phoneme_backend, english_g2p_with_spacy, text)
+        assert "lˈɪvz" in result
+        assert "lˈIvz" not in result
+
+    def test_lives_noun_pronunciation_remains_plural_noun(
+        self, english_g2p_with_spacy, phoneme_backend
+    ):
+        """Regression guard: noun 'lives' should remain /lˈIvz/."""
+        text = "Many lives in Berlin were lost."
+
+        tokens = english_g2p_with_spacy(text)
+        lives_token = [t for t in tokens if t.text.lower() == "lives"][0]
+        assert lives_token.phonemes == "lˈIvz"
+
+        result = phonemize_with_backend(phoneme_backend, english_g2p_with_spacy, text)
+        assert "lˈIvz" in result
 
     def test_punctuation_handling(self, english_g2p_with_spacy):
         """Test punctuation is handled correctly."""
@@ -172,9 +210,9 @@ class TestEnglishG2PWithSpacy:
         )
 
         # The ! should remain as punctuation, not be converted to "exclamation"
-        assert (
-            "ˈɛkskləmˌAʃən" not in phonemes
-        ), f"! should not be converted to 'exclamation'. Got: {phonemes!r}"
+        assert "ˈɛkskləmˌAʃən" not in phonemes, (
+            f"! should not be converted to 'exclamation'. Got: {phonemes!r}"
+        )
         assert "!" in phonemes, f"! should be preserved. Got: {phonemes!r}"
 
         # Check tokens
@@ -192,9 +230,9 @@ class TestEnglishG2PWithSpacy:
             phoneme_backend, english_g2p_with_spacy, '"Hello!"'
         )
 
-        assert (
-            "ˈɛkskləmˌAʃən" not in phonemes2
-        ), f"! should not be converted to 'exclamation'. Got: {phonemes2!r}"
+        assert "ˈɛkskləmˌAʃən" not in phonemes2, (
+            f"! should not be converted to 'exclamation'. Got: {phonemes2!r}"
+        )
         assert "!" in phonemes2, f"! should be preserved. Got: {phonemes2!r}"
 
         # Test case 3: Various punctuation+quote combinations
@@ -214,9 +252,9 @@ class TestEnglishG2PWithSpacy:
                 phoneme_backend, english_g2p_with_spacy, text
             )
             # Check punctuation is preserved
-            assert (
-                expected_punct in result
-            ), f"For '{text}', expected '{expected_punct}' in result. Got: {result!r}"
+            assert expected_punct in result, (
+                f"For '{text}', expected '{expected_punct}' in result. Got: {result!r}"
+            )
             # Check NOT converted to word
             assert "ɛkskləm" not in result, (
                 f"For '{text}', punctuation should not be converted to word. "
@@ -241,9 +279,9 @@ class TestEnglishG2PWithSpacy:
             result = phonemize_with_backend(
                 phoneme_backend, english_g2p_with_spacy, text
             )
-            assert (
-                result == expected
-            ), f"'{text}': expected '{expected}', got '{result}'"
+            assert result == expected, (
+                f"'{text}': expected '{expected}', got '{result}'"
+            )
 
 
 @pytest.mark.espeak
@@ -332,9 +370,9 @@ class TestEnglishG2PTokenization:
             tokens = english_g2p_no_espeak(word)
             assert len(tokens) >= 1, f"Should have token for '{word}'"
             actual = tokens[0].phonemes
-            assert (
-                actual == expected_phonemes
-            ), f"'{word}': expected '{expected_phonemes}', got '{actual}'"
+            assert actual == expected_phonemes, (
+                f"'{word}': expected '{expected_phonemes}', got '{actual}'"
+            )
 
     def test_contraction_in_sentence(self, english_g2p_no_espeak):
         """Test contractions work correctly within sentences."""
@@ -1014,13 +1052,13 @@ class TestContractionRobustness:
             word_texts = [t.text.lower() for t in tokens if t.is_word]
             # Common split patterns
             if word == "gonna":
-                assert (
-                    "gon" not in word_texts
-                ), f"'{word}' was split into parts: {word_texts}"
+                assert "gon" not in word_texts, (
+                    f"'{word}' was split into parts: {word_texts}"
+                )
             elif word == "gotta":
-                assert (
-                    "got" not in word_texts
-                ), f"'{word}' was split into parts: {word_texts}"
+                assert "got" not in word_texts, (
+                    f"'{word}' was split into parts: {word_texts}"
+                )
 
     def test_dont_in_quoted_dialogue(self, g2p_spacy, phoneme_backend):
         """Test 'don't' in quoted dialogue with punctuation.
@@ -1048,26 +1086,26 @@ class TestContractionRobustness:
 
             # Find the don't token
             dont_tokens = [t for t in tokens if "don't" == t.text]
-            assert (
-                len(dont_tokens) == 1
-            ), f"Expected 1 'don't' token in {repr(text)}, found {len(dont_tokens)}"
+            assert len(dont_tokens) == 1, (
+                f"Expected 1 'don't' token in {repr(text)}, found {len(dont_tokens)}"
+            )
 
             # Should have correct phonemes
-            assert (
-                dont_tokens[0].phonemes == "dˈOnt"
-            ), f"Expected 'dˈOnt', got '{dont_tokens[0].phonemes}' in {repr(text)}"
+            assert dont_tokens[0].phonemes == "dˈOnt", (
+                f"Expected 'dˈOnt', got '{dont_tokens[0].phonemes}' in {repr(text)}"
+            )
 
             # Verify the full phonemized result
             result = phonemize_with_backend(phoneme_backend, g2p_spacy, text)
-            assert (
-                "dˈOnt" in result
-            ), f"Expected 'dˈOnt' in result for {repr(text)}, got: {result}"
+            assert "dˈOnt" in result, (
+                f"Expected 'dˈOnt' in result for {repr(text)}, got: {result}"
+            )
 
             # Should NOT be split into separate tokens
             word_texts = [t.text for t in tokens if t.is_word]
-            assert (
-                "don't" in word_texts
-            ), f"'don't' not found in {word_texts} for {repr(text)}"
+            assert "don't" in word_texts, (
+                f"'don't' not found in {word_texts} for {repr(text)}"
+            )
             # Should not have separate "do"
             do_count = word_texts.count("do")
             assert do_count == 0, (

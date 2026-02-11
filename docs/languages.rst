@@ -104,15 +104,20 @@ Usage
    g2p_us = EnglishG2P(
        language="en-us",
        use_espeak_fallback=True,
-       use_spacy=True
+       use_spacy=True,
+       spacy_model="en_core_web_md",  # default
    )
 
    # British English
    g2p_gb = EnglishG2P(
        language="en-gb",
        use_espeak_fallback=True,
-       use_spacy=True
+       use_spacy=True,
+       spacy_model="en_core_web_md",  # default
    )
+
+   # Optional: select a different spaCy English model
+   g2p_sm = EnglishG2P(language="en-us", use_spacy=True, spacy_model="en_core_web_sm")
 
 Examples
 ~~~~~~~~

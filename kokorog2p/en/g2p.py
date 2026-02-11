@@ -30,6 +30,7 @@ class EnglishG2P(G2PBase):
         use_goruut_fallback: bool = False,
         use_cli: bool = False,
         use_spacy: bool = True,
+        spacy_model: str = "en_core_web_md",
         expand_abbreviations: bool = True,
         enable_context_detection: bool = True,
         phoneme_quotes: str = "curly",
@@ -48,6 +49,8 @@ class EnglishG2P(G2PBase):
             use_goruut_fallback: Whether to use goruut for OOV words.
             use_cli: Whether to use the espeak CLI instead of the library.
             use_spacy: Whether to use spaCy for tokenization and POS tagging.
+            spacy_model: spaCy English model package to load when use_spacy=True
+                (e.g., "en_core_web_sm", "en_core_web_md", "en_core_web_lg").
             expand_abbreviations: Whether to expand common abbreviations.
             enable_context_detection: Context-aware abbreviation expansion.
             phoneme_quotes: Quote style in phoneme output:
@@ -99,6 +102,7 @@ class EnglishG2P(G2PBase):
         self.version = version
         self.unk = unk
         self.use_spacy = use_spacy
+        self.spacy_model = spacy_model
         self.expand_abbreviations = expand_abbreviations
         self.enable_context_detection = enable_context_detection
         self.phoneme_quotes = phoneme_quotes
@@ -137,7 +141,7 @@ class EnglishG2P(G2PBase):
         if self._nlp is None:
             import spacy
 
-            name = "en_core_web_sm"
+            name = self.spacy_model
             if not spacy.util.is_package(name):
                 spacy.cli.download(name)  # type: ignore[attr-defined]
             self._nlp = spacy.load(name, enable=["tok2vec", "tagger"])
