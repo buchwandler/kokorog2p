@@ -281,9 +281,9 @@ class TestChineseG2P:
 
         # Should be valid for v1.1-zh model
         is_valid_v11, invalid = validate_for_kokoro(result, model="1.1")
-        assert is_valid_v11, (
-            f"Zhuyin should be valid for 1.1 model. Invalid: {set(invalid)}"
-        )
+        assert (
+            is_valid_v11
+        ), f"Zhuyin should be valid for 1.1 model. Invalid: {set(invalid)}"
 
         # Test legacy version (IPA output)
         clear_cache()
@@ -294,9 +294,9 @@ class TestChineseG2P:
         is_valid_legacy, invalid_legacy = validate_for_kokoro(
             result_legacy, model="1.0"
         )
-        assert is_valid_legacy, (
-            f"IPA should be valid for base model. Invalid: {set(invalid_legacy)}"
-        )
+        assert (
+            is_valid_legacy
+        ), f"IPA should be valid for base model. Invalid: {set(invalid_legacy)}"
 
     def test_chinese_get_target_model(self):
         """Test that ChineseG2P reports correct target model."""

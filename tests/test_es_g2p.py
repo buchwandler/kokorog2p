@@ -238,9 +238,9 @@ class TestSpanishG2P:
             phonemes = g2p.phonemize(word)
             for char in phonemes:
                 if char not in (" ", "?", "!", ",", ".", "-", ":", ";", "'", '"'):
-                    assert char in ES_VOCAB, (
-                        f"Phoneme '{char}' from '{word}' -> '{phonemes}' not in ES_VOCAB"
-                    )
+                    assert (
+                        char in ES_VOCAB
+                    ), f"Phoneme '{char}' from '{word}' -> '{phonemes}' not in ES_VOCAB"
 
 
 if __name__ == "__main__":
