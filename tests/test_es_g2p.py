@@ -9,6 +9,12 @@ from kokorog2p.phonemes import ES_VOCAB
 class TestSpanishG2P:
     """Test Spanish G2P phonemization."""
 
+    def test_spacy_options_are_stored(self):
+        """Test spaCy option fields are stored on SpanishG2P."""
+        g2p = SpanishG2P(use_spacy=True, spacy_model="es_core_news_md")
+        assert g2p.use_spacy is True
+        assert g2p.spacy_model == "es_core_news_md"
+
     def test_basic_words(self):
         """Test basic Spanish words."""
         g2p = SpanishG2P()
@@ -232,9 +238,9 @@ class TestSpanishG2P:
             phonemes = g2p.phonemize(word)
             for char in phonemes:
                 if char not in (" ", "?", "!", ",", ".", "-", ":", ";", "'", '"'):
-                    assert (
-                        char in ES_VOCAB
-                    ), f"Phoneme '{char}' from '{word}' -> '{phonemes}' not in ES_VOCAB"
+                    assert char in ES_VOCAB, (
+                        f"Phoneme '{char}' from '{word}' -> '{phonemes}' not in ES_VOCAB"
+                    )
 
 
 if __name__ == "__main__":

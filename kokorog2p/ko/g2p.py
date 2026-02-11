@@ -38,6 +38,8 @@ class KoreanG2P(G2PBase):
         language: str = "ko",
         use_espeak_fallback: bool = False,
         use_goruut_fallback: bool = False,
+        use_spacy: bool = False,
+        spacy_model: str = "ko_core_news_sm",
         load_silver: bool = True,
         load_gold: bool = True,
         use_dict: bool = True,
@@ -54,6 +56,9 @@ class KoreanG2P(G2PBase):
                 Not typically used for Korean. Defaults to False.
             use_goruut_fallback: Whether to use goruut for unknown words.
                 Not typically used for Korean. Defaults to False.
+            use_spacy: Reserved for API consistency. Korean uses g2pK backend
+                for tokenization and phonemization.
+            spacy_model: Reserved for API consistency when use_spacy is enabled.
             load_silver: Reserved for API consistency. Korean doesn't use
                 dictionary tiers. Defaults to True.
             load_gold: Reserved for API consistency. Korean doesn't use
@@ -72,6 +77,8 @@ class KoreanG2P(G2PBase):
             use_goruut_fallback=use_goruut_fallback,
         )
         self.version = version
+        self.use_spacy = use_spacy
+        self.spacy_model = spacy_model
         self.load_silver = load_silver
         self.load_gold = load_gold
         self.use_dict = use_dict

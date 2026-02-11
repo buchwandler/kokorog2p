@@ -23,6 +23,7 @@ import unicodedata
 from typing import Any, Final
 
 from kokorog2p.base import G2PBase
+from kokorog2p.pipeline.tokenizer import SpacyTokenizer
 from kokorog2p.pt.normalizer import PortugueseNormalizer
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
@@ -85,6 +86,8 @@ class PortugueseG2P(G2PBase):
         self,
         language: str = "pt-br",
         use_espeak_fallback: bool = False,
+        use_spacy: bool = False,
+        spacy_model: str = "pt_core_news_sm",
         mark_stress: bool = True,
         affricate_ti_di: bool = True,  # Affricate t/d before i (Brazilian feature)
         expand_abbreviations: bool = True,
@@ -98,6 +101,10 @@ class PortugueseG2P(G2PBase):
         Args:
             language: Language code (default: 'pt-br').
             use_espeak_fallback: Reserved for future espeak integration.
+            use_spacy: Whether to use spaCy for tokenization and POS tagging.
+                Defaults to False to preserve existing behavior.
+            spacy_model: spaCy Portuguese model package to load when use_spacy=True
+                (e.g., "pt_core_news_sm", "pt_core_news_md", "pt_core_news_lg").
             mark_stress: Whether to mark primary stress with ˈ.
             affricate_ti_di: Whether to affricate /t d/ before /i/ (Brazilian feature).
             expand_abbreviations: Whether to expand common abbreviations.
@@ -108,9 +115,13 @@ class PortugueseG2P(G2PBase):
         """
         super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
         self.version = version
+        self.use_spacy = use_spacy
+        self.spacy_model = spacy_model
         self.mark_stress = mark_stress
         self.affricate_ti_di = affricate_ti_di
         self.dialect = dialect
+        self._nlp: object | None = None
+        self._spacy_tokenizer: SpacyTokenizer | None = None
 
         # Initialize normalizer with dialect support
         self._normalizer = PortugueseNormalizer(
@@ -135,7 +146,7 @@ class PortugueseG2P(G2PBase):
         text = self._preprocess(text)
 
         # Tokenize
-        tokens = self._tokenize(text)
+        tokens = self._tokenize_spacy(text) if self.use_spacy else self._tokenize(text)
 
         # Process tokens
         for token in tokens:
@@ -156,6 +167,46 @@ class PortugueseG2P(G2PBase):
                 token.phonemes = "?"
 
         ensure_gtoken_positions(tokens, text)
+        return tokens
+
+    @property
+    def nlp(self) -> object:
+        """Lazily initialize spaCy."""
+        if self._nlp is None:
+            import spacy
+
+            name = self.spacy_model
+            if not spacy.util.is_package(name):
+                spacy.cli.download(name)  # type: ignore[attr-defined]
+            self._nlp = spacy.load(name, enable=["tok2vec", "tagger"])
+        return self._nlp
+
+    @property
+    def spacy_tokenizer(self) -> SpacyTokenizer:
+        """Lazily initialize the spaCy tokenizer."""
+        if self._spacy_tokenizer is None:
+            self._spacy_tokenizer = SpacyTokenizer(
+                nlp=self.nlp,
+                track_positions=True,
+                use_bracket_matching=True,
+                lang=self.language,
+            )
+        return self._spacy_tokenizer
+
+    def _tokenize_spacy(self, text: str) -> list[GToken]:
+        """Tokenize text using spaCy."""
+        processing_tokens = self.spacy_tokenizer.tokenize(text)
+        tokens: list[GToken] = []
+
+        for ptoken in processing_tokens:
+            token = ptoken.to_gtoken()
+
+            if ptoken.text and not any(c.isalnum() for c in ptoken.text):
+                token.phonemes = ptoken.text
+                token.set("rating", 4)
+
+            tokens.append(token)
+
         return tokens
 
     def _preprocess(self, text: str) -> str:

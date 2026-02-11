@@ -9,6 +9,12 @@ from kokorog2p.pt import PortugueseG2P
 class TestPortugueseG2P:
     """Test Brazilian Portuguese G2P conversion."""
 
+    def test_spacy_options_are_stored(self):
+        """Test spaCy option fields are stored on PortugueseG2P."""
+        g2p = PortugueseG2P(use_spacy=True, spacy_model="pt_core_news_md")
+        assert g2p.use_spacy is True
+        assert g2p.spacy_model == "pt_core_news_md"
+
     @pytest.fixture
     def g2p(self):
         """Create a Portuguese G2P instance."""
@@ -155,6 +161,6 @@ class TestPortugueseG2P:
             phonemes = g2p.phonemize(word)
             for char in phonemes:
                 if char not in (" ", "\t", "\n"):
-                    assert (
-                        char in PT_BR_VOCAB or char in '!?.,;:—…"()❓-'
-                    ), f"Invalid phoneme '{char}' in word '{word}' -> '{phonemes}'"
+                    assert char in PT_BR_VOCAB or char in '!?.,;:—…"()❓-', (
+                        f"Invalid phoneme '{char}' in word '{word}' -> '{phonemes}'"
+                    )

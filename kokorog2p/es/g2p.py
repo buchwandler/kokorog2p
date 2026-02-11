@@ -22,6 +22,7 @@ from typing import Any, Final
 
 from kokorog2p.base import G2PBase
 from kokorog2p.es.normalizer import SpanishNormalizer
+from kokorog2p.pipeline.tokenizer import SpacyTokenizer
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
 
@@ -90,6 +91,8 @@ class SpanishG2P(G2PBase):
         language: str = "es",
         use_espeak_fallback: bool = False,
         use_goruut_fallback: bool = False,
+        use_spacy: bool = False,
+        spacy_model: str = "es_core_news_sm",
         mark_stress: bool = True,
         dialect: str = "es",  # "es" for European, "la" for Latin American
         expand_abbreviations: bool = True,
@@ -103,6 +106,10 @@ class SpanishG2P(G2PBase):
             language: Language code (default: 'es').
             use_espeak_fallback: Reserved for future espeak integration.
             use_goruut_fallback: Reserved for future goruut integration.
+            use_spacy: Whether to use spaCy for tokenization and POS tagging.
+                Defaults to False to preserve existing behavior.
+            spacy_model: spaCy Spanish model package to load when use_spacy=True
+                (e.g., "es_core_news_sm", "es_core_news_md", "es_core_news_lg").
             mark_stress: Whether to mark primary stress with ˈ.
             dialect: "es" for European Spanish (with θ), "la" for Latin American (θ→s).
             expand_abbreviations: Whether to expand common abbreviations.
@@ -115,8 +122,12 @@ class SpanishG2P(G2PBase):
             use_goruut_fallback=use_goruut_fallback,
         )
         self.version = version
+        self.use_spacy = use_spacy
+        self.spacy_model = spacy_model
         self.mark_stress = mark_stress
         self.dialect = dialect
+        self._nlp: object | None = None
+        self._spacy_tokenizer: SpacyTokenizer | None = None
 
         # Initialize normalizer
         self._normalizer = SpanishNormalizer(
@@ -140,7 +151,7 @@ class SpanishG2P(G2PBase):
         text = self._preprocess(text)
 
         # Tokenize
-        tokens = self._tokenize(text)
+        tokens = self._tokenize_spacy(text) if self.use_spacy else self._tokenize(text)
 
         # Process tokens
         for token in tokens:
@@ -161,6 +172,44 @@ class SpanishG2P(G2PBase):
                 token.phonemes = "?"
 
         ensure_gtoken_positions(tokens, text)
+        return tokens
+
+    @property
+    def nlp(self) -> object:
+        """Lazily initialize spaCy."""
+        if self._nlp is None:
+            import spacy
+
+            name = self.spacy_model
+            if not spacy.util.is_package(name):
+                spacy.cli.download(name)  # type: ignore[attr-defined]
+            self._nlp = spacy.load(name, enable=["tok2vec", "tagger"])
+        return self._nlp
+
+    @property
+    def spacy_tokenizer(self) -> SpacyTokenizer:
+        """Lazily initialize the spaCy tokenizer."""
+        if self._spacy_tokenizer is None:
+            self._spacy_tokenizer = SpacyTokenizer(
+                nlp=self.nlp,
+                track_positions=True,
+                use_bracket_matching=True,
+                lang=self.language,
+            )
+        return self._spacy_tokenizer
+
+    def _tokenize_spacy(self, text: str) -> list[GToken]:
+        """Tokenize text using spaCy."""
+        processing_tokens = self.spacy_tokenizer.tokenize(text)
+        tokens: list[GToken] = []
+
+        for ptoken in processing_tokens:
+            token = ptoken.to_gtoken()
+            if ptoken.text and not any(c.isalnum() for c in ptoken.text):
+                token.phonemes = self._get_punct_phonemes(ptoken.text)
+                token.set("rating", 4)
+            tokens.append(token)
+
         return tokens
 
     def _preprocess(self, text: str) -> str:

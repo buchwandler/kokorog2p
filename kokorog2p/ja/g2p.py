@@ -261,6 +261,8 @@ class JapaneseG2P(G2PBase):
         self,
         language: str = "ja",
         use_espeak_fallback: bool = True,
+        use_spacy: bool = False,
+        spacy_model: str = "ja_core_news_sm",
         backend: str = "pyopenjtalk",
         unk: str = "",
         load_silver: bool = True,
@@ -273,6 +275,9 @@ class JapaneseG2P(G2PBase):
         Args:
             language: Language code (e.g., 'ja', 'ja-jp').
             use_espeak_fallback: Whether to use espeak for unknown words.
+            use_spacy: Reserved for API consistency. Japanese uses
+                pyopenjtalk/cutlet backends for tokenization and phonemization.
+            spacy_model: Reserved for API consistency when use_spacy is enabled.
             backend: Backend to use ("pyopenjtalk" or "cutlet").
             unk: Unknown token placeholder.
             load_silver: If True, load silver tier dictionary if available.
@@ -291,6 +296,8 @@ class JapaneseG2P(G2PBase):
         self.backend = backend
         self.version = version
         self.unk = unk
+        self.use_spacy = use_spacy
+        self.spacy_model = spacy_model
         self.load_silver = load_silver
         self.load_gold = load_gold
         self._pyopenjtalk = None

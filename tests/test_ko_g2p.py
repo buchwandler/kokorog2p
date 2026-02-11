@@ -22,6 +22,14 @@ class TestKoreanG2P:
     def test_creation(self, g2p):
         """Test G2P creation."""
         assert g2p.language == "ko"
+        assert g2p.use_spacy is False
+        assert g2p.spacy_model == "ko_core_news_sm"
+
+    def test_custom_spacy_model_option_is_stored(self):
+        """Test custom Korean spaCy model option is stored."""
+        g2p = KoreanG2P(use_spacy=True, spacy_model="ko_core_news_md")
+        assert g2p.use_spacy is True
+        assert g2p.spacy_model == "ko_core_news_md"
 
     def test_call_returns_tokens(self, g2p):
         """Test calling G2P returns list of tokens."""
@@ -256,6 +264,24 @@ class TestKoreanG2PIntegration:
         for lang in ["ko", "ko-kr", "kor", "korean"]:
             g2p = get_g2p(lang)
             assert isinstance(g2p, KoreanG2P)
+
+    def test_get_g2p_korean_forwards_use_spacy(self):
+        """Test get_g2p forwards use_spacy for Korean."""
+        from kokorog2p import clear_cache, get_g2p
+
+        clear_cache()
+        g2p = get_g2p("ko", use_spacy=True)
+        assert isinstance(g2p, KoreanG2P)
+        assert g2p.use_spacy is True
+
+    def test_get_g2p_korean_forwards_spacy_model(self):
+        """Test get_g2p forwards custom Korean spaCy model name."""
+        from kokorog2p import clear_cache, get_g2p
+
+        clear_cache()
+        g2p = get_g2p("ko", spacy_model="ko_core_news_md")
+        assert isinstance(g2p, KoreanG2P)
+        assert g2p.spacy_model == "ko_core_news_md"
 
     def test_phonemize_korean(self):
         """Test phonemize function with Korean."""

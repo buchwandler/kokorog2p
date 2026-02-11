@@ -151,6 +151,16 @@ class TestChineseG2P:
         g2p = ChineseG2P(language="zh")
         assert g2p.language == "zh"
         assert g2p.version == "1.1"
+        assert g2p.use_spacy is False
+        assert g2p.spacy_model == "zh_core_web_sm"
+
+    def test_custom_spacy_model_option_is_stored(self):
+        """Test custom Chinese spaCy model option is stored."""
+        from kokorog2p.zh import ChineseG2P
+
+        g2p = ChineseG2P(use_spacy=True, spacy_model="zh_core_web_md")
+        assert g2p.use_spacy is True
+        assert g2p.spacy_model == "zh_core_web_md"
 
     def test_repr(self):
         """Test string representation."""
@@ -235,6 +245,26 @@ class TestChineseG2P:
         g2p = get_g2p("chinese")
         assert isinstance(g2p, ChineseG2P)
 
+    def test_get_g2p_chinese_forwards_use_spacy(self):
+        """Test get_g2p forwards use_spacy for Chinese."""
+        from kokorog2p import clear_cache, get_g2p
+        from kokorog2p.zh import ChineseG2P
+
+        clear_cache()
+        g2p = get_g2p("zh", use_spacy=True)
+        assert isinstance(g2p, ChineseG2P)
+        assert g2p.use_spacy is True
+
+    def test_get_g2p_chinese_forwards_spacy_model(self):
+        """Test get_g2p forwards custom Chinese spaCy model name."""
+        from kokorog2p import clear_cache, get_g2p
+        from kokorog2p.zh import ChineseG2P
+
+        clear_cache()
+        g2p = get_g2p("zh", spacy_model="zh_core_web_trf")
+        assert isinstance(g2p, ChineseG2P)
+        assert g2p.spacy_model == "zh_core_web_trf"
+
     def test_chinese_v11_validation(self):
         """Test that Chinese v1.1 output validates against v1.1-zh model."""
         from kokorog2p import clear_cache, get_g2p
@@ -251,9 +281,9 @@ class TestChineseG2P:
 
         # Should be valid for v1.1-zh model
         is_valid_v11, invalid = validate_for_kokoro(result, model="1.1")
-        assert (
-            is_valid_v11
-        ), f"Zhuyin should be valid for 1.1 model. Invalid: {set(invalid)}"
+        assert is_valid_v11, (
+            f"Zhuyin should be valid for 1.1 model. Invalid: {set(invalid)}"
+        )
 
         # Test legacy version (IPA output)
         clear_cache()
@@ -264,9 +294,9 @@ class TestChineseG2P:
         is_valid_legacy, invalid_legacy = validate_for_kokoro(
             result_legacy, model="1.0"
         )
-        assert (
-            is_valid_legacy
-        ), f"IPA should be valid for base model. Invalid: {set(invalid_legacy)}"
+        assert is_valid_legacy, (
+            f"IPA should be valid for base model. Invalid: {set(invalid_legacy)}"
+        )
 
     def test_chinese_get_target_model(self):
         """Test that ChineseG2P reports correct target model."""
@@ -300,6 +330,16 @@ class TestJapaneseG2P:
         g2p = JapaneseG2P(language="ja")
         assert g2p.language == "ja"
         assert g2p.backend == "pyopenjtalk"
+        assert g2p.use_spacy is False
+        assert g2p.spacy_model == "ja_core_news_sm"
+
+    def test_custom_spacy_model_option_is_stored(self):
+        """Test custom Japanese spaCy model option is stored."""
+        from kokorog2p.ja import JapaneseG2P
+
+        g2p = JapaneseG2P(use_spacy=True, spacy_model="ja_core_news_lg")
+        assert g2p.use_spacy is True
+        assert g2p.spacy_model == "ja_core_news_lg"
 
     def test_repr(self):
         """Test string representation."""
@@ -369,3 +409,23 @@ class TestJapaneseG2P:
         clear_cache()
         g2p = get_g2p("japanese")
         assert isinstance(g2p, JapaneseG2P)
+
+    def test_get_g2p_japanese_forwards_use_spacy(self):
+        """Test get_g2p forwards use_spacy for Japanese."""
+        from kokorog2p import clear_cache, get_g2p
+        from kokorog2p.ja import JapaneseG2P
+
+        clear_cache()
+        g2p = get_g2p("ja", use_spacy=True)
+        assert isinstance(g2p, JapaneseG2P)
+        assert g2p.use_spacy is True
+
+    def test_get_g2p_japanese_forwards_spacy_model(self):
+        """Test get_g2p forwards custom Japanese spaCy model name."""
+        from kokorog2p import clear_cache, get_g2p
+        from kokorog2p.ja import JapaneseG2P
+
+        clear_cache()
+        g2p = get_g2p("ja", spacy_model="ja_core_news_lg")
+        assert isinstance(g2p, JapaneseG2P)
+        assert g2p.spacy_model == "ja_core_news_lg"

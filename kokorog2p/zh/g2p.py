@@ -33,6 +33,8 @@ class ChineseG2P(G2PBase):
         self,
         language: str = "zh",
         use_espeak_fallback: bool = True,
+        use_spacy: bool = False,
+        spacy_model: str = "zh_core_web_sm",
         version: str = "1.1",
         unk: str = "",
         en_callable=None,
@@ -45,6 +47,9 @@ class ChineseG2P(G2PBase):
         Args:
             language: Language code (e.g., 'zh', 'zh-cn').
             use_espeak_fallback: Whether to use espeak for English words.
+            use_spacy: Reserved for API consistency. Chinese uses jieba/pypinyin
+                and custom frontend pipelines for tokenization and phonemization.
+            spacy_model: Reserved for API consistency when use_spacy is enabled.
             version: Version of the G2P ("1.0" for base model,
                 "1.1" for ZHFrontend multilingual). Default: "1.1".
             unk: Unknown token placeholder.
@@ -61,6 +66,8 @@ class ChineseG2P(G2PBase):
         """
         super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
         self.version = version
+        self.use_spacy = use_spacy
+        self.spacy_model = spacy_model
         self.unk = unk
         self.en_callable = en_callable
         self.load_silver = load_silver
