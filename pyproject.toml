@@ -48,7 +48,7 @@ espeak = [
     "dlinfo>=1.2.1",
 ]
 goruut = [
-    "pygoruut>=0.7.0",
+    "pygoruut>=0.8.0",
 ]
 en = [
     "spacy>=3.5.0",
