@@ -59,7 +59,12 @@ class CliPhonemizer(EspeakPhonemizerBase):
         if self._version is None:
             exe = self._exe()
             try:
-                p = subprocess.run([exe, "--version"], text=True, capture_output=True)
+                p = subprocess.run(
+                    [exe, "--version"],
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
             except FileNotFoundError as e:
                 raise EspeakCliError(
                     "espeak-ng CLI executable not found. Install espeak-ng (or espeak) "
@@ -96,7 +101,13 @@ class CliPhonemizer(EspeakPhonemizerBase):
             cmd.append(f"--path={self.data_path}")
 
         try:
-            p = subprocess.run(cmd, text=True, encoding="utf-8", capture_output=True)
+            p = subprocess.run(
+                cmd,
+                text=True,
+                encoding="utf-8",
+                capture_output=True,
+                check=False,
+            )
         except FileNotFoundError as e:
             raise EspeakCliError(
                 "espeak-ng CLI executable not found. Install espeak-ng (or espeak) "
@@ -152,6 +163,7 @@ class CliPhonemizer(EspeakPhonemizerBase):
                 text=True,
                 encoding="utf-8",
                 capture_output=True,
+                check=False,
             )
         except FileNotFoundError as e:
             raise EspeakCliError(

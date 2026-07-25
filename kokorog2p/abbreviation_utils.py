@@ -133,4 +133,4 @@ def merge_abbreviation_tokens(
     return merged
 
 
-__all__ = ["merge_abbreviation_tokens", "get_abbreviation_entries"]
+__all__ = ["get_abbreviation_entries", "merge_abbreviation_tokens"]

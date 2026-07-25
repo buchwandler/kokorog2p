@@ -81,9 +81,7 @@ def get_vocab(model: str = "1.0") -> dict[str, int]:
     Returns:
         Dictionary mapping tokens to their indices.
     """
-    if model == "1.1":
-        return _load_vocab_v11_zh()
-    elif model == "1.1-zh":
+    if model == "1.1" or model == "1.1-zh":
         return _load_vocab_v11_zh()
     elif model == "1.1-de":
         return _load_vocab_v11_de()
@@ -99,9 +97,7 @@ def get_vocab_reverse(model: str = "1.0") -> dict[int, str]:
     Returns:
         Dictionary mapping indices to their tokens.
     """
-    if model == "1.1":
-        return _load_vocab_reverse_v11_zh()
-    elif model == "1.1-zh":
+    if model == "1.1" or model == "1.1-zh":
         return _load_vocab_reverse_v11_zh()
     elif model == "1.1-de":
         return _load_vocab_reverse_v11_de()

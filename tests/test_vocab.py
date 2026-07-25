@@ -129,12 +129,12 @@ class TestValidation:
 
     def test_validate_with_space(self):
         """Test validation with space character."""
-        is_valid, invalid = validate_for_kokoro("hˈɛlO wˈɜɹld")
+        is_valid, _invalid = validate_for_kokoro("hˈɛlO wˈɜɹld")
         assert is_valid is True
 
     def test_validate_with_punctuation(self):
         """Test validation with punctuation."""
-        is_valid, invalid = validate_for_kokoro("hˈɛlO!")
+        is_valid, _invalid = validate_for_kokoro("hˈɛlO!")
         assert is_valid is True
 
 

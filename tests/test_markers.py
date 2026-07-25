@@ -292,7 +292,7 @@ class TestIntegration:
         from kokorog2p import phonemize_to_result
 
         text = "I like @coffee@."
-        clean, ranges, warnings = parse_delimited(text)
+        clean, ranges, _warnings = parse_delimited(text)
 
         assignments = {1: {"ph": "ˈkɔfi"}}
         overrides = apply_marker_overrides(clean, ranges, assignments)
@@ -355,7 +355,7 @@ class TestEdgeCases:
     def test_marker_preserves_spacing(self):
         """Test that spacing is preserved correctly."""
         text = "@word1@  @word2@"  # Two spaces between
-        clean, ranges, warnings = parse_delimited(text)
+        clean, ranges, _warnings = parse_delimited(text)
 
         assert clean == "word1  word2"  # Two spaces preserved
         assert ranges == [(0, 5), (7, 12)]
@@ -363,7 +363,7 @@ class TestEdgeCases:
     def test_multiple_escapes(self):
         """Test multiple escaped markers."""
         text = r"user\@example.com and admin\@test.org"
-        clean, ranges, warnings = parse_delimited(text, marker="@", escape="\\")
+        clean, ranges, _warnings = parse_delimited(text, marker="@", escape="\\")
 
         assert clean == "user@example.com and admin@test.org"
         assert ranges == []

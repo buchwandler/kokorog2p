@@ -37,7 +37,7 @@ def measure_init_and_memory(
     end_time = time.perf_counter()
 
     # Get memory usage
-    current, peak = tracemalloc.get_traced_memory()
+    _current, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
 
     init_time_ms = (end_time - start_time) * 1000

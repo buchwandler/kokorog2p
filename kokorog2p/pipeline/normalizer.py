@@ -168,7 +168,6 @@ class TextNormalizer(ABC):
         Order matters! For example, apostrophe normalization should happen before
         quote normalization to handle edge cases correctly.
         """
-        pass
 
     def add_rule(self, rule: NormalizationRule) -> None:
         """Add a normalization rule to the pipeline.

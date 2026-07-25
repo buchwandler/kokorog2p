@@ -233,7 +233,7 @@ class Punctuation:
             escaped = re.escape(self._marks)
             self._marks_re = re.compile(rf"(\s*[{escaped}]+\s*)+")
         else:
-            raise ValueError("Punctuation marks must be a string or re.Pattern")
+            raise TypeError("Punctuation marks must be a string or re.Pattern")
 
     # One-pass matcher for multi-character sequences (order handled by regex engine).
     _SEQ_RE: ClassVar[re.Pattern[str]] = re.compile(

@@ -77,7 +77,7 @@ def _find_library_path(lib: ctypes.CDLL) -> Path:
     if HAS_DLINFO:
         try:
             return pathlib.Path(dlinfo.DLInfo(lib).path).resolve()
-        except Exception:
+        except Exception:  # noqa: S110
             pass
 
     raise RuntimeError(f"Cannot determine path for library: {lib._name}")

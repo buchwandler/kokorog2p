@@ -12,6 +12,7 @@ Run with: python -m benchmarks.benchmark_cs_g2p
 """
 
 import random
+import sys
 import time
 from dataclasses import dataclass, field
 
@@ -701,4 +702,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

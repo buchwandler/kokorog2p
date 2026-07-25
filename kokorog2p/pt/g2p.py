@@ -419,11 +419,15 @@ class PortugueseG2P(G2PBase):
         result = []
         matched = False
 
-        if self.affricate_ti_di:
+        if (
+            self.affricate_ti_di
             # d + i (unstressed) -> ʤ
-            if i + 1 < n and text[i + 1] == "i" and (i + 1) not in stressed_vowels:
-                result.append("ʤ")
-                return result, i + 1, True
+            and i + 1 < n
+            and text[i + 1] == "i"
+            and (i + 1) not in stressed_vowels
+        ):
+            result.append("ʤ")
+            return result, i + 1, True
 
         result.append("d")
         return result, i + 1, matched

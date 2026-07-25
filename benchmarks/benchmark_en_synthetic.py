@@ -113,11 +113,13 @@ class FailureAnalyzer:
         if "'" in text or "'" in text or "`" in text or "´" in text:
             # Check if a contraction was split
             for word in text.split():
-                if any(c in word for c in ["'", "'", "`", "´"]):
+                if (
+                    any(c in word for c in ["'", "'", "`", "´"])
                     # This word should be a contraction
                     # If it appears split in phonemes, that's an issue
-                    if len(actual.split()) > len(expected.split()) + 2:
-                        return "split_contraction"
+                    and len(actual.split()) > len(expected.split()) + 2
+                ):
+                    return "split_contraction"
 
         # Check for lost punctuation
         punct_chars = set(';:,.!?—…"""()')
@@ -267,12 +269,13 @@ class QuotesContractionsBenchmark:
         standalone_backtick = has_backtick and not backtick_in_contraction
         standalone_acute = has_acute and not acute_in_contraction
 
-        if has_quotes or standalone_backtick or standalone_acute:
+        if (
+            (has_quotes or standalone_backtick or standalone_acute)
             # Should have curly quotes in output
-            if "\u201c" not in phonemes and "\u201d" not in phonemes:
-                issues.append(
-                    'Quotes should be converted to curly quotes ("\u201c \u201d)'
-                )
+            and "\u201c" not in phonemes
+            and "\u201d" not in phonemes
+        ):
+            issues.append('Quotes should be converted to curly quotes ("\u201c \u201d)')
 
         # Rule 3: No straight quotes in output (should be curly)
         if '"' in phonemes:
@@ -345,7 +348,7 @@ class QuotesContractionsBenchmark:
         passed = (actual == expected) if expected else False
 
         # Also validate against rules for additional checking
-        rule_passed, validation_msg = self.validate_output(test_case, actual)
+        rule_passed, _validation_msg = self.validate_output(test_case, actual)
 
         # A test passes only if both phoneme match AND rules pass
         if not rule_passed:
@@ -495,7 +498,7 @@ class QuotesContractionsBenchmark:
                 for punct, count in sorted(
                     analysis["by_punctuation"].items(), key=lambda x: -x[1]
                 )[:10]:
-                    print(f"    {repr(punct)}: {count}")
+                    print(f"    {punct!r}: {count}")
 
             print("\n  Sample Failures (first 10):")
             for failure in results.failures[:10]:

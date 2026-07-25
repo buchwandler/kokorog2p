@@ -750,7 +750,7 @@ if __name__ == "__main__":
         if "quote_type" in test_case.params:
             print(f"   Quote type: {test_case.params['quote_type']}")
         if "punctuation" in test_case.params:
-            print(f"   Punctuation: {repr(test_case.params['punctuation'])}")
+            print(f"   Punctuation: {test_case.params['punctuation']!r}")
         if "dash_char" in test_case.params:
             dash_char = repr(test_case.params["dash_char"])
             dash_type = test_case.params["dash_type"]

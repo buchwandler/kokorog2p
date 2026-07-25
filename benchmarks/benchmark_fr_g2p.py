@@ -11,6 +11,7 @@ Run with: python -m benchmarks.benchmark_fr_g2p
 import importlib.resources
 import json
 import random
+import sys
 import time
 from dataclasses import dataclass, field
 
@@ -61,7 +62,7 @@ def load_gold_dictionary() -> dict[str, str]:
     result: dict[str, str] = {}
     for word, phonemes in gold.items():
         if isinstance(phonemes, dict):
-            result[word] = phonemes.get("DEFAULT", list(phonemes.values())[0])
+            result[word] = phonemes.get("DEFAULT", next(iter(phonemes.values())))
         else:
             result[word] = phonemes
 
@@ -485,4 +486,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

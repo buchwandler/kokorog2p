@@ -285,11 +285,10 @@ class FrenchLexicon:
             return (None, None)
 
         # Handle heteronyms (dict entries)
-        if isinstance(ps, dict):
-            if isinstance(ps, dict):
-                if tag and tag in ps:
-                    return (ps[tag], 4)
-                return (ps.get("DEFAULT", list(ps.values())[0]), 4)
+        if isinstance(ps, dict) and isinstance(ps, dict):
+            if tag and tag in ps:
+                return (ps[tag], 4)
+            return (ps.get("DEFAULT", next(iter(ps.values()))), 4)
         return (ps, 4)
 
     def expand_abbreviation(self, text: str) -> str:

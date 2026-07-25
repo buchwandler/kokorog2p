@@ -106,13 +106,13 @@ class TestAttributeParser:
 
     def test_malformed_no_equals(self):
         """Test malformed attribute without equals."""
-        attrs, warnings = parse_attributes('ph"hello"')
+        _attrs, warnings = parse_attributes('ph"hello"')
         assert len(warnings) > 0
         assert "Expected '='" in warnings[0].message
 
     def test_malformed_no_value(self):
         """Test malformed attribute without value."""
-        attrs, warnings = parse_attributes("ph=")
+        _attrs, warnings = parse_attributes("ph=")
         assert len(warnings) > 0
         # Should warn about unclosed quote or missing value
 

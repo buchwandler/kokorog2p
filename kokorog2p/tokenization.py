@@ -257,8 +257,8 @@ def gtokens_to_tokenspans(
 
 
 __all__ = [
-    "tokenize_with_offsets",
-    "gtokens_to_tokenspans",
-    "gtoken_to_tokenspan",
     "ensure_gtoken_positions",
+    "gtoken_to_tokenspan",
+    "gtokens_to_tokenspans",
+    "tokenize_with_offsets",
 ]

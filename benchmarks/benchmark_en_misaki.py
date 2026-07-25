@@ -381,7 +381,7 @@ class MisakiComparisonBenchmark:
 
                 # Sample memory every 100 sentences
                 if i % 100 == 0:
-                    current, peak = tracemalloc.get_traced_memory()
+                    current, _peak = tracemalloc.get_traced_memory()
                     memory_samples.append(current / 1024 / 1024)  # Convert to MB
 
             except Exception as e:
@@ -403,7 +403,7 @@ class MisakiComparisonBenchmark:
         elapsed = time.time() - start_time
 
         # Get final memory stats
-        current_memory, peak_memory = tracemalloc.get_traced_memory()
+        _current_memory, peak_memory = tracemalloc.get_traced_memory()
         tracemalloc.stop()
 
         peak_memory_mb = peak_memory / 1024 / 1024
@@ -573,7 +573,7 @@ class MisakiComparisonBenchmark:
         )
 
         # Benchmark misaki
-        misaki_result, misaki_outputs, misaki_outputs_clean = self.benchmark_library(
+        misaki_result, _misaki_outputs, misaki_outputs_clean = self.benchmark_library(
             MisakiWrapper, "misaki"
         )
 

@@ -157,4 +157,4 @@ def parse_attributes(text: str) -> tuple[dict[str, str], list[AttrParseWarning]]
     return attrs, warnings
 
 
-__all__ = ["parse_attributes", "ParsedAttr", "AttrParseWarning"]
+__all__ = ["AttrParseWarning", "ParsedAttr", "parse_attributes"]

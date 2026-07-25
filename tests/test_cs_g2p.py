@@ -138,6 +138,6 @@ class TestCzechG2P:
         ]
         for word, expected in test_cases:
             result = g2p.phonemize(word)
-            assert (
-                result == expected
-            ), f"'{word}': expected '{expected}', got '{result}'"
+            assert result == expected, (
+                f"'{word}': expected '{expected}', got '{result}'"
+            )

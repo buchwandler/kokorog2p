@@ -19,6 +19,7 @@ Usage:
 
 import argparse
 import json
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -337,13 +338,13 @@ def extract_sentences(
         # Strategy-specific selection
         if strategy == "gaps" and target_phonemes:
             # Check if sentence contains target phonemes
-            sentence_phonemes = set(c for c in kokoro_phonemes if c in vocab)
+            sentence_phonemes = {c for c in kokoro_phonemes if c in vocab}
             if not sentence_phonemes & target_phonemes:
                 continue  # Doesn't contain any target phonemes
 
         elif strategy == "diverse":
             # Prefer sentences with underrepresented phonemes
-            sentence_phonemes = set(c for c in kokoro_phonemes if c in vocab)
+            sentence_phonemes = {c for c in kokoro_phonemes if c in vocab}
             # Calculate score: sum of inverse frequencies
             score = sum(1.0 / (current_dist[p] + 1) for p in sentence_phonemes)
 
@@ -621,4 +622,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

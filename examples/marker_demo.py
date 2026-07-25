@@ -20,7 +20,7 @@ def demo_basic_markers():
     print(f"\nInput text: {text}")
 
     # Step 1: Parse markers to get clean text and ranges
-    clean_text, ranges, warnings = parse_delimited(text, marker="@")
+    clean_text, ranges, _warnings = parse_delimited(text, marker="@")
     print(f"Clean text: {clean_text}")
     print(f"Marked ranges: {ranges}")
 
@@ -141,7 +141,7 @@ def demo_escaped_markers():
     text = "Email me at user\\@example.com or visit @website@."
     print(f"\nInput text: {text}")
 
-    clean_text, ranges, warnings = parse_delimited(text, marker="@", escape="\\")
+    clean_text, ranges, _warnings = parse_delimited(text, marker="@", escape="\\")
     print(f"Clean text: {clean_text}")
     print(f"Marked ranges: {ranges}")  # Only "website" is marked
 

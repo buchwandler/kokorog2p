@@ -129,9 +129,7 @@ def _is_front_vowel_context(prev_chars: str) -> bool:
     if prev_lower in ("l", "n", "r"):
         return True
     # Check for diphthongs ending in front vowel
-    if prev_lower.endswith(("ei", "ai", "eu", "äu", "ie", "ey", "ay")):
-        return True
-    return False
+    return bool(prev_lower.endswith(("ei", "ai", "eu", "äu", "ie", "ey", "ay")))
 
 
 def normalize_to_kokoro(phonemes: str, use_tie_replacement: bool = False) -> str:
@@ -483,9 +481,7 @@ class GermanG2P(G2PBase):
             # Special handling for 's'
             if char == "s":
                 # Word-final or before unvoiced consonant -> [s]
-                if i == n - 1:
-                    result.append("s")
-                elif i + 1 < n and text[i + 1] in "ptk":
+                if i == n - 1 or i + 1 < n and text[i + 1] in "ptk":
                     result.append("s")
                 else:
                     # Before vowel -> [z]
@@ -605,10 +601,10 @@ class GermanG2P(G2PBase):
             and remaining[0] in "bcdfghjklmnpqrstvwxz"
             and remaining[0] not in "ck"  # ck indicates short vowel
             and remaining[1] in "aeiouäöü"
-        ):
             # But 'sch' is one sound, not cluster
-            if not remaining.startswith("sch"):
-                return long_vowels.get(char, short_vowels.get(char, char))
+            and not remaining.startswith("sch")
+        ):
+            return long_vowels.get(char, short_vowels.get(char, char))
 
         # Before consonant cluster -> short
         if (

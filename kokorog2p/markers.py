@@ -237,6 +237,6 @@ def apply_marker_overrides(
 
 
 __all__ = [
-    "parse_delimited",
     "apply_marker_overrides",
+    "parse_delimited",
 ]

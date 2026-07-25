@@ -74,6 +74,7 @@ class G2p:
                 "Korean G2P will work but without morphological analysis. "
                 "Install mecab-python3 for better results: pip install mecab-python3",
                 UserWarning,
+                stacklevel=2,
             )
             return None
 
@@ -87,7 +88,6 @@ class G2p:
         >>> idioms("지금 mp3 파일을 다운받고 있어요")
         지금 엠피쓰리 파일을 다운받고 있어요
         """
-        rule = "from idioms.py"
         out = string
 
         for str1, str2 in self.idioms_list:
@@ -109,8 +109,10 @@ class G2p:
         string: input string
         descriptive: boolean.
         verbose: boolean
-        group_vowels: boolean. If True, the vowels of the identical sound are normalized.
-        to_syl: boolean. If True, hangul letters or jamo are assembled to form syllables.
+        group_vowels: boolean. If True, the vowels of the
+        identical sound are normalized.
+        to_syl: boolean. If True, hangul letters or jamo
+        are assembled to form syllables.
 
         For example, given an input string "나의 친구가 mp3 file 3개를 다운받고 있다",
         STEP 1. idioms
@@ -166,12 +168,15 @@ class G2p:
         inp = re.sub("/[PJEB]", "", inp)
 
         # 7. regular table: batchim + onset
-        for str1, str2, rule_ids in self.table:
+        for str1, str2, _rule_ids in self.table:
             _inp = inp
             inp = re.sub(str1, str2, inp)
 
             # if len(rule_ids)>0:
-            #     rule = "\n".join(self.rule2text.get(rule_id, "") for rule_id in rule_ids)
+            #     rule = "\n".join(
+            #         self.rule2text.get(rule_id, "")
+            #         for rule_id in rule_ids
+            #     )
             # else:
             #     rule = ""
             # gloss(verbose, inp, _inp, rule)

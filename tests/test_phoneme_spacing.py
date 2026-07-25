@@ -38,9 +38,9 @@ class TestPhonemeSpacing:
         # Should have: ʃˌi sˈɛd "həlˈO". (with curly quotes U+201C and U+201D)
         assert '" həlˈO "' not in result, "Should not have spaces around quoted word"
         assert "\u201c" in result and "\u201d" in result, "Should contain curly quotes"
-        assert (
-            "\u201chəlˈO\u201d" in result
-        ), "Should have curly quotes directly around word"
+        assert "\u201chəlˈO\u201d" in result, (
+            "Should have curly quotes directly around word"
+        )
 
     def test_period_no_extra_space_before(self, phonemizer):
         """Period should not have extra space before it."""
@@ -149,7 +149,7 @@ class TestBenchmarkWrapperSpacing:
         """Single quotes (❓) should be filtered in clean output."""
         text = "Test 'word' here."
 
-        with_markers, _ = wrapper.phonemize(text)
+        _with_markers, _ = wrapper.phonemize(text)
         clean = wrapper.phonemize_clean(text)
 
         # Markers may contain ❓
@@ -165,12 +165,12 @@ class TestBenchmarkWrapperSpacing:
         clean = wrapper.phonemize_clean(text)
 
         # Both should have curly quotes (U+201C and U+201D), not guillemets or markers
-        assert (
-            "\u201cwˈɜɹd\u201d" in with_markers
-        ), "Markers should have curly quotes around word"
-        assert (
-            "\u201cwˈɜɹd\u201d" in clean
-        ), "Clean should have curly quotes around word"
+        assert "\u201cwˈɜɹd\u201d" in with_markers, (
+            "Markers should have curly quotes around word"
+        )
+        assert "\u201cwˈɜɹd\u201d" in clean, (
+            "Clean should have curly quotes around word"
+        )
 
         # Should not have markers like [«] or [»]
         assert "[«]" not in with_markers, "Should not have guillemet markers"
@@ -194,14 +194,14 @@ class TestBenchmarkWrapperSpacing:
         for punct in ['"', ".", ","]:
             if punct in text:
                 # Check space before
-                assert (f" {punct}" in with_markers) == (
-                    f" {punct}" in clean
-                ), f"Space before '{punct}' should be consistent"
+                assert (f" {punct}" in with_markers) == (f" {punct}" in clean), (
+                    f"Space before '{punct}' should be consistent"
+                )
 
                 # Check space after
-                assert (f"{punct} " in with_markers) == (
-                    f"{punct} " in clean
-                ), f"Space after '{punct}' should be consistent"
+                assert (f"{punct} " in with_markers) == (f"{punct} " in clean), (
+                    f"Space after '{punct}' should be consistent"
+                )
 
     def test_multiple_quote_types(self, wrapper):
         """Test various quote types are all normalized to double quotes."""
@@ -218,12 +218,12 @@ class TestBenchmarkWrapperSpacing:
             clean = wrapper.phonemize_clean(text)
 
             # All should result in curly quotes (U+201C and U+201D)
-            assert (
-                "\u201c" in clean or "\u201d" in clean
-            ), f"{desc} should result in curly quotes"
-            assert (
-                "\u201cwˈɜɹd\u201d" in clean or "\u201cwɜɹd\u201d" in clean
-            ), f"{desc} should have curly quotes directly around word"
+            assert "\u201c" in clean or "\u201d" in clean, (
+                f"{desc} should result in curly quotes"
+            )
+            assert "\u201cwˈɜɹd\u201d" in clean or "\u201cwɜɹd\u201d" in clean, (
+                f"{desc} should have curly quotes directly around word"
+            )
 
     def test_no_trailing_spaces(self, wrapper):
         """Output should not have trailing spaces."""
@@ -237,12 +237,10 @@ class TestBenchmarkWrapperSpacing:
             with_markers, _ = wrapper.phonemize(text)
             clean = wrapper.phonemize_clean(text)
 
-            assert not with_markers.endswith(
-                " "
-            ), f"Markers should not end with space: {repr(text)}"
-            assert not clean.endswith(
-                " "
-            ), f"Clean should not end with space: {repr(text)}"
+            assert not with_markers.endswith(" "), (
+                f"Markers should not end with space: {text!r}"
+            )
+            assert not clean.endswith(" "), f"Clean should not end with space: {text!r}"
 
     def test_no_leading_spaces(self, wrapper):
         """Output should not have leading spaces."""
@@ -256,9 +254,9 @@ class TestBenchmarkWrapperSpacing:
             with_markers, _ = wrapper.phonemize(text)
             clean = wrapper.phonemize_clean(text)
 
-            assert not with_markers.startswith(
-                " "
-            ), f"Markers should not start with space: {repr(text)}"
-            assert not clean.startswith(
-                " "
-            ), f"Clean should not start with space: {repr(text)}"
+            assert not with_markers.startswith(" "), (
+                f"Markers should not start with space: {text!r}"
+            )
+            assert not clean.startswith(" "), (
+                f"Clean should not start with space: {text!r}"
+            )

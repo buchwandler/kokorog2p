@@ -354,12 +354,12 @@ class TestPunctuationPreserve:
 
     def test_preserve_multiple(self, punct):
         """Preserve multiple punctuation marks."""
-        text, marks = punct.preserve("Hello, world!")
+        _text, marks = punct.preserve("Hello, world!")
         assert len(marks) == 2
 
     def test_preserve_list_input(self, punct):
         """Preserve from list of texts."""
-        text, marks = punct.preserve(["Hello!", "World?"])
+        text, _marks = punct.preserve(["Hello!", "World?"])
         assert "Hello" in text
         assert "World" in text
 
@@ -373,19 +373,19 @@ class TestPunctuationRestore:
 
     def test_restore_simple_end(self, punct):
         """Restore ending punctuation."""
-        text, marks = punct.preserve("Hello world!")
+        _text, marks = punct.preserve("Hello world!")
         restored = punct.restore(["həˈloʊ wˈɜːld"], marks)
         assert restored == ["həˈloʊ wˈɜːld!"]
 
     def test_restore_middle(self, punct):
         """Restore middle punctuation."""
-        text, marks = punct.preserve("Hello, world")
+        _text, marks = punct.preserve("Hello, world")
         restored = punct.restore(["həˈloʊ", "wˈɜːld"], marks)
         assert "həˈloʊ, wˈɜːld" in " ".join(restored)
 
     def test_restore_multiple(self, punct):
         """Restore multiple punctuation marks."""
-        text, marks = punct.preserve("Hello, world!")
+        _text, marks = punct.preserve("Hello, world!")
         restored = punct.restore(["həˈloʊ", "wˈɜːld"], marks)
         result = "".join(restored)
         assert "," in result
@@ -393,13 +393,13 @@ class TestPunctuationRestore:
 
     def test_restore_alone(self, punct):
         """Restore punctuation-only line."""
-        text, marks = punct.preserve("...")
+        _text, marks = punct.preserve("...")
         restored = punct.restore([], marks)
         assert "..." in "".join(restored)
 
     def test_restore_does_not_mutate_marks(self, punct):
         """restore() should not mutate the caller's marks list."""
-        chunks, marks = punct.preserve("Hello, world!")
+        _chunks, marks = punct.preserve("Hello, world!")
         marks_copy = list(marks)
 
         _ = punct.restore(["H", "W"], marks)
@@ -505,12 +505,12 @@ class TestPunctuationEdgeCases:
     # Spacing issues
     def test_multiple_spaces_around_punctuation(self, punct):
         """Handle multiple spaces around punctuation."""
-        text, marks = punct.preserve("Hello  ,  world")
+        _text, marks = punct.preserve("Hello  ,  world")
         assert len(marks) >= 1
 
     def test_no_space_after_punctuation(self, punct):
         """Handle no space after punctuation."""
-        text, marks = punct.preserve("Hello,world")
+        text, _marks = punct.preserve("Hello,world")
         assert "Hello" in text or "Hello" in text[0]
 
     # Empty and whitespace
@@ -602,7 +602,7 @@ class TestCustomMarks:
     def test_custom_marks_string(self):
         """Custom marks as string."""
         punct = Punctuation(marks=".,")
-        text, marks = punct.preserve("Hello, world!")
+        _text, marks = punct.preserve("Hello, world!")
         # Only comma should be captured, not !
         comma_marks = [m for m in marks if "," in m.mark]
         assert len(comma_marks) == 1
@@ -611,7 +611,7 @@ class TestCustomMarks:
         """Custom marks as regex."""
         pattern = re.compile(r"[.!?]+")
         punct = Punctuation(marks=pattern)
-        text, marks = punct.preserve("Hello! World?")
+        _text, marks = punct.preserve("Hello! World?")
         assert len(marks) >= 2
 
     def test_default_marks(self):

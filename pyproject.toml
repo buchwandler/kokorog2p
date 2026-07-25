@@ -141,7 +141,7 @@ module = [
     "kokorog2p.en.lexicon",
     "kokorog2p.words_mismatch",
     "kokorog2p.multilang",
-    "kokorog2p.__init__",
+    "kokorog2p",
 ]
 ignore_errors = true
 

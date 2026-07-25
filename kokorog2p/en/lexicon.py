@@ -242,16 +242,16 @@ class Lexicon:
             vocab = GB_VOCAB if british else US_VOCAB
             for word, ps in self.golds.items():
                 if isinstance(ps, str):
-                    assert all(
-                        c in vocab for c in ps
-                    ), f"Invalid phoneme in {word}: {ps}"
+                    assert all(c in vocab for c in ps), (
+                        f"Invalid phoneme in {word}: {ps}"
+                    )
                 else:
                     assert "DEFAULT" in ps, f"Missing DEFAULT in {word}"
                     for v in ps.values():
                         if v is not None:
-                            assert all(
-                                c in vocab for c in v
-                            ), f"Invalid phoneme in {word}: {v}"
+                            assert all(c in vocab for c in v), (
+                                f"Invalid phoneme in {word}: {v}"
+                            )
 
     @staticmethod
     def _grow_dictionary(d: dict[str, Any]) -> dict[str, Any]:
@@ -284,9 +284,9 @@ class Lexicon:
             return "VERB"
         elif tag.startswith("NN"):
             return "NOUN"
-        elif tag.startswith("ADV") or tag.startswith("RB"):
+        elif tag.startswith(("ADV", "RB")):
             return "ADV"
-        elif tag.startswith("ADJ") or tag.startswith("JJ"):
+        elif tag.startswith(("ADJ", "JJ")):
             return "ADJ"
         return tag
 
@@ -296,9 +296,7 @@ class Lexicon:
             return True
         elif not word.isalpha() or not all(ord(c) in LEXICON_ORDS for c in word):
             return False
-        elif len(word) == 1:
-            return True
-        elif word == word.upper() and word.lower() in self.golds:
+        elif len(word) == 1 or word == word.upper() and word.lower() in self.golds:
             return True
         return word[1:] == word[1:].upper()
 

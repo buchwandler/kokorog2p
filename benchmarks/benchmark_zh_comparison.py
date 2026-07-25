@@ -19,6 +19,7 @@ Usage:
 
 import argparse
 import json
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -293,4 +294,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

@@ -80,13 +80,17 @@ def convert_eng(string, cmu):
             # 외래어 표기법 https://ko.dict.naver.com/help.nhn?page=4-1-3-1#dtl_cts
             #  1항. 무성 파열음 ([p], [t], [k])
             # 1. 짧은 모음 다음의 어말 무성 파열음([p], [t], [k])은 받침으로 적는다.
-            # 2. 짧은 모음과 유음·비음([l], [r], [m], [n]) 이외의 자음 사이에 오는 무성 파열음([p], [t], [k])은 받침으로 적는다.
+            # 2. 짧은 모음과 유음·비음([l], [r], [m], [n]) 이외의 자음 사이에 오는
+            # 무성 파열음([p], [t], [k])은 받침으로 적는다.
             # 3. 위 경우 이외의 어말과 자음 앞의 [p], [t], [k]는 '으'를 붙여 적는다.
 
             if p in "PTK":
-                if p_prev[:2] in short_vowels and p_next == "$":  # 1
-                    ret += to_jongseong(p)
-                elif p_prev[:2] in short_vowels and p_next[0] not in "AEIOULRMN":  # 2
+                if (
+                    p_prev[:2] in short_vowels
+                    and p_next == "$"
+                    or p_prev[:2] in short_vowels
+                    and p_next[0] not in "AEIOULRMN"
+                ):  # 1
                     ret += to_jongseong(p)
                 elif p_next[0] in "$BCDFGHJKLMNPQRSTVWXYZ":  # 3
                     ret += to_choseong(p)
@@ -103,7 +107,9 @@ def convert_eng(string, cmu):
 
             # 3항. 마찰음([s], [z], [f], [v], [θ], [ð], [ʃ], [ʒ])
             # 1. 어말 또는 자음 앞의 [s], [z], [f], [v], [θ], [ð]는 '으'를 붙여 적는다.
-            # 2. 어말의 [ʃ]는 '시'로 적고, 자음 앞의 [ʃ]는 '슈'로, 모음 앞의 [ʃ]는 뒤따르는 모음에 따라 '샤', '섀', '셔', '셰', '쇼', '슈', '시'로 적는다.
+            # 2. 어말의 [ʃ]는 '시'로 적고, 자음 앞의 [ʃ]는 '슈'로,
+            # 모음 앞의 [ʃ]는 뒤따르는 모음에 따라
+            # '샤', '섀', '셔', '셰', '쇼', '슈', '시'로 적는다.
             # 3. 어말 또는 자음 앞의 [ʒ]는 '지'로 적고, 모음 앞의 [ʒ]는 'ㅈ'으로 적는다.
             elif p in ("S", "Z", "F", "V", "TH", "DH", "SH", "ZH"):
                 ret += to_choseong(p)
@@ -123,7 +129,8 @@ def convert_eng(string, cmu):
                         ret += "ᅵ"
 
             # 4항. 파찰음([ʦ], [ʣ], [ʧ], [ʤ])
-            # 1. 어말 또는 자음 앞의 [ʦ], [ʣ]는 '츠', '즈'로 적고, [ʧ], [ʤ]는 '치', '지'로 적는다.
+            # 1. 어말 또는 자음 앞의 [ʦ], [ʣ]는 '츠', '즈'로 적고,
+            # [ʧ], [ʤ]는 '치', '지'로 적는다.
             # 2. 모음 앞의 [ʧ], [ʤ]는 'ㅊ', 'ㅈ'으로 적는다.
             elif p in (
                 "TS",
@@ -150,7 +157,8 @@ def convert_eng(string, cmu):
 
             # 6항. 유음([l])
             # 1. 어말 또는 자음 앞의 [l]은 받침으로 적는다.
-            # 2. 어중의 [l]이 모음 앞에 오거나, 모음이 따르지 않는 비음([m], [n]) 앞에 올 때에는 'ㄹㄹ'로 적는다.
+            # 2. 어중의 [l]이 모음 앞에 오거나,
+            # 모음이 따르지 않는 비음([m], [n]) 앞에 올 때에는 'ㄹㄹ'로 적는다.
             # 3. 다만, 비음([m], [n]) 뒤의 [l]은 모음 앞에 오더라도 'ㄹ'로 적는다.
             elif p == "L":
                 if p_prev == "^":  # initial
@@ -176,7 +184,8 @@ def convert_eng(string, cmu):
                     ret += to_choseong(p)
 
             # 8항. 중모음1) ([ai], [au], [ei], [ɔi], [ou], [auə])
-            # 중모음은 각 단모음의 음가를 살려서 적되, [ou]는 '오'로, [auə]는 '아워'로 적는다.
+            # 중모음은 각 단모음의 음가를 살려서 적되,
+            # [ou]는 '오'로, [auə]는 '아워'로 적는다.
             elif p[0] in "AEIOU":
                 ret += to_jungseong(p)
 

@@ -360,7 +360,7 @@ class CzechG2P(G2PBase):
                 # Optionally use fallback if enabled
                 # (Useful for loan words or foreign abbreviations)
                 if not phonemes and self._fallback:
-                    fallback_phonemes, rating = self._fallback(word)
+                    fallback_phonemes, _rating = self._fallback(word)
                     if fallback_phonemes:
                         phonemes = fallback_phonemes
                         token.set("rating", 2)  # Fallback rating

@@ -6,6 +6,7 @@ including punctuation marks and context-dependent pronunciations.
 """
 
 import json
+import sys
 from pathlib import Path
 
 from kokorog2p.de import GermanG2P
@@ -148,4 +149,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

@@ -87,9 +87,9 @@ class TestQuoteHandling:
         tokens = g2p(text)
         contractions = [t for t in tokens if "'" in t.text]
         assert len(contractions) == 2, "Should have 2 contractions"
-        assert all(
-            t.phonemes and "'" not in t.phonemes for t in contractions
-        ), "Contractions should not have apostrophes in phonemes"
+        assert all(t.phonemes and "'" not in t.phonemes for t in contractions), (
+            "Contractions should not have apostrophes in phonemes"
+        )
 
     def test_curly_quotes_input(self, g2p):
         """Test curly quotes in input are handled: "hello" → L R"""
@@ -106,12 +106,12 @@ class TestQuoteHandling:
         quotes = [t for t in tokens if t.text in "\u201c\u201d"]
         assert len(quotes) == 2, "Should have 2 quote tokens"
 
-        assert (
-            quotes[0].phonemes == "\u201c"
-        ), "First quote should be U+201C (left curly)"
-        assert (
-            quotes[1].phonemes == "\u201d"
-        ), "Second quote should be U+201D (right curly)"
+        assert quotes[0].phonemes == "\u201c", (
+            "First quote should be U+201C (left curly)"
+        )
+        assert quotes[1].phonemes == "\u201d", (
+            "Second quote should be U+201D (right curly)"
+        )
 
 
 class TestQuoteSpacing:
@@ -139,15 +139,15 @@ class TestQuoteSpacing:
         """Closing quote should not have space after it before punctuation."""
         text = 'She said "hello".'
         result = self._get_phonemes(g2p, text)
-        assert '" ' not in result or result.endswith(
-            '" '
-        ), "Should not have space after closing quote before punctuation"
+        assert '" ' not in result or result.endswith('" '), (
+            "Should not have space after closing quote before punctuation"
+        )
 
     def test_quotes_directly_around_word(self, g2p):
         """Quotes should be directly around the word with no spaces."""
         text = '"hello"'
         result = self._get_phonemes(g2p, text)
         # Should be "həlˈO" not " həlˈO " or " həlˈO" or "həlˈO "
-        assert (
-            "\u201chəlˈO\u201d" in result
-        ), f"Quotes should be directly around word, got: {repr(result)}"
+        assert "\u201chəlˈO\u201d" in result, (
+            f"Quotes should be directly around word, got: {result!r}"
+        )

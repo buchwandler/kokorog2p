@@ -21,9 +21,7 @@ def _merge_abbreviation_tokens(
     ) -> bool:
         if prev.whitespace:
             return True
-        if current.char_start != last_end and current.char_start != 0:
-            return True
-        return False
+        return bool(current.char_start != last_end and current.char_start != 0)
 
     def build_token(
         start: ProcessingToken,
@@ -92,7 +90,6 @@ class BaseTokenizer(ABC):
         Returns:
             List of ProcessingToken objects
         """
-        pass
 
     def _detect_quote_depth(
         self, tokens: list[ProcessingToken], use_bracket_matching: bool = True

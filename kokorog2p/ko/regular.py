@@ -8,7 +8,7 @@ rule_id2text = get_rule_id2text()
 
 
 def link1(inp, descriptive=False, verbose=False):
-    rule = rule_id2text["13"]
+    rule_id2text["13"]
     out = inp
 
     pairs = [
@@ -35,7 +35,7 @@ def link1(inp, descriptive=False, verbose=False):
 
 
 def link2(inp, descriptive=False, verbose=False):
-    rule = rule_id2text["14"]
+    rule_id2text["14"]
     out = inp
 
     pairs = [
@@ -57,7 +57,7 @@ def link2(inp, descriptive=False, verbose=False):
 
 
 def link3(inp, descriptive=False, verbose=False):
-    rule = rule_id2text["15"]
+    rule_id2text["15"]
     out = inp
 
     pairs = [
@@ -94,7 +94,7 @@ def link3(inp, descriptive=False, verbose=False):
 
 
 def link4(inp, descriptive=False, verbose=False):
-    rule = rule_id2text["12.4"]
+    rule_id2text["12.4"]
 
     out = inp
 

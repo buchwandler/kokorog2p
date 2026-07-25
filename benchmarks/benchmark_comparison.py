@@ -127,6 +127,7 @@ def run_language_benchmark(
             capture_output=not verbose,
             text=True,
             timeout=300,  # 5 minute timeout
+            check=False,
         )
 
         if result.returncode != 0:
@@ -556,4 +557,4 @@ def main():
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

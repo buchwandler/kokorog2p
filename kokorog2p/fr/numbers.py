@@ -120,16 +120,20 @@ def expand_currency(text: str) -> str:
     # Euro
     text = re.sub(
         r"(\d+)\s*€",
-        lambda m: number_to_french(int(m.group(1)))
-        + (" euro" if int(m.group(1)) == 1 else " euros"),
+        lambda m: (
+            number_to_french(int(m.group(1)))
+            + (" euro" if int(m.group(1)) == 1 else " euros")
+        ),
         text,
     )
 
     # Dollar
     text = re.sub(
         r"\$\s*(\d+)",
-        lambda m: number_to_french(int(m.group(1)))
-        + (" dollar" if int(m.group(1)) == 1 else " dollars"),
+        lambda m: (
+            number_to_french(int(m.group(1)))
+            + (" dollar" if int(m.group(1)) == 1 else " dollars")
+        ),
         text,
     )
 

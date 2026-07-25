@@ -52,7 +52,7 @@ def _get_target_model(g2p: Any) -> str:
             model = g2p.get_target_model()
             if model:
                 return str(model)
-        except Exception:
+        except Exception:  # noqa: S110
             pass
     version = getattr(g2p, "version", None)
     return str(version) if version else "1.0"
@@ -397,7 +397,7 @@ def _map_position_to_normalized(
             rel = pos - i1
             orig_len = i2 - i1
             new_len = j2 - j1
-            return j1 + int(round(rel * new_len / orig_len))
+            return j1 + round(rel * new_len / orig_len)
 
     last_i2 = opcodes[-1][2]
     last_j2 = opcodes[-1][4]
@@ -675,9 +675,8 @@ def _phonemize_token_spans(  # noqa: C901
             overlap_span = g2p_token_spans[scan_index]
             overlap_spans.append(overlap_span)
             whitespace = overlap_span.meta.get("whitespace")
-            if whitespace is not None:
-                if overlap_span.char_end == token_end:
-                    mapped_whitespace = str(whitespace)
+            if whitespace is not None and overlap_span.char_end == token_end:
+                mapped_whitespace = str(whitespace)
             if mapped_tag is None:
                 tag = overlap_span.meta.get("tag")
                 if tag:

@@ -98,7 +98,7 @@ class PhonemizeResult:
 
 
 __all__ = [
-    "TokenSpan",
     "OverrideSpan",
     "PhonemizeResult",
+    "TokenSpan",
 ]

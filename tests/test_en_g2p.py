@@ -161,7 +161,7 @@ class TestEnglishG2PWithSpacy:
         text = "The younger girl is about twelve and lives in Berlin."
 
         tokens = english_g2p_with_spacy(text)
-        lives_token = [t for t in tokens if t.text.lower() == "lives"][0]
+        lives_token = next(t for t in tokens if t.text.lower() == "lives")
         assert lives_token.phonemes == "lˈɪvz"
 
         result = phonemize_with_backend(phoneme_backend, english_g2p_with_spacy, text)
@@ -175,7 +175,7 @@ class TestEnglishG2PWithSpacy:
         text = "Many lives in Berlin were lost."
 
         tokens = english_g2p_with_spacy(text)
-        lives_token = [t for t in tokens if t.text.lower() == "lives"][0]
+        lives_token = next(t for t in tokens if t.text.lower() == "lives")
         assert lives_token.phonemes == "lˈIvz"
 
         result = phonemize_with_backend(phoneme_backend, english_g2p_with_spacy, text)
@@ -210,9 +210,9 @@ class TestEnglishG2PWithSpacy:
         )
 
         # The ! should remain as punctuation, not be converted to "exclamation"
-        assert (
-            "ˈɛkskləmˌAʃən" not in phonemes
-        ), f"! should not be converted to 'exclamation'. Got: {phonemes!r}"
+        assert "ˈɛkskləmˌAʃən" not in phonemes, (
+            f"! should not be converted to 'exclamation'. Got: {phonemes!r}"
+        )
         assert "!" in phonemes, f"! should be preserved. Got: {phonemes!r}"
 
         # Check tokens
@@ -230,9 +230,9 @@ class TestEnglishG2PWithSpacy:
             phoneme_backend, english_g2p_with_spacy, '"Hello!"'
         )
 
-        assert (
-            "ˈɛkskləmˌAʃən" not in phonemes2
-        ), f"! should not be converted to 'exclamation'. Got: {phonemes2!r}"
+        assert "ˈɛkskləmˌAʃən" not in phonemes2, (
+            f"! should not be converted to 'exclamation'. Got: {phonemes2!r}"
+        )
         assert "!" in phonemes2, f"! should be preserved. Got: {phonemes2!r}"
 
         # Test case 3: Various punctuation+quote combinations
@@ -252,9 +252,9 @@ class TestEnglishG2PWithSpacy:
                 phoneme_backend, english_g2p_with_spacy, text
             )
             # Check punctuation is preserved
-            assert (
-                expected_punct in result
-            ), f"For '{text}', expected '{expected_punct}' in result. Got: {result!r}"
+            assert expected_punct in result, (
+                f"For '{text}', expected '{expected_punct}' in result. Got: {result!r}"
+            )
             # Check NOT converted to word
             assert "ɛkskləm" not in result, (
                 f"For '{text}', punctuation should not be converted to word. "
@@ -279,9 +279,9 @@ class TestEnglishG2PWithSpacy:
             result = phonemize_with_backend(
                 phoneme_backend, english_g2p_with_spacy, text
             )
-            assert (
-                result == expected
-            ), f"'{text}': expected '{expected}', got '{result}'"
+            assert result == expected, (
+                f"'{text}': expected '{expected}', got '{result}'"
+            )
 
 
 @pytest.mark.espeak
@@ -305,8 +305,8 @@ class TestEnglishG2PFull:
         tokens_vowel = english_g2p_full("the apple")
         tokens_consonant = english_g2p_full("the book")
 
-        the_vowel = [t for t in tokens_vowel if t.text.lower() == "the"][0]
-        the_consonant = [t for t in tokens_consonant if t.text.lower() == "the"][0]
+        the_vowel = next(t for t in tokens_vowel if t.text.lower() == "the")
+        the_consonant = next(t for t in tokens_consonant if t.text.lower() == "the")
 
         # They might be different (ði vs ðə)
         # This tests the context mechanism is working
@@ -370,9 +370,9 @@ class TestEnglishG2PTokenization:
             tokens = english_g2p_no_espeak(word)
             assert len(tokens) >= 1, f"Should have token for '{word}'"
             actual = tokens[0].phonemes
-            assert (
-                actual == expected_phonemes
-            ), f"'{word}': expected '{expected_phonemes}', got '{actual}'"
+            assert actual == expected_phonemes, (
+                f"'{word}': expected '{expected_phonemes}', got '{actual}'"
+            )
 
     def test_contraction_in_sentence(self, english_g2p_no_espeak):
         """Test contractions work correctly within sentences."""
@@ -382,7 +382,7 @@ class TestEnglishG2PTokenization:
         assert "I've" in texts, "I've should be a single token"
 
         # Check phonemes
-        ive_token = [t for t in tokens if t.text == "I've"][0]
+        ive_token = next(t for t in tokens if t.text == "I've")
         assert ive_token.phonemes == "ˌIv", f"I've phonemes: {ive_token.phonemes}"
 
         # Test "We've worked"
@@ -390,7 +390,7 @@ class TestEnglishG2PTokenization:
         texts = [t.text for t in tokens]
         assert "We've" in texts, "We've should be a single token"
 
-        weve_token = [t for t in tokens if t.text == "We've"][0]
+        weve_token = next(t for t in tokens if t.text == "We've")
         assert weve_token.phonemes == "wˌiv", f"We've phonemes: {weve_token.phonemes}"
 
 
@@ -570,105 +570,105 @@ class TestContractionMerging:
         """Test 'can't' is phonemized correctly."""
         tokens = g2p_spacy("I can't believe it")
 
-        cant_token = [t for t in tokens if t.text == "can't"][0]
+        cant_token = next(t for t in tokens if t.text == "can't")
         assert cant_token.phonemes == "kˈænt"
 
     def test_wont_contraction(self, g2p_spacy):
         """Test 'won't' is phonemized correctly."""
         tokens = g2p_spacy("I won't go")
 
-        wont_token = [t for t in tokens if t.text == "won't"][0]
+        wont_token = next(t for t in tokens if t.text == "won't")
         assert wont_token.phonemes == "wOnt"
 
     def test_ive_contraction(self, g2p_spacy):
         """Test 'I've' is phonemized as a single word."""
         tokens = g2p_spacy("I've done it")
 
-        ive_token = [t for t in tokens if t.text == "I've"][0]
+        ive_token = next(t for t in tokens if t.text == "I've")
         assert ive_token.phonemes == "ˌIv"
 
     def test_weve_contraction(self, g2p_spacy):
         """Test 'we've' is phonemized correctly."""
         tokens = g2p_spacy("We've finished")
 
-        weve_token = [t for t in tokens if t.text == "We've"][0]
+        weve_token = next(t for t in tokens if t.text == "We've")
         assert weve_token.phonemes == "wˌiv"
 
     def test_youre_contraction(self, g2p_spacy):
         """Test 'you're' is phonemized correctly."""
         tokens = g2p_spacy("You're welcome")
 
-        youre_token = [t for t in tokens if t.text == "You're"][0]
+        youre_token = next(t for t in tokens if t.text == "You're")
         assert youre_token.phonemes == "jˌʊɹ"
 
     def test_theyre_contraction(self, g2p_spacy):
         """Test 'they're' is phonemized correctly."""
         tokens = g2p_spacy("They're here")
 
-        theyre_token = [t for t in tokens if t.text == "They're"][0]
+        theyre_token = next(t for t in tokens if t.text == "They're")
         assert theyre_token.phonemes == "ðˌɛɹ"
 
     def test_ill_contraction(self, g2p_spacy):
         """Test 'I'll' is phonemized correctly."""
         tokens = g2p_spacy("I'll help")
 
-        ill_token = [t for t in tokens if t.text == "I'll"][0]
+        ill_token = next(t for t in tokens if t.text == "I'll")
         assert ill_token.phonemes == "ˌIl"
 
     def test_youll_contraction(self, g2p_spacy):
         """Test 'you'll' is phonemized correctly."""
         tokens = g2p_spacy("You'll see")
 
-        youll_token = [t for t in tokens if t.text == "You'll"][0]
+        youll_token = next(t for t in tokens if t.text == "You'll")
         assert youll_token.phonemes == "jˌul"
 
     def test_id_contraction(self, g2p_spacy):
         """Test 'I'd' is phonemized correctly."""
         tokens = g2p_spacy("I'd like that")
 
-        id_token = [t for t in tokens if t.text == "I'd"][0]
+        id_token = next(t for t in tokens if t.text == "I'd")
         assert id_token.phonemes == "ˌId"
 
     def test_youd_contraction(self, g2p_spacy):
         """Test 'you'd' is phonemized correctly."""
         tokens = g2p_spacy("You'd better hurry")
 
-        youd_token = [t for t in tokens if t.text == "You'd"][0]
+        youd_token = next(t for t in tokens if t.text == "You'd")
         assert youd_token.phonemes == "jˌud"
 
     def test_shes_contraction(self, g2p_spacy):
         """Test 'she's' is phonemized correctly."""
         tokens = g2p_spacy("She's here")
 
-        shes_token = [t for t in tokens if t.text == "She's"][0]
+        shes_token = next(t for t in tokens if t.text == "She's")
         assert shes_token.phonemes == "ʃˌiz"
 
     def test_hes_contraction(self, g2p_spacy):
         """Test 'he's' is phonemized correctly."""
         tokens = g2p_spacy("He's coming")
 
-        hes_token = [t for t in tokens if t.text == "He's"][0]
+        hes_token = next(t for t in tokens if t.text == "He's")
         assert hes_token.phonemes == "hˌiz"
 
     def test_its_contraction(self, g2p_spacy):
         """Test 'it's' is phonemized correctly."""
         tokens = g2p_spacy("It's ready")
 
-        its_token = [t for t in tokens if t.text == "It's"][0]
+        its_token = next(t for t in tokens if t.text == "It's")
         assert its_token.phonemes == "ˌɪts"
 
     def test_lets_contraction(self, g2p_spacy):
         """Test 'let's' is phonemized correctly."""
         tokens = g2p_spacy("Let's go")
 
-        lets_token = [t for t in tokens if t.text == "Let's"][0]
+        lets_token = next(t for t in tokens if t.text == "Let's")
         assert lets_token.phonemes == "lˈɛts"
 
     def test_thats_contraction(self, g2p_spacy):
         """Test 'that's' is phonemized correctly."""
         tokens = g2p_spacy("That's correct")
 
-        thats_token = [t for t in tokens if t.text == "That's"][0]
+        thats_token = next(t for t in tokens if t.text == "That's")
         assert thats_token.phonemes == "ðˈæts"
 
     def test_multiple_contractions_in_sentence(self, g2p_spacy):
@@ -690,11 +690,11 @@ class TestContractionMerging:
         """Test contractions work regardless of case."""
         # Test uppercase
         tokens_upper = g2p_spacy("DON'T SHOUT")
-        dont_upper = [t for t in tokens_upper if "don't" in t.text.lower()][0]
+        dont_upper = next(t for t in tokens_upper if "don't" in t.text.lower())
 
         # Test lowercase
         tokens_lower = g2p_spacy("don't shout")
-        dont_lower = [t for t in tokens_lower if t.text == "don't"][0]
+        dont_lower = next(t for t in tokens_lower if t.text == "don't")
 
         # Should have same phonemes (case normalized in lookup)
         assert dont_upper.phonemes == dont_lower.phonemes
@@ -704,14 +704,14 @@ class TestContractionMerging:
         tokens = g2p_spacy("I've can't won't don't")
 
         # Should have 4 word tokens, not 8
-        word_tokens = [t for t in tokens if t.text.strip() and not t.phonemes == " "]
+        word_tokens = [t for t in tokens if t.text.strip() and t.phonemes != " "]
         assert len(word_tokens) == 4
 
     def test_possessive_vs_contraction(self, g2p_spacy):
         """Test that 's can be either possessive or contraction."""
         # Contraction: "he is"
         tokens1 = g2p_spacy("He's tall")
-        hes_token = [t for t in tokens1 if t.text == "He's"][0]
+        hes_token = next(t for t in tokens1 if t.text == "He's")
         assert hes_token.phonemes == "hˌiz"
 
         # Note: Possessives like "John's" would be handled differently
@@ -721,9 +721,9 @@ class TestContractionMerging:
         """Test contractions followed by punctuation."""
         tokens = g2p_spacy("Don't! Can't? Won't.")
 
-        dont_token = [t for t in tokens if t.text == "Don't"][0]
-        cant_token = [t for t in tokens if t.text == "Can't"][0]
-        wont_token = [t for t in tokens if t.text == "Won't"][0]
+        dont_token = next(t for t in tokens if t.text == "Don't")
+        cant_token = next(t for t in tokens if t.text == "Can't")
+        wont_token = next(t for t in tokens if t.text == "Won't")
 
         assert dont_token.phonemes == "dˈOnt"
         assert cant_token.phonemes == "kˈænt"
@@ -760,7 +760,7 @@ class TestDoubleContractions:
         tokens = g2p_spacy("I could've done it")
 
         # Find the could've token
-        couldve_token = [t for t in tokens if t.text == "could've"][0]
+        couldve_token = next(t for t in tokens if t.text == "could've")
 
         # Should be merged as one token
         assert couldve_token.text == "could've"
@@ -888,7 +888,7 @@ class TestDoubleContractions:
         """Test double contractions work with punctuation."""
         tokens = g2p_spacy("I could've!")
 
-        couldve_token = [t for t in tokens if "could've" in t.text][0]
+        couldve_token = next(t for t in tokens if "could've" in t.text)
         assert couldve_token.text == "could've"
         assert couldve_token.phonemes == "kˈʊdəv"
 
@@ -1074,7 +1074,7 @@ class TestContractionRobustness:
             word_tokens = [t for t in tokens if t.text.lower() == word.lower()]
 
             assert len(word_tokens) == 1, (
-                f"Expected 1 '{word}' token in {repr(text)}, "
+                f"Expected 1 '{word}' token in {text!r}, "
                 f"found {len(word_tokens)}. "
                 f"Tokens: {[t.text for t in tokens if t.is_word]}"
             )
@@ -1082,7 +1082,7 @@ class TestContractionRobustness:
             # Check it has correct phonemes from lexicon
             actual_phoneme = word_tokens[0].phonemes
             assert actual_phoneme == expected_phoneme, (
-                f"For '{word}' in {repr(text)}: "
+                f"For '{word}' in {text!r}: "
                 f"expected '{expected_phoneme}', got '{actual_phoneme}'"
             )
 
@@ -1090,13 +1090,13 @@ class TestContractionRobustness:
             word_texts = [t.text.lower() for t in tokens if t.is_word]
             # Common split patterns
             if word == "gonna":
-                assert (
-                    "gon" not in word_texts
-                ), f"'{word}' was split into parts: {word_texts}"
+                assert "gon" not in word_texts, (
+                    f"'{word}' was split into parts: {word_texts}"
+                )
             elif word == "gotta":
-                assert (
-                    "got" not in word_texts
-                ), f"'{word}' was split into parts: {word_texts}"
+                assert "got" not in word_texts, (
+                    f"'{word}' was split into parts: {word_texts}"
+                )
 
     def test_dont_in_quoted_dialogue(self, g2p_spacy, phoneme_backend):
         """Test 'don't' in quoted dialogue with punctuation.
@@ -1124,31 +1124,31 @@ class TestContractionRobustness:
 
             # Find the don't token
             dont_tokens = [t for t in tokens if "don't" == t.text]
-            assert (
-                len(dont_tokens) == 1
-            ), f"Expected 1 'don't' token in {repr(text)}, found {len(dont_tokens)}"
+            assert len(dont_tokens) == 1, (
+                f"Expected 1 'don't' token in {text!r}, found {len(dont_tokens)}"
+            )
 
             # Should have correct phonemes
-            assert (
-                dont_tokens[0].phonemes == "dˈOnt"
-            ), f"Expected 'dˈOnt', got '{dont_tokens[0].phonemes}' in {repr(text)}"
+            assert dont_tokens[0].phonemes == "dˈOnt", (
+                f"Expected 'dˈOnt', got '{dont_tokens[0].phonemes}' in {text!r}"
+            )
 
             # Verify the full phonemized result
             result = phonemize_with_backend(phoneme_backend, g2p_spacy, text)
-            assert (
-                "dˈOnt" in result
-            ), f"Expected 'dˈOnt' in result for {repr(text)}, got: {result}"
+            assert "dˈOnt" in result, (
+                f"Expected 'dˈOnt' in result for {text!r}, got: {result}"
+            )
 
             # Should NOT be split into separate tokens
             word_texts = [t.text for t in tokens if t.is_word]
-            assert (
-                "don't" in word_texts
-            ), f"'don't' not found in {word_texts} for {repr(text)}"
+            assert "don't" in word_texts, (
+                f"'don't' not found in {word_texts} for {text!r}"
+            )
             # Should not have separate "do"
             do_count = word_texts.count("do")
             assert do_count == 0, (
                 f"Found {do_count} 'do' tokens (should be 0) "
-                f"in {word_texts} for {repr(text)}"
+                f"in {word_texts} for {text!r}"
             )
 
 

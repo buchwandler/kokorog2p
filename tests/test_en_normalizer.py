@@ -201,7 +201,7 @@ class TestEnglishNormalizer:
     def test_tracking_positions(self, normalizer_with_tracking):
         """Test that positions are tracked correctly."""
         text = "Start\u201cEnd\u201d"
-        result, steps = normalizer_with_tracking.normalize(text)
+        _result, steps = normalizer_with_tracking.normalize(text)
 
         assert len(steps) == 0
         # First quote at position 5

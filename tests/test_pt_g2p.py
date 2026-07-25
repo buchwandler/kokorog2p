@@ -161,6 +161,6 @@ class TestPortugueseG2P:
             phonemes = g2p.phonemize(word)
             for char in phonemes:
                 if char not in (" ", "\t", "\n"):
-                    assert (
-                        char in PT_BR_VOCAB or char in '!?.,;:—…"()❓-'
-                    ), f"Invalid phoneme '{char}' in word '{word}' -> '{phonemes}'"
+                    assert char in PT_BR_VOCAB or char in '!?.,;:—…"()❓-', (
+                        f"Invalid phoneme '{char}' in word '{word}' -> '{phonemes}'"
+                    )

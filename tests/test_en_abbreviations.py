@@ -416,7 +416,7 @@ class TestEnglishNormalizerWithAbbreviations:
         """Test abbreviations work with other normalizations."""
         # Use curly quotes that should be normalized
         text = 'Dr. Smith said "hello" on Mon.'
-        result, steps = normalizer.normalize(text)
+        result, _steps = normalizer.normalize(text)
 
         # Should expand abbreviations AND normalize quotes
         assert "Doctor" in result
@@ -426,7 +426,7 @@ class TestEnglishNormalizerWithAbbreviations:
     def test_abbreviation_expansion_tracked(self, normalizer):
         """Test that abbreviation expansion is tracked in debug mode."""
         text = "Prof. Smith teaches"
-        result, steps = normalizer.normalize(text)
+        _result, steps = normalizer.normalize(text)
 
         # Find the abbreviation expansion step
         abbrev_steps = [s for s in steps if s.rule_name == "abbreviation_expansion"]

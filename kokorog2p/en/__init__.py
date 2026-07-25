@@ -15,10 +15,10 @@ try:
 
     __all__ = [
         "EnglishG2P",
-        "Lexicon",
         "EnglishLexicon",
-        "NumberConverter",
         "EnglishNumberConverter",
+        "Lexicon",
+        "NumberConverter",
     ]
 except ImportError:
-    __all__ = ["EnglishG2P", "Lexicon", "EnglishLexicon"]
+    __all__ = ["EnglishG2P", "EnglishLexicon", "Lexicon"]

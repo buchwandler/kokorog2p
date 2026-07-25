@@ -12,7 +12,7 @@ rule_id2text = get_rule_id2text()
 
 ############################ vowels ############################
 def jyeo(inp, descriptive=False, verbose=False):
-    rule = rule_id2text["5.1"]
+    rule_id2text["5.1"]
     # 일반적인 규칙으로 취급한다 by kyubyong
 
     out = re.sub("([ᄌᄍᄎ])ᅧ", r"\1ᅥ", inp)
@@ -21,7 +21,7 @@ def jyeo(inp, descriptive=False, verbose=False):
 
 
 def ye(inp, descriptive=False, verbose=False):
-    rule = rule_id2text["5.2"]
+    rule_id2text["5.2"]
     # 실제로 언중은 예, 녜, 셰, 쎼 이외의 'ㅖ'는 [ㅔ]로 발음한다. by kyubyong
 
     if descriptive:
@@ -33,7 +33,7 @@ def ye(inp, descriptive=False, verbose=False):
 
 
 def consonant_ui(inp, descriptive=False, verbose=False):
-    rule = rule_id2text["5.3"]
+    rule_id2text["5.3"]
 
     out = re.sub("([ᄀᄁᄂᄃᄄᄅᄆᄇᄈᄉᄊᄌᄍᄎᄏᄐᄑᄒ])ᅴ", r"\1ᅵ", inp)
     # gloss(verbose, out, inp, rule)
@@ -41,7 +41,7 @@ def consonant_ui(inp, descriptive=False, verbose=False):
 
 
 def josa_ui(inp, descriptive=False, verbose=False):
-    rule = rule_id2text["5.4.2"]
+    rule_id2text["5.4.2"]
     # 실제로 언중은 높은 확률로 조사 '의'는 [ㅔ]로 발음한다.
     if descriptive:
         out = re.sub("([^^])의/J", r"\1에", inp)
@@ -52,7 +52,7 @@ def josa_ui(inp, descriptive=False, verbose=False):
 
 
 def vowel_ui(inp, descriptive=False, verbose=False):
-    rule = rule_id2text["5.4.1"]
+    rule_id2text["5.4.1"]
     # 실제로 언중은 높은 확률로 단어의 첫음절 이외의 '의'는 [ㅣ]로 발음한다."""
     if descriptive:
         out = re.sub("([^^\\s]ᄋ)ᅴ", r"\1ᅵ", inp)
@@ -63,7 +63,7 @@ def vowel_ui(inp, descriptive=False, verbose=False):
 
 
 def jamo(inp, descriptive=False, verbose=False):
-    rule = rule_id2text["16"]
+    rule_id2text["16"]
     out = inp
 
     out = re.sub("(디그)ᆮᄋ", r"\1ᄉ", out)
@@ -78,7 +78,7 @@ def jamo(inp, descriptive=False, verbose=False):
 
 
 def rieulgiyeok(inp, descriptive=False, verbose=False):
-    rule = rule_id2text["11.1"]
+    rule_id2text["11.1"]
 
     out = inp
     out = re.sub("ᆰ/P([ᄀᄁ])", r"ᆯᄁ", out)
@@ -88,7 +88,7 @@ def rieulgiyeok(inp, descriptive=False, verbose=False):
 
 
 def rieulbieub(inp, descriptive=False, verbose=False):
-    rule = rule_id2text["25"]
+    rule_id2text["25"]
     out = inp
 
     out = re.sub("([ᆲᆴ])/Pᄀ", r"\1ᄁ", out)
@@ -101,7 +101,7 @@ def rieulbieub(inp, descriptive=False, verbose=False):
 
 
 def verb_nieun(inp, descriptive=False, verbose=False):
-    rule = rule_id2text["24"]
+    rule_id2text["24"]
     out = inp
 
     pairs = [
@@ -127,7 +127,7 @@ def verb_nieun(inp, descriptive=False, verbose=False):
 
 
 def balb(inp, descriptive=False, verbose=False):
-    rule = rule_id2text["10.1"]
+    rule_id2text["10.1"]
     out = inp
     syllable_final_or_consonants = "($|[^ᄋᄒ])"
 
@@ -139,7 +139,7 @@ def balb(inp, descriptive=False, verbose=False):
 
 
 def palatalize(inp, descriptive=False, verbose=False):
-    rule = rule_id2text["17"]
+    rule_id2text["17"]
     out = inp
 
     out = re.sub("ᆮᄋ([ᅵᅧ])", r"ᄌ\1", out)
@@ -153,7 +153,7 @@ def palatalize(inp, descriptive=False, verbose=False):
 
 
 def modifying_rieul(inp, descriptive=False, verbose=False):
-    rule = rule_id2text["27"]
+    rule_id2text["27"]
     out = inp
 
     pairs = [

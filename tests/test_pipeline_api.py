@@ -137,9 +137,9 @@ class TestPhonemizeToResult:
         assert ich.lang != "en-us"
 
         # Optional: keep this weaker if you sometimes get non-critical warnings
-        assert not any(
-            "failed to load" in w.lower() for w in result.warnings
-        ), result.warnings
+        assert not any("failed to load" in w.lower() for w in result.warnings), (
+            result.warnings
+        )
 
     def test_with_language_override(self):
         """Test phonemization with language override."""
@@ -744,9 +744,9 @@ class TestPhonemizeToResult:
                     contraction_token = token
                     break
 
-            assert (
-                contraction_token is not None
-            ), f"{contraction} should be a token in '{text}'"
+            assert contraction_token is not None, (
+                f"{contraction} should be a token in '{text}'"
+            )
 
             # Check that it has phonemes
             phonemes = contraction_token.meta.get("phonemes", "")

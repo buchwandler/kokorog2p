@@ -246,7 +246,9 @@ def get_g2p(
 
     # Create G2P instance based on language and backend
     g2p: G2PBase
-    spacy_kwargs = {"spacy_model": spacy_model} if spacy_model is not None else {}
+    extra_kwargs: dict[str, Any] = (
+        {"spacy_model": spacy_model} if spacy_model is not None else {}
+    )
 
     if backend == "goruut":
         # Use goruut backend for all languages
@@ -270,7 +272,7 @@ def get_g2p(
             use_goruut_fallback=use_goruut_fallback,
             use_cli=use_cli,
             use_spacy=use_spacy,
-            **spacy_kwargs,
+            **extra_kwargs,
             load_silver=load_silver,
             load_gold=load_gold,
             strict=strict,
@@ -284,7 +286,7 @@ def get_g2p(
         g2p = ChineseG2P(
             language=language,
             use_spacy=use_spacy,
-            **spacy_kwargs,
+            **extra_kwargs,
             load_silver=load_silver,
             load_gold=load_gold,
             version=version,
@@ -296,7 +298,7 @@ def get_g2p(
         g2p = JapaneseG2P(
             language=language,
             use_spacy=use_spacy,
-            **spacy_kwargs,
+            **extra_kwargs,
             load_silver=load_silver,
             load_gold=load_gold,
             version=version,
@@ -310,7 +312,7 @@ def get_g2p(
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
             use_spacy=use_spacy,
-            **spacy_kwargs,
+            **extra_kwargs,
             load_silver=load_silver,
             load_gold=load_gold,
             version=version,
@@ -334,7 +336,7 @@ def get_g2p(
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
             use_spacy=use_spacy,
-            **spacy_kwargs,
+            **extra_kwargs,
             load_silver=load_silver,
             load_gold=load_gold,
             version=version,
@@ -348,7 +350,7 @@ def get_g2p(
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
             use_spacy=use_spacy,
-            **spacy_kwargs,
+            **extra_kwargs,
             load_silver=load_silver,
             load_gold=load_gold,
             version=version,
@@ -608,66 +610,66 @@ def reset_abbreviations() -> None:
 
 
 # Marker-based helper
-from kokorog2p.markers import apply_marker_overrides  # noqa: E402
-from kokorog2p.markers import parse_delimited  # noqa: E402
+from kokorog2p.markers import apply_marker_overrides
+from kokorog2p.markers import parse_delimited
 
 # Public API
 __all__ = [
+    "CONSONANTS",
+    "GB_VOCAB",
+    "KOKORO_PUNCTUATION",
+    "N_TOKENS",
+    "PAD_IDX",
+    # Phoneme utilities
+    "US_VOCAB",
+    "VOWELS",
+    "G2PBase",
+    # Core classes
+    "GToken",
+    "MismatchInfo",
+    # Word mismatch detection
+    "MismatchMode",
+    "MismatchStats",
+    "OverrideSpan",
+    "PhonemizeResult",
+    # Punctuation handling
+    "Punctuation",
+    # New span-based API (recommended for pipelines)
+    "TokenSpan",
     # Version
     "__version__",
     "__version_tuple__",
-    # Core classes
-    "GToken",
-    "G2PBase",
-    # Main functions
-    "phonemize",
-    "tokenize",
-    "phonemes",
-    "phoneme_ids",
-    "get_g2p",
-    "clear_cache",
-    "reset_abbreviations",
-    # New span-based API (recommended for pipelines)
-    "TokenSpan",
-    "OverrideSpan",
-    "PhonemizeResult",
-    # Marker-based helper
-    "parse_delimited",
     "apply_marker_overrides",
-    # Phoneme utilities
-    "US_VOCAB",
-    "GB_VOCAB",
-    "VOWELS",
-    "CONSONANTS",
-    "from_espeak",
-    "from_goruut",
-    "to_espeak",
-    "validate_phonemes",
-    "get_vocab",
+    "check_word_alignment",
+    "clear_cache",
+    "count_words",
+    "decode",
+    "detect_mismatches",
     # Kokoro vocabulary encoding
     "encode",
-    "decode",
-    "phonemes_to_ids",
-    "ids_to_phonemes",
-    "validate_for_kokoro",
     "filter_for_kokoro",
-    "get_kokoro_vocab",
-    "get_kokoro_config",
-    "N_TOKENS",
-    "PAD_IDX",
-    # Punctuation handling
-    "Punctuation",
-    "normalize_punctuation",
     "filter_punctuation",
+    "from_espeak",
+    "from_goruut",
+    "get_g2p",
+    "get_kokoro_config",
+    "get_kokoro_vocab",
+    "get_vocab",
+    "ids_to_phonemes",
     "is_kokoro_punctuation",
-    "KOKORO_PUNCTUATION",
-    # Word mismatch detection
-    "MismatchMode",
-    "MismatchInfo",
-    "MismatchStats",
-    "detect_mismatches",
-    "check_word_alignment",
-    "count_words",
+    "normalize_punctuation",
+    # Marker-based helper
+    "parse_delimited",
+    "phoneme_ids",
+    "phonemes",
+    "phonemes_to_ids",
+    # Main functions
+    "phonemize",
     # Multi-language support
     "preprocess_multilang",
+    "reset_abbreviations",
+    "to_espeak",
+    "tokenize",
+    "validate_for_kokoro",
+    "validate_phonemes",
 ]

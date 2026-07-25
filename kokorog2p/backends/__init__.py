@@ -6,6 +6,6 @@ from kokorog2p.backends.espeak import EspeakWrapper, EspeakBackend
 try:
     from kokorog2p.backends.goruut import GoruutBackend
 
-    __all__ = ["EspeakWrapper", "EspeakBackend", "GoruutBackend"]
+    __all__ = ["EspeakBackend", "EspeakWrapper", "GoruutBackend"]
 except ImportError:
-    __all__ = ["EspeakWrapper", "EspeakBackend"]
+    __all__ = ["EspeakBackend", "EspeakWrapper"]

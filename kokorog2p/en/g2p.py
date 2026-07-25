@@ -204,7 +204,7 @@ class EnglishG2P(G2PBase):
 
         # Strategy 1: Add all words with apostrophes (formal contractions)
         # Include ALL words with apostrophes, regardless of phoneme quality
-        for word in self.lexicon.golds.keys():
+        for word in self.lexicon.golds:
             if "'" in word:
                 contractions.add(word)
                 # Also add case variations
@@ -212,7 +212,7 @@ class EnglishG2P(G2PBase):
                 contractions.add(word.upper())
 
         if self.lexicon.silvers:
-            for word in self.lexicon.silvers.keys():
+            for word in self.lexicon.silvers:
                 if "'" in word:
                     contractions.add(word)
                     contractions.add(word.capitalize())

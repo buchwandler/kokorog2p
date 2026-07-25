@@ -19,6 +19,9 @@ limitations under the License.
 Copyright 2024 kokorog2p contributors
 """
 
+import functools
+import operator
+
 import jieba
 from pypinyin import Style, lazy_pinyin
 
@@ -518,20 +521,24 @@ class ToneSandhi:
             if j - 1 >= 0 and item == word[j - 1] and pos[0] in {"n", "v", "a"}:
                 finals[j] = finals[j][:-1] + "5"
         ge_idx = word.find("个")
-        if len(word) >= 1 and word[-1] in "吧呢啊呐噻嘛吖嗨呐哦哒滴哩哟喽啰耶喔诶":
-            finals[-1] = finals[-1][:-1] + "5"
-        elif len(word) >= 1 and word[-1] in "的地得":
-            finals[-1] = finals[-1][:-1] + "5"
-        # e.g. 走了, 看着, 去过
-        elif len(word) == 1 and word in "了着过" and pos in {"ul", "uz", "ug"}:
-            finals[-1] = finals[-1][:-1] + "5"
-        elif len(word) > 1 and word[-1] in "们子" and pos in {"r", "n"}:
-            finals[-1] = finals[-1][:-1] + "5"
-        # e.g. 桌上, 地下
-        elif len(word) > 1 and word[-1] in "上下" and pos in {"s", "l", "f"}:
-            finals[-1] = finals[-1][:-1] + "5"
-        # e.g. 上来, 下去
-        elif len(word) > 1 and word[-1] in "来去" and word[-2] in "上下进出回过起开":
+        if (
+            len(word) >= 1
+            and word[-1] in "吧呢啊呐噻嘛吖嗨呐哦哒滴哩哟喽啰耶喔诶"
+            or len(word) >= 1
+            and word[-1] in "的地得"
+            or len(word) == 1
+            and word in "了着过"
+            and pos in {"ul", "uz", "ug"}
+            or len(word) > 1
+            and word[-1] in "们子"
+            and pos in {"r", "n"}
+            or len(word) > 1
+            and word[-1] in "上下"
+            and pos in {"s", "l", "f"}
+            or len(word) > 1
+            and word[-1] in "来去"
+            and word[-2] in "上下进出回过起开"
+        ):
             finals[-1] = finals[-1][:-1] + "5"
         # 个做量词
         elif (
@@ -558,7 +565,7 @@ class ToneSandhi:
                 or w[-2:] in self.must_neural_tone_words
             ):
                 finals_list[i][-1] = finals_list[i][-1][:-1] + "5"
-        finals = sum(finals_list, [])
+        finals = functools.reduce(operator.iadd, finals_list, [])
         return finals
 
     def _bu_sandhi(self, word: str, finals: list[str]) -> list[str]:
@@ -574,9 +581,7 @@ class ToneSandhi:
 
     def _yi_sandhi(self, word: str, finals: list[str]) -> list[str]:
         # "一" in number sequences, e.g. 一零零, 二一零
-        if word.find(YI) != -1 and all(
-            [item.isnumeric() for item in word if item != YI]
-        ):
+        if word.find(YI) != -1 and all(item.isnumeric() for item in word if item != YI):
             return finals
         # "一" between reduplication words shold be yi5, e.g. 看一看
         elif len(word) == 3 and word[1] == YI and word[0] == word[-1]:
@@ -622,16 +627,16 @@ class ToneSandhi:
                     for i, sub in enumerate(finals_list):
                         # e.g. 所有/人
                         if self._all_tone_three(sub) and len(sub) == 2:
-                            finals_list[i][0] = finals_list[i][0][:-1] + "2"
+                            finals_list[i][0] = sub[0][:-1] + "2"
                         # e.g. 好/喜欢
                         elif (
                             i == 1
                             and not self._all_tone_three(sub)
-                            and finals_list[i][0][-1] == "3"
+                            and sub[0][-1] == "3"
                             and finals_list[0][-1][-1] == "3"
                         ):
                             finals_list[0][-1] = finals_list[0][-1][:-1] + "2"
-                        finals = sum(finals_list, [])
+                        finals = functools.reduce(operator.iadd, finals_list, [])
         # split idiom into two words who's length is 2
         elif len(word) == 4:
             finals_list = [finals[:2], finals[2:]]

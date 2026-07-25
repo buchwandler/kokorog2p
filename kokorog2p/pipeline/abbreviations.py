@@ -229,7 +229,6 @@ class AbbreviationExpander(ABC):
 
         Subclasses must implement this to populate self.entries.
         """
-        pass
 
     def add_abbreviation(self, entry: AbbreviationEntry) -> None:
         """Add an abbreviation entry.

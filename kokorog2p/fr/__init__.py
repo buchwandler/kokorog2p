@@ -15,10 +15,10 @@ try:
     __all__ = [
         "FrenchG2P",
         "FrenchLexicon",
-        "number_to_french",
+        "expand_currency",
         "expand_numbers",
         "expand_time",
-        "expand_currency",
+        "number_to_french",
     ]
 except ImportError:
     __all__ = ["FrenchG2P", "FrenchLexicon"]
