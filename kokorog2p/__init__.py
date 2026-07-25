@@ -38,6 +38,7 @@ from collections.abc import Callable
 from typing import Any, Literal, Optional, Union
 
 from kokorog2p.base import G2PBase
+from kokorog2p.markers import apply_marker_overrides, parse_delimited
 from kokorog2p.multilang import preprocess_multilang
 from kokorog2p.phonemes import (
     CONSONANTS,
@@ -608,10 +609,6 @@ def reset_abbreviations() -> None:
     pipeline_api._get_abbreviation_expander.cache_clear()
     pipeline_api._get_language_normalizer.cache_clear()
 
-
-# Marker-based helper
-from kokorog2p.markers import apply_marker_overrides
-from kokorog2p.markers import parse_delimited
 
 # Public API
 __all__ = [
