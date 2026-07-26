@@ -24,7 +24,6 @@ authors = [
     {name = "Holger Nahrstaedt", email = "nahrstaedt@gmail.com"}
 ]
 keywords = ["g2p", "grapheme-to-phoneme", "tts", "text-to-speech", "kokoro", "phonemizer", "espeak"]
-urls = { Homepage = "https://github.com/buchwandler/kokorog2p" }
 dependencies = []
 classifiers=[
     'Development Status :: 4 - Beta',
