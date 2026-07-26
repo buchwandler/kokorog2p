@@ -50,6 +50,7 @@ class FrenchG2P(G2PBase):
         language: str = "fr-fr",
         use_espeak_fallback: bool = True,
         use_goruut_fallback: bool = False,
+        use_cli: bool = False,
         use_spacy: bool = True,
         spacy_model: str = "fr_core_news_sm",
         expand_nums: bool = True,
@@ -67,6 +68,7 @@ class FrenchG2P(G2PBase):
             language: Language code (default: 'fr-fr').
             use_espeak_fallback: Whether to use espeak for OOV words.
             use_goruut_fallback: Whether to use goruut for OOV words.
+            use_cli: Whether to force the espeak CLI for OOV fallback.
             use_spacy: Whether to use spaCy for tokenization and POS tagging.
             spacy_model: spaCy French model package to load when use_spacy=True
                 (e.g., "fr_core_news_sm", "fr_core_news_md", "fr_core_news_lg").
@@ -97,6 +99,7 @@ class FrenchG2P(G2PBase):
             language=language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
+            use_cli=use_cli,
         )
 
         self.version = version
@@ -131,7 +134,7 @@ class FrenchG2P(G2PBase):
             if self.use_goruut_fallback:
                 self._fallback = FrenchGoruutFallback()
             elif self.use_espeak_fallback:
-                self._fallback = FrenchFallback()
+                self._fallback = FrenchFallback(use_cli=self.use_cli)
         return self._fallback
 
     @property

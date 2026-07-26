@@ -1,6 +1,7 @@
 """Tests for the French G2P module."""
 
 from kokorog2p.fr import FrenchG2P
+from kokorog2p.fr.fallback import FrenchFallback
 from kokorog2p.token import GToken
 
 
@@ -13,6 +14,18 @@ class TestFrenchG2P:
         assert g2p.language == "fr-fr"
         assert g2p.use_spacy is True
         assert g2p.spacy_model == "fr_core_news_sm"
+
+    def test_french_fallback_inherits_use_cli(self):
+        g2p = FrenchG2P(
+            use_spacy=False,
+            use_cli=True,
+            load_gold=False,
+        )
+
+        assert g2p.use_cli is True
+        assert g2p.fallback is not None
+        assert g2p.fallback.use_cli is True
+        assert g2p.fallback.backend.use_cli is True
 
     def test_call_returns_tokens_without_spacy(self):
         """Test token output without requiring spaCy model."""
@@ -38,6 +51,18 @@ class TestFrenchGetG2P:
         assert isinstance(g2p, FrenchG2P)
         assert g2p.use_spacy is False
 
+    def test_get_g2p_french_forwards_use_cli(self):
+        """Test get_g2p forwards CLI selection to the French fallback."""
+        from kokorog2p import clear_cache, get_g2p
+
+        clear_cache()
+        g2p = get_g2p("fr", use_cli=True, use_spacy=False, load_gold=False)
+
+        assert isinstance(g2p, FrenchG2P)
+        assert g2p.use_cli is True
+        assert g2p.fallback is not None
+        assert g2p.fallback.use_cli is True
+
     def test_get_g2p_french_forwards_spacy_model(self):
         """Test get_g2p forwards custom French spaCy model name."""
         from kokorog2p import clear_cache, get_g2p
@@ -47,3 +72,10 @@ class TestFrenchGetG2P:
 
         assert isinstance(g2p, FrenchG2P)
         assert g2p.spacy_model == "fr_core_news_md"
+
+
+class TestFrenchFallback:
+    def test_uses_locale_specific_standard_espeak_language(self):
+        fallback = FrenchFallback()
+
+        assert fallback.backend.language == "fr-fr"

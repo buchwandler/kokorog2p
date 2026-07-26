@@ -9,11 +9,6 @@ include = [
   "**/*.toml",
   "**/*.rst",
   "**/*.md",
-  "**/*.json",
-  "**/*.csv",
-  "**/*.txt",
-  "**/*.yml",
-  "**/*.yaml",
   "LICENSE*",
 ]
 split_max_chars = 2500000

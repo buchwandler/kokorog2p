@@ -85,6 +85,45 @@ class TestEspeakPhonemizerBaseHelpers:
         assert chosen.language == "en-us"
         assert chosen.identifier == "en-us"
 
+    def test_resolve_voice_regular_skips_mbrola_for_generic_language(self):
+        voices = [
+            Voice(name="MBROLA", language="fr", identifier="mb/mb-fr7"),
+            Voice(name="French", language="fr-fr", identifier="roa/fr"),
+        ]
+        d = _ResolveDummy(voices)
+
+        identifier, chosen = d._resolve_voice("fr")
+
+        assert identifier == "roa/fr"
+        assert chosen.identifier == "roa/fr"
+
+    def test_resolve_voice_regular_is_independent_of_mbrola_order(self):
+        voices = [
+            Voice(name="French", language="fr-fr", identifier="roa/fr"),
+            Voice(name="MBROLA", language="fr", identifier="mb/mb-fr7"),
+        ]
+        d = _ResolveDummy(voices)
+
+        identifier, chosen = d._resolve_voice("fr")
+
+        assert identifier == "roa/fr"
+        assert chosen.identifier == "roa/fr"
+
+    def test_resolve_voice_regular_rejects_mbrola_only_match(self):
+        d = _ResolveDummy([Voice(name="MBROLA", language="fr", identifier="mb/mb-fr7")])
+
+        with pytest.raises(RuntimeError, match="MBROLA voices are excluded"):
+            d._resolve_voice("fr")
+
+    def test_resolve_voice_allows_explicit_mbrola_request(self):
+        voice = Voice(name="MBROLA", language="fr", identifier="mb/mb-fr7")
+        d = _ResolveDummy([voice])
+
+        identifier, chosen = d._resolve_voice("mb-fr7")
+
+        assert identifier == "mb/mb-fr7"
+        assert chosen is voice
+
     def test_resolve_voice_raises_on_invalid(self):
         d = _ResolveDummy([Voice(language="en-us", identifier="en-us")])
         with pytest.raises(RuntimeError):

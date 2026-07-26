@@ -312,6 +312,7 @@ def get_g2p(
             language=language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
+            use_cli=use_cli,
             use_spacy=use_spacy,
             **extra_kwargs,
             load_silver=load_silver,
