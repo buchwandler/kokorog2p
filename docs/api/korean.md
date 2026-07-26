@@ -1,6 +1,7 @@
 # Korean API
 
-Korean G2P provides phoneme conversion using MeCab for morphological analysis and custom phonological rules based on Korean Standard Pronunciation.
+Korean G2P provides phoneme conversion using MeCab for morphological analysis and custom
+phonological rules based on Korean Standard Pronunciation.
 
 ## Main Class
 

@@ -1,8 +1,8 @@
 # Multilang Preprocessing
 
-The multilang preprocessor detects word-level languages with
-`lingua-language-detector` and returns `OverrideSpan` objects for
-language switching. It integrates with the span-based phonemization API.
+The multilang preprocessor detects word-level languages with `lingua-language-detector`
+and returns `OverrideSpan` objects for language switching. It integrates with the
+span-based phonemization API.
 
 ## API
 

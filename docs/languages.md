@@ -265,7 +265,8 @@ print(phonemize("děti", language="cs"))
 
 ## Spanish (es)
 
-Spanish G2P is rule-based with comprehensive phonological rules for both European and Latin American dialects.
+Spanish G2P is rule-based with comprehensive phonological rules for both European and
+Latin American dialects.
 
 ### Features
 
@@ -472,7 +473,8 @@ print(phonemize("世界", language="ja"))
 
 ## Korean (ko)
 
-Korean G2P uses MeCab-based morphological analysis with comprehensive phonological rules.
+Korean G2P uses MeCab-based morphological analysis with comprehensive phonological
+rules.
 
 ### Features
 
@@ -553,7 +555,8 @@ print(phonemize("עִבְרִית", language="he"))
 
 ## Mixed-Language Support
 
-kokorog2p can automatically detect and handle texts that mix multiple languages, routing each word to the appropriate G2P engine.
+kokorog2p can automatically detect and handle texts that mix multiple languages, routing
+each word to the appropriate G2P engine.
 
 ### Features
 
@@ -737,8 +740,8 @@ print(expand_number("J'ai 42 euros."))
 
 ## Fallback Languages
 
-Spanish, Italian, and Portuguese have native rule-based implementations. For
-languages not explicitly supported, select the eSpeak backend explicitly:
+Spanish, Italian, and Portuguese have native rule-based implementations. For languages
+not explicitly supported, select the eSpeak backend explicitly:
 
 ```python
 from kokorog2p import get_g2p

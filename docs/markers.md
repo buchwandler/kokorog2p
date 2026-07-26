@@ -1,10 +1,14 @@
 # Marker-Delimited Helper Guide
 
-The marker-delimited helper provides a simple, human-friendly way to mark text spans for pronunciation overrides without complex syntax. It's designed as a lightweight alternative for users who don't need full markup capabilities.
+The marker-delimited helper provides a simple, human-friendly way to mark text spans for
+pronunciation overrides without complex syntax. It's designed as a lightweight
+alternative for users who don't need full markup capabilities.
 
 ## Overview
 
-The marker system uses simple delimiters (like `@`) to mark text spans, then lets you assign attributes to those spans using Python dictionaries. This two-step process separates the marking from the attribute assignment.
+The marker system uses simple delimiters (like `@`) to mark text spans, then lets you
+assign attributes to those spans using Python dictionaries. This two-step process
+separates the marking from the attribute assignment.
 
 ## Basic Usage
 
@@ -268,7 +272,8 @@ assignments = {
 }
 ```
 
-**Note:** `ph` and `lang` are special attributes handled by kokorog2p. Other attributes are stored in token metadata for downstream processing.
+**Note:** `ph` and `lang` are special attributes handled by kokorog2p. Other attributes
+are stored in token metadata for downstream processing.
 
 ## Custom Markers
 

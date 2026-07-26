@@ -1,6 +1,7 @@
 # Spanish API
 
-Spanish G2P provides rule-based phoneme conversion for Spanish, designed for Kokoro TTS models.
+Spanish G2P provides rule-based phoneme conversion for Spanish, designed for Kokoro TTS
+models.
 
 ## Main Class
 

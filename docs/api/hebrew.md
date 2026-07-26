@@ -1,6 +1,7 @@
 # Hebrew API
 
-Hebrew G2P provides phoneme conversion using the phonikud package for handling Hebrew text with diacritics (nikud).
+Hebrew G2P provides phoneme conversion using the phonikud package for handling Hebrew
+text with diacritics (nikud).
 
 ## Main Class
 

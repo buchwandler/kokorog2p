@@ -1,6 +1,7 @@
 # Portuguese API
 
-Portuguese G2P provides rule-based phoneme conversion for Brazilian Portuguese, designed for Kokoro TTS models.
+Portuguese G2P provides rule-based phoneme conversion for Brazilian Portuguese, designed
+for Kokoro TTS models.
 
 ## Main Class
 

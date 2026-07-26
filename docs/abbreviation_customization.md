@@ -2,11 +2,14 @@
 
 ## Overview
 
-The `kokorog2p` library provides a flexible abbreviation expansion system that allows you to customize which abbreviations are expanded and how. This is particularly useful when:
+The `kokorog2p` library provides a flexible abbreviation expansion system that allows
+you to customize which abbreviations are expanded and how. This is particularly useful
+when:
 
 - You want to disable specific abbreviations
 - You need to add custom abbreviations for domain-specific terms
-- You want to change how an abbreviation expands (e.g., always expand "Dr." to "Drive" instead of "Doctor")
+- You want to change how an abbreviation expands (e.g., always expand "Dr." to "Drive"
+  instead of "Doctor")
 - You need context-aware expansions (e.g., "St." → "Street" vs "Saint")
 
 ## Quick Start
@@ -253,7 +256,8 @@ for abbr, expansion in custom_abbrevs.items():
 
 ## Persistence
 
-Changes to abbreviations **persist** across `get_g2p()` calls because they modify the singleton abbreviation expander:
+Changes to abbreviations **persist** across `get_g2p()` calls because they modify the
+singleton abbreviation expander:
 
 ```python
 # First instance
@@ -273,11 +277,9 @@ from kokorog2p import reset_abbreviations
 reset_abbreviations()  # Reset abbreviation expanders
 ```
 
-:::{note}
-`clear_cache()` only clears cached G2P instances; it does not reset
-abbreviation expanders. `reset_abbreviations()` resets expanders and
-clears cached G2P instances.
-:::
+:::{note} `clear_cache()` only clears cached G2P instances; it does not reset
+abbreviation expanders. `reset_abbreviations()` resets expanders and clears cached G2P
+instances. :::
 
 ## Advanced: Working with the Expander Directly
 
@@ -298,14 +300,19 @@ print(entry.description)       # Description
 
 ## Notes
 
-1. **Case Sensitivity**: By default, abbreviations are case-insensitive. Use `case_sensitive=True` if you need exact matching.
-2. **Singleton Behavior**: The abbreviation expander is a singleton, so changes affect all G2P instances using the same language.
-3. **Context Detection**: Context-aware expansions require `enable_context_detection=True` (default) when creating the G2P instance.
-4. **Order Matters**: When removing and adding the same abbreviation, make sure to remove first, then add.
+1. **Case Sensitivity**: By default, abbreviations are case-insensitive. Use
+   `case_sensitive=True` if you need exact matching.
+2. **Singleton Behavior**: The abbreviation expander is a singleton, so changes affect
+   all G2P instances using the same language.
+3. **Context Detection**: Context-aware expansions require
+   `enable_context_detection=True` (default) when creating the G2P instance.
+4. **Order Matters**: When removing and adding the same abbreviation, make sure to
+   remove first, then add.
 
 ## Example Script
 
-See `examples/abbreviation_customization.py` for a complete working example demonstrating all features.
+See `examples/abbreviation_customization.py` for a complete working example
+demonstrating all features.
 
 ## Troubleshooting
 
@@ -319,14 +326,19 @@ A: Check:
 
 **Q: Changes don't persist after restarting.**
 
-A: Abbreviation customizations are in-memory only. If you need persistent customizations, add them at startup or create a configuration system.
+A: Abbreviation customizations are in-memory only. If you need persistent
+customizations, add them at startup or create a configuration system.
 
 **Q: Context-aware expansion isn't working.**
 
-A: Make sure `enable_context_detection=True` when creating the G2P instance (it's the default).
+A: Make sure `enable_context_detection=True` when creating the G2P instance (it's the
+default).
 
 ## See Also
 
-- [English Abbreviations Source](https://github.com/holgern/kokorog2p/blob/main/kokorog2p/en/abbreviations.py) - Default abbreviations
-- [Abbreviation Pipeline](https://github.com/holgern/kokorog2p/blob/main/kokorog2p/pipeline/abbreviations.py) - Base framework
-- [Examples](https://github.com/holgern/kokorog2p/blob/main/examples/abbreviation_customization.py) - Working examples
+- [English Abbreviations Source](https://github.com/buchwandler/kokorog2p/blob/main/kokorog2p/en/abbreviations.py) -
+  Default abbreviations
+- [Abbreviation Pipeline](https://github.com/buchwandler/kokorog2p/blob/main/kokorog2p/pipeline/abbreviations.py) -
+  Base framework
+- [Examples](https://github.com/buchwandler/kokorog2p/blob/main/examples/abbreviation_customization.py) -
+  Working examples

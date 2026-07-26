@@ -24,7 +24,7 @@ authors = [
     {name = "Holger Nahrstaedt", email = "nahrstaedt@gmail.com"}
 ]
 keywords = ["g2p", "grapheme-to-phoneme", "tts", "text-to-speech", "kokoro", "phonemizer", "espeak"]
-urls = { Homepage = "https://github.com/holgern/kokorog2p" }
+urls = { Homepage = "https://github.com/buchwandler/kokorog2p" }
 dependencies = []
 classifiers=[
     'Development Status :: 4 - Beta',
@@ -99,6 +99,12 @@ dev = [
     "twine>=5.0.0",
     "kokorog2p[docs]",
 ]
+
+[project.urls]
+Homepage = "https://buchwandler.de/tools/kokorog2p/main/"
+Repository = "https://github.com/buchwandler/kokorog2p"
+Issues = "https://github.com/buchwandler/kokorog2p/issues"
+Changelog = "https://github.com/buchwandler/kokorog2p/releases"
 
 [tool.setuptools_scm]
 write_to = "kokorog2p/_version.py"

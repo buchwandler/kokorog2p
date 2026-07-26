@@ -7,7 +7,7 @@ We welcome contributions to kokorog2p! This guide will help you get started.
 1. **Clone the repository**:
 
    ```bash
-   git clone https://github.com/holgern/kokorog2p.git
+   git clone https://github.com/buchwandler/kokorog2p.git
    cd kokorog2p
    ```
 

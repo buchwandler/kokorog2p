@@ -1,6 +1,7 @@
 # Italian API
 
-Italian G2P provides rule-based phoneme conversion for Italian, designed for Kokoro TTS models.
+Italian G2P provides rule-based phoneme conversion for Italian, designed for Kokoro TTS
+models.
 
 ## Main Class
 

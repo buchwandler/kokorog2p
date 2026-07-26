@@ -134,7 +134,7 @@ This includes all language packs and backends.
 For development, clone the repository and install in editable mode:
 
 ```bash
-git clone https://github.com/holgern/kokorog2p.git
+git clone https://github.com/buchwandler/kokorog2p.git
 cd kokorog2p
 pip install -e ".[dev]"
 ```
@@ -166,7 +166,8 @@ brew install espeak-ng
 
 **Windows:**
 
-Download the installer from the [espeak-ng releases page](https://github.com/espeak-ng/espeak-ng/releases).
+Download the installer from the
+[espeak-ng releases page](https://github.com/espeak-ng/espeak-ng/releases).
 
 ## Verifying Installation
 
@@ -207,8 +208,8 @@ print(f"espeak-ng available: {espeak_available}")
 
 If spaCy models are missing:
 
-kokorog2p never downloads models during import or inference. Install the
-requested model explicitly in the environment that runs the application:
+kokorog2p never downloads models during import or inference. Install the requested model
+explicitly in the environment that runs the application:
 
 ```bash
 # Default English model used by kokorog2p

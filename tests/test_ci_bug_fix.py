@@ -4,7 +4,7 @@ This test suite addresses the issue reported in PyKokoro where kokorog2p
 was returning empty strings in CI environments due to silent exception
 handling when espeak-ng failed to initialize.
 
-GitHub issue: https://github.com/holgern/pykokoro
+GitHub issue: https://github.com/buchwandler/pykokoro
 """
 
 import pytest

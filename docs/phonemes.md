@@ -1,6 +1,7 @@
 # Phoneme Inventory
 
-kokorog2p uses the Kokoro TTS phoneme inventory, which is based on IPA (International Phonetic Alphabet).
+kokorog2p uses the Kokoro TTS phoneme inventory, which is based on IPA (International
+Phonetic Alphabet).
 
 ## Kokoro Phoneme Set
 
@@ -115,7 +116,8 @@ The Kokoro phoneme set consists of 45 phonemes plus punctuation markers.
      - ɡˈO
 ```
 
-Note: `O` is a Kokoro-specific simplification of the GOAT vowel, used instead of `oʊ` in some contexts.
+Note: `O` is a Kokoro-specific simplification of the GOAT vowel, used instead of `oʊ` in
+some contexts.
 
 ### Consonants
 
@@ -554,7 +556,10 @@ print(espeak)
 
 ## References
 
-- [IPA Chart](https://www.internationalphoneticassociation.org/content/ipa-chart) - Official IPA reference
+- [IPA Chart](https://www.internationalphoneticassociation.org/content/ipa-chart) -
+  Official IPA reference
 - [Kokoro TTS](https://github.com/hexgrad/Kokoro-82M) - Kokoro TTS model
-- [English Phonology](https://en.wikipedia.org/wiki/English_phonology) - Wikipedia reference
-- [German Phonology](https://en.wikipedia.org/wiki/Standard_German_phonology) - Wikipedia reference
+- [English Phonology](https://en.wikipedia.org/wiki/English_phonology) - Wikipedia
+  reference
+- [German Phonology](https://en.wikipedia.org/wiki/Standard_German_phonology) -
+  Wikipedia reference

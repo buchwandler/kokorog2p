@@ -37,16 +37,12 @@ print(f"Silver entries: {len(g2p.lexicon.silvers):,}")
 
 **When to disable dictionaries:**
 
-- **Disable silver** (`load_silver=False`):
-  \* Resource-constrained environments (limited memory)
-  \* Real-time applications (faster initialization)
-  \* You only need common vocabulary
-  \* Production deployments where performance is critical
-- **Disable both** (`load_gold=False, load_silver=False`):
-  \* Ultra-fast initialization is critical
-  \* You're fine with espeak-only fallback
-  \* Minimal memory footprint required
-  \* Testing or prototyping
+- **Disable silver** (`load_silver=False`): \* Resource-constrained environments
+  (limited memory) \* Real-time applications (faster initialization) \* You only need
+  common vocabulary \* Production deployments where performance is critical
+- **Disable both** (`load_gold=False, load_silver=False`): \* Ultra-fast initialization
+  is critical \* You're fine with espeak-only fallback \* Minimal memory footprint
+  required \* Testing or prototyping
 
 **Default (both enabled) provides:**
 
@@ -285,7 +281,8 @@ print(f"Kokoro has {len(vocab)} tokens")
 
 ## Quote Handling
 
-kokorog2p provides sophisticated quote handling with support for nested quotes and automatic conversion to curly quotes.
+kokorog2p provides sophisticated quote handling with support for nested quotes and
+automatic conversion to curly quotes.
 
 ### Nested Quote Detection
 
@@ -309,13 +306,15 @@ for token in tokens:
 
 - Supports nested quotes when using **different** quote characters
 - Maintains a stack to track nesting depth
-- Supported quote characters: `"` (double quote), ``` `` ``` (backtick), `'` (single quote)
+- Supported quote characters: `"` (double quote), ` `` ` (backtick), `'` (single quote)
 - Depth increases with each level of nesting (1 = outermost, 2 = nested once, etc.)
 
 **Important**: Nesting only works with different quote types:
 
-- ✅ **Supported**: `` "outer `inner` text" `` → depths `[1, 2, 2, 1]` (different quotes)
-- ❌ **NOT supported**: `"level1 "level2""` → depths `[1, 1, 1, 1]` (same quotes alternate)
+- ✅ **Supported**: `` "outer `inner` text" `` → depths `[1, 2, 2, 1]` (different
+  quotes)
+- ❌ **NOT supported**: `"level1 "level2""` → depths `[1, 1, 1, 1]` (same quotes
+  alternate)
 
 Examples:
 
@@ -359,7 +358,8 @@ tokens = tokenizer.tokenize('"hello" world', '"hello" world')
 
 ### Curly Quote Conversion
 
-The tokenizer automatically converts straight quotes to curly quotes based on nesting depth:
+The tokenizer automatically converts straight quotes to curly quotes based on nesting
+depth:
 
 ```python
 from kokorog2p import get_g2p
@@ -414,7 +414,8 @@ Output shows nesting structure:
 
 ### Automatic Normalization
 
-kokorog2p automatically normalizes punctuation variants to ensure consistency with Kokoro TTS vocabulary:
+kokorog2p automatically normalizes punctuation variants to ensure consistency with
+Kokoro TTS vocabulary:
 
 ```python
 from kokorog2p import get_g2p
@@ -445,11 +446,13 @@ tokens = g2p("state-of-the-art")     # hyphens removed, words joined
 
 - **Ellipsis**: All variants (`...`, `. . .`, `..`, `....`) → `…` (U+2026)
 
-- **Em dash**: All dash types when spaced (`-`, `--`, `–`, `—`, `―`, `‒`, `−`) → `—` (U+2014)
+- **Em dash**: All dash types when spaced (`-`, `--`, `–`, `—`, `―`, `‒`, `−`) → `—`
+  (U+2014)
 
-- **Hyphens in compound words**: Preserved during tokenization, then removed in phoneme output
+- **Hyphens in compound words**: Preserved during tokenization, then removed in phoneme
+  output
 
-- **Apostrophes**: All variants (`'`, `'`, `'`, ``` , ``´ ```, etc.) → `'` (U+0027)
+- **Apostrophes**: All variants (`'`, `'`, `'`, ` , ``´ `, etc.) → `'` (U+0027)
 
 ### Manual Normalization
 
@@ -645,8 +648,8 @@ print(filtered)
 
 ## Multilang Preprocessing
 
-Use `preprocess_multilang` to get language override spans for mixed-language text.
-This integrates with the span-based phonemization API.
+Use `preprocess_multilang` to get language override spans for mixed-language text. This
+integrates with the span-based phonemization API.
 
 ```python
 from kokorog2p import phonemize
@@ -714,11 +717,13 @@ result = phonemize(text, language="de", overrides=all_overrides)
 
 ## Error Handling
 
-kokorog2p provides robust error handling to help you debug issues, especially in CI/CD environments.
+kokorog2p provides robust error handling to help you debug issues, especially in CI/CD
+environments.
 
 ### Strict Mode (Default)
 
-By default, kokorog2p uses **strict mode** (`strict=True`), which raises clear exceptions when backend initialization or phonemization fails:
+By default, kokorog2p uses **strict mode** (`strict=True`), which raises clear
+exceptions when backend initialization or phonemization fails:
 
 ```python
 from kokorog2p import get_g2p
@@ -744,7 +749,8 @@ except RuntimeError as e:
 
 ### Lenient Mode (Backward Compatible)
 
-For backward compatibility with older versions (< 0.4.0) that silently failed, you can use **lenient mode** (`strict=False`):
+For backward compatibility with older versions (< 0.4.0) that silently failed, you can
+use **lenient mode** (`strict=False`):
 
 ```python
 from kokorog2p import get_g2p

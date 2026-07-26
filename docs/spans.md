@@ -1,10 +1,13 @@
 # Span-Based Phonemization Guide
 
-This document explains the span-based (offset-based) phonemization system in kokorog2p, which provides deterministic, pipeline-friendly text-to-phoneme conversion.
+This document explains the span-based (offset-based) phonemization system in kokorog2p,
+which provides deterministic, pipeline-friendly text-to-phoneme conversion.
 
 ## Overview
 
-The span-based system uses **character offsets** to precisely identify and override specific portions of text during phonemization. This approach is more robust than word-based matching because it handles:
+The span-based system uses **character offsets** to precisely identify and override
+specific portions of text during phonemization. This approach is more robust than
+word-based matching because it handles:
 
 - **Duplicate words** with different pronunciations (e.g., "the cat the dog")
 - **Partial word matches** (e.g., distinguishing "cat" from "category")
@@ -30,7 +33,8 @@ class TokenSpan:
 
 **Key Properties:**
 
-- `char_start` and `char_end` are **character offsets** in the clean text (after markup removal)
+- `char_start` and `char_end` are **character offsets** in the clean text (after markup
+  removal)
 - `char_end` is **exclusive** (Python slice convention: `text[char_start:char_end]`)
 - Multiple tokens can reference the same text position if tokenization creates sub-parts
 - Whitespace is inferred from offsets (tokens are words/punctuation only)
@@ -94,10 +98,10 @@ class PhonemizeResult:
 
 ## Extended Text Layer
 
-Span alignment always uses `clean_text` offsets. When abbreviations or numbers
-are expanded for phonemization, the expanded form is stored on each token's
-`extended_text` and in `PhonemizeResult.extended_text`. This keeps character
-offsets stable while allowing the phonemizer to speak the expanded form.
+Span alignment always uses `clean_text` offsets. When abbreviations or numbers are
+expanded for phonemization, the expanded form is stored on each token's `extended_text`
+and in `PhonemizeResult.extended_text`. This keeps character offsets stable while
+allowing the phonemizer to speak the expanded form.
 
 Example:
 
@@ -114,8 +118,10 @@ result = phonemize(text)
 ### Basic Rules
 
 1. **Zero-indexed**: First character is at position `0`
-2. **Exclusive end**: Range `[start, end)` means characters from `start` up to but not including `end`
-3. **Clean text reference**: Offsets refer to text **after** markup removal but **before** normalization
+2. **Exclusive end**: Range `[start, end)` means characters from `start` up to but not
+   including `end`
+3. **Clean text reference**: Offsets refer to text **after** markup removal but
+   **before** normalization
 
 ### Examples
 
@@ -159,7 +165,8 @@ The system supports two alignment modes for applying overrides to tokens:
 **Matching Logic:**
 
 - **Exact match**: Override span exactly matches token span → Apply override
-- **Partial overlap** (snap mode): Override partially overlaps token → Apply with warning
+- **Partial overlap** (snap mode): Override partially overlaps token → Apply with
+  warning
 - **No overlap**: Override doesn't touch token → Skip
 
 **Advantages:**
@@ -215,7 +222,8 @@ result = phonemize(
 
 ## Overlap Handling
 
-When an override partially overlaps with a token, the system can handle it in two ways via the `overlap` parameter in `phonemize()`:
+When an override partially overlaps with a token, the system can handle it in two ways
+via the `overlap` parameter in `phonemize()`:
 
 ### Snap Mode (Default)
 
@@ -281,7 +289,8 @@ result = phonemize(text, overrides=overrides)
 # Uses provided phonemes for "read" instead of G2P lookup
 ```
 
-**Phoneme Override Priority:** If both `ph` and `lang` are specified, `ph` takes precedence:
+**Phoneme Override Priority:** If both `ph` and `lang` are specified, `ph` takes
+precedence:
 
 ```python
 OverrideSpan(0, 5, {"ph": "test", "lang": "fr"})

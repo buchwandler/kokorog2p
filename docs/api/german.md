@@ -1,6 +1,7 @@
 # German API
 
-German G2P provides phoneme conversion using a large 738k+ entry dictionary with rule-based fallback.
+German G2P provides phoneme conversion using a large 738k+ entry dictionary with
+rule-based fallback.
 
 ## Main Class
 
