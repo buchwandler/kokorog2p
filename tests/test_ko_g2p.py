@@ -5,6 +5,8 @@ import pytest
 from kokorog2p.ko import KoreanG2P
 from kokorog2p.token import GToken
 
+pytest.importorskip("jamo")
+
 
 class TestKoreanG2P:
     """Tests for KoreanG2P."""

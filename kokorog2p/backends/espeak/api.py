@@ -23,13 +23,15 @@ from typing import Any
 
 from kokorog2p.backends.espeak.voice import VoiceStruct
 
-# dlinfo is used on Linux/MacOS to get library path
-if sys.platform != "win32":
+# dlinfo is used on Linux/MacOS to get library path. Android's Bionic libc
+# exposes libdl but not glibc's dlinfo symbol, so it must use the fallback
+# based on the loaded library name instead.
+if sys.platform not in {"win32", "android"}:
     try:
         import dlinfo
 
         HAS_DLINFO = True
-    except ImportError:
+    except (ImportError, AttributeError, OSError):
         HAS_DLINFO = False
 else:
     HAS_DLINFO = False

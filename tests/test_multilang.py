@@ -265,6 +265,10 @@ class TestChineseG2P:
         assert isinstance(g2p, ChineseG2P)
         assert g2p.spacy_model == "zh_core_web_trf"
 
+    @pytest.mark.skipif(
+        not _can_import("jieba", "pypinyin", "cn2an"),
+        reason="Chinese dependencies not installed",
+    )
     def test_chinese_v11_validation(self):
         """Test that Chinese v1.1 output validates against v1.1-zh model."""
         from kokorog2p import clear_cache, get_g2p

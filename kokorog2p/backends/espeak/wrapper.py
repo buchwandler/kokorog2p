@@ -11,6 +11,7 @@ Licensed under the Apache License, Version 2.0
 import ctypes.util
 import os
 import pathlib
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -48,21 +49,31 @@ def find_espeak_library() -> str:
             return str(lib_path.resolve())
         raise RuntimeError(f"{ENV_LIBRARY_PATH}={lib_path} is not a valid file")
 
-    # Try espeakng_loader package
-    try:
-        import espeakng_loader
+    # Try espeakng_loader package, except on Android. The published loader
+    # package currently ships a macOS dylib there, which Android cannot load.
+    if sys.platform != "android":
+        try:
+            import espeakng_loader
 
-        loader_path = espeakng_loader.get_library_path()
-        if loader_path and os.path.isfile(loader_path):
-            return loader_path
-    except ImportError:
-        pass
+            loader_path = espeakng_loader.get_library_path()
+            if loader_path and os.path.isfile(loader_path):
+                return loader_path
+        except ImportError:
+            pass
 
     # Try system library
     lib_name = ctypes.util.find_library("espeak-ng") or ctypes.util.find_library(
         "espeak"
     )
     if lib_name:
+        # On Android, ctypes.util.find_library() returns a soname rather than
+        # an absolute path. Resolve it in the active Python prefixes so the
+        # low-level API can copy the loaded library without dlinfo.
+        if not os.path.isabs(lib_name):
+            for prefix in (sys.prefix, sys.base_prefix):
+                candidate = Path(prefix) / "lib" / lib_name
+                if candidate.is_file():
+                    return str(candidate.resolve())
         return lib_name
 
     raise RuntimeError(

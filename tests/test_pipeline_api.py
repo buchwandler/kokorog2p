@@ -7,6 +7,15 @@ from kokorog2p.pipeline_api import phonemize_to_result
 from kokorog2p.types import OverrideSpan
 
 
+def _has_spacy_model(name: str) -> bool:
+    """Return whether an optional spaCy model is installed locally."""
+    try:
+        import spacy
+    except ImportError:
+        return False
+    return spacy.util.is_package(name)
+
+
 class TestPhonemizeToResult:
     """Tests for phonemize function."""
 
@@ -105,6 +114,10 @@ class TestPhonemizeToResult:
         assert "nuː jɔːk" in result.phonemes
         assert len(result.warnings) == 0
 
+    @pytest.mark.skipif(
+        not _has_spacy_model("de_core_news_sm"),
+        reason="German spaCy model not installed",
+    )
     def test_phrase_language_override_new_york_is_phonemized_in_english(self):
         """
         Override a multi-token phrase ("New York") with a language switch.
@@ -175,6 +188,10 @@ class TestPhonemizeToResult:
         # Punctuation shouldn't cause warnings
         assert all("punctuation" not in w.lower() for w in result.warnings)
 
+    @pytest.mark.skipif(
+        not _has_spacy_model("fr_core_news_sm"),
+        reason="French spaCy model not installed",
+    )
     def test_punctuation_normalization_dash_ellipsis(self):
         """Ensure dash and ellipsis normalize to Kokoro punctuation."""
         from kokorog2p.vocab import validate_for_kokoro
@@ -405,6 +422,10 @@ class TestPhonemizeToResult:
         assert any("overlap" in w.lower() for w in result.warnings)
         assert any("[100:105]" in w for w in result.warnings)
 
+    @pytest.mark.skipif(
+        not _has_spacy_model("de_core_news_sm"),
+        reason="German spaCy model not installed",
+    )
     def test_german_phonemization(self):
         """Test phonemization in German."""
         result = phonemize("Hallo Welt!", language="de")
@@ -698,6 +719,10 @@ class TestPhonemizeToResult:
         dr_token = next(token for token in result.tokens if token.text == "Dr.")
         assert dr_token.meta.get("phonemes")
 
+    @pytest.mark.skipif(
+        not _has_spacy_model("de_core_news_sm"),
+        reason="German spaCy model not installed",
+    )
     def test_language_override_inside_quotes(self):
         """Ensure language overrides survive quoted text."""
         text = 'She said, "Hallo Welt!"'
