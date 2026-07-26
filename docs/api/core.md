@@ -1,35 +1,43 @@
-Core API
-========
+# Core API
 
 This module contains the core functionality of kokorog2p.
 
-Main Functions
---------------
+## Main Functions
 
+```{eval-rst}
 .. autofunction:: kokorog2p.phonemize
+```
 
+```{eval-rst}
 .. autofunction:: kokorog2p.tokenize
+```
 
+```{eval-rst}
 .. autofunction:: kokorog2p.get_g2p
+```
 
+```{eval-rst}
 .. autofunction:: kokorog2p.clear_cache
+```
 
+```{eval-rst}
 .. autofunction:: kokorog2p.reset_abbreviations
+```
 
-Base Classes
-------------
+## Base Classes
 
-G2PBase
-~~~~~~~
+### G2PBase
 
+```{eval-rst}
 .. autoclass:: kokorog2p.G2PBase
    :members:
    :undoc-members:
    :show-inheritance:
+```
 
-GToken
-~~~~~~
+### GToken
 
+```{eval-rst}
 .. autoclass:: kokorog2p.GToken
    :members:
    :undoc-members:
@@ -50,105 +58,157 @@ GToken
    .. attribute:: whitespace
 
       Whitespace following this token.
+```
 
-Phoneme Utilities
------------------
+## Phoneme Utilities
 
-Vocabulary
-~~~~~~~~~~
+### Vocabulary
 
+```{eval-rst}
 .. autofunction:: kokorog2p.get_vocab
+```
 
+```{eval-rst}
 .. autofunction:: kokorog2p.validate_phonemes
+```
 
+```{eval-rst}
 .. autodata:: kokorog2p.US_VOCAB
    :annotation:
+```
 
+```{eval-rst}
 .. autodata:: kokorog2p.GB_VOCAB
    :annotation:
+```
 
+```{eval-rst}
 .. autodata:: kokorog2p.VOWELS
    :annotation:
+```
 
+```{eval-rst}
 .. autodata:: kokorog2p.CONSONANTS
    :annotation:
+```
 
-Conversion
-~~~~~~~~~~
+### Conversion
 
+```{eval-rst}
 .. autofunction:: kokorog2p.from_espeak
+```
 
+```{eval-rst}
 .. autofunction:: kokorog2p.from_goruut
+```
 
+```{eval-rst}
 .. autofunction:: kokorog2p.to_espeak
+```
 
-Kokoro Vocabulary
------------------
+## Kokoro Vocabulary
 
-Encoding/Decoding
-~~~~~~~~~~~~~~~~~
+### Encoding/Decoding
 
+```{eval-rst}
 .. autofunction:: kokorog2p.encode
+```
 
+```{eval-rst}
 .. autofunction:: kokorog2p.decode
+```
 
+```{eval-rst}
 .. autofunction:: kokorog2p.phonemes_to_ids
+```
 
+```{eval-rst}
 .. autofunction:: kokorog2p.ids_to_phonemes
+```
 
-Validation
-~~~~~~~~~~
+### Validation
 
+```{eval-rst}
 .. autofunction:: kokorog2p.validate_for_kokoro
+```
 
+```{eval-rst}
 .. autofunction:: kokorog2p.filter_for_kokoro
+```
 
-Configuration
-~~~~~~~~~~~~~
+### Configuration
 
+```{eval-rst}
 .. autofunction:: kokorog2p.get_kokoro_vocab
+```
 
+```{eval-rst}
 .. autofunction:: kokorog2p.get_kokoro_config
+```
 
+```{eval-rst}
 .. autodata:: kokorog2p.N_TOKENS
    :annotation:
+```
 
+```{eval-rst}
 .. autodata:: kokorog2p.PAD_IDX
    :annotation:
+```
 
-Punctuation
------------
+## Punctuation
 
+```{eval-rst}
 .. autoclass:: kokorog2p.Punctuation
    :members:
    :undoc-members:
+```
 
+```{eval-rst}
 .. autofunction:: kokorog2p.normalize_punctuation
+```
 
+```{eval-rst}
 .. autofunction:: kokorog2p.filter_punctuation
+```
 
+```{eval-rst}
 .. autofunction:: kokorog2p.is_kokoro_punctuation
+```
 
+```{eval-rst}
 .. autodata:: kokorog2p.KOKORO_PUNCTUATION
    :annotation:
+```
 
-Word Mismatch Detection
------------------------
+## Word Mismatch Detection
 
+```{eval-rst}
 .. autoclass:: kokorog2p.MismatchMode
    :members:
    :undoc-members:
+```
 
+```{eval-rst}
 .. autoclass:: kokorog2p.MismatchInfo
    :members:
    :undoc-members:
+```
 
+```{eval-rst}
 .. autoclass:: kokorog2p.MismatchStats
    :members:
    :undoc-members:
+```
 
+```{eval-rst}
 .. autofunction:: kokorog2p.detect_mismatches
+```
 
+```{eval-rst}
 .. autofunction:: kokorog2p.check_word_alignment
+```
 
+```{eval-rst}
 .. autofunction:: kokorog2p.count_words
+```

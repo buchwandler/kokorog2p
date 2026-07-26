@@ -49,6 +49,7 @@ dynamic=["version"]
 docs = [
     "sphinx>=7",
     "sphinx-rtd-theme>=2",
+    "myst-parser>=2.0.0",
 ]
 espeak = [
     "espeakng-loader>=0.1.0",

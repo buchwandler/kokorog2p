@@ -1,19 +1,16 @@
-Phoneme Inventory
-=================
+# Phoneme Inventory
 
 kokorog2p uses the Kokoro TTS phoneme inventory, which is based on IPA (International Phonetic Alphabet).
 
-Kokoro Phoneme Set
-------------------
+## Kokoro Phoneme Set
 
 The Kokoro phoneme set consists of 45 phonemes plus punctuation markers.
 
-US English Vowels
-~~~~~~~~~~~~~~~~~
+### US English Vowels
 
-Monophthongs
-^^^^^^^^^^^^
+#### Monophthongs
 
+```{eval-rst}
 .. list-table::
    :header-rows: 1
    :widths: 10 20 30 40
@@ -66,10 +63,11 @@ Monophthongs
      - THOUGHT
      - caught
      - kˈɔt
+```
 
-Diphthongs
-^^^^^^^^^^
+#### Diphthongs
 
+```{eval-rst}
 .. list-table::
    :header-rows: 1
    :widths: 10 20 30 40
@@ -98,10 +96,11 @@ Diphthongs
      - CHOICE
      - boy
      - bˈɔɪ
+```
 
-Special Vowels
-^^^^^^^^^^^^^^
+#### Special Vowels
 
+```{eval-rst}
 .. list-table::
    :header-rows: 1
    :widths: 10 20 30 40
@@ -114,15 +113,15 @@ Special Vowels
      - GOAT (Kokoro)
      - go
      - ɡˈO
+```
 
-Note: ``O`` is a Kokoro-specific simplification of the GOAT vowel, used instead of ``oʊ`` in some contexts.
+Note: `O` is a Kokoro-specific simplification of the GOAT vowel, used instead of `oʊ` in some contexts.
 
-Consonants
-~~~~~~~~~~
+### Consonants
 
-Stops
-^^^^^
+#### Stops
 
+```{eval-rst}
 .. list-table::
    :header-rows: 1
    :widths: 10 20 30 40
@@ -155,10 +154,11 @@ Stops
      - voiced velar
      - gap
      - ɡˈæp
+```
 
-Fricatives
-^^^^^^^^^^
+#### Fricatives
 
+```{eval-rst}
 .. list-table::
    :header-rows: 1
    :widths: 10 20 30 40
@@ -203,10 +203,11 @@ Fricatives
      - glottal
      - hat
      - hˈæt
+```
 
-Affricates
-^^^^^^^^^^
+#### Affricates
 
+```{eval-rst}
 .. list-table::
    :header-rows: 1
    :widths: 10 20 30 40
@@ -223,10 +224,11 @@ Affricates
      - voiced postalveolar
      - judge
      - dʒˈʌdʒ
+```
 
-Nasals
-^^^^^^
+#### Nasals
 
+```{eval-rst}
 .. list-table::
    :header-rows: 1
    :widths: 10 20 30 40
@@ -247,10 +249,11 @@ Nasals
      - velar
      - sing
      - sˈɪŋ
+```
 
-Liquids
-^^^^^^^
+#### Liquids
 
+```{eval-rst}
 .. list-table::
    :header-rows: 1
    :widths: 10 20 30 40
@@ -267,10 +270,11 @@ Liquids
      - approximant
      - rap
      - ɹˈæp
+```
 
-Glides
-^^^^^^
+#### Glides
 
+```{eval-rst}
 .. list-table::
    :header-rows: 1
    :widths: 10 20 30 40
@@ -287,10 +291,11 @@ Glides
      - palatal
      - yap
      - jˈæp
+```
 
-Suprasegmentals
-~~~~~~~~~~~~~~~
+### Suprasegmentals
 
+```{eval-rst}
 .. list-table::
    :header-rows: 1
    :widths: 10 30 60
@@ -304,23 +309,23 @@ Suprasegmentals
    * - ˌ
      - Secondary stress
      - Placed before secondarily stressed syllable: ˌɹɛkəɡnˈɪʃən
+```
 
-Punctuation
-~~~~~~~~~~~
+### Punctuation
 
 Kokoro supports the following punctuation marks:
 
-.. code-block:: text
-
-   ;  :  ,  .  !  ?  -
+```text
+;  :  ,  .  !  ?  -
+```
 
 Other punctuation is typically normalized or removed.
 
-British English Differences
----------------------------
+## British English Differences
 
 British English uses most of the same phonemes, with some key differences:
 
+```{eval-rst}
 .. list-table::
    :header-rows: 1
    :widths: 20 20 30 30
@@ -345,15 +350,15 @@ British English uses most of the same phonemes, with some key differences:
      - ɡˈoʊ (go)
      - ɡˈəʊ (go)
      - GOAT vowel
+```
 
-German Phonemes
----------------
+## German Phonemes
 
 German adds several phonemes not found in English:
 
-Vowels
-~~~~~~
+### Vowels
 
+```{eval-rst}
 .. list-table::
    :header-rows: 1
    :widths: 10 20 30 40
@@ -386,10 +391,11 @@ Vowels
      - long e
      - gehen
      - Length distinction
+```
 
-Consonants
-~~~~~~~~~~
+### Consonants
 
+```{eval-rst}
 .. list-table::
    :header-rows: 1
    :widths: 10 20 30 40
@@ -418,12 +424,13 @@ Consonants
      - voiceless alveolar affricate
      - Zeit
      - z sound
+```
 
-French Phonemes
----------------
+## French Phonemes
 
 French includes:
 
+```{eval-rst}
 .. list-table::
    :header-rows: 1
    :widths: 10 20 30 40
@@ -452,12 +459,13 @@ French includes:
      - uvular fricative
      - rue
      - French r
+```
 
-Czech Phonemes
---------------
+## Czech Phonemes
 
 Czech includes:
 
+```{eval-rst}
 .. list-table::
    :header-rows: 1
    :widths: 10 20 30 40
@@ -486,73 +494,67 @@ Czech includes:
      - voiced glottal fricative
      - hrad
      - Voiced h
+```
 
-Working with Phonemes
----------------------
+## Working with Phonemes
 
-Validation
-~~~~~~~~~~
+### Validation
 
-.. code-block:: python
+```python
+from kokorog2p import validate_phonemes
 
-   from kokorog2p import validate_phonemes
+# Valid Kokoro phonemes
+assert validate_phonemes("hˈɛlO wˈɜɹld")
 
-   # Valid Kokoro phonemes
-   assert validate_phonemes("hˈɛlO wˈɜɹld")
+# Invalid phonemes
+assert not validate_phonemes("xyz123")
+```
 
-   # Invalid phonemes
-   assert not validate_phonemes("xyz123")
+### Getting Vocabulary
 
-Getting Vocabulary
-~~~~~~~~~~~~~~~~~~
+```python
+from kokorog2p import get_vocab
 
-.. code-block:: python
+# Get US English vocabulary
+us_vocab = get_vocab("us")
+print(f"US vocabulary: {len(us_vocab)} phonemes")
 
-   from kokorog2p import get_vocab
+# Get GB English vocabulary
+gb_vocab = get_vocab("gb")
+print(f"GB vocabulary: {len(gb_vocab)} phonemes")
 
-   # Get US English vocabulary
-   us_vocab = get_vocab("us")
-   print(f"US vocabulary: {len(us_vocab)} phonemes")
+# Print all phonemes
+for phoneme in us_vocab:
+    print(phoneme)
+```
 
-   # Get GB English vocabulary
-   gb_vocab = get_vocab("gb")
-   print(f"GB vocabulary: {len(gb_vocab)} phonemes")
+## Conversion Between Formats
 
-   # Print all phonemes
-   for phoneme in us_vocab:
-       print(phoneme)
+### espeak to Kokoro
 
-Conversion Between Formats
----------------------------
+```python
+from kokorog2p import from_espeak
 
-espeak to Kokoro
-~~~~~~~~~~~~~~~~
+# Convert espeak IPA to Kokoro format
+espeak_ipa = "həlˈəʊ"
+kokoro = from_espeak(espeak_ipa, variant="gb")
+print(kokoro)  # hˈɛlO or similar
+```
 
-.. code-block:: python
+### Kokoro to espeak
 
-   from kokorog2p import from_espeak
+```python
+from kokorog2p import to_espeak
 
-   # Convert espeak IPA to Kokoro format
-   espeak_ipa = "həlˈəʊ"
-   kokoro = from_espeak(espeak_ipa, variant="gb")
-   print(kokoro)  # hˈɛlO or similar
+# Convert Kokoro to espeak IPA
+kokoro = "hˈɛlO"
+espeak = to_espeak(kokoro, variant="us")
+print(espeak)
+```
 
-Kokoro to espeak
-~~~~~~~~~~~~~~~~
+## References
 
-.. code-block:: python
-
-   from kokorog2p import to_espeak
-
-   # Convert Kokoro to espeak IPA
-   kokoro = "hˈɛlO"
-   espeak = to_espeak(kokoro, variant="us")
-   print(espeak)
-
-References
-----------
-
-* `IPA Chart <https://www.internationalphoneticassociation.org/content/ipa-chart>`_ - Official IPA reference
-* `Kokoro TTS <https://github.com/hexgrad/Kokoro-82M>`_ - Kokoro TTS model
-* `English Phonology <https://en.wikipedia.org/wiki/English_phonology>`_ - Wikipedia reference
-* `German Phonology <https://en.wikipedia.org/wiki/Standard_German_phonology>`_ - Wikipedia reference
+- [IPA Chart](https://www.internationalphoneticassociation.org/content/ipa-chart) - Official IPA reference
+- [Kokoro TTS](https://github.com/hexgrad/Kokoro-82M) - Kokoro TTS model
+- [English Phonology](https://en.wikipedia.org/wiki/English_phonology) - Wikipedia reference
+- [German Phonology](https://en.wikipedia.org/wiki/Standard_German_phonology) - Wikipedia reference

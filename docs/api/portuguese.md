@@ -1,31 +1,29 @@
-Portuguese API
-==============
+# Portuguese API
 
 Portuguese G2P provides rule-based phoneme conversion for Brazilian Portuguese, designed for Kokoro TTS models.
 
-Main Class
-----------
+## Main Class
 
+```{eval-rst}
 .. autoclass:: kokorog2p.pt.PortugueseG2P
    :members:
    :undoc-members:
    :show-inheritance:
+```
 
-Examples
---------
+## Examples
 
-.. code-block:: python
+```python
+from kokorog2p.pt import PortugueseG2P
 
-   from kokorog2p.pt import PortugueseG2P
+g2p = PortugueseG2P(language="pt-br")
+tokens = g2p("Olá mundo!")
 
-   g2p = PortugueseG2P(language="pt-br")
-   tokens = g2p("Olá mundo!")
+for token in tokens:
+    print(f"{token.text} -> {token.phonemes}")
+```
 
-   for token in tokens:
-       print(f"{token.text} -> {token.phonemes}")
-
-Phonology Features
-------------------
+## Phonology Features
 
 Brazilian Portuguese phonology includes:
 

@@ -9,7 +9,7 @@ This directory contains the Sphinx documentation for kokorog2p.
 Install documentation dependencies:
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -e ".[docs]"
 ```
 
 ### Build HTML Documentation
@@ -45,29 +45,29 @@ start _build/html/index.html
 
 ```
 docs/
-├── index.rst                 # Main documentation index
-├── installation.rst          # Installation guide
-├── quickstart.rst           # Quick start guide
-├── languages.rst            # Language support overview
-├── advanced.rst             # Advanced usage
-├── phonemes.rst             # Phoneme inventory reference
-├── contributing.rst         # Contributing guide
-├── changelog.rst            # Changelog
+├── index.md                  # Main documentation index
+├── installation.md           # Installation guide
+├── quickstart.md            # Quick start guide
+├── languages.md             # Language support overview
+├── advanced.md              # Advanced usage
+├── phonemes.md              # Phoneme inventory reference
+├── contributing.md          # Contributing guide
+├── changelog.md             # Changelog
 ├── api/                     # API Reference
-│   ├── core.rst            # Core API
-│   ├── english.rst         # English G2P API
-│   ├── german.rst          # German G2P API
-│   ├── french.rst          # French G2P API
-│   ├── czech.rst           # Czech G2P API
-│   ├── spanish.rst         # Spanish G2P API
-│   ├── italian.rst         # Italian G2P API
-│   ├── portuguese.rst      # Portuguese G2P API
-│   ├── chinese.rst         # Chinese G2P API
-│   ├── japanese.rst        # Japanese G2P API
-│   ├── korean.rst          # Korean G2P API
-│   ├── hebrew.rst          # Hebrew G2P API
-│   ├── backends.rst        # Backend APIs
-│   └── utils.rst           # Utility APIs
+│   ├── core.md             # Core API
+│   ├── english.md          # English G2P API
+│   ├── german.md           # German G2P API
+│   ├── french.md           # French G2P API
+│   ├── czech.md            # Czech G2P API
+│   ├── spanish.md          # Spanish G2P API
+│   ├── italian.md          # Italian G2P API
+│   ├── portuguese.md       # Portuguese G2P API
+│   ├── chinese.md          # Chinese G2P API
+│   ├── japanese.md         # Japanese G2P API
+│   ├── korean.md           # Korean G2P API
+│   ├── hebrew.md           # Hebrew G2P API
+│   ├── backends.md         # Backend APIs
+│   └── utils.md            # Utility APIs
 ├── conf.py                  # Sphinx configuration
 ├── make.py                  # Build script
 └── requirements.txt         # Documentation dependencies
@@ -77,27 +77,27 @@ docs/
 
 ### User Guide
 
-1. **Installation** (`installation.rst`)
+1. **Installation** (`installation.md`)
 
    - Installation methods
    - Optional dependencies
    - System requirements
    - Troubleshooting
 
-2. **Quick Start** (`quickstart.rst`)
+2. **Quick Start** (`quickstart.md`)
 
    - Basic usage
    - Language-specific examples
    - Token inspection
    - Number handling
 
-3. **Languages** (`languages.rst`)
+3. **Languages** (`languages.md`)
 
    - Supported languages
    - Language-specific features
    - Examples for each language
 
-4. **Advanced Usage** (`advanced.rst`)
+4. **Advanced Usage** (`advanced.md`)
 
    - Custom G2P configuration
    - Token inspection
@@ -105,7 +105,7 @@ docs/
    - Phoneme utilities
    - Caching and performance
 
-5. **Phoneme Inventory** (`phonemes.rst`)
+5. **Phoneme Inventory** (`phonemes.md`)
    - Complete phoneme reference
    - US vs GB English differences
    - German, French, Czech phonemes
@@ -130,7 +130,7 @@ docs/
 
 ### Development
 
-- **Contributing** (`contributing.rst`)
+- **Contributing** (`contributing.md`)
 
   - Development setup
   - Running tests
@@ -138,7 +138,7 @@ docs/
   - Adding new languages
   - Submitting changes
 
-- **Changelog** (`changelog.rst`)
+- **Changelog** (`changelog.md`)
   - Version history
   - Release notes
 
@@ -162,7 +162,7 @@ These warnings don't affect the generated documentation quality.
 
 When adding new features:
 
-1. Update relevant `.rst` files
+1. Update relevant `.md` files
 2. Add docstrings to new code
 3. Rebuild documentation: `python make.py html`
 4. Check for warnings: Review build output

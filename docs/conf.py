@@ -27,7 +27,16 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
+    "myst_parser",
 ]
+
+# All maintained Sphinx source documents are MyST Markdown after the migration.
+source_suffix = {
+    ".md": "markdown",
+}
+
+# rst-to-myst emits colon fences for directives with parsed Markdown content.
+myst_enable_extensions = ["colon_fence"]
 
 # Napoleon settings for NumPy-style docstrings
 napoleon_google_docstring = False

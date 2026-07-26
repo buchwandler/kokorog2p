@@ -1,31 +1,29 @@
-Spanish API
-===========
+# Spanish API
 
 Spanish G2P provides rule-based phoneme conversion for Spanish, designed for Kokoro TTS models.
 
-Main Class
-----------
+## Main Class
 
+```{eval-rst}
 .. autoclass:: kokorog2p.es.SpanishG2P
    :members:
    :undoc-members:
    :show-inheritance:
+```
 
-Examples
---------
+## Examples
 
-.. code-block:: python
+```python
+from kokorog2p.es import SpanishG2P
 
-   from kokorog2p.es import SpanishG2P
+g2p = SpanishG2P(language="es-es")
+tokens = g2p("¡Hola mundo!")
 
-   g2p = SpanishG2P(language="es-es")
-   tokens = g2p("¡Hola mundo!")
+for token in tokens:
+    print(f"{token.text} -> {token.phonemes}")
+```
 
-   for token in tokens:
-       print(f"{token.text} -> {token.phonemes}")
-
-Phonology Features
-------------------
+## Phonology Features
 
 Spanish phonology includes:
 

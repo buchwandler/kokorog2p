@@ -1,31 +1,29 @@
-Korean API
-==========
+# Korean API
 
 Korean G2P provides phoneme conversion using MeCab for morphological analysis and custom phonological rules based on Korean Standard Pronunciation.
 
-Main Class
-----------
+## Main Class
 
+```{eval-rst}
 .. autoclass:: kokorog2p.ko.KoreanG2P
    :members:
    :undoc-members:
    :show-inheritance:
+```
 
-Examples
---------
+## Examples
 
-.. code-block:: python
+```python
+from kokorog2p.ko import KoreanG2P
 
-   from kokorog2p.ko import KoreanG2P
+g2p = KoreanG2P(language="ko-kr")
+tokens = g2p("안녕하세요!")
 
-   g2p = KoreanG2P(language="ko-kr")
-   tokens = g2p("안녕하세요!")
+for token in tokens:
+    print(f"{token.text} -> {token.phonemes}")
+```
 
-   for token in tokens:
-       print(f"{token.text} -> {token.phonemes}")
-
-Implementation
---------------
+## Implementation
 
 The Korean G2P implementation is based on g2pK by kyubyong and uses:
 
@@ -33,4 +31,4 @@ The Korean G2P implementation is based on g2pK by kyubyong and uses:
 - Korean Standard Pronunciation rules
 - Jamo-to-IPA conversion for phoneme output
 
-Reference: https://github.com/kyubyong/g2pK
+Reference: <https://github.com/kyubyong/g2pK>

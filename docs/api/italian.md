@@ -1,31 +1,29 @@
-Italian API
-===========
+# Italian API
 
 Italian G2P provides rule-based phoneme conversion for Italian, designed for Kokoro TTS models.
 
-Main Class
-----------
+## Main Class
 
+```{eval-rst}
 .. autoclass:: kokorog2p.it.ItalianG2P
    :members:
    :undoc-members:
    :show-inheritance:
+```
 
-Examples
---------
+## Examples
 
-.. code-block:: python
+```python
+from kokorog2p.it import ItalianG2P
 
-   from kokorog2p.it import ItalianG2P
+g2p = ItalianG2P(language="it-it")
+tokens = g2p("Ciao mondo!")
 
-   g2p = ItalianG2P(language="it-it")
-   tokens = g2p("Ciao mondo!")
+for token in tokens:
+    print(f"{token.text} -> {token.phonemes}")
+```
 
-   for token in tokens:
-       print(f"{token.text} -> {token.phonemes}")
-
-Phonology Features
-------------------
+## Phonology Features
 
 Italian phonology includes:
 

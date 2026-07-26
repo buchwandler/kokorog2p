@@ -1,31 +1,29 @@
-Hebrew API
-==========
+# Hebrew API
 
 Hebrew G2P provides phoneme conversion using the phonikud package for handling Hebrew text with diacritics (nikud).
 
-Main Class
-----------
+## Main Class
 
+```{eval-rst}
 .. autoclass:: kokorog2p.he.HebrewG2P
    :members:
    :undoc-members:
    :show-inheritance:
+```
 
-Examples
---------
+## Examples
 
-.. code-block:: python
+```python
+from kokorog2p.he import HebrewG2P
 
-   from kokorog2p.he import HebrewG2P
+g2p = HebrewG2P(language="he-il")
+tokens = g2p("שלום עולם!")
 
-   g2p = HebrewG2P(language="he-il")
-   tokens = g2p("שלום עולם!")
+for token in tokens:
+    print(f"{token.text} -> {token.phonemes}")
+```
 
-   for token in tokens:
-       print(f"{token.text} -> {token.phonemes}")
-
-Implementation
---------------
+## Implementation
 
 The Hebrew G2P implementation uses the phonikud package which:
 
@@ -33,4 +31,4 @@ The Hebrew G2P implementation uses the phonikud package which:
 - Converts Hebrew to IPA phoneme representation
 - Supports both modern and biblical Hebrew
 
-Reference: https://github.com/thewh1teagle/phonikud
+Reference: <https://github.com/thewh1teagle/phonikud>
