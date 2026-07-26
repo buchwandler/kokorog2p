@@ -33,4 +33,5 @@ jobs:
         pip install -r requirements-test.txt
         pip install spacy
         python -m spacy download en_core_web_md
+        python -m nltk.downloader cmudict
         pytest
