@@ -366,8 +366,10 @@ def extract_sentences(
                 else ("intermediate" if word_count <= 8 else "advanced"),
                 "word_count": word_count,
                 "contains_oov": False,  # Assume dictionary coverage
-                "notes": f"Extracted from CHILDES "
-                f"(speaker: {row.get('speaker_role', 'unknown')})",
+                "notes": (
+                    f"Extracted from CHILDES "
+                    f"(speaker: {row.get('speaker_role', 'unknown')})"
+                ),
                 "source": "childes",
             }
         )

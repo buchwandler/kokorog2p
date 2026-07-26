@@ -140,8 +140,8 @@ def parse_attributes(text: str) -> tuple[dict[str, str], list[AttrParseWarning]]
                 # Reached end without closing quote
                 warnings.append(
                     AttrParseWarning(
-                        f"Unclosed quote for key '{key}' starting at "
-                        f"position {value_start - 1}",
+                        f"Unclosed quote for key '{key}' "
+                        f"starting at position {value_start - 1}",
                         value_start - 1,
                     )
                 )

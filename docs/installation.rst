@@ -148,7 +148,7 @@ For development, clone the repository and install in editable mode:
 
 .. code-block:: bash
 
-   git clone https://github.com/hexgrad/kokorog2p.git
+   git clone https://github.com/holgern/kokorog2p.git
    cd kokorog2p
    pip install -e ".[dev]"
 
@@ -225,6 +225,9 @@ Missing Language Models
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 If spaCy models are missing:
+
+kokorog2p never downloads models during import or inference. Install the
+requested model explicitly in the environment that runs the application:
 
 .. code-block:: bash
 

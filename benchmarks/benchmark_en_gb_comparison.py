@@ -415,8 +415,8 @@ def print_detailed_results(result: ConfigBenchmark, show_errors: bool = True) ->
 
     if show_errors and result.errors:
         print(
-            f"\nSample errors (showing {min(5, len(result.errors))} "
-            f"of {len(result.errors)}):"
+            f"\nSample errors (showing {min(5, len(result.errors))}"
+            f" of {len(result.errors)}):"
         )
         for sent_id, expected, got in result.errors[:5]:
             print(f"  Sentence {sent_id}:")
@@ -497,8 +497,8 @@ def main():
         return 1
 
     print(
-        f"Loaded {len(data['sentences'])} sentences from "
-        f"{data['metadata']['description']}"
+        f"Loaded {len(data['sentences'])} sentences "
+        f"from {data['metadata']['description']}"
     )
 
     # Get vocabulary

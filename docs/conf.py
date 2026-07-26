@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath("../kokorog2p"))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "kokorog2p"
-copyright = "2025, Holger Nahrstaedt"
+copyright = "2026, Holger Nahrstaedt"
 author = "Holger Nahrstaedt"
 
 # -- General configuration ---------------------------------------------------

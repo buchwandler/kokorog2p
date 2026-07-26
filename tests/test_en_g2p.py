@@ -221,8 +221,8 @@ class TestEnglishG2PWithSpacy:
             for t in punct_tokens:
                 # Punctuation should not have word phonemes
                 assert "ɛkskləm" not in str(t.phonemes), (
-                    f"Token {t.text!r} should be punctuation, not word. "
-                    f"Phonemes: {t.phonemes!r}"
+                    f"Token {t.text!r} should be punctuation, not word."
+                    f" Phonemes: {t.phonemes!r}"
                 )
 
         # Test case 2: Double quotes with punctuation
@@ -257,8 +257,8 @@ class TestEnglishG2PWithSpacy:
             )
             # Check NOT converted to word
             assert "ɛkskləm" not in result, (
-                f"For '{text}', punctuation should not be converted to word. "
-                f"Got: {result!r}"
+                f"For '{text}', punctuation should not be"
+                f" converted to word. Got: {result!r}"
             )
 
     def test_contraction_phonemes_with_spacy(
@@ -1147,8 +1147,8 @@ class TestContractionRobustness:
             # Should not have separate "do"
             do_count = word_texts.count("do")
             assert do_count == 0, (
-                f"Found {do_count} 'do' tokens (should be 0) "
-                f"in {word_texts} for {text!r}"
+                f"Found {do_count} 'do' tokens (should be 0)"
+                f" in {word_texts} for {text!r}"
             )
 
 

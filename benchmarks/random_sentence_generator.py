@@ -437,13 +437,13 @@ class SentenceGenerator:
         quoted = " ".join(quoted_words)
         if self.rng.random() < 0.5:
             text = (
-                f"{' '.join(words[:2])}, "
-                f"{left_quote}{quoted}{punct}{right_quote} {words[2]}."
+                f"{' '.join(words[:2])}, {left_quote}{quoted}"
+                f"{punct}{right_quote} {words[2]}."
             )
         else:
             text = (
-                f"{' '.join(words[:2])}, "
-                f"{left_quote}{quoted}{right_quote}{punct} {words[2]}."
+                f"{' '.join(words[:2])}, {left_quote}{quoted}"
+                f"{right_quote}{punct} {words[2]}."
             )
         return TestCase(
             text=text.capitalize(),

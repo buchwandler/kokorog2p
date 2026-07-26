@@ -22,6 +22,7 @@ import re
 import unicodedata
 from typing import Any, Final
 
+from kokorog2p._optional import load_spacy_model
 from kokorog2p.base import G2PBase
 from kokorog2p.pipeline.tokenizer import SpacyTokenizer
 from kokorog2p.pt.normalizer import PortugueseNormalizer
@@ -173,12 +174,7 @@ class PortugueseG2P(G2PBase):
     def nlp(self) -> object:
         """Lazily initialize spaCy."""
         if self._nlp is None:
-            import spacy
-
-            name = self.spacy_model
-            if not spacy.util.is_package(name):
-                spacy.cli.download(name)  # type: ignore[attr-defined]
-            self._nlp = spacy.load(name, enable=["tok2vec", "tagger"])
+            self._nlp = load_spacy_model(self.spacy_model, enable=["tok2vec", "tagger"])
         return self._nlp
 
     @property

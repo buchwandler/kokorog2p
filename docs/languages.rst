@@ -638,7 +638,7 @@ Usage
        allowed_languages=["de", "en-us"],
    )
 
-   result = phonemize(text, lang="de", overrides=overrides, result_type="result")
+   result = phonemize(text, language="de", overrides=overrides)
 
 Examples
 ~~~~~~~~
@@ -656,7 +656,7 @@ Examples
        default_language="de",
        allowed_languages=["de", "en-us"],
    )
-   result = phonemize(text, lang="de", overrides=overrides, result_type="result")
+   result = phonemize(text, language="de", overrides=overrides)
    print(result.phonemes)
 
 **English with German:**
@@ -671,7 +671,7 @@ Examples
    result = phonemize(
        "Hello, mein Freund! This is wunderbar.",
        language="en-us",
-       overrides=overrides)
+       overrides=overrides,
    )
    print(result.phonemes)
 
@@ -785,20 +785,24 @@ French
 Fallback Languages
 ------------------
 
-For languages not explicitly supported, kokorog2p falls back to espeak-ng:
+Spanish, Italian, and Portuguese have native rule-based implementations. For
+languages not explicitly supported, select the eSpeak backend explicitly:
 
 .. code-block:: python
 
    from kokorog2p import get_g2p
 
-   # Spanish (uses espeak-ng)
+   # Native Spanish implementation
    g2p_es = get_g2p("es-es")
 
-   # Italian (uses espeak-ng)
+   # Native Italian implementation
    g2p_it = get_g2p("it-it")
 
-   # Portuguese (uses espeak-ng)
+   # Native Portuguese implementation
    g2p_pt = get_g2p("pt-br")
+
+   # Explicit eSpeak backend for another language
+   g2p_nl = get_g2p("nl", backend="espeak")
 
 This provides basic support for 100+ languages via espeak-ng.
 

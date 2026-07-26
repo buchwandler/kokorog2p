@@ -13,7 +13,8 @@ The simplest way to use kokorog2p is with the ``phonemize()`` function:
    from kokorog2p import phonemize
 
    # Convert text to phonemes
-   phonemes = phonemize("Hello world!")
+   result = phonemize("Hello world!")
+   phonemes = result.phonemes
    print(phonemes)  # hˈɛlO wˈɜɹld!
 
 Error Handling
@@ -49,19 +50,19 @@ You can specify the language explicitly:
    from kokorog2p import phonemize
 
    # US English (default)
-   us_phonemes = phonemize("Hello world!", language="en-us")
+   us_phonemes = phonemize("Hello world!", language="en-us").phonemes
 
    # British English
-   gb_phonemes = phonemize("Hello world!", language="en-gb")
+   gb_phonemes = phonemize("Hello world!", language="en-gb").phonemes
 
    # German
-   de_phonemes = phonemize("Guten Tag", language="de")
+   de_phonemes = phonemize("Guten Tag", language="de").phonemes
 
    # French
-   fr_phonemes = phonemize("Bonjour le monde", language="fr")
+   fr_phonemes = phonemize("Bonjour le monde", language="fr").phonemes
 
    # Czech
-   cs_phonemes = phonemize("Dobrý den", language="cs")
+   cs_phonemes = phonemize("Dobrý den", language="cs").phonemes
 
    # Mixed-language (German with English words)
    from kokorog2p import phonemize
@@ -73,8 +74,9 @@ You can specify the language explicitly:
        default_language="de",
        allowed_languages=["de", "en-us"],
    )
-   mixed_phonemes = phonemize(text, lang="de", overrides=overrides,
-                      resturn_type="phonemes")
+   mixed_phonemes = phonemize(
+       text, language="de", overrides=overrides
+   ).phonemes
 
 Using G2P Instances
 -------------------

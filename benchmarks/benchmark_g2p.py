@@ -390,9 +390,7 @@ class TorchFallback:
         self.grapheme_to_token = {
             g: i for i, g in enumerate(self.model.config.grapheme_chars)
         }
-        self.token_to_phoneme = {
-            i: p for i, p in enumerate(self.model.config.phoneme_chars)
-        }
+        self.token_to_phoneme = dict(enumerate(self.model.config.phoneme_chars))
         self._torch = torch
 
     def graphemes_to_tokens(self, graphemes: str) -> list[int]:

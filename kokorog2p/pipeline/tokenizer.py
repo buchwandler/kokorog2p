@@ -73,8 +73,8 @@ class BaseTokenizer(ABC):
         # Validate phoneme_quotes parameter
         if phoneme_quotes not in ("curly", "ascii", "none"):
             raise ValueError(
-                f"phoneme_quotes must be 'curly', 'ascii', or 'none', "
-                f"got {phoneme_quotes!r}"
+                f"phoneme_quotes must be 'curly', 'ascii',"
+                f" or 'none', got {phoneme_quotes!r}"
             )
 
     @abstractmethod

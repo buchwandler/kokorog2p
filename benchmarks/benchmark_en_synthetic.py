@@ -287,7 +287,7 @@ class QuotesContractionsBenchmark:
         if any(char in phonemes for char in ["«", "»", "‹", "›"]):
             issues.append(
                 "Output contains guillemets (« »), "
-                'should be curly quotes ("\u201c \u201d)'
+                "should be curly quotes (\u201c \u201d)"
             )
 
         if issues:

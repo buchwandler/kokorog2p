@@ -46,8 +46,8 @@ class MismatchInfo:
 
     def __str__(self) -> str:
         return (
-            f"Line {self.line_num + 1}: expected {self.expected} words, "
-            f"got {self.actual}"
+            f"Line {self.line_num + 1}: "
+            f"expected {self.expected} words, got {self.actual}"
         )
 
 

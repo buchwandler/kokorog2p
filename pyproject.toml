@@ -7,9 +7,12 @@ where = ["."]
 include = ["kokorog2p*"]
 
 [tool.setuptools.package-data]
+"kokorog2p.data" = ["*.json"]
 "kokorog2p.en.data" = ["*.json"]
+"kokorog2p.de.data" = ["*.json"]
+"kokorog2p.fr.data" = ["*.json"]
 "kokorog2p.ja.data" = ["*.txt"]
-"kokorog2p.ko.data" = ["*.py", "*.csv"]
+"kokorog2p.ko.data" = ["*.csv"]
 
 [project]
 name = "kokorog2p"
@@ -43,6 +46,10 @@ classifiers=[
 dynamic=["version"]
 
 [project.optional-dependencies]
+docs = [
+    "sphinx>=7",
+    "sphinx-rtd-theme>=2",
+]
 espeak = [
     "espeakng-loader>=0.1.0",
     "dlinfo>=1.2.1",
@@ -86,6 +93,10 @@ dev = [
     "pytest-cov>=4.0.0",
     "ruff>=0.15.0",
     "mypy>=1.0.0",
+    "pre-commit>=3.0.0",
+    "build>=1.0.0",
+    "twine>=5.0.0",
+    "kokorog2p[docs]",
 ]
 
 [tool.setuptools_scm]
@@ -99,15 +110,27 @@ addopts = "-v --tb=short"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "espeak: marks tests that require espeak-ng",
+    "spacy: marks tests that require spaCy",
 ]
 
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+exclude = ["setup/*", "notebooks/*"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "C90"]
 ignore = ["E501"]
+per-file-ignores = {"__init__.py" = ["F401", "I001"], "__manifest__.py" = ["B018"], "kokorog2p/ko/english.py" = ["C901"], "kokorog2p/ko/numerals.py" = ["C901"], "kokorog2p/it/g2p.py" = ["C901"], "kokorog2p/ko/data/rules.py" = ["E501"], "benchmarks/*" = ["BLE001", "S110", "S112", "PLR1722", "DTZ011", "TRY004"], "tests/*" = ["BLE001"], "kokorog2p/*" = ["BLE001", "RUF012"], "kokorog2p/ko/*" = ["SIM102", "SIM115", "PLW0602"]}
+
+[tool.ruff.lint.isort]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 20
+
+[tool.ruff.format]
+exclude = ["setup/*", "notebooks/*"]
 
 [tool.mypy]
 python_version = "3.10"
@@ -141,7 +164,6 @@ module = [
     "kokorog2p.en.lexicon",
     "kokorog2p.words_mismatch",
     "kokorog2p.multilang",
-    "kokorog2p",
 ]
 ignore_errors = true
 

@@ -1,5 +1,6 @@
 """English G2P (Grapheme-to-Phoneme) converter."""
 
+from kokorog2p._optional import load_spacy_model
 from kokorog2p.base import G2PBase
 from kokorog2p.en.fallback import EspeakFallback, GoruutFallback
 from kokorog2p.en.lexicon import Lexicon, TokenContext
@@ -79,8 +80,8 @@ class EnglishG2P(G2PBase):
         # Validate phoneme_quotes parameter
         if phoneme_quotes not in ("curly", "ascii", "none"):
             raise ValueError(
-                f"phoneme_quotes must be 'curly', 'ascii', or 'none', "
-                f"got {phoneme_quotes!r}"
+                f"phoneme_quotes must be 'curly', 'ascii',"
+                f" or 'none', got {phoneme_quotes!r}"
             )
 
         # Validate mutual exclusion
@@ -139,12 +140,7 @@ class EnglishG2P(G2PBase):
     def nlp(self) -> object:
         """Lazily initialize spaCy with custom tokenizer rules for contractions."""
         if self._nlp is None:
-            import spacy
-
-            name = self.spacy_model
-            if not spacy.util.is_package(name):
-                spacy.cli.download(name)  # type: ignore[attr-defined]
-            self._nlp = spacy.load(name, enable=["tok2vec", "tagger"])
+            self._nlp = load_spacy_model(self.spacy_model, enable=["tok2vec", "tagger"])
 
             # Add tokenizer exceptions for contractions in our lexicon
             # This prevents spaCy from splitting contractions

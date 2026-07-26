@@ -66,8 +66,8 @@ def find_espeak_library() -> str:
         return lib_name
 
     raise RuntimeError(
-        "Could not find espeak-ng library. "
-        "Install espeak-ng or espeakng-loader package."
+        "Could not find espeak-ng library."
+        " Install espeak-ng or espeakng-loader package."
     )
 
 

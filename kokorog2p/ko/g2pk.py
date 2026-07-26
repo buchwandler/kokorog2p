@@ -5,15 +5,7 @@ https://github.com/kyubyong/g2pK
 import os
 import re
 
-import nltk
 from jamo import h2j
-from nltk.corpus import cmudict
-
-# For further info. about cmu dict, consult http://www.speech.cs.cmu.edu/cgi-bin/cmudict.
-try:
-    nltk.data.find("corpora/cmudict.zip")
-except LookupError:
-    nltk.download("cmudict")
 
 from .english import convert_eng
 from .numerals import convert_num
@@ -39,8 +31,7 @@ class G2p:
     def __init__(self):
         self.mecab = self.get_mecab()
         self.table = parse_table()
-
-        self.cmu = cmudict.dict()  # for English
+        self._cmu = None
 
         self.rule2text = get_rule_id2text()  # for comments of main rules
 
@@ -48,6 +39,27 @@ class G2p:
         from .data.idioms import IDIOMS
 
         self.idioms_list = IDIOMS
+
+    @property
+    def cmu(self):
+        """Load CMUdict on first English conversion without downloading it."""
+        if self._cmu is None:
+            try:
+                from nltk.corpus import cmudict
+
+                self._cmu = cmudict.dict()
+            except ImportError as exc:
+                raise LookupError(
+                    "NLTK CMUdict is required for Korean English conversion. "
+                    "Install it explicitly with: python -m pip install nltk "
+                    "then python -m nltk.downloader cmudict"
+                ) from exc
+            except LookupError as exc:
+                raise LookupError(
+                    "NLTK CMUdict is not installed. Install it explicitly with: "
+                    "python -m nltk.downloader cmudict"
+                ) from exc
+        return self._cmu
 
     def get_mecab(self):
         try:

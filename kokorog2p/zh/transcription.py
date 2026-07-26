@@ -212,8 +212,8 @@ def get_initials(normal_pinyin: str) -> str | None:
     # in case pypinyin returns unexpected result
     if pinyin_initial not in INITIAL_MAPPING:
         raise ValueError(
-            f"Parameter 'normal_pinyin': Initial '{pinyin_initial}' "
-            "couldn't be detected!"
+            f"Parameter 'normal_pinyin': "
+            f"Initial '{pinyin_initial}' couldn't be detected!"
         )
 
     return pinyin_initial

@@ -32,15 +32,15 @@ Quick Start
    from kokorog2p import phonemize
 
    # English
-   phonemes = phonemize("Hello world!", language="en-us")
+   phonemes = phonemize("Hello world!", language="en-us").phonemes
    print(phonemes)  # hˈɛlO wˈɜɹld!
 
    # German
-   phonemes = phonemize("Guten Tag", language="de")
+   phonemes = phonemize("Guten Tag", language="de").phonemes
    print(phonemes)  # ɡuːtn̩ taːk
 
    # French
-   phonemes = phonemize("Bonjour", language="fr")
+   phonemes = phonemize("Bonjour", language="fr").phonemes
    print(phonemes)  # bɔ̃ʒuʁ
 
 Installation

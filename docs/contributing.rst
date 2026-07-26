@@ -10,7 +10,7 @@ Development Setup
 
    .. code-block:: bash
 
-      git clone https://github.com/hexgrad/kokorog2p.git
+      git clone https://github.com/holgern/kokorog2p.git
       cd kokorog2p
 
 2. **Create a virtual environment**:

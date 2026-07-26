@@ -3,7 +3,20 @@ output = "context_kokorog2p.md"
 keep_docstrings = true
 dedupe = true
 respect_gitignore = true
-exclude = ["examples", "benchmarks", "*/.venv/*"]
-include = ["**/*.py", "**/*.toml", "**/*.rst"]
+exclude = ["*/.venv/*"]
+include = [
+  "**/*.py",
+  "**/*.toml",
+  "**/*.rst",
+  "**/*.md",
+  "**/*.json",
+  "**/*.csv",
+  "**/*.txt",
+  "**/*.yml",
+  "**/*.yaml",
+  "LICENSE*",
+]
 split_max_chars = 2500000
 layout = "full"
+ptofile = "portable-agent"
+emit_standalone_unpacker = true

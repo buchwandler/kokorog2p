@@ -8,6 +8,7 @@ Based on misaki French implementation, adapted for kokorog2p architecture.
 import re
 import unicodedata
 
+from kokorog2p._optional import load_spacy_model
 from kokorog2p.base import G2PBase
 from kokorog2p.fr.fallback import FrenchFallback, FrenchGoruutFallback
 from kokorog2p.fr.lexicon import FrenchLexicon, TokenContext
@@ -137,12 +138,7 @@ class FrenchG2P(G2PBase):
     def nlp(self) -> object:
         """Lazily initialize spaCy."""
         if self._nlp is None:
-            import spacy
-
-            name = self.spacy_model
-            if not spacy.util.is_package(name):
-                spacy.cli.download(name)  # type: ignore[attr-defined]
-            self._nlp = spacy.load(name, enable=["tok2vec", "tagger"])
+            self._nlp = load_spacy_model(self.spacy_model, enable=["tok2vec", "tagger"])
         return self._nlp
 
     @property

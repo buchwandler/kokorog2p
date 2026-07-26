@@ -354,8 +354,8 @@ class EspeakLibrary:
                 result_parts.append(phonemes.decode("utf-8"))
             if text_ptr.contents.value == prev_value:
                 warnings.warn(
-                    "espeak_TextToPhonemes made no progress; "
-                    "stopping to avoid infinite loop.",
+                    "espeak_TextToPhonemes made no progress;"
+                    " stopping to avoid infinite loop.",
                     RuntimeWarning,
                     stacklevel=2,
                 )

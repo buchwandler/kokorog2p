@@ -319,6 +319,41 @@ def get_g2p(
             version=version,
             **kwargs,
         )
+    elif lang in ("es", "es-es", "spa", "spanish"):
+        from kokorog2p.es import SpanishG2P
+
+        g2p = SpanishG2P(
+            language=language,
+            use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
+            use_spacy=use_spacy,
+            **extra_kwargs,
+            version=version,
+            **kwargs,
+        )
+    elif lang in ("it", "it-it", "ita", "italian"):
+        from kokorog2p.it import ItalianG2P
+
+        g2p = ItalianG2P(
+            language=language,
+            use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
+            use_spacy=use_spacy,
+            **extra_kwargs,
+            version=version,
+            **kwargs,
+        )
+    elif lang in ("pt", "pt-br", "pt-pt", "por", "portuguese"):
+        from kokorog2p.pt import PortugueseG2P
+
+        g2p = PortugueseG2P(
+            language=language,
+            use_espeak_fallback=use_espeak_fallback,
+            use_spacy=use_spacy,
+            **extra_kwargs,
+            version=version,
+            **kwargs,
+        )
     elif lang in ("cs", "cs-cz", "ces", "czech"):
         from kokorog2p.cs import CzechG2P
 
@@ -527,6 +562,14 @@ def phonemize(
         overlap=overlap,
         use_normalizer_rules=use_normalizer_rules,
         g2p=g2p,
+        g2p_options={
+            "use_espeak_fallback": use_espeak_fallback,
+            "use_goruut_fallback": use_goruut_fallback,
+            "use_cli": use_cli,
+            "use_spacy": use_spacy,
+            "spacy_model": spacy_model,
+            "backend": backend,
+        },
     )
 
 

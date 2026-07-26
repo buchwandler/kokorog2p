@@ -68,39 +68,39 @@ pip install kokorog2p[all]
 from kokorog2p import phonemize
 
 # English (US)
-phonemes = phonemize("Hello world!", language="en-us")
+phonemes = phonemize("Hello world!", language="en-us").phonemes
 print(phonemes)  # həlˈoʊ wˈɜːld!
 
 # British English
-phonemes = phonemize("Hello world!", language="en-gb")
+phonemes = phonemize("Hello world!", language="en-gb").phonemes
 print(phonemes)  # həlˈəʊ wˈɜːld!
 
 # German
-phonemes = phonemize("Guten Tag!", language="de")
+phonemes = phonemize("Guten Tag!", language="de").phonemes
 print(phonemes)  # ɡuːtn̩ taːk!
 
 # French
-phonemes = phonemize("Bonjour!", language="fr")
+phonemes = phonemize("Bonjour!", language="fr").phonemes
 print(phonemes)
 
 # Italian
-phonemes = phonemize("Ciao, come stai?", language="it")
+phonemes = phonemize("Ciao, come stai?", language="it").phonemes
 print(phonemes)  # ʧiao, kome stai?
 
 # Spanish
-phonemes = phonemize("¡Hola! ¿Cómo estás?", language="es")
+phonemes = phonemize("¡Hola! ¿Cómo estás?", language="es").phonemes
 print(phonemes)  # !ola! ?koˈmo estaˈs?
 
 # Chinese
-phonemes = phonemize("你好", language="zh")
+phonemes = phonemize("你好", language="zh").phonemes
 print(phonemes)
 
 # Korean
-phonemes = phonemize("안녕하세요", language="ko")
+phonemes = phonemize("안녕하세요", language="ko").phonemes
 print(phonemes)
 
 # Hebrew (requires phonikud package)
-phonemes = phonemize("שָׁלוֹם", language="he")
+phonemes = phonemize("שָׁלוֹם", language="he").phonemes
 print(phonemes)
 ```
 
@@ -309,7 +309,7 @@ result = phonemize(text, overrides=overrides)
 # Language switching within text
 text = "Hello Bonjour world"
 overrides = [OverrideSpan(6, 13, {"lang": "fr"})]
-result = phonemize(text, lang="en-us", overrides=overrides)
+result = phonemize(text, language="en-us", overrides=overrides)
 # "Bonjour" phonemized with French G2P
 ```
 
@@ -356,7 +356,7 @@ clean_text, overrides = preprocess_multilang(
     default_language="de",
     allowed_languages=["de", "en-us"],
 )
-result = phonemize(clean_text, lang="de", overrides=overrides)
+result = phonemize(clean_text, language="de", overrides=overrides)
 ```
 
 ### Confidence Threshold

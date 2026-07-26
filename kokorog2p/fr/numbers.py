@@ -35,8 +35,8 @@ def number_to_french(n: int, ordinal: bool = False) -> str:
     """
     if _num2words_fn is None:
         raise ImportError(
-            "num2words is required for number conversion. "
-            "Install with: pip install num2words"
+            "num2words is required for number conversion."
+            " Install with: pip install num2words"
         )
 
     if ordinal:

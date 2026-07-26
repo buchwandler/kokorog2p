@@ -38,8 +38,8 @@ def process_num(num, sino=True):
 
     modifiers = "한 두 세 네 다섯 ^여섯 일곱 ^여덟 아홉"
     decimals = "열 스물 서른 마흔 쉰 예순 일흔 여든 아흔"
-    digit2mod = {d: mod for d, mod in zip(digits, modifiers.split(), strict=False)}
-    digit2dec = {d: dec for d, dec in zip(digits, decimals.split(), strict=False)}
+    digit2mod = dict(zip(digits, modifiers.split(), strict=False))
+    digit2dec = dict(zip(digits, decimals.split(), strict=False))
 
     spelledout = []
     for i, digit in enumerate(num):

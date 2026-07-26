@@ -220,8 +220,8 @@ def apply_marker_overrides(
 
             if range_idx < 0 or range_idx >= len(marked_ranges):
                 raise ValueError(
-                    f"Assignment index {idx} is out of range "
-                    f"(valid: 1-{len(marked_ranges)})"
+                    f"Assignment index {idx} is out of range"
+                    f" (valid: 1-{len(marked_ranges)})"
                 )
 
             char_start, char_end = marked_ranges[range_idx]

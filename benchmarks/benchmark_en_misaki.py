@@ -690,8 +690,8 @@ class MisakiComparisonBenchmark:
                 pa.common_substitutions[:10], 1
             ):
                 print(
-                    f"    {i}. '{kokoro_ph}' (kokoro) ↔ "
-                    f"'{misaki_ph}' (misaki): {count} times"
+                    f"    {i}. '{kokoro_ph}' (kokoro) ↔"
+                    f" '{misaki_ph}' (misaki): {count} times"
                 )
                 if words:
                     print(f"       Words: {', '.join(sorted(words))}")
@@ -757,8 +757,10 @@ def main():
     parser.add_argument(
         "--simple",
         action="store_true",
-        help="Use simple sentences only (no numbers, abbreviations, "
-        " quotes, or variants)",
+        help=(
+            "Use simple sentences only "
+            "(no numbers, abbreviations,  quotes, or variants)"
+        ),
     )
 
     args = parser.parse_args()

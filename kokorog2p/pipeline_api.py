@@ -465,6 +465,7 @@ def phonemize_to_result(
     overlap: Literal["snap", "strict"] = "snap",
     use_normalizer_rules: bool = True,
     g2p: "G2PBase | None" = None,
+    g2p_options: dict[str, Any] | None = None,
 ) -> PhonemizeResult:
     """Phonemize text with span-based override application.
 
@@ -490,6 +491,8 @@ def phonemize_to_result(
         use_normalizer_rules: Whether to use language normalizer rules when
             building extended_text for span alignment.
         g2p: Optional G2P instance to reuse (for performance).
+        g2p_options: Optional factory options to use when loading G2P instances
+            for language-specific override spans.
 
     Returns:
         PhonemizeResult with clean_text, tokens, phonemes, token_ids, and warnings.
@@ -569,7 +572,7 @@ def phonemize_to_result(
 
     # Phonemize tokens based on language and overrides
     phonemized_tokens, phonemize_warnings, target_model = _phonemize_token_spans(
-        token_spans, g2p_token_spans, g2p, lang
+        token_spans, g2p_token_spans, g2p, lang, g2p_options=g2p_options
     )
     warnings.extend(phonemize_warnings)
 
@@ -598,8 +601,8 @@ def phonemize_to_result(
             token_ids = phonemes_to_ids(phoneme_str, model=target_model)
         except Exception as e:
             warnings.append(
-                "[VOCAB] failed to convert phonemes to IDs for model "
-                f"{target_model}: {e}"
+                f"[VOCAB] failed to convert phonemes to IDs "
+                f"for model {target_model}: {e}"
             )
             token_ids = []
 
@@ -627,6 +630,8 @@ def _phonemize_token_spans(  # noqa: C901
     g2p_token_spans: list[TokenSpan],
     g2p: "G2PBase",
     default_lang: str,
+    *,
+    g2p_options: dict[str, Any] | None = None,
 ) -> tuple[list[TokenSpan], list[str], str]:
     """Phonemize token spans, handling per-span language switching.
 
@@ -738,6 +743,7 @@ def _phonemize_token_spans(  # noqa: C901
                 g2p_cache[token_lang] = get_g2p(
                     token_lang,
                     version=target_model,
+                    **(g2p_options or {}),
                 )
             except Exception as e:
                 warnings.append(
