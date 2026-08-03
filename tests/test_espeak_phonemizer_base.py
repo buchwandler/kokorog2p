@@ -97,6 +97,19 @@ class TestEspeakPhonemizerBaseHelpers:
         assert identifier == "roa/fr"
         assert chosen.identifier == "roa/fr"
 
+    def test_resolve_voice_fr_fr_prefers_standard_roa_fr(self):
+        voices = [
+            Voice(name="MBROLA", language="fr", identifier="mb/mb-fr7"),
+            Voice(name="French", language="fr-fr", identifier="roa/fr"),
+        ]
+        d = _ResolveDummy(voices)
+
+        identifier, chosen = d._resolve_voice("fr-fr")
+
+        assert identifier == "roa/fr"
+        assert chosen.language == "fr-fr"
+        assert not identifier.startswith("mb/")
+
     def test_resolve_voice_regular_is_independent_of_mbrola_order(self):
         voices = [
             Voice(name="French", language="fr-fr", identifier="roa/fr"),

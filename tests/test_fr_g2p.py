@@ -1,7 +1,10 @@
 """Tests for the French G2P module."""
 
+from unittest.mock import patch
+
 from kokorog2p.fr import FrenchG2P
 from kokorog2p.fr.fallback import FrenchFallback
+from kokorog2p.fr.lexicon import FrenchLexicon
 from kokorog2p.token import GToken
 
 
@@ -79,3 +82,37 @@ class TestFrenchFallback:
         fallback = FrenchFallback()
 
         assert fallback.backend.language == "fr-fr"
+
+    def test_rejects_empty_or_placeholder_phonemes(self):
+        fallback = FrenchFallback()
+
+        with patch.object(fallback, "_backend_word_phonemes", return_value=""):
+            assert fallback("xyzzy") == (None, 0)
+
+        with patch.object(fallback, "_backend_word_phonemes", return_value="?"):
+            assert fallback("xyzzy") == (None, 0)
+
+        with patch.object(fallback, "_backend_word_phonemes", return_value="  "):
+            assert fallback("xyzzy") == (None, 0)
+
+
+class TestFrenchGoldLexicon:
+    """Regression tests for corrected French gold IPA entries."""
+
+    def test_nasal_vowel_and_verb_ending_entries(self):
+        lexicon = FrenchLexicon(load_silver=False, load_gold=True)
+
+        expected = {
+            "demander": "dəmɑ̃de",
+            "restaurant": "ʁɛstɔʁɑ̃",
+            "restaurants": "ʁɛstɔʁɑ̃",
+            "excellent": "ɛksɛlɑ̃",
+            "excellents": "ɛksɛlɑ̃",
+            "excellente": "ɛksɛlɑ̃t",
+            "excellentes": "ɛksɛlɑ̃t",
+        }
+
+        for word, phonemes in expected.items():
+            ps, rating = lexicon(word)
+            assert ps == phonemes, f"{word}: expected {phonemes!r}, got {ps!r}"
+            assert rating == 4
