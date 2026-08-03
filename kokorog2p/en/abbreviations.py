@@ -12,7 +12,6 @@ from kokorog2p.pipeline.abbreviations import (
     AbbreviationExpander,
 )
 
-
 _NUMBER_AFTER_REFERENCE = r"[ \t]+\d"
 _NUMBER_BEFORE_UNIT = (
     r"(?:^|[^\w.])"

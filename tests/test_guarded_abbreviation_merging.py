@@ -232,9 +232,7 @@ class TestPrecededByNumberMerging:
 
     @pytest.mark.parametrize("abbreviation", PRECEDED_BY_NUMBER_DOTTED)
     @pytest.mark.parametrize("value", ["5", "10.0", "30,000", "30,000.10", ".5"])
-    def test_valid_context_merges(
-        self, tokenizer_name, tokenize, abbreviation, value
-    ):
+    def test_valid_context_merges(self, tokenizer_name, tokenize, abbreviation, value):
         del tokenizer_name
         text = f"{value} {abbreviation}"
         tokens = tokenize(text)
@@ -367,9 +365,7 @@ class TestNormalizerGuardHardening:
             "The answer was no.",
         ],
     )
-    def test_reported_and_related_false_contexts_remain_unchanged(
-        self, expander, text
-    ):
+    def test_reported_and_related_false_contexts_remain_unchanged(self, expander, text):
         assert expander.expand(text) == text
 
 

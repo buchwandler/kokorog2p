@@ -175,9 +175,7 @@ def merge_abbreviation_tokens(
             if entry is None:
                 continue
 
-            is_guarded = bool(
-                entry.only_if_preceded_by or entry.only_if_followed_by
-            )
+            is_guarded = bool(entry.only_if_preceded_by or entry.only_if_followed_by)
             if is_guarded:
                 if source_text is None or resolved_spans is None:
                     continue
