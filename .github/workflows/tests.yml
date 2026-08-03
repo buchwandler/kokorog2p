@@ -32,6 +32,7 @@ jobs:
       run: |
         choco install espeak-ng --version=1.52.0 --yes --no-progress --retry-count=5 --retry-wait=10
     - name: Install packages
+      shell: bash
       run: |
         pip install -e .[all]
         pip install -r requirements-test.txt
