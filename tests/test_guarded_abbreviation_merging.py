@@ -357,8 +357,10 @@ class TestNormalizerGuardHardening:
     @pytest.mark.parametrize(
         "text",
         [
-            "Literally because the thing was so big, and because multiple intel "
-            "sources suggested it would be difficult to move around in.",
+            (
+                "Literally because the thing was so big, and because multiple intel "
+                "sources suggested it would be difficult to move around in."
+            ),
             "wandering around in.",
             "Wizard of Oz.",
             "Ft. Lauderdale",

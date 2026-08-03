@@ -826,37 +826,30 @@ def reset_abbreviations() -> None:
 # Public API
 __all__ = [
     "CONSONANTS",
-    "GB_VOCAB",
-    "KOKORO_PUNCTUATION",
-    "N_TOKENS",
-    "PAD_IDX",
-    # Phoneme utilities
-    "US_VOCAB",
-    "VOWELS",
     "G2PBase",
-    # Core classes
+    "GB_VOCAB",
     "GToken",
+    "KOKORO_PUNCTUATION",
     "MismatchInfo",
-    # Word mismatch detection
     "MismatchMode",
     "MismatchStats",
+    "N_TOKENS",
     "OverrideSpan",
+    "PAD_IDX",
     "PhonemizeResult",
-    # Punctuation handling
     "Punctuation",
-    # New span-based API (recommended for pipelines)
     "TokenSpan",
-    # Version
+    "US_VOCAB",
+    "VOWELS",
     "__version__",
     "__version_tuple__",
     "apply_marker_overrides",
+    "cache_info",
     "check_word_alignment",
     "clear_cache",
-    "cache_info",
     "count_words",
     "decode",
     "detect_mismatches",
-    # Kokoro vocabulary encoding
     "encode",
     "filter_for_kokoro",
     "filter_punctuation",
@@ -869,14 +862,11 @@ __all__ = [
     "ids_to_phonemes",
     "is_kokoro_punctuation",
     "normalize_punctuation",
-    # Marker-based helper
     "parse_delimited",
     "phoneme_ids",
     "phonemes",
     "phonemes_to_ids",
-    # Main functions
     "phonemize",
-    # Multi-language support
     "preprocess_multilang",
     "reset_abbreviations",
     "to_espeak",
