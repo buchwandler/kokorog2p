@@ -4,6 +4,7 @@ import pytest
 
 from kokorog2p.de import GermanG2P, GermanLexicon, GermanNumberConverter
 from kokorog2p.de.numbers import expand_number, number_to_german, ordinal_to_german
+from kokorog2p.spacy_models import SpacyModelResolution, SpacyModelSize
 from kokorog2p.token import GToken
 
 
@@ -347,14 +348,28 @@ class TestGermanGetG2P:
         g2p_ch = get_g2p("de-ch")  # Swiss German
         assert isinstance(g2p_ch, GermanG2P)
 
-    def test_get_g2p_german_forwards_use_spacy(self):
+    def test_get_g2p_german_forwards_use_spacy(self, monkeypatch):
         """Test get_g2p forwards use_spacy for German."""
         from kokorog2p import clear_cache, get_g2p
 
+        monkeypatch.setattr(
+            "kokorog2p.resolve_spacy_model",
+            lambda *_args, **_kwargs: SpacyModelResolution(
+                language="de",
+                package="de_core_news_sm",
+                size=SpacyModelSize.SM,
+                automatic=True,
+                candidates=("de_core_news_sm",),
+                checked=("de_core_news_sm",),
+                errors=(),
+                spacy_available=True,
+            ),
+        )
         clear_cache()
         g2p = get_g2p("de", use_spacy=True)
         assert isinstance(g2p, GermanG2P)
         assert g2p.use_spacy is True
+        assert g2p.spacy_model == "de_core_news_sm"
 
     def test_get_g2p_preserves_german_default_when_model_is_unset(self):
         """German keeps its existing spaCy-disabled default."""

@@ -36,8 +36,8 @@ This includes:
 
 When spaCy is enabled, English G2P selects the highest installed loadable model in
 `trf > lg > md > sm` order. It never downloads a model automatically. Use
-`spacy_model=...` for a strict concrete package or `spacy_model_size="md"` for a
-strict tier request.
+`spacy_model=...` for a strict concrete package or `spacy_model_size="md"` for a strict
+tier request.
 
 ### French
 
@@ -226,10 +226,9 @@ python -m spacy download en_core_web_trf
 ```
 
 For French, German, Spanish, Italian, or Portuguese, install the matching
-`*_core_news_{trf,lg,md,sm}` package. Automatic errors list every compatible
-candidate checked and any load errors. An explicit package or size request is
-strict and reports only that requested package; it does not substitute another
-tier.
+`*_core_news_{trf,lg,md,sm}` package. Automatic errors list every compatible candidate
+checked and any load errors. An explicit package or size request is strict and reports
+only that requested package; it does not substitute another tier.
 
 ### Performance Issues
 
