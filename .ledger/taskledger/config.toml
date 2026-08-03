@@ -1,0 +1,7 @@
+# Project-local Taskledger configuration.
+# Storage topology belongs to Ledgercore; branch state belongs to data/state.toml.
+config_version = 3
+
+[ledger]
+code = 'tl'
+name = 'taskledger'

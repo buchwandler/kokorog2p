@@ -9,7 +9,6 @@ include = [
   "**/*.toml",
   "**/*.rst",
   "**/*.md",
-  "**/*.txt",
   "**/*.yaml",
   "**/*.yml",
   "LICENSE*",

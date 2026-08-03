@@ -3,19 +3,19 @@ schema_version: 2
 object_type: release
 versioning:
   schema_version: 1
-  revision: 4
-version: 0.7.0
-status: released
-title: Release 0.7.0
-released_at: "2026-07-26"
-previous_version: 0.6.7
+  revision: 5
+version: 0.7.1
+status: planned
+title: Release 0.7.1
+released_at: '2026-08-03'
+previous_version: 0.7.0
 cancel_reason: null
 superseded_by: null
 changelog_file: null
 boundary_ref: null
 source_refs: []
 source_count: null
-entry_count: 18
+entry_count: 4
 artifact_count: 0
 git_base_ref: null
 git_base_sha: null
