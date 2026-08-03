@@ -15,6 +15,7 @@ from kokorog2p.fr.lexicon import FrenchLexicon, TokenContext
 from kokorog2p.fr.normalizer import FrenchNormalizer
 from kokorog2p.fr.numbers import expand_currency, expand_numbers, expand_time
 from kokorog2p.pipeline.tokenizer import RegexTokenizer, SpacyTokenizer
+from kokorog2p.spacy_models import resolve_spacy_model
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
 
@@ -52,7 +53,7 @@ class FrenchG2P(G2PBase):
         use_goruut_fallback: bool = False,
         use_cli: bool = False,
         use_spacy: bool = True,
-        spacy_model: str = "fr_core_news_sm",
+        spacy_model: str | None = None,
         expand_nums: bool = True,
         expand_abbreviations: bool = True,
         enable_context_detection: bool = True,
@@ -104,6 +105,11 @@ class FrenchG2P(G2PBase):
 
         self.version = version
         self.unk = unk
+        if use_spacy and (spacy_model is None or spacy_model.lower() == "auto"):
+            spacy_model = resolve_spacy_model(
+                language,
+                spacy_model=spacy_model,
+            ).package
         self.use_spacy = use_spacy
         self.spacy_model = spacy_model
         self.expand_nums = expand_nums

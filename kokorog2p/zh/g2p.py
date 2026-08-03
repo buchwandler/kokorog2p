@@ -34,7 +34,7 @@ class ChineseG2P(G2PBase):
         language: str = "zh",
         use_espeak_fallback: bool = True,
         use_spacy: bool = False,
-        spacy_model: str = "zh_core_web_sm",
+        spacy_model: str | None = None,
         version: str = "1.1",
         unk: str = "",
         en_callable=None,
@@ -67,7 +67,8 @@ class ChineseG2P(G2PBase):
         super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
         self.version = version
         self.use_spacy = use_spacy
-        self.spacy_model = spacy_model
+        # Reserved for API consistency; Chinese never loads spaCy.
+        self.spacy_model = None
         self.unk = unk
         self.en_callable = en_callable
         self.load_silver = load_silver

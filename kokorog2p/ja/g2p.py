@@ -262,7 +262,7 @@ class JapaneseG2P(G2PBase):
         language: str = "ja",
         use_espeak_fallback: bool = True,
         use_spacy: bool = False,
-        spacy_model: str = "ja_core_news_sm",
+        spacy_model: str | None = None,
         backend: str = "pyopenjtalk",
         unk: str = "",
         load_silver: bool = True,
@@ -297,7 +297,8 @@ class JapaneseG2P(G2PBase):
         self.version = version
         self.unk = unk
         self.use_spacy = use_spacy
-        self.spacy_model = spacy_model
+        # Reserved for API consistency; Japanese never loads spaCy.
+        self.spacy_model = None
         self.load_silver = load_silver
         self.load_gold = load_gold
         self._pyopenjtalk = None

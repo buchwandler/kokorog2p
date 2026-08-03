@@ -120,14 +120,15 @@ g2p = EnglishG2P(
     language="en-us",
     use_espeak_fallback=True,
     use_spacy=True,
-    spacy_model="en_core_web_md",  # default; better POS disambiguation
+    spacy_model="en_core_web_md",  # explicit; auto selection is the default when enabled
 )
 
 tokens = g2p("I can't believe it!")
 for token in tokens:
     print(f"{token.text} → {token.phonemes} (tag: {token.tag})")
 
-# Optional: choose smaller or larger spaCy English model
+# Optional: choose an exact model; omitted model selects the highest installed loadable tier
+g2p_auto = EnglishG2P(use_spacy=True)
 g2p_small = EnglishG2P(use_spacy=True, spacy_model="en_core_web_sm")
 g2p_large = EnglishG2P(use_spacy=True, spacy_model="en_core_web_lg")
 ```

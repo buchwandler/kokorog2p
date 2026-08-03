@@ -356,11 +356,12 @@ class TestGermanGetG2P:
         assert isinstance(g2p, GermanG2P)
         assert g2p.use_spacy is True
 
-    def test_get_g2p_german_forwards_spacy_model(self):
-        """Test get_g2p forwards custom German spaCy model name."""
+    def test_get_g2p_preserves_german_default_when_model_is_unset(self):
+        """German keeps its existing spaCy-disabled default."""
         from kokorog2p import clear_cache, get_g2p
 
         clear_cache()
         g2p = get_g2p("de", spacy_model="de_core_news_md")
         assert isinstance(g2p, GermanG2P)
-        assert g2p.spacy_model == "de_core_news_md"
+        assert g2p.use_spacy is False
+        assert g2p.spacy_model is None

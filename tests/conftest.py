@@ -139,6 +139,7 @@ def english_g2p_with_spacy():
         language="en-us",
         use_espeak_fallback=False,
         use_spacy=True,
+        spacy_model="en_core_web_md",
     )
 
 

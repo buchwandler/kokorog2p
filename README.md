@@ -29,8 +29,9 @@ provides:
 - **Automatic punctuation normalization** (ellipsis, dashes, apostrophes)
 - **Context-aware abbreviation expansion** (e.g., "St." → "Street" or "Saint" based on
   context)
-- **Configurable spaCy model for English POS tagging** (`spacy_model`, default:
-  `en_core_web_md`)
+- **Automatic highest-available spaCy model selection** for supported POS-tagging
+  languages (`trf` > `lg` > `md` > `sm`), with strict `spacy_model` and
+  `spacy_model_size` overrides and no model downloads
 - **Number and currency handling** for supported languages
 - **Stress assignment** based on linguistic rules
 
@@ -154,14 +155,18 @@ tokens = g2p("St. Patrick's Day")     # St. → Saint (saint name recognized)
 tokens = g2p("Visit St. Louis")       # St. → Saint (city name recognized)
 tokens = g2p("Born in 1850, St. Peter")  # St. → Saint (distant number ignored)
 
-# Configure spaCy model size for English POS tagging
-# Default is en_core_web_md (best balance for homograph disambiguation)
+# Configure spaCy model selection for English POS tagging. With use_spacy=True
+# and no override, the highest installed loadable tier is selected automatically.
+g2p_auto = get_g2p("en-us", use_spacy=True)
+
+# Select an exact tier (never falls back if it is not installed)
+g2p_size = get_g2p("en-us", use_spacy=True, spacy_model_size="md")
 g2p_md = get_g2p("en-us", use_spacy=True, spacy_model="en_core_web_md")
 
 # Lower memory / faster download
 g2p_sm = get_g2p("en-us", use_spacy=True, spacy_model="en_core_web_sm")
 
-# Higher memory / highest spaCy English accuracy
+# Higher memory / explicit large spaCy English model
 g2p_lg = get_g2p("en-us", use_spacy=True, spacy_model="en_core_web_lg")
 
 # German with lexicon and number handling

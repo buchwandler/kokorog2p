@@ -16,7 +16,7 @@ class TestFrenchG2P:
         g2p = FrenchG2P(use_espeak_fallback=False)
         assert g2p.language == "fr-fr"
         assert g2p.use_spacy is True
-        assert g2p.spacy_model == "fr_core_news_sm"
+        assert g2p.spacy_model == "fr_core_news_md"
 
     def test_french_fallback_inherits_use_cli(self):
         g2p = FrenchG2P(

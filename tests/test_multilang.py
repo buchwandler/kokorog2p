@@ -152,15 +152,15 @@ class TestChineseG2P:
         assert g2p.language == "zh"
         assert g2p.version == "1.1"
         assert g2p.use_spacy is False
-        assert g2p.spacy_model == "zh_core_web_sm"
+        assert g2p.spacy_model is None
 
-    def test_custom_spacy_model_option_is_stored(self):
-        """Test custom Chinese spaCy model option is stored."""
+    def test_custom_spacy_model_option_is_reserved(self):
+        """Chinese does not claim a model for its reserved spaCy option."""
         from kokorog2p.zh import ChineseG2P
 
         g2p = ChineseG2P(use_spacy=True, spacy_model="zh_core_web_md")
         assert g2p.use_spacy is True
-        assert g2p.spacy_model == "zh_core_web_md"
+        assert g2p.spacy_model is None
 
     def test_repr(self):
         """Test string representation."""
@@ -255,15 +255,15 @@ class TestChineseG2P:
         assert isinstance(g2p, ChineseG2P)
         assert g2p.use_spacy is True
 
-    def test_get_g2p_chinese_forwards_spacy_model(self):
-        """Test get_g2p forwards custom Chinese spaCy model name."""
+    def test_get_g2p_chinese_keeps_spacy_model_reserved(self):
+        """Chinese does not resolve or store a spaCy model."""
         from kokorog2p import clear_cache, get_g2p
         from kokorog2p.zh import ChineseG2P
 
         clear_cache()
-        g2p = get_g2p("zh", spacy_model="zh_core_web_trf")
+        g2p = get_g2p("zh", use_spacy=True, spacy_model="zh_core_web_trf")
         assert isinstance(g2p, ChineseG2P)
-        assert g2p.spacy_model == "zh_core_web_trf"
+        assert g2p.spacy_model is None
 
     @pytest.mark.skipif(
         not _can_import("jieba", "pypinyin", "cn2an"),
@@ -335,15 +335,15 @@ class TestJapaneseG2P:
         assert g2p.language == "ja"
         assert g2p.backend == "pyopenjtalk"
         assert g2p.use_spacy is False
-        assert g2p.spacy_model == "ja_core_news_sm"
+        assert g2p.spacy_model is None
 
-    def test_custom_spacy_model_option_is_stored(self):
-        """Test custom Japanese spaCy model option is stored."""
+    def test_custom_spacy_model_option_is_reserved(self):
+        """Japanese does not claim a model for its reserved spaCy option."""
         from kokorog2p.ja import JapaneseG2P
 
         g2p = JapaneseG2P(use_spacy=True, spacy_model="ja_core_news_lg")
         assert g2p.use_spacy is True
-        assert g2p.spacy_model == "ja_core_news_lg"
+        assert g2p.spacy_model is None
 
     def test_repr(self):
         """Test string representation."""
@@ -424,12 +424,12 @@ class TestJapaneseG2P:
         assert isinstance(g2p, JapaneseG2P)
         assert g2p.use_spacy is True
 
-    def test_get_g2p_japanese_forwards_spacy_model(self):
-        """Test get_g2p forwards custom Japanese spaCy model name."""
+    def test_get_g2p_japanese_keeps_spacy_model_reserved(self):
+        """Japanese does not resolve or store a spaCy model."""
         from kokorog2p import clear_cache, get_g2p
         from kokorog2p.ja import JapaneseG2P
 
         clear_cache()
-        g2p = get_g2p("ja", spacy_model="ja_core_news_lg")
+        g2p = get_g2p("ja", use_spacy=True, spacy_model="ja_core_news_lg")
         assert isinstance(g2p, JapaneseG2P)
-        assert g2p.spacy_model == "ja_core_news_lg"
+        assert g2p.spacy_model is None

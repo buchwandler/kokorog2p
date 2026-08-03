@@ -26,6 +26,7 @@ from kokorog2p._optional import load_spacy_model
 from kokorog2p.base import G2PBase
 from kokorog2p.pipeline.tokenizer import SpacyTokenizer
 from kokorog2p.pt.normalizer import PortugueseNormalizer
+from kokorog2p.spacy_models import resolve_spacy_model
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
 
@@ -88,7 +89,7 @@ class PortugueseG2P(G2PBase):
         language: str = "pt-br",
         use_espeak_fallback: bool = False,
         use_spacy: bool = False,
-        spacy_model: str = "pt_core_news_sm",
+        spacy_model: str | None = None,
         mark_stress: bool = True,
         affricate_ti_di: bool = True,  # Affricate t/d before i (Brazilian feature)
         expand_abbreviations: bool = True,
@@ -116,6 +117,11 @@ class PortugueseG2P(G2PBase):
         """
         super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
         self.version = version
+        if use_spacy and (spacy_model is None or spacy_model.lower() == "auto"):
+            spacy_model = resolve_spacy_model(
+                language,
+                spacy_model=spacy_model,
+            ).package
         self.use_spacy = use_spacy
         self.spacy_model = spacy_model
         self.mark_stress = mark_stress

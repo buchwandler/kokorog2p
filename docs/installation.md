@@ -34,8 +34,10 @@ This includes:
 - Context-dependent pronunciation
 - Number and currency expansion
 
-By default, English G2P uses `en_core_web_md` for POS tagging (downloaded on first use
-if missing). You can override this with `spacy_model=...`.
+When spaCy is enabled, English G2P selects the highest installed loadable model in
+`trf > lg > md > sm` order. It never downloads a model automatically. Use
+`spacy_model=...` for a strict concrete package or `spacy_model_size="md"` for a
+strict tier request.
 
 ### French
 
@@ -212,13 +214,22 @@ kokorog2p never downloads models during import or inference. Install the request
 explicitly in the environment that runs the application:
 
 ```bash
-# Default English model used by kokorog2p
+# Install one or more candidates; automatic selection uses the best installed one
 python -m spacy download en_core_web_md
 
 # Optional alternatives
 python -m spacy download en_core_web_sm
 python -m spacy download en_core_web_lg
+
+# Transformer tier (highest quality when installed and loadable)
+python -m spacy download en_core_web_trf
 ```
+
+For French, German, Spanish, Italian, or Portuguese, install the matching
+`*_core_news_{trf,lg,md,sm}` package. Automatic errors list every compatible
+candidate checked and any load errors. An explicit package or size request is
+strict and reports only that requested package; it does not substitute another
+tier.
 
 ### Performance Issues
 

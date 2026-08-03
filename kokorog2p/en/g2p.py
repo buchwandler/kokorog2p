@@ -7,6 +7,7 @@ from kokorog2p.en.lexicon import Lexicon, TokenContext
 from kokorog2p.en.normalizer import EnglishNormalizer
 from kokorog2p.pipeline.models import PhonemeSource, ProcessedText
 from kokorog2p.pipeline.tokenizer import RegexTokenizer, SpacyTokenizer
+from kokorog2p.spacy_models import resolve_spacy_model
 from kokorog2p.token import GToken
 
 
@@ -31,7 +32,7 @@ class EnglishG2P(G2PBase):
         use_goruut_fallback: bool = False,
         use_cli: bool = False,
         use_spacy: bool = True,
-        spacy_model: str = "en_core_web_md",
+        spacy_model: str | None = None,
         expand_abbreviations: bool = True,
         enable_context_detection: bool = True,
         phoneme_quotes: str = "curly",
@@ -102,6 +103,11 @@ class EnglishG2P(G2PBase):
 
         self.version = version
         self.unk = unk
+        if use_spacy and (spacy_model is None or spacy_model.lower() == "auto"):
+            spacy_model = resolve_spacy_model(
+                language,
+                spacy_model=spacy_model,
+            ).package
         self.use_spacy = use_spacy
         self.spacy_model = spacy_model
         self.expand_abbreviations = expand_abbreviations

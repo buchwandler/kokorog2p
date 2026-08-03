@@ -70,6 +70,13 @@ from kokorog2p.punctuation import (
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import tokenize_with_offsets
 from kokorog2p.types import OverrideSpan, PhonemizeResult, TokenSpan
+from kokorog2p.spacy_models import (
+    SpacyModelResolution,
+    SpacyModelResolutionError,
+    SpacyModelSize,
+    normalize_spacy_language,
+    resolve_spacy_model,
+)
 
 # Vocabulary encoding/decoding for Kokoro model
 from kokorog2p.vocab import N_TOKENS, PAD_IDX, decode, encode, filter_for_kokoro
@@ -176,6 +183,16 @@ _FACTORY_KWARGS_BY_LANGUAGE = {
     "he": frozenset({"preserve_punctuation", "preserve_stress", "some_extra_param"}),
 }
 
+_SPACY_DEFAULTS_BY_FAMILY = {
+    "en": True,
+    "fr": True,
+    "de": False,
+    "es": False,
+    "it": False,
+    "pt": False,
+}
+_SPACY_MODEL_FAMILIES = frozenset(_SPACY_DEFAULTS_BY_FAMILY)
+
 # Backend type hint
 BackendType = Literal["kokorog2p", "espeak", "goruut"]
 
@@ -191,6 +208,36 @@ def _language_family(language: str) -> str:
     if language.startswith("en"):
         return "en"
     return language.split("-", 1)[0]
+
+
+def _effective_spacy(language: str, requested: bool | None) -> bool:
+    """Resolve the existing language-specific spaCy default."""
+
+    if requested is not None:
+        return requested
+    return _SPACY_DEFAULTS_BY_FAMILY.get(_language_family(language), False)
+
+
+def _resolve_factory_spacy_model(
+    language: str,
+    backend: BackendType,
+    use_spacy: bool,
+    spacy_model: str | None,
+    spacy_model_size: SpacyModelSize | None,
+) -> str | None:
+    """Resolve a model only for a spaCy-backed native language factory."""
+
+    if (
+        backend != "kokorog2p"
+        or not use_spacy
+        or _language_family(language) not in _SPACY_MODEL_FAMILIES
+    ):
+        return None
+    return resolve_spacy_model(
+        language,
+        spacy_model=spacy_model,
+        spacy_model_size=spacy_model_size,
+    ).package
 
 
 def _validate_factory_kwargs(
@@ -232,7 +279,7 @@ def get_g2p(
     use_espeak_fallback: bool = True,
     use_goruut_fallback: bool = False,
     use_cli: bool = False,
-    use_spacy: bool = True,
+    use_spacy: bool | None = None,
     backend: BackendType = "kokorog2p",
     load_silver: bool = True,
     load_gold: bool = True,
@@ -240,6 +287,7 @@ def get_g2p(
     phoneme_quotes: str = "curly",
     strict: bool = True,
     spacy_model: str | None = None,
+    spacy_model_size: SpacyModelSize | None = None,
     **kwargs: Any,
 ) -> G2PBase:
     """Get a G2P instance for the specified language.
@@ -256,17 +304,14 @@ def get_g2p(
         use_goruut_fallback: Whether to use goruut for out-of-vocabulary words
             when using the dictionary-based "kokorog2p" backend. Ignored when
             backend is set to "goruut" (goruut is the primary backend).
-        use_spacy: Whether to use spaCy for tokenization and POS tagging
-            (applies to English/French and optionally German).
-            For Chinese/Japanese/Korean, this flag is currently accepted for
-            API consistency but not used by their native pipelines.
-            Used by the "kokorog2p" backend.
-        spacy_model: Optional spaCy model package name to override the language
-            default (e.g., ``"en_core_web_sm"``, ``"en_core_web_md"``,
-            ``"fr_core_news_md"``, ``"de_core_news_md"``). If None, each
-            language G2P class uses its built-in default. For Chinese/Japanese/
-            Korean, this parameter is accepted for API consistency but currently
-            does not alter backend behavior.
+        use_spacy: Whether to use spaCy for tokenization and POS tagging. If
+            omitted, the existing language default is used (enabled for English
+            and French, disabled for German, Spanish, Italian, and Portuguese).
+            For Chinese/Japanese/Korean, this remains a reserved API option.
+        spacy_model: Concrete spaCy model package name, or ``"auto"`` for the
+            highest installed loadable tier. Concrete names are strict.
+        spacy_model_size: Exact model tier (``"trf"``, ``"lg"``, ``"md"``, or
+            ``"sm"``) to select when ``spacy_model`` is unset.
         use_cli: If True, force use of CLI espeak phonemizer instead of
             library bindings. Only applies when backend="espeak".
         backend: Phonemization backend to use: "kokorog2p", "espeak", "goruut".
@@ -325,6 +370,7 @@ def get_g2p(
     # behaviorally equivalent do not create duplicate instances or voices.
     requested_language = language.lower().replace("_", "-")
     lang = _canonical_language(language)
+    effective_use_spacy = _effective_spacy(lang, use_spacy)
 
     # Validate version parameter
     if version not in ("1.0", "1.1"):
@@ -339,6 +385,12 @@ def get_g2p(
     _validate_factory_kwargs(lang, backend, kwargs)
     implementation_language = (
         lang if backend in ("espeak", "goruut") else requested_language
+    )
+
+    # Resolve before touching the cache. The native CJK implementations accept
+    # spaCy arguments for API consistency but do not use spaCy at all.
+    resolved_spacy_model = _resolve_factory_spacy_model(
+        lang, backend, effective_use_spacy, spacy_model, spacy_model_size
     )
 
     # Check cache (include all relevant parameters in cache key)
@@ -357,8 +409,8 @@ def get_g2p(
         use_espeak_fallback,
         use_goruut_fallback,
         use_cli,
-        use_spacy,
-        spacy_model if use_spacy else None,
+        effective_use_spacy,
+        resolved_spacy_model,
         backend,
         load_silver,
         load_gold,
@@ -377,7 +429,9 @@ def get_g2p(
     # Create G2P instance based on language and backend
     g2p: G2PBase
     extra_kwargs: dict[str, Any] = (
-        {"spacy_model": spacy_model} if spacy_model is not None and use_spacy else {}
+        {"spacy_model": resolved_spacy_model}
+        if resolved_spacy_model is not None
+        else {}
     )
 
     if backend == "goruut":
@@ -407,7 +461,7 @@ def get_g2p(
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
             use_cli=use_cli,
-            use_spacy=use_spacy,
+            use_spacy=effective_use_spacy,
             **extra_kwargs,
             load_silver=load_silver,
             load_gold=load_gold,
@@ -421,7 +475,7 @@ def get_g2p(
 
         g2p = ChineseG2P(
             language=implementation_language,
-            use_spacy=use_spacy,
+            use_spacy=effective_use_spacy,
             **extra_kwargs,
             load_silver=load_silver,
             load_gold=load_gold,
@@ -433,7 +487,7 @@ def get_g2p(
 
         g2p = JapaneseG2P(
             language=implementation_language,
-            use_spacy=use_spacy,
+            use_spacy=effective_use_spacy,
             **extra_kwargs,
             load_silver=load_silver,
             load_gold=load_gold,
@@ -448,7 +502,7 @@ def get_g2p(
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
             use_cli=use_cli,
-            use_spacy=use_spacy,
+            use_spacy=effective_use_spacy,
             **extra_kwargs,
             load_silver=load_silver,
             load_gold=load_gold,
@@ -462,7 +516,7 @@ def get_g2p(
             language=implementation_language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
-            use_spacy=use_spacy,
+            use_spacy=effective_use_spacy,
             **extra_kwargs,
             version=version,
             **kwargs,
@@ -474,7 +528,7 @@ def get_g2p(
             language=implementation_language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
-            use_spacy=use_spacy,
+            use_spacy=effective_use_spacy,
             **extra_kwargs,
             version=version,
             **kwargs,
@@ -485,7 +539,7 @@ def get_g2p(
         g2p = PortugueseG2P(
             language=implementation_language,
             use_espeak_fallback=use_espeak_fallback,
-            use_spacy=use_spacy,
+            use_spacy=effective_use_spacy,
             **extra_kwargs,
             version=version,
             **kwargs,
@@ -507,7 +561,7 @@ def get_g2p(
             language=implementation_language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
-            use_spacy=use_spacy,
+            use_spacy=effective_use_spacy,
             **extra_kwargs,
             load_silver=load_silver,
             load_gold=load_gold,
@@ -521,7 +575,7 @@ def get_g2p(
             language=implementation_language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
-            use_spacy=use_spacy,
+            use_spacy=effective_use_spacy,
             **extra_kwargs,
             load_silver=load_silver,
             load_gold=load_gold,
@@ -573,8 +627,9 @@ def phonemize(
     use_espeak_fallback: bool = True,
     use_goruut_fallback: bool = False,
     use_cli: bool = False,
-    use_spacy: bool = True,
+    use_spacy: bool | None = None,
     spacy_model: str | None = None,
+    spacy_model_size: SpacyModelSize | None = None,
     backend: "BackendType" = "kokorog2p",
     g2p: "G2PBase | None" = None,
 ) -> PhonemizeResult:
@@ -644,11 +699,12 @@ def phonemize(
             Ignored if ``g2p`` is
             provided.
         spacy_model:
-            Optional spaCy model package to use when constructing a G2P instance
-            (e.g. ``"en_core_web_sm"``, ``"fr_core_news_md"``,
-            ``"de_core_news_md"``). If omitted, language defaults are used.
-            For Chinese/Japanese/Korean, accepted for API consistency but not
-            currently used by native backends.
+            Concrete spaCy model package or ``"auto"`` when constructing a G2P
+            instance. If omitted, the highest installed loadable model is used
+            when spaCy is enabled. For Chinese/Japanese/Korean, accepted for
+            API consistency but not currently used by native backends.
+        spacy_model_size:
+            Exact spaCy model tier to use when ``spacy_model`` is omitted.
         backend:
             When constructing a G2P instance, select the backend:
             ``"kokorog2p"``, ``"espeak"``, or ``"goruut"``. Ignored if ``g2p`` is
@@ -695,6 +751,7 @@ def phonemize(
             use_cli=use_cli,
             use_spacy=use_spacy,
             spacy_model=spacy_model,
+            spacy_model_size=spacy_model_size,
             backend=backend,
         )
 
@@ -714,6 +771,7 @@ def phonemize(
             "use_cli": use_cli,
             "use_spacy": use_spacy,
             "spacy_model": spacy_model,
+            "spacy_model_size": spacy_model_size,
             "backend": backend,
         },
     )
@@ -838,6 +896,9 @@ __all__ = [
     "PAD_IDX",
     "PhonemizeResult",
     "Punctuation",
+    "SpacyModelResolution",
+    "SpacyModelResolutionError",
+    "SpacyModelSize",
     "TokenSpan",
     "US_VOCAB",
     "VOWELS",
@@ -862,6 +923,7 @@ __all__ = [
     "ids_to_phonemes",
     "is_kokoro_punctuation",
     "normalize_punctuation",
+    "normalize_spacy_language",
     "parse_delimited",
     "phoneme_ids",
     "phonemes",
@@ -869,6 +931,7 @@ __all__ = [
     "phonemize",
     "preprocess_multilang",
     "reset_abbreviations",
+    "resolve_spacy_model",
     "to_espeak",
     "tokenize",
     "validate_for_kokoro",
