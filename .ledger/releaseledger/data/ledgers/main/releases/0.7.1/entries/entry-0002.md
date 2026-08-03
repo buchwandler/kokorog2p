@@ -7,17 +7,18 @@ versioning:
 entry_id: entry-0002
 release_version: 0.7.1
 kind: fixed
-summary: Corrected French gold lexicon nasal IPA mappings for dem̃ander, restaurant,
-  and excellent word families
+summary:
+  Corrected French gold lexicon nasal IPA mappings for dem̃ander, restaurant, and
+  excellent word families
 status: accepted
 audience: null
 scopes: []
 source_refs: []
 paths:
-- kokorog2p/fr/data/fr_gold.json
+  - kokorog2p/fr/data/fr_gold.json
 issues: []
 prs:
-- '4'
+  - "4"
 sources: []
 contributors: []
 breaking: false
