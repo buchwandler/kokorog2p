@@ -15,6 +15,7 @@ from kokorog2p.pipeline.models import ProcessingToken
 def _merge_abbreviation_tokens(
     tokens: list[ProcessingToken],
     lang: str | None,
+    source_text: str,
 ) -> list[ProcessingToken]:
     def is_break(
         prev: ProcessingToken, current: ProcessingToken, last_end: int
@@ -40,6 +41,7 @@ def _merge_abbreviation_tokens(
         lang,
         is_break=is_break,
         build_token=build_token,
+        source_text=source_text,
     )
 
 
@@ -291,12 +293,21 @@ class RegexTokenizer(BaseTokenizer):
 
         # Default pattern for English contractions
         if contraction_pattern is None:
-            # Matches:
-            # 1. Words with apostrophes (contractions): \w+'\w+
-            # 2. Regular words: \w+
-            # 3. Single punctuation: [^\w\s]
-            # 4. Whitespace: \s+
-            self.pattern = re.compile(r"(\w+'\w+|\w+|[^\w\s]|\s+)")
+            # Matches (in priority order):
+            # 1. Decimal/dotted numbers, including leading decimals:
+            #    .02, 3.14, 1.02.3, 30,000.10
+            # 2. Grouped integers: 30,000
+            # 3. Words with apostrophes (contractions): \w+'\w+
+            # 4. Regular words: \w+
+            # 5. Single punctuation: [^\w\s]
+            # 6. Whitespace: \s+
+            number = r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)+"
+            leading_decimal = r"(?<![\w.])\.\d+"
+            grouped_integer = r"\d{1,3}(?:,\d{3})+"
+            self.pattern = re.compile(
+                rf"({number}|{leading_decimal}|{grouped_integer}|"
+                rf"\w+'\w+|\w+|[^\w\s]|\s+)"
+            )
         else:
             self.pattern = re.compile(contraction_pattern)
 
@@ -333,7 +344,7 @@ class RegexTokenizer(BaseTokenizer):
 
             tokens.append(token)
 
-        tokens = _merge_abbreviation_tokens(tokens, self.lang)
+        tokens = _merge_abbreviation_tokens(tokens, self.lang, text)
 
         # Detect quote nesting
         self._detect_quote_depth(tokens, use_bracket_matching=self.use_bracket_matching)

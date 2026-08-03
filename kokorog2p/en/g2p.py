@@ -497,10 +497,12 @@ class EnglishG2P(G2PBase):
             gtoken = ptoken.to_gtoken()
             gtoken.tag = ""  # No POS tags in simple tokenizer
 
-            # Handle punctuation (but not contractions with apostrophes)
-            if not ptoken.text.isalnum() and "'" not in ptoken.text:
+            # Handle punctuation (but not contractions or numeric tokens that
+            # contain punctuation, such as ``.02`` or ``3.14``).
+            has_alnum = any(c.isalnum() for c in ptoken.text)
+            if not has_alnum and "'" not in ptoken.text:
                 # Assign phoneme for known punctuation using the same method
-                # as the spacy tokenizer for consistency
+                # as the spacy tokenizer for consistency.
                 gtoken.phonemes = self._get_punct_phonemes(ptoken.text, "")
                 gtoken.set("rating", 4)
 

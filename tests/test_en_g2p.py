@@ -317,6 +317,47 @@ class TestEnglishG2PFull:
 class TestEnglishG2PTokenization:
     """Tests for tokenization in EnglishG2P."""
 
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "wandering around in.",
+            (
+                "Literally because the thing was so big, and because multiple intel "
+                "sources suggested it would be difficult to move around in."
+            ),
+        ],
+    )
+    def test_regex_sentence_final_in_is_not_inch(self, text):
+        """The regex path keeps sentence-final in separate from the period."""
+        g2p = EnglishG2P(
+            language="en-us",
+            use_spacy=False,
+            use_espeak_fallback=False,
+            load_gold=False,
+            load_silver=False,
+        )
+
+        tokens = g2p(text)
+
+        assert [token.text for token in tokens[-2:]] == ["in", "."]
+        assert tokens[-2].phonemes == "ˈɪn"
+        assert tokens[-1].phonemes == "."
+
+    def test_regex_leading_decimal_is_not_preclassified_as_punctuation(self):
+        """A leading decimal reaches number conversion as one unresolved token."""
+        g2p = EnglishG2P(
+            language="en-us",
+            use_spacy=False,
+            use_espeak_fallback=False,
+            load_gold=False,
+            load_silver=False,
+        )
+
+        tokens = g2p._tokenize_simple("Three hesitated for .02 seconds.")
+
+        decimal = next(token for token in tokens if token.text == ".02")
+        assert decimal.phonemes is None
+
     def test_simple_tokenization(self, english_g2p_no_espeak):
         """Test simple tokenization without spaCy."""
         tokens = english_g2p_no_espeak("hello world")

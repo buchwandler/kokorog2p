@@ -196,9 +196,16 @@ class TestEnglishNumberConverter:
         spoken, _ = converter.convert("XII", is_head=False)
         assert spoken == "twelve"
 
-    def test_decimal_leading_point(self, converter):
-        spoken, rating = converter.convert(".5")
-        assert spoken == "point five"
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            (".5", "point five"),
+            (".02", "point zero two"),
+        ],
+    )
+    def test_decimal_leading_point(self, converter, value, expected):
+        spoken, rating = converter.convert(value)
+        assert spoken == expected
         assert rating == 4
 
     def test_decimal_regular(self, converter):

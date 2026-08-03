@@ -1,6 +1,7 @@
 """Tests for offset-aware tokenization."""
 
-from kokorog2p import get_g2p, reset_abbreviations
+from kokorog2p import reset_abbreviations
+from kokorog2p.en.abbreviations import get_expander
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import (
     ensure_gtoken_positions,
@@ -50,8 +51,7 @@ class TestTokenizeWithOffsets:
     def test_abbreviation_update_reflects_in_tokenization(self):
         """Custom abbreviations should merge without restarting."""
         reset_abbreviations()
-        g2p = get_g2p("en-us", use_spacy=False)
-        g2p.add_abbreviation("X.Y.", "Ex Why")
+        get_expander().add_custom_abbreviation("X.Y.", "Ex Why")
 
         tokens = tokenize_with_offsets("X.Y.", lang="en-us")
         assert [t.text for t in tokens] == ["X.Y."]

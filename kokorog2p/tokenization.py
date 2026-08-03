@@ -79,6 +79,7 @@ def gtoken_to_tokenspan(
 def _merge_abbreviation_tokens(
     tokens: list[TokenSpan],
     lang: str | None,
+    source_text: str,
 ) -> list[TokenSpan]:
     def is_break(prev: TokenSpan, current: TokenSpan, last_end: int) -> bool:
         return current.char_start != last_end
@@ -98,6 +99,7 @@ def _merge_abbreviation_tokens(
         lang,
         is_break=is_break,
         build_token=build_token,
+        source_text=source_text,
     )
 
 
@@ -179,13 +181,15 @@ def tokenize_with_offsets(
     # This ensures consistency with actual G2P tokenization
     import re
 
-    # Pattern matches:
-    # - Hyphenated words: \w+-\w+(-\w+)* (e.g., "good-looking", "state-of-the-art")
-    # - Contractions: \w+(?:'\w+)+ (e.g., "don't", "What's", "I'd've")
-    # - Regular words: \w+
-    # - Non-word/non-space chars: [^\w\s]
-    # - Whitespace: \s+
-    pattern = re.compile(r"(\w+(?:-\w+)+|\w+(?:'\w+)+|\w+|[^\w\s]|\s+)")
+    # Numeric alternatives must precede regular words and punctuation so
+    # structured forms reach number conversion intact.
+    number = r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)+"
+    leading_decimal = r"(?<![\w.])\.\d+"
+    grouped_integer = r"\d{1,3}(?:,\d{3})+"
+    pattern = re.compile(
+        rf"({number}|{leading_decimal}|{grouped_integer}|"
+        rf"\w+(?:-\w+)+|\w+(?:'\w+)+|\w+|[^\w\s]|\s+)"
+    )
     tokens: list[TokenSpan] = []
 
     for match in pattern.finditer(text):
@@ -196,7 +200,7 @@ def tokenize_with_offsets(
             continue
 
         # Skip punctuation if requested
-        if not keep_punct and not word[0].isalnum():
+        if not keep_punct and not any(char.isalnum() for char in word):
             continue
 
         tokens.append(
@@ -210,7 +214,7 @@ def tokenize_with_offsets(
             )
         )
 
-    return _merge_abbreviation_tokens(tokens, lang)
+    return _merge_abbreviation_tokens(tokens, lang, text)
 
 
 def gtokens_to_tokenspans(

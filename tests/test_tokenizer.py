@@ -5,7 +5,8 @@ Tests the BaseTokenizer, RegexTokenizer, and SpacyTokenizer classes.
 
 import pytest
 
-from kokorog2p import get_g2p, reset_abbreviations
+from kokorog2p import reset_abbreviations
+from kokorog2p.en.abbreviations import get_expander
 from kokorog2p.pipeline.tokenizer import RegexTokenizer, SpacyTokenizer
 
 
@@ -61,11 +62,48 @@ class TestRegexTokenizer:
         assert tokens[1].char_start == 6
         assert tokens[1].char_end == 9
 
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "wandering around in.",
+            (
+                "Literally because the thing was so big, and because multiple intel "
+                "sources suggested it would be difficult to move around in."
+            ),
+        ],
+    )
+    def test_guarded_in_abbreviation_is_not_merged(self, text):
+        """Sentence-final in. is a preposition plus punctuation, not a unit."""
+        tokenizer = RegexTokenizer(
+            track_positions=True, use_bracket_matching=True, lang="en-us"
+        )
+
+        tokens = tokenizer.tokenize(text)
+
+        assert [token.text for token in tokens[-2:]] == ["in", "."]
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            (".02", [".02"]),
+            ("3.14", ["3.14"]),
+            ("30,000", ["30,000"]),
+            ("30,000.10", ["30,000.10"]),
+            ("1.02.3", ["1.02.3"]),
+        ],
+    )
+    def test_numeric_tokens_with_periods_or_grouping_are_preserved(
+        self, tokenizer, text, expected
+    ):
+        """Numeric punctuation remains inside the numeric token."""
+        tokens = tokenizer.tokenize(text)
+
+        assert [token.text for token in tokens] == expected
+
     def test_custom_abbreviation_merge(self):
         """Tokenization should reflect custom abbreviations."""
         reset_abbreviations()
-        g2p = get_g2p("en-us", use_spacy=False)
-        g2p.add_abbreviation("X.Y.", "Ex Why")
+        get_expander().add_custom_abbreviation("X.Y.", "Ex Why")
 
         tokenizer = RegexTokenizer(
             track_positions=True, use_bracket_matching=True, lang="en-us"

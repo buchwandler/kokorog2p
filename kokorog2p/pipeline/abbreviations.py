@@ -41,7 +41,7 @@ class AbbreviationEntry:
             before the abbreviation match (typically anchored with $).
         only_if_followed_by: Optional regex that must match the text immediately
             after the abbreviation match (typically anchored with ^ or using
-            atch()).
+            match()).
     """
 
     abbreviation: str
@@ -64,6 +64,52 @@ class AbbreviationEntry:
         if context and self.context_expansions and context in self.context_expansions:
             return self.context_expansions[context]
         return self.expansion
+
+
+def abbreviation_guards_match(
+    entry: AbbreviationEntry,
+    text: str,
+    start: int,
+    end: int,
+    *,
+    preceding_window: int = 80,
+) -> bool:
+    """Return whether an abbreviation entry's context guards match.
+
+    The same helper is used by abbreviation expansion and token merging. This
+    prevents tokenization from reassembling a guarded abbreviation after the
+    normalizer deliberately left it unchanged.
+
+    Args:
+        entry: Abbreviation definition whose guards should be checked.
+        text: Complete source text containing the candidate abbreviation.
+        start: Candidate start offset in ``text``.
+        end: Candidate end offset in ``text``.
+        preceding_window: Maximum number of preceding characters to inspect.
+
+    Returns:
+        ``True`` when every configured guard matches. Unguarded entries always
+        return ``True``.
+    """
+    if not (0 <= start <= end <= len(text)):
+        return False
+
+    if entry.only_if_preceded_by:
+        pattern = entry.only_if_preceded_by
+        if isinstance(pattern, str):
+            pattern = re.compile(pattern)
+        before = text[max(0, start - preceding_window) : start]
+        if not pattern.search(before):
+            return False
+
+    if entry.only_if_followed_by:
+        pattern = entry.only_if_followed_by
+        if isinstance(pattern, str):
+            pattern = re.compile(pattern)
+        if not pattern.match(text, end):
+            return False
+
+    return True
 
 
 class ContextDetector:
@@ -330,32 +376,8 @@ class AbbreviationExpander(ABC):
         def replacer(match: re.Match) -> str:
             start, end = match.span()
 
-            # Optional guard: require something BEFORE the abbreviation.
-            # Intended for units like "in." / "ft." / "oz." to
-            # only expand after numbers:
-            #   "10.0 in." -> "10.0 inch"
-            #   "Wizard of Oz." (NOT preceded by a number) -> unchanged
-            if entry.only_if_preceded_by:
-                pat = entry.only_if_preceded_by
-                if isinstance(pat, str):
-                    pat = re.compile(pat)
-                # Only check a short window for speed and to encourage
-                # end-anchored patterns.
-                window = 80
-                before_slice = text[max(0, start - window) : start]
-                if not pat.search(before_slice):
-                    return match.group(0)
-
-            # Optional guard: require something AFTER the abbreviation.
-            # Intended for things like "No." to only expand when followed by digits:
-            #   "No." -> unchanged
-            #   "No. 244" -> "Number 244"
-            if entry.only_if_followed_by:
-                pat = entry.only_if_followed_by
-                if isinstance(pat, str):
-                    pat = re.compile(pat)
-                if not pat.match(text, end):
-                    return match.group(0)
+            if not abbreviation_guards_match(entry, text, start, end):
+                return match.group(0)
 
             if not self.enable_context_detection or not self.context_detector:
                 return entry.expansion
