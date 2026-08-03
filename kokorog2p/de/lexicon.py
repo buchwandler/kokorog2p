@@ -5,13 +5,15 @@ Provides dictionary-based phoneme lookup for German words.
 
 import importlib.resources
 import json
+from collections.abc import Mapping
 from functools import lru_cache
+from types import MappingProxyType
 
 from kokorog2p.de import data
 
 
 @lru_cache(maxsize=1)
-def _load_gold_dictionary(load_gold: bool = True) -> dict[str, str]:
+def _load_gold_dictionary(load_gold: bool = True) -> Mapping[str, str]:
     """Load the German gold dictionary.
 
     Args:
@@ -21,10 +23,20 @@ def _load_gold_dictionary(load_gold: bool = True) -> dict[str, str]:
         Dictionary mapping lowercase words to IPA phonemes.
     """
     if not load_gold:
-        return {}
+        return MappingProxyType({})
     files = importlib.resources.files(data)
     with (files / "de_gold.json").open("r", encoding="utf-8") as f:
-        return json.load(f)
+        return MappingProxyType(json.load(f))
+
+
+def clear_lexicon_cache() -> None:
+    """Release the cached German dictionary mapping."""
+    _load_gold_dictionary.cache_clear()
+
+
+def lexicon_cache_info():
+    """Return cache statistics for the German dictionary resource."""
+    return _load_gold_dictionary.cache_info()
 
 
 class GermanLexicon:

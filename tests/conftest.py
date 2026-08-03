@@ -1,5 +1,8 @@
 """Pytest configuration and fixtures for kokorog2p tests."""
 
+import gc
+from importlib.util import find_spec
+
 import pytest
 
 # =============================================================================
@@ -16,6 +19,25 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers", "spacy: tests that require spaCy to be installed"
     )
     config.addinivalue_line("markers", "slow: tests that are slow to run")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _reset_process_state() -> object:
+    """Bound global G2P and abbreviation state to one test module."""
+    yield
+
+    from kokorog2p import clear_cache, reset_abbreviations
+
+    clear_cache(deep=True)
+    reset_abbreviations()
+    gc.collect()
+
+
+def _require_spacy_model(name: str) -> None:
+    """Skip model-backed fixtures when the optional package is absent."""
+    pytest.importorskip("spacy")
+    if find_spec(name) is None:
+        pytest.skip(f"spaCy model {name!r} is not installed")
 
 
 # =============================================================================
@@ -107,10 +129,10 @@ def english_g2p_with_espeak():
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def english_g2p_with_spacy():
     """Create an EnglishG2P with spaCy."""
-    pytest.importorskip("spacy")
+    _require_spacy_model("en_core_web_md")
     from kokorog2p.en import EnglishG2P
 
     return EnglishG2P(
@@ -120,11 +142,11 @@ def english_g2p_with_spacy():
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def english_g2p_full():
     """Create a fully-featured EnglishG2P."""
     pytest.importorskip("espeakng_loader")
-    pytest.importorskip("spacy")
+    _require_spacy_model("en_core_web_md")
     from kokorog2p.en import EnglishG2P
 
     return EnglishG2P(

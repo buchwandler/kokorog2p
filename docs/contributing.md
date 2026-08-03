@@ -50,6 +50,24 @@ Run with coverage:
 pytest tests/ --cov=kokorog2p --cov-report=html
 ```
 
+### Running on memory-constrained machines
+
+The English and German dictionaries are large, and optional spaCy models add substantial
+native memory. Prefer sequential pytest processes for independent language groups
+instead of `pytest-xdist`; each xdist worker loads another interpreter and may load
+another dictionary or model.
+
+```bash
+python -m pytest -q tests/test_attr_parser.py tests/test_base.py tests/test_pipeline_api.py
+python -m pytest -q tests/test_en_*.py tests/test_quote_*.py
+python -m pytest -q tests/test_de_g2p.py
+```
+
+Peak RSS can be observed with `python tools/run_pytest_with_memory.py -q`. For a clean
+collection comparison, set `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`. A bare `Killed` message
+or exit status 137 can indicate an operating-system OOM kill; on Linux, inspect `dmesg`
+or `journalctl -k` after the run and check any container or cgroup memory limit.
+
 ## Code Quality
 
 Format code:

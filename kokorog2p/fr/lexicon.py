@@ -7,7 +7,10 @@ import importlib.resources
 import json
 import re
 import unicodedata
+from collections.abc import Mapping
 from dataclasses import dataclass
+from functools import lru_cache
+from types import MappingProxyType
 from typing import Any, Final
 
 from kokorog2p.fr import data
@@ -145,6 +148,39 @@ class TokenContext:
     liaison: bool = False
 
 
+LexiconValue = str | dict[str, str | None]
+LexiconMapping = Mapping[str, LexiconValue]
+EMPTY_LEXICON: Final[LexiconMapping] = MappingProxyType({})
+
+
+@lru_cache(maxsize=1)
+def _load_dictionary() -> LexiconMapping:
+    """Load and expand the immutable French gold dictionary once."""
+    files = importlib.resources.files(data)
+    with (files / "fr_gold.json").open("r", encoding="utf-8") as stream:
+        loaded: dict[str, LexiconValue] = json.load(stream)
+
+    for word, pronunciation in tuple(loaded.items()):
+        if len(word) < 2:
+            continue
+        if word == word.lower():
+            loaded.setdefault(word.capitalize(), pronunciation)
+        elif word == word.lower().capitalize():
+            loaded.setdefault(word.lower(), pronunciation)
+
+    return MappingProxyType(loaded)
+
+
+def clear_lexicon_cache() -> None:
+    """Release the cached French dictionary mapping."""
+    _load_dictionary.cache_clear()
+
+
+def lexicon_cache_info():
+    """Return cache statistics for the French dictionary resource."""
+    return _load_dictionary.cache_info()
+
+
 # =============================================================================
 # Lexicon Class
 # =============================================================================
@@ -167,14 +203,12 @@ class FrenchLexicon:
         """
         self.load_silver = load_silver
         self.load_gold = load_gold
-        self.golds: dict[str, str | dict[str, str | None]] = {}
-        self.silvers: dict[str, str] = {}
+        self.golds: LexiconMapping = EMPTY_LEXICON
+        self.silvers: LexiconMapping = EMPTY_LEXICON
 
         # Load gold dictionary if requested
         if load_gold:
-            files = importlib.resources.files(data)
-            with (files / "fr_gold.json").open("r", encoding="utf-8") as r:
-                self.golds = self._grow_dictionary(json.load(r))
+            self.golds = _load_dictionary()
 
         # Silver dictionary not yet available for French
         # When available, load it conditionally:

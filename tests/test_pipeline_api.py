@@ -1,5 +1,7 @@
 """Tests for pipeline-friendly phonemization API."""
 
+from importlib.util import find_spec
+
 import pytest
 
 from kokorog2p import phonemize
@@ -9,11 +11,7 @@ from kokorog2p.types import OverrideSpan
 
 def _has_spacy_model(name: str) -> bool:
     """Return whether an optional spaCy model is installed locally."""
-    try:
-        import spacy
-    except ImportError:
-        return False
-    return spacy.util.is_package(name)
+    return find_spec("spacy") is not None and find_spec(name) is not None
 
 
 class TestPhonemizeToResult:
@@ -597,7 +595,7 @@ class TestPhonemizeToResult:
         from kokorog2p import get_g2p
 
         text = "'I can't... or shouldn't,' I replied."
-        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        g2p = get_g2p("en-us")
         result = phonemize(text)
 
         expected = g2p.phonemize(text)
@@ -615,7 +613,7 @@ class TestPhonemizeToResult:
             "'I'd've liked to've met you sooner...' he said. "
             "\"Maybe things'd've been different...\""
         )
-        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        g2p = get_g2p("en-us")
         result = phonemize(text)
 
         assert result.phonemes == g2p.phonemize(text)
@@ -631,7 +629,7 @@ class TestPhonemizeToResult:
             "His words hung in the air like smoke... "
             "\"I can't... or shouldn't,\" I replied, confused by his hostility.'"
         )
-        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        g2p = get_g2p("en-us")
         result = phonemize(text)
 
         assert result.phonemes == g2p.phonemize(text)
@@ -645,7 +643,7 @@ class TestPhonemizeToResult:
         from kokorog2p import get_g2p
 
         text = "He said, \"I\" 'I'."
-        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        g2p = get_g2p("en-us")
         result = phonemize(text)
 
         assert result.phonemes == g2p.phonemize(text)
@@ -659,7 +657,7 @@ class TestPhonemizeToResult:
         from kokorog2p import get_g2p
 
         text = '"I," he said. "I."'
-        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        g2p = get_g2p("en-us")
         result = phonemize(text)
 
         assert result.phonemes == g2p.phonemize(text)
@@ -673,7 +671,7 @@ class TestPhonemizeToResult:
         from kokorog2p import get_g2p
 
         text = "He said, \"She whispered, 'I'd've...'.\""
-        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        g2p = get_g2p("en-us")
         result = phonemize(text)
 
         assert result.phonemes == g2p.phonemize(text)
@@ -686,7 +684,7 @@ class TestPhonemizeToResult:
         from kokorog2p import get_g2p
 
         text = "Wait... now... later..."
-        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        g2p = get_g2p("en-us")
         result = phonemize(text)
 
         assert result.phonemes == g2p.phonemize(text)
@@ -696,7 +694,7 @@ class TestPhonemizeToResult:
         from kokorog2p import get_g2p
 
         text = "\"I'd've,\" she paused. \"You'd've.\""
-        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        g2p = get_g2p("en-us")
         result = phonemize(text)
 
         assert result.phonemes == g2p.phonemize(text)
@@ -711,7 +709,7 @@ class TestPhonemizeToResult:
         from kokorog2p import get_g2p
 
         text = 'He said, "Dr. Smith..." and left.'
-        g2p = get_g2p("en-us", markdown_syntax="disabled")
+        g2p = get_g2p("en-us")
         result = phonemize(text)
 
         assert result.phonemes == g2p.phonemize(text)

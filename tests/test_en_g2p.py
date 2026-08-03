@@ -484,13 +484,13 @@ class TestMainAPI:
         g2p_md = get_g2p(
             "en-us",
             use_espeak_fallback=False,
-            use_spacy=False,
+            use_spacy=True,
             spacy_model="en_core_web_md",
         )
         g2p_sm = get_g2p(
             "en-us",
             use_espeak_fallback=False,
-            use_spacy=False,
+            use_spacy=True,
             spacy_model="en_core_web_sm",
         )
 
@@ -559,9 +559,10 @@ class TestMainAPI:
 class TestEnNormalization:
     """Comprehensive tests for normalization handling with spaCy."""
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def g2p_spacy(self):
         """Create an EnglishG2P instance with spaCy enabled."""
+        pytest.importorskip("en_core_web_md")
         from kokorog2p.en import EnglishG2P
 
         return EnglishG2P(language="en-us", use_spacy=True, use_espeak_fallback=False)
@@ -590,9 +591,10 @@ class TestContractionMerging:
     as separate words instead of using their dictionary entries.
     """
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def g2p_spacy(self):
         """Create an EnglishG2P instance with spaCy enabled."""
+        pytest.importorskip("en_core_web_md")
         from kokorog2p.en import EnglishG2P
 
         return EnglishG2P(language="en-us", use_spacy=True, use_espeak_fallback=False)
@@ -789,9 +791,10 @@ class TestDoubleContractions:
     where spaCy splits them into 3+ tokens (e.g., "I'd've" -> "I" + "'d" + "'ve").
     """
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def g2p_spacy(self):
         """Create an EnglishG2P instance with spaCy enabled."""
+        pytest.importorskip("en_core_web_md")
         from kokorog2p.en import EnglishG2P
 
         return EnglishG2P(language="en-us", use_spacy=True, use_espeak_fallback=False)
@@ -1203,6 +1206,7 @@ class TestGoruutFallback:
         return EnglishG2P(
             use_espeak_fallback=False,
             use_goruut_fallback=True,
+            use_spacy=False,
             load_gold=False,
             load_silver=False,
         )
@@ -1213,6 +1217,7 @@ class TestGoruutFallback:
         return EnglishG2P(
             use_espeak_fallback=True,
             use_goruut_fallback=False,
+            use_spacy=False,
             load_gold=False,
             load_silver=False,
         )

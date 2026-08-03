@@ -34,7 +34,9 @@ Example:
     ...     print(f"{token.text} -> {token.phonemes}")
 """
 
+from collections import OrderedDict, namedtuple
 from collections.abc import Callable
+from threading import RLock
 from typing import Any, Literal, Optional, Union
 
 from kokorog2p.base import G2PBase
@@ -92,11 +94,121 @@ except ImportError:
     __version__ = "0.0.0"
     __version_tuple__ = (0, 0, 0)
 
-# Lazy imports for optional dependencies
-_g2p_cache: dict[tuple[object, ...], G2PBase] = {}
+# Lazy imports for optional dependencies.  A small LRU preserves same-key
+# reuse (including lazy spaCy model reuse) while bounding retained instances.
+_G2P_CACHE_MAXSIZE = 8
+_g2p_cache: OrderedDict[tuple[object, ...], G2PBase] = OrderedDict()
+_g2p_cache_lock = RLock()
+_G2PCacheInfo = namedtuple("G2PCacheInfo", "size maxsize policy")
+
+_LANGUAGE_ALIASES = {
+    "en": "en-us",
+    "eng": "en-us",
+    "english": "en-us",
+    "gb": "en-gb",
+    "british": "en-gb",
+    "de": "de-de",
+    "de-at": "de-de",
+    "de-ch": "de-de",
+    "deu": "de-de",
+    "german": "de-de",
+    "fr": "fr-fr",
+    "fra": "fr-fr",
+    "french": "fr-fr",
+    "es": "es-es",
+    "spa": "es-es",
+    "spanish": "es-es",
+    "it": "it-it",
+    "ita": "it-it",
+    "italian": "it-it",
+    "pt": "pt-br",
+    "por": "pt-br",
+    "portuguese": "pt-br",
+    "cs": "cs-cz",
+    "ces": "cs-cz",
+    "czech": "cs-cz",
+    "ko": "ko-kr",
+    "kor": "ko-kr",
+    "korean": "ko-kr",
+    "he": "he",
+    "heb": "he",
+    "hebrew": "he",
+    "zh": "zh",
+    "cmn": "zh",
+    "chinese": "zh",
+    "ja": "ja-jp",
+    "jpn": "ja-jp",
+    "japanese": "ja-jp",
+}
+
+_FACTORY_KWARGS_BY_LANGUAGE = {
+    "en": frozenset({"expand_abbreviations", "enable_context_detection", "unk"}),
+    "fr": frozenset(
+        {"expand_nums", "expand_abbreviations", "enable_context_detection", "unk"}
+    ),
+    "de": frozenset(
+        {
+            "use_lexicon",
+            "strip_stress",
+            "expand_abbreviations",
+            "enable_context_detection",
+        }
+    ),
+    "cs": frozenset({"unk", "expand_abbreviations", "enable_context_detection"}),
+    "es": frozenset({"expand_abbreviations", "enable_context_detection"}),
+    "it": frozenset(
+        {
+            "mark_stress",
+            "mark_gemination",
+            "expand_abbreviations",
+            "enable_context_detection",
+        }
+    ),
+    "pt": frozenset(
+        {
+            "mark_stress",
+            "affricate_ti_di",
+            "expand_abbreviations",
+            "enable_context_detection",
+            "dialect",
+        }
+    ),
+    "he": frozenset({"preserve_punctuation", "preserve_stress", "some_extra_param"}),
+}
 
 # Backend type hint
 BackendType = Literal["kokorog2p", "espeak", "goruut"]
+
+
+def _canonical_language(language: str) -> str:
+    """Return the cache identity for a language alias."""
+    normalized = language.lower().replace("_", "-")
+    return _LANGUAGE_ALIASES.get(normalized, normalized)
+
+
+def _language_family(language: str) -> str:
+    """Return the factory option family for a canonical language."""
+    if language.startswith("en"):
+        return "en"
+    return language.split("-", 1)[0]
+
+
+def _validate_factory_kwargs(
+    language: str, backend: BackendType, kwargs: dict[str, Any]
+) -> None:
+    """Reject options that constructors would silently ignore."""
+    if not kwargs:
+        return
+    if backend in ("espeak", "goruut"):
+        allowed: frozenset[str] = frozenset()
+    else:
+        allowed = _FACTORY_KWARGS_BY_LANGUAGE.get(
+            _language_family(language), frozenset()
+        )
+    unknown = sorted(set(kwargs) - allowed)
+    if unknown:
+        names = ", ".join(unknown)
+        raise TypeError(f"Unsupported get_g2p options: {names}")
 
 
 def _stable_repr(value: Any) -> object:
@@ -208,8 +320,11 @@ def get_g2p(
         >>> # Using goruut backend
         >>> g2p_goruut = get_g2p("en-us", backend="goruut")
     """
-    # Normalize language code
-    lang = language.lower().replace("_", "-")
+    # Normalize language code before constructing the cache key.  The
+    # canonical value is also passed to implementations so aliases that are
+    # behaviorally equivalent do not create duplicate instances or voices.
+    requested_language = language.lower().replace("_", "-")
+    lang = _canonical_language(language)
 
     # Validate version parameter
     if version not in ("1.0", "1.1"):
@@ -217,6 +332,14 @@ def get_g2p(
             f"Invalid version '{version}'. "
             "Must be '1.0' (multilngual) or '1.1' (chinese)."
         )
+
+    backend = backend.lower()  # type: ignore[assignment]
+    if backend not in ("kokorog2p", "espeak", "goruut"):
+        raise ValueError(f"Unsupported backend: {backend!r}")
+    _validate_factory_kwargs(lang, backend, kwargs)
+    implementation_language = (
+        lang if backend in ("espeak", "goruut") else requested_language
+    )
 
     # Check cache (include all relevant parameters in cache key)
     kwargs_key = None
@@ -227,13 +350,15 @@ def get_g2p(
                 key=lambda item: item[0],
             )
         )
+    # An explicit model is irrelevant when spaCy is disabled and therefore
+    # must not create a hidden cache variant.
     cache_key = (
         lang,
         use_espeak_fallback,
         use_goruut_fallback,
         use_cli,
         use_spacy,
-        spacy_model,
+        spacy_model if use_spacy else None,
         backend,
         load_silver,
         load_gold,
@@ -242,33 +367,43 @@ def get_g2p(
         strict,
         kwargs_key,
     )
-    if cache_key in _g2p_cache:
-        return _g2p_cache[cache_key]
+
+    with _g2p_cache_lock:
+        cached = _g2p_cache.get(cache_key)
+        if cached is not None:
+            _g2p_cache.move_to_end(cache_key)
+            return cached
 
     # Create G2P instance based on language and backend
     g2p: G2PBase
     extra_kwargs: dict[str, Any] = (
-        {"spacy_model": spacy_model} if spacy_model is not None else {}
+        {"spacy_model": spacy_model} if spacy_model is not None and use_spacy else {}
     )
 
     if backend == "goruut":
         # Use goruut backend for all languages
         from kokorog2p.goruut_g2p import GoruutOnlyG2P
 
-        g2p = GoruutOnlyG2P(language=language, strict=strict, version=version, **kwargs)
+        g2p = GoruutOnlyG2P(
+            language=implementation_language, strict=strict, version=version, **kwargs
+        )
     elif backend == "espeak":
         # Use espeak backend for all languages
         from kokorog2p.espeak_g2p import EspeakOnlyG2P
 
         g2p = EspeakOnlyG2P(
-            language=language, strict=strict, version=version, use_cli=use_cli, **kwargs
+            language=implementation_language,
+            strict=strict,
+            version=version,
+            use_cli=use_cli,
+            **kwargs,
         )
 
     elif lang.startswith("en"):
         from kokorog2p.en import EnglishG2P
 
         g2p = EnglishG2P(
-            language=language,
+            language=implementation_language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
             use_cli=use_cli,
@@ -285,7 +420,7 @@ def get_g2p(
         from kokorog2p.zh import ChineseG2P
 
         g2p = ChineseG2P(
-            language=language,
+            language=implementation_language,
             use_spacy=use_spacy,
             **extra_kwargs,
             load_silver=load_silver,
@@ -297,7 +432,7 @@ def get_g2p(
         from kokorog2p.ja import JapaneseG2P
 
         g2p = JapaneseG2P(
-            language=language,
+            language=implementation_language,
             use_spacy=use_spacy,
             **extra_kwargs,
             load_silver=load_silver,
@@ -309,7 +444,7 @@ def get_g2p(
         from kokorog2p.fr import FrenchG2P
 
         g2p = FrenchG2P(
-            language=language,
+            language=implementation_language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
             use_cli=use_cli,
@@ -324,7 +459,7 @@ def get_g2p(
         from kokorog2p.es import SpanishG2P
 
         g2p = SpanishG2P(
-            language=language,
+            language=implementation_language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
             use_spacy=use_spacy,
@@ -336,7 +471,7 @@ def get_g2p(
         from kokorog2p.it import ItalianG2P
 
         g2p = ItalianG2P(
-            language=language,
+            language=implementation_language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
             use_spacy=use_spacy,
@@ -348,7 +483,7 @@ def get_g2p(
         from kokorog2p.pt import PortugueseG2P
 
         g2p = PortugueseG2P(
-            language=language,
+            language=implementation_language,
             use_espeak_fallback=use_espeak_fallback,
             use_spacy=use_spacy,
             **extra_kwargs,
@@ -359,7 +494,7 @@ def get_g2p(
         from kokorog2p.cs import CzechG2P
 
         g2p = CzechG2P(
-            language=language,
+            language=implementation_language,
             load_silver=load_silver,
             load_gold=load_gold,
             version=version,
@@ -369,7 +504,7 @@ def get_g2p(
         from kokorog2p.de import GermanG2P
 
         g2p = GermanG2P(
-            language=language,
+            language=implementation_language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
             use_spacy=use_spacy,
@@ -383,7 +518,7 @@ def get_g2p(
         from kokorog2p.ko import KoreanG2P
 
         g2p = KoreanG2P(
-            language=language,
+            language=implementation_language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
             use_spacy=use_spacy,
@@ -397,7 +532,7 @@ def get_g2p(
         from kokorog2p.he import HebrewG2P
 
         g2p = HebrewG2P(
-            language=language,
+            language=implementation_language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
             load_silver=load_silver,
@@ -411,8 +546,18 @@ def get_g2p(
             "Use 'espeak' or 'goruut' backend for more languages."
         )
 
-    _g2p_cache[cache_key] = g2p
-    return g2p
+    with _g2p_cache_lock:
+        # A second lookup protects identity if another thread constructed the
+        # same key while this instance was being initialized.
+        cached = _g2p_cache.get(cache_key)
+        if cached is not None:
+            _g2p_cache.move_to_end(cache_key)
+            return cached
+        _g2p_cache[cache_key] = g2p
+        _g2p_cache.move_to_end(cache_key)
+        while len(_g2p_cache) > _G2P_CACHE_MAXSIZE:
+            _g2p_cache.popitem(last=False)
+        return g2p
 
 
 def phonemize(
@@ -620,12 +765,36 @@ def tokenize(
     return tokenize_with_offsets(text, lang=language, keep_punct=keep_punct)
 
 
-def clear_cache() -> None:
+def cache_info():
+    """Return diagnostics for the weak G2P instance cache.
+
+    The bounded LRU keeps the most recently used configurations and evicts
+    older instances once the configured maximum is reached.
+    """
+    with _g2p_cache_lock:
+        return _G2PCacheInfo(
+            size=len(_g2p_cache), maxsize=_G2P_CACHE_MAXSIZE, policy="bounded-lru"
+        )
+
+
+def clear_cache(*, deep: bool = False) -> None:
     """Clear the G2P instance cache.
 
-    This can be useful when you need to free memory or reset state.
+    Args:
+        deep: Also clear language dictionary resource caches.  This can be
+            useful when a long-running process must release parsed lexicons.
     """
-    _g2p_cache.clear()
+    with _g2p_cache_lock:
+        _g2p_cache.clear()
+
+    if deep:
+        from kokorog2p.de.lexicon import clear_lexicon_cache as clear_de
+        from kokorog2p.en.lexicon import clear_lexicon_cache as clear_en
+        from kokorog2p.fr.lexicon import clear_lexicon_cache as clear_fr
+
+        clear_en()
+        clear_fr()
+        clear_de()
 
 
 def reset_abbreviations() -> None:
@@ -646,7 +815,7 @@ def reset_abbreviations() -> None:
     reset_it()
     reset_pt()
 
-    _g2p_cache.clear()
+    clear_cache(deep=True)
 
     from kokorog2p import pipeline_api
 
@@ -683,6 +852,7 @@ __all__ = [
     "apply_marker_overrides",
     "check_word_alignment",
     "clear_cache",
+    "cache_info",
     "count_words",
     "decode",
     "detect_mismatches",

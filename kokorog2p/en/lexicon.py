@@ -7,7 +7,10 @@ import importlib.resources
 import json
 import re
 import unicodedata
+from collections.abc import Mapping
 from dataclasses import dataclass
+from functools import lru_cache
+from types import MappingProxyType
 from typing import Any, Final
 
 from kokorog2p.en import data
@@ -116,6 +119,39 @@ class TokenContext:
     future_to: bool = False
 
 
+LexiconValue = str | dict[str, str | None]
+LexiconMapping = Mapping[str, LexiconValue]
+EMPTY_LEXICON: Final[LexiconMapping] = MappingProxyType({})
+
+
+@lru_cache(maxsize=4)
+def _load_dictionary(prefix: str, tier: str) -> LexiconMapping:
+    """Load and expand one immutable English dictionary resource."""
+    files = importlib.resources.files(data)
+    with (files / f"{prefix}_{tier}.json").open("r", encoding="utf-8") as stream:
+        loaded: dict[str, LexiconValue] = json.load(stream)
+
+    for word, pronunciation in tuple(loaded.items()):
+        if len(word) < 2:
+            continue
+        if word == word.lower():
+            loaded.setdefault(word.capitalize(), pronunciation)
+        elif word == word.lower().capitalize():
+            loaded.setdefault(word.lower(), pronunciation)
+
+    return MappingProxyType(loaded)
+
+
+def clear_lexicon_cache() -> None:
+    """Release cached English dictionary mappings."""
+    _load_dictionary.cache_clear()
+
+
+def lexicon_cache_info():
+    """Return cache statistics for English dictionary resources."""
+    return _load_dictionary.cache_info()
+
+
 # =============================================================================
 # Stress Functions
 # =============================================================================
@@ -219,23 +255,19 @@ class Lexicon:
         self.load_silver = load_silver
         self.load_gold = load_gold
         self.cap_stresses = (0.5, 2)
-        self.golds: dict[str, str | dict[str, str | None]] = {}
-        self.silvers: dict[str, str] = {}
+        self.golds: LexiconMapping = EMPTY_LEXICON
+        self.silvers: LexiconMapping = EMPTY_LEXICON
 
         # Load dictionaries
         prefix = "gb" if british else "us"
 
         # Only load gold tier if requested
         if load_gold:
-            files = importlib.resources.files(data)
-            with (files / f"{prefix}_gold.json").open("r", encoding="utf-8") as r:
-                self.golds = self._grow_dictionary(json.load(r))
+            self.golds = _load_dictionary(prefix, "gold")
 
         # Only load silver tier if requested
         if load_silver:
-            files = importlib.resources.files(data)
-            with (files / f"{prefix}_silver.json").open("r", encoding="utf-8") as r:
-                self.silvers = self._grow_dictionary(json.load(r))
+            self.silvers = _load_dictionary(prefix, "silver")
 
         # Validate vocabulary (only if gold dictionary is loaded)
         if load_gold:
