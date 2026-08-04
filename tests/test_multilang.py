@@ -108,7 +108,8 @@ class TestGetG2PFallback:
         from kokorog2p.fr import FrenchG2P
 
         clear_cache()
-        g2p = get_g2p("fr")
+        # This test checks factory dispatch; the French spaCy model is optional.
+        g2p = get_g2p("fr", use_spacy=False)
         assert isinstance(g2p, FrenchG2P)
 
     def test_czech_uses_czech_g2p(self):

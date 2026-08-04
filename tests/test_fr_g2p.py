@@ -5,14 +5,32 @@ from unittest.mock import patch
 from kokorog2p.fr import FrenchG2P
 from kokorog2p.fr.fallback import FrenchFallback
 from kokorog2p.fr.lexicon import FrenchLexicon
+from kokorog2p.spacy_models import SpacyModelResolution, SpacyModelSize
 from kokorog2p.token import GToken
+
+
+def _french_model_resolution(*_args, **_kwargs):
+    """Return a deterministic model selection without requiring French spaCy."""
+    return SpacyModelResolution(
+        language="fr",
+        package="fr_core_news_md",
+        size=SpacyModelSize.MD,
+        automatic=True,
+        candidates=("fr_core_news_md",),
+        checked=("fr_core_news_md",),
+        errors=(),
+        spacy_available=True,
+    )
 
 
 class TestFrenchG2P:
     """Tests for FrenchG2P."""
 
-    def test_creation_defaults(self):
+    def test_creation_defaults(self, monkeypatch):
         """Test FrenchG2P default configuration."""
+        monkeypatch.setattr(
+            "kokorog2p.fr.g2p.resolve_spacy_model", _french_model_resolution
+        )
         g2p = FrenchG2P(use_espeak_fallback=False)
         assert g2p.language == "fr-fr"
         assert g2p.use_spacy is True
@@ -66,10 +84,11 @@ class TestFrenchGetG2P:
         assert g2p.fallback is not None
         assert g2p.fallback.use_cli is True
 
-    def test_get_g2p_french_forwards_spacy_model(self):
+    def test_get_g2p_french_forwards_spacy_model(self, monkeypatch):
         """Test get_g2p forwards custom French spaCy model name."""
         from kokorog2p import clear_cache, get_g2p
 
+        monkeypatch.setattr("kokorog2p.resolve_spacy_model", _french_model_resolution)
         clear_cache()
         g2p = get_g2p("fr", spacy_model="fr_core_news_md")
 
