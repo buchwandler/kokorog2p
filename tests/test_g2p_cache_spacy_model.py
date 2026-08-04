@@ -1,7 +1,13 @@
 """Factory resolution and cache identity tests for spaCy selection."""
 
+import pytest
+
 from kokorog2p import clear_cache, get_g2p
-from kokorog2p.spacy_models import SpacyModelResolution, SpacyModelSize
+from kokorog2p.spacy_models import (
+    SpacyModelResolution,
+    SpacyModelResolutionError,
+    SpacyModelSize,
+)
 
 
 def _resolution(package: str, *, automatic: bool = True) -> SpacyModelResolution:
@@ -72,6 +78,57 @@ def test_changed_automatic_resolution_changes_identity(monkeypatch) -> None:
     large = get_g2p("en", load_silver=False, load_gold=False)
 
     assert small is not large
+
+
+def test_implicit_spacy_resolution_falls_back_when_no_model_is_available(
+    monkeypatch,
+) -> None:
+    def fail(*_args, **_kwargs):
+        raise SpacyModelResolutionError(
+            "no local model",
+            language="en",
+            automatic=True,
+            candidates=(),
+            errors=(),
+            spacy_available=False,
+        )
+
+    monkeypatch.setattr("kokorog2p.resolve_spacy_model", fail)
+    clear_cache()
+
+    g2p = get_g2p(
+        "en",
+        use_spacy=None,
+        use_espeak_fallback=False,
+        load_silver=False,
+        load_gold=False,
+    )
+
+    assert g2p.use_spacy is False
+    assert g2p.spacy_model is None
+
+
+def test_explicit_spacy_requirement_remains_strict(monkeypatch) -> None:
+    def fail(*_args, **_kwargs):
+        raise SpacyModelResolutionError(
+            "no local model",
+            language="en",
+            automatic=True,
+            candidates=(),
+            errors=(),
+            spacy_available=False,
+        )
+
+    monkeypatch.setattr("kokorog2p.resolve_spacy_model", fail)
+    clear_cache()
+
+    with pytest.raises(SpacyModelResolutionError, match="no local model"):
+        get_g2p(
+            "en",
+            use_spacy=True,
+            load_silver=False,
+            load_gold=False,
+        )
 
 
 def test_disabled_spacy_does_not_resolve_or_store_a_model(monkeypatch) -> None:

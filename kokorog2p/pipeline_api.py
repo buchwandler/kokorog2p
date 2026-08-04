@@ -22,7 +22,7 @@ from kokorog2p.tokenization import (
     gtokens_to_tokenspans,
     tokenize_with_offsets,
 )
-from kokorog2p.types import OverrideSpan, PhonemizeResult, TokenSpan
+from kokorog2p.types import OverrideSpanLike, PhonemizeResult, TokenSpan
 from kokorog2p.vocab import filter_for_kokoro, phonemes_to_ids, validate_for_kokoro
 
 if TYPE_CHECKING:
@@ -458,7 +458,7 @@ def phonemize_to_result(
     clean_text: str,
     *,
     lang: str | None = None,
-    overrides: list[OverrideSpan] | None = None,
+    overrides: Sequence[OverrideSpanLike] | None = None,
     return_ids: bool = True,
     return_phonemes: bool = True,
     alignment: Literal["span", "legacy"] = "span",

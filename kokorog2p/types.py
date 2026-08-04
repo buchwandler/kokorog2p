@@ -6,8 +6,9 @@ deterministic override application and per-span language switching.
 All character offsets refer to indices in the clean_text (after markup removal).
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 
 @dataclass
@@ -38,6 +39,14 @@ class TokenSpan:
             )
         if self.char_start < 0:
             raise ValueError(f"char_start must be >= 0, got {self.char_start}")
+
+
+class OverrideSpanLike(Protocol):
+    """Structural interface accepted for annotation override spans."""
+
+    char_start: int
+    char_end: int
+    attrs: Mapping[str, str]
 
 
 @dataclass
@@ -99,6 +108,7 @@ class PhonemizeResult:
 
 __all__ = [
     "OverrideSpan",
+    "OverrideSpanLike",
     "PhonemizeResult",
     "TokenSpan",
 ]

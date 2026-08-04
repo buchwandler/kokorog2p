@@ -89,3 +89,33 @@ jobs:
         python -m nltk.downloader cmudict
     - name: Run full integration suite with RSS reporting
       run: python tools/run_pytest_with_memory.py -q
+  minimal-install:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: Setup Python
+      uses: actions/setup-python@master
+      with:
+        python-version: "3.13"
+    - name: Install core package only
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -e .
+        python -m pip install pytest
+    - name: Run no-model smoke tests
+      run: python -m pytest -q tests/test_minimal_install.py tests/test_span_processing.py
+  cross-package:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: Setup Python
+      uses: actions/setup-python@master
+      with:
+        python-version: "3.13"
+    - name: Install optional compatibility packages
+      run: |
+        python -m pip install -e .
+        python -m pip install pytest phrasplit==0.3.4 ssmd==0.8.0
+    - name: Run cross-package compatibility tests
+      run: python -m pytest -q tests/test_ssmd_phrasplit_integration.py

@@ -29,9 +29,9 @@ provides:
 - **Automatic punctuation normalization** (ellipsis, dashes, apostrophes)
 - **Context-aware abbreviation expansion** (e.g., "St." → "Street" or "Saint" based on
   context)
-- **Automatic highest-available spaCy model selection** for supported POS-tagging
-  languages (`trf` > `lg` > `md` > `sm`), with strict `spacy_model` and
-  `spacy_model_size` overrides and no model downloads
+- **Optional highest-available spaCy model selection** for supported POS-tagging
+  languages (`trf` > `lg` > `md` > `sm`), with strict `use_spacy=True`, `spacy_model`,
+  and `spacy_model_size` requests and no model downloads
 - **Number and currency handling** for supported languages
 - **Stress assignment** based on linguistic rules
 
@@ -155,8 +155,9 @@ tokens = g2p("St. Patrick's Day")     # St. → Saint (saint name recognized)
 tokens = g2p("Visit St. Louis")       # St. → Saint (city name recognized)
 tokens = g2p("Born in 1850, St. Peter")  # St. → Saint (distant number ignored)
 
-# Configure spaCy model selection for English POS tagging. With use_spacy=True
-# and no override, the highest installed loadable tier is selected automatically.
+# Configure spaCy model selection for English POS tagging. With use_spacy=None,
+# the highest installed loadable tier is selected automatically; no model falls
+# back to native tokenization. use_spacy=True makes model resolution required.
 g2p_auto = get_g2p("en-us", use_spacy=True)
 
 # Select an exact tier (never falls back if it is not installed)
@@ -277,7 +278,7 @@ g2p = get_g2p("en-us", backend="espeak", strict=True)
 # Your CI will fail with clear error messages if there are issues
 ```
 
-## Pipeline-Friendly API (NEW)
+## Stable Pipeline Span API
 
 kokorog2p now provides a **span-based phonemization API** designed for integration with
 text processing pipelines. This API uses character offsets for deterministic override
@@ -318,9 +319,55 @@ result = phonemize(text, language="en-us", overrides=overrides)
 # "Bonjour" phonemized with French G2P
 ```
 
+### SSMD + phrasplit integration
+
+SSMD and phrasplit both expose zero-based, half-open offsets in their cleaned text.
+kokorog2p accepts those objects structurally, so the packages remain optional:
+
+```python
+import phrasplit
+import ssmd
+
+from kokorog2p import phonemize
+from kokorog2p.integrations import overrides_for_segment, overrides_from_ssmd
+
+source = "Say [tomato]{ipa='təˈmeɪtoʊ'}."
+parsed = ssmd.parse_spans(source)
+overrides = overrides_from_ssmd(parsed.annotations)
+segments = phrasplit.split_with_offsets(
+    parsed.clean_text, mode="sentence", language="en", use_spacy=None
+)
+
+results = []
+for segment in segments:
+    assert parsed.clean_text[segment.char_start:segment.char_end] == segment.text
+    results.append(
+        phonemize(
+            segment.text,
+            language="en-us",
+            overrides=overrides_for_segment(
+                segment.char_start, segment.char_end, overrides
+            ),
+            use_spacy=None,
+        )
+    )
+```
+
+`ipa` attributes are normalized to kokorog2p's `ph` override. X-SAMPA is rejected
+explicitly unless an application performs a tested conversion first. Always rebase
+document-level SSMD spans before phonemizing individual sentence segments; do not align
+duplicate sentences by searching for their text.
+
+`use_spacy=None` tries a local model and falls back without downloading. Use
+`use_spacy=True`, a concrete `spacy_model`, or `spacy_model_size` when a model is
+required; those requests raise a `SpacyModelResolutionError` if unavailable.
+
+Tested compatibility targets are phrasplit 0.3.4 and SSMD 0.8.0 when those packages are
+installed in the integration environment.
+
 ### Documentation
 
-- **[API Reference](docs/api.md)** - Complete function documentation
+- **[API Reference](docs/api/core.md)** - Complete function documentation
 - **[Span Guide](docs/spans.md)** - Understanding character offsets and alignment
 - **[Marker Helper](docs/markers.md)** - Convenient marker-based override syntax
 - **[Examples](examples/)** - Working code examples

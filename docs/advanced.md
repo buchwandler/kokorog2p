@@ -4,6 +4,24 @@ This guide covers advanced features and usage patterns for kokorog2p.
 
 ## Custom G2P Configuration
 
+### Tri-state spaCy model resolution
+
+The factory distinguishes optional model discovery from required model selection:
+
+- `use_spacy=None` attempts the highest installed and loadable local model for the
+  English and French defaults, then falls back to native tokenization.
+- `use_spacy=True` requires a loadable local model and raises
+  `SpacyModelResolutionError` when resolution fails.
+- `use_spacy=False` forces native tokenization. Model arguments are ignored with a
+  warning.
+- A concrete `spacy_model` or exact `spacy_model_size` is always strict when spaCy is
+  enabled.
+
+No path downloads a model. The selected Boolean and concrete package are included in the
+G2P cache identity, so changing local model availability cannot reuse an instance with
+stale tokenization behavior. Per-span `lang` overrides create language-specific G2P
+instances using the same resolution rules.
+
 ### Memory-Efficient Loading
 
 Control dictionary loading to optimize memory and initialization time:

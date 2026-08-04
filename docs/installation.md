@@ -29,15 +29,17 @@ pip install kokorog2p[en]
 
 This includes:
 
-- spaCy with English model
+- spaCy runtime support (models are installed separately and never downloaded by
+  kokorog2p)
 - US and GB dictionaries (gold/silver tiers)
 - Context-dependent pronunciation
 - Number and currency expansion
 
-When spaCy is enabled, English G2P selects the highest installed loadable model in
-`trf > lg > md > sm` order. It never downloads a model automatically. Use
-`spacy_model=...` for a strict concrete package or `spacy_model_size="md"` for a strict
-tier request.
+With `use_spacy=None`, English and French try the highest installed and loadable local
+model in `trf > lg > md > sm` order, then fall back to native tokenization when no model
+is available. `use_spacy=True`, `spacy_model=...`, and `spacy_model_size="md"` are
+strict requests and raise if the requested model is unavailable. No mode downloads
+models.
 
 ### French
 
@@ -96,6 +98,14 @@ This includes:
 - Automatic routing to appropriate G2P engines
 - Support for 17+ languages
 - Caching for performance
+
+### SSMD and phrasplit integration
+
+The integration adapters are dependency-free. Install the upstream packages only when
+your application needs them, and use `overrides_from_ssmd()` plus
+`overrides_for_segment()` to keep document-level clean-text offsets aligned with each
+sentence. The compatibility test targets are phrasplit 0.3.4 and SSMD 0.8.0; they are
+not runtime dependencies of the core package.
 
 ## With Backend Support
 

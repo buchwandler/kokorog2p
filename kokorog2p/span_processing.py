@@ -5,14 +5,16 @@ phoneme/language override application even with duplicates, punctuation, and
 mixed languages.
 """
 
+from collections.abc import Sequence
 from typing import Literal
 
-from kokorog2p.types import OverrideSpan, TokenSpan
+from kokorog2p.integrations import coerce_override_spans
+from kokorog2p.types import TokenSpan
 
 
 def apply_overrides_to_tokens(
     tokens: list[TokenSpan],
-    overrides: list[OverrideSpan],
+    overrides: Sequence[object],
     mode: Literal["snap", "strict"] = "snap",
 ) -> tuple[list[TokenSpan], list[str]]:
     def _format_token(token: TokenSpan) -> str:
@@ -32,12 +34,19 @@ def apply_overrides_to_tokens(
         for t in tokens
     ]
 
-    # Optional: sort overrides for deterministic behavior
-    overrides = sorted(overrides, key=lambda o: (o.char_start, o.char_end))
+    # Normalize structurally compatible spans before applying them.
+    normalized_overrides = sorted(
+        coerce_override_spans(overrides), key=lambda o: (o.char_start, o.char_end)
+    )
 
-    for override in overrides:
+    for override in normalized_overrides:
         overlapping_indices: list[int] = [
-            i for i, token in enumerate(modified_tokens) if override.overlaps(token)
+            i
+            for i, token in enumerate(modified_tokens)
+            if not (
+                override.char_end <= token.char_start
+                or override.char_start >= token.char_end
+            )
         ]
 
         if not overlapping_indices:

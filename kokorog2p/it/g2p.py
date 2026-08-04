@@ -184,6 +184,10 @@ class ItalianG2P(G2PBase):
     def nlp(self) -> object:
         """Lazily initialize spaCy."""
         if self._nlp is None:
+            if self.spacy_model is None:
+                raise RuntimeError(
+                    "spaCy model is required when spaCy tokenization is enabled"
+                )
             self._nlp = load_spacy_model(self.spacy_model, enable=["tok2vec", "tagger"])
         return self._nlp
 

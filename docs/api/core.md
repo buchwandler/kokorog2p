@@ -24,6 +24,27 @@ This module contains the core functionality of kokorog2p.
 .. autofunction:: kokorog2p.reset_abbreviations
 ```
 
+## Pipeline integration adapters
+
+These adapters accept SSMD- and phrasplit-shaped objects structurally, without making
+either package a runtime dependency:
+
+```{eval-rst}
+.. autofunction:: kokorog2p.coerce_override_spans
+```
+
+```{eval-rst}
+.. autofunction:: kokorog2p.overrides_from_ssmd
+```
+
+```{eval-rst}
+.. autofunction:: kokorog2p.overrides_for_segment
+```
+
+```{eval-rst}
+.. autofunction:: kokorog2p.phonemize_segments
+```
+
 ## Base Classes
 
 ### G2PBase

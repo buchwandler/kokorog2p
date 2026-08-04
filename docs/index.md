@@ -71,6 +71,7 @@ quickstart
 languages
 advanced
 abbreviation_customization
+spans
 phonemes
 ```
 

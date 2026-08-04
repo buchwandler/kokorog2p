@@ -1,7 +1,19 @@
 """Tests for span-based override processing."""
 
+from dataclasses import dataclass
+
+import pytest
+
+from kokorog2p.integrations import coerce_override_spans
 from kokorog2p.span_processing import apply_overrides_to_tokens
 from kokorog2p.types import OverrideSpan, TokenSpan
+
+
+@dataclass
+class ForeignAnnotation:
+    char_start: int
+    char_end: int
+    attrs: dict[str, str]
 
 
 class TestApplyOverridesToTokens:
@@ -187,6 +199,29 @@ class TestApplyOverridesToTokens:
         assert len(result_tokens) == 1
         assert "ph" not in result_tokens[0].meta
         assert len(warnings) == 0
+
+    def test_structural_annotation_is_accepted_without_overlaps_method(self):
+        attrs = {"ph": "hɛloʊ", "lang": "en-us"}
+        foreign = ForeignAnnotation(0, 5, attrs)
+
+        result_tokens, warnings = apply_overrides_to_tokens(
+            [TokenSpan("Hello", 0, 5)], [foreign]
+        )
+
+        assert result_tokens[0].meta["ph"] == "hɛloʊ"
+        assert result_tokens[0].lang == "en-us"
+        assert warnings == []
+        assert attrs == {"ph": "hɛloʊ", "lang": "en-us"}
+
+    def test_structural_span_coercion_validates_and_copies_attributes(self):
+        attrs = {"ph": "hɛloʊ"}
+        converted = coerce_override_spans([ForeignAnnotation(0, 5, attrs)])
+
+        assert converted == [OverrideSpan(0, 5, {"ph": "hɛloʊ"})]
+        assert converted[0].attrs is not attrs
+
+        with pytest.raises(TypeError, match="attrs"):
+            coerce_override_spans([ForeignAnnotation(0, 5, {"ph": 1})])  # type: ignore[dict-item]
 
 
 class TestGoldenEdgeCases:

@@ -113,6 +113,71 @@ result = phonemize(text)
 # result.extended_text == "Meet Mister Smith"
 ```
 
+## SSMD and phrasplit compatibility
+
+SSMD `AnnotationSpan` objects and phrasplit `SplitSegment` objects use the same
+coordinate contract as kokorog2p: zero-based, half-open offsets relative to the cleaned
+text. kokorog2p accepts compatible objects by structure; they do not need to inherit
+from or implement kokorog2p classes.
+
+### Normalize SSMD annotations
+
+Use the public adapter before applying annotations:
+
+```python
+from kokorog2p.integrations import overrides_from_ssmd
+
+overrides = overrides_from_ssmd(parsed.annotations)
+```
+
+The normalization rules are:
+
+| Input attribute                  | kokorog2p attribute | Behavior                                  |
+| -------------------------------- | ------------------- | ----------------------------------------- |
+| `ph`                             | `ph`                | Used as a direct phoneme override         |
+| `ipa`                            | `ph`                | Mapped to a direct phoneme override       |
+| `lang` or `language`             | `lang`              | Used as a per-span language override      |
+| `tag`, `node`, `node_id`, `kind` | omitted             | SSMD dispatch metadata is not copied      |
+| `sampa` or X-SAMPA alphabet      | —                   | Rejected explicitly; never treated as IPA |
+
+The adapter copies attribute dictionaries and validates integer offsets. Pass
+`text_length=` when document bounds should also be checked.
+
+### Rebase document spans to sentence segments
+
+SSMD annotations are usually relative to the complete `ParseSpansResult.clean_text`,
+while `phonemize(segment.text)` requires segment-local offsets. Intersect and rebase by
+coordinates:
+
+```python
+from kokorog2p import phonemize
+from kokorog2p.integrations import overrides_for_segment, overrides_from_ssmd
+
+parsed = ssmd.parse_spans(source)
+overrides = overrides_from_ssmd(parsed.annotations)
+segments = phrasplit.split_with_offsets(
+    parsed.clean_text, mode="sentence", language="en", use_spacy=None
+)
+
+results = []
+for segment in segments:
+    assert parsed.clean_text[segment.char_start:segment.char_end] == segment.text
+    results.append(
+        phonemize(
+            segment.text,
+            overrides=overrides_for_segment(
+                segment.char_start, segment.char_end, overrides
+            ),
+            use_spacy=None,
+        )
+    )
+```
+
+`overrides_for_segment()` preserves partial intersections and returns new `OverrideSpan`
+objects. It handles duplicate sentences, punctuation, and whitespace gaps without
+searching for segment text. `phonemize_segments()` provides the same dependency-free
+orchestration when a caller already has a phonemize callable.
+
 ## Character Offset Coordinate System
 
 ### Basic Rules

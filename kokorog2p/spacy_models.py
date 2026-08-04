@@ -265,6 +265,8 @@ def resolve_spacy_model(
 
     if not automatic:
         requested = spacy_model
+        if requested is None:
+            raise AssertionError("non-automatic spaCy resolution requires a model name")
         expected_prefix = f"{_MODEL_PREFIXES[normalized]}_"
         if not requested.startswith(expected_prefix) or requested.rsplit("_", 1)[
             -1

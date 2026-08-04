@@ -34,8 +34,10 @@ Example:
     ...     print(f"{token.text} -> {token.phonemes}")
 """
 
+import warnings
 from collections import OrderedDict, namedtuple
 from collections.abc import Callable
+from collections.abc import Sequence
 from threading import RLock
 from typing import Any, Literal, Optional, Union
 
@@ -56,6 +58,13 @@ from kokorog2p.phonemes import (
 
 # New span-based API
 from kokorog2p.pipeline_api import phonemize_to_result
+from kokorog2p.integrations import (
+    SegmentLike,
+    coerce_override_spans,
+    overrides_for_segment,
+    overrides_from_ssmd,
+    phonemize_segments,
+)
 
 # Punctuation handling
 from kokorog2p.punctuation import (
@@ -69,7 +78,7 @@ from kokorog2p.punctuation import (
 # Core classes
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import tokenize_with_offsets
-from kokorog2p.types import OverrideSpan, PhonemizeResult, TokenSpan
+from kokorog2p.types import OverrideSpan, OverrideSpanLike, PhonemizeResult, TokenSpan
 from kokorog2p.spacy_models import (
     SpacyModelResolution,
     SpacyModelResolutionError,
@@ -106,7 +115,7 @@ except ImportError:
 _G2P_CACHE_MAXSIZE = 8
 _g2p_cache: OrderedDict[tuple[object, ...], G2PBase] = OrderedDict()
 _g2p_cache_lock = RLock()
-_G2PCacheInfo = namedtuple("G2PCacheInfo", "size maxsize policy")
+_G2PCacheInfo = namedtuple("_G2PCacheInfo", "size maxsize policy")
 
 _LANGUAGE_ALIASES = {
     "en": "en-us",
@@ -210,34 +219,56 @@ def _language_family(language: str) -> str:
     return language.split("-", 1)[0]
 
 
-def _effective_spacy(language: str, requested: bool | None) -> bool:
-    """Resolve the existing language-specific spaCy default."""
-
-    if requested is not None:
-        return requested
-    return _SPACY_DEFAULTS_BY_FAMILY.get(_language_family(language), False)
-
-
-def _resolve_factory_spacy_model(
+def _resolve_factory_spacy(
     language: str,
     backend: BackendType,
-    use_spacy: bool,
+    requested: bool | None,
     spacy_model: str | None,
     spacy_model_size: SpacyModelSize | None,
-) -> str | None:
-    """Resolve a model only for a spaCy-backed native language factory."""
+) -> tuple[bool, str | None]:
+    """Resolve optional or required spaCy use for a native language factory.
 
-    if (
-        backend != "kokorog2p"
-        or not use_spacy
-        or _language_family(language) not in _SPACY_MODEL_FAMILIES
-    ):
-        return None
-    return resolve_spacy_model(
-        language,
-        spacy_model=spacy_model,
-        spacy_model_size=spacy_model_size,
-    ).package
+    Automatic resolution is intentionally optional when ``requested`` is
+    ``None``. Explicit enablement, an exact model, or an exact model size is
+    strict and preserves the resolver's actionable error when unavailable.
+    """
+
+    default_enabled = _SPACY_DEFAULTS_BY_FAMILY.get(_language_family(language), False)
+    wants_spacy = default_enabled if requested is None else requested
+
+    if backend != "kokorog2p":
+        return False, None
+
+    if _language_family(language) not in _SPACY_MODEL_FAMILIES:
+        return bool(requested), None
+
+    if not wants_spacy:
+        if not wants_spacy and (
+            spacy_model not in (None, "", "auto") or spacy_model_size is not None
+        ):
+            warnings.warn(
+                "spaCy model arguments are ignored when use_spacy=False.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+        return False, None
+
+    strict_request = (
+        requested is True
+        or spacy_model not in (None, "", "auto")
+        or spacy_model_size is not None
+    )
+    try:
+        resolution = resolve_spacy_model(
+            language,
+            spacy_model=spacy_model or None,
+            spacy_model_size=spacy_model_size,
+        )
+    except SpacyModelResolutionError:
+        if strict_request:
+            raise
+        return False, None
+    return True, resolution.package
 
 
 def _validate_factory_kwargs(
@@ -305,9 +336,10 @@ def get_g2p(
             when using the dictionary-based "kokorog2p" backend. Ignored when
             backend is set to "goruut" (goruut is the primary backend).
         use_spacy: Whether to use spaCy for tokenization and POS tagging. If
-            omitted, the existing language default is used (enabled for English
-            and French, disabled for German, Spanish, Italian, and Portuguese).
-            For Chinese/Japanese/Korean, this remains a reserved API option.
+            ``None``, the highest-quality installed and loadable local model is
+            attempted for languages with spaCy defaults and the native path is
+            used when no model is available. ``True`` requires a loadable model;
+            ``False`` forces the native path. No model is downloaded automatically.
         spacy_model: Concrete spaCy model package name, or ``"auto"`` for the
             highest installed loadable tier. Concrete names are strict.
         spacy_model_size: Exact model tier (``"trf"``, ``"lg"``, ``"md"``, or
@@ -370,8 +402,6 @@ def get_g2p(
     # behaviorally equivalent do not create duplicate instances or voices.
     requested_language = language.lower().replace("_", "-")
     lang = _canonical_language(language)
-    effective_use_spacy = _effective_spacy(lang, use_spacy)
-
     # Validate version parameter
     if version not in ("1.0", "1.1"):
         raise ValueError(
@@ -389,8 +419,8 @@ def get_g2p(
 
     # Resolve before touching the cache. The native CJK implementations accept
     # spaCy arguments for API consistency but do not use spaCy at all.
-    resolved_spacy_model = _resolve_factory_spacy_model(
-        lang, backend, effective_use_spacy, spacy_model, spacy_model_size
+    effective_use_spacy, resolved_spacy_model = _resolve_factory_spacy(
+        lang, backend, use_spacy, spacy_model, spacy_model_size
     )
 
     # Check cache (include all relevant parameters in cache key)
@@ -618,7 +648,7 @@ def phonemize(
     text: str,
     language: str = "en-us",
     *,
-    overrides: list[OverrideSpan] | None = None,
+    overrides: Sequence[OverrideSpanLike] | None = None,
     return_ids: bool = True,
     return_phonemes: bool = True,
     alignment: Literal["span", "legacy"] = "span",
@@ -630,6 +660,8 @@ def phonemize(
     use_spacy: bool | None = None,
     spacy_model: str | None = None,
     spacy_model_size: SpacyModelSize | None = None,
+    load_silver: bool = True,
+    load_gold: bool = True,
     backend: "BackendType" = "kokorog2p",
     g2p: "G2PBase | None" = None,
 ) -> PhonemizeResult:
@@ -705,6 +737,12 @@ def phonemize(
             API consistency but not currently used by native backends.
         spacy_model_size:
             Exact spaCy model tier to use when ``spacy_model`` is omitted.
+        load_silver:
+            Whether to load the optional silver dictionary when constructing a
+            G2P instance.
+        load_gold:
+            Whether to load the optional gold dictionary when constructing a
+            G2P instance.
         backend:
             When constructing a G2P instance, select the backend:
             ``"kokorog2p"``, ``"espeak"``, or ``"goruut"``. Ignored if ``g2p`` is
@@ -752,6 +790,8 @@ def phonemize(
             use_spacy=use_spacy,
             spacy_model=spacy_model,
             spacy_model_size=spacy_model_size,
+            load_silver=load_silver,
+            load_gold=load_gold,
             backend=backend,
         )
 
@@ -893,6 +933,7 @@ __all__ = [
     "MismatchStats",
     "N_TOKENS",
     "OverrideSpan",
+    "OverrideSpanLike",
     "PAD_IDX",
     "PhonemizeResult",
     "Punctuation",
@@ -909,6 +950,7 @@ __all__ = [
     "check_word_alignment",
     "clear_cache",
     "count_words",
+    "coerce_override_spans",
     "decode",
     "detect_mismatches",
     "encode",
@@ -929,9 +971,13 @@ __all__ = [
     "phonemes",
     "phonemes_to_ids",
     "phonemize",
+    "phonemize_segments",
     "preprocess_multilang",
+    "overrides_for_segment",
+    "overrides_from_ssmd",
     "reset_abbreviations",
     "resolve_spacy_model",
+    "SegmentLike",
     "to_espeak",
     "tokenize",
     "validate_for_kokoro",
