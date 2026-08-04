@@ -39,6 +39,7 @@ jobs:
         python -m nltk.downloader cmudict
         if [ "${{ matrix.test-group }}" = "core" ] || [ "${{ matrix.test-group }}" = "english" ]; then
           python -m spacy download en_core_web_md
+          python -m spacy download en_core_web_sm
         fi
     - name: Run test group
       shell: bash
@@ -86,6 +87,7 @@ jobs:
         pip install -e .[all]
         pip install -r requirements-test.txt
         python -m spacy download en_core_web_md
+        python -m spacy download en_core_web_sm
         python -m nltk.downloader cmudict
     - name: Run full integration suite with RSS reporting
       run: python tools/run_pytest_with_memory.py -q
