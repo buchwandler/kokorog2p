@@ -271,6 +271,22 @@ def _resolve_factory_spacy(
     return True, resolution.package
 
 
+def _forward_factory_spacy_model(
+    language: str, requested: str | None, resolved: str | None
+) -> str | None:
+    """Return the model name passed to a native G2P constructor.
+
+    Korean keeps this reserved option for API compatibility without resolving
+    or loading a spaCy model.
+    """
+
+    if resolved is not None:
+        return resolved
+    if _language_family(language) == "ko":
+        return requested
+    return None
+
+
 def _validate_factory_kwargs(
     language: str, backend: BackendType, kwargs: dict[str, Any]
 ) -> None:
@@ -432,15 +448,19 @@ def get_g2p(
                 key=lambda item: item[0],
             )
         )
-    # An explicit model is irrelevant when spaCy is disabled and therefore
-    # must not create a hidden cache variant.
+    # An explicit model is irrelevant when spaCy is disabled for spaCy-backed
+    # languages. Korean is a reserved API case: it does not load spaCy, but it
+    # retains and forwards the configured model name for compatibility.
+    forwarded_spacy_model = _forward_factory_spacy_model(
+        lang, spacy_model, resolved_spacy_model
+    )
     cache_key = (
         lang,
         use_espeak_fallback,
         use_goruut_fallback,
         use_cli,
         effective_use_spacy,
-        resolved_spacy_model,
+        forwarded_spacy_model,
         backend,
         load_silver,
         load_gold,
@@ -459,8 +479,8 @@ def get_g2p(
     # Create G2P instance based on language and backend
     g2p: G2PBase
     extra_kwargs: dict[str, Any] = (
-        {"spacy_model": resolved_spacy_model}
-        if resolved_spacy_model is not None
+        {"spacy_model": forwarded_spacy_model}
+        if forwarded_spacy_model is not None
         else {}
     )
 

@@ -39,7 +39,7 @@ class KoreanG2P(G2PBase):
         use_espeak_fallback: bool = False,
         use_goruut_fallback: bool = False,
         use_spacy: bool = False,
-        spacy_model: str | None = None,
+        spacy_model: str = "ko_core_news_sm",
         load_silver: bool = True,
         load_gold: bool = True,
         use_dict: bool = True,
@@ -78,8 +78,9 @@ class KoreanG2P(G2PBase):
         )
         self.version = version
         self.use_spacy = use_spacy
-        # Reserved for API consistency; Korean never loads spaCy.
-        self.spacy_model = None
+        # Reserved for API consistency; Korean never loads spaCy, but retain
+        # the configured model name for callers that inspect the option.
+        self.spacy_model = spacy_model
         self.load_silver = load_silver
         self.load_gold = load_gold
         self.use_dict = use_dict
