@@ -4,7 +4,7 @@ All notable changes to kokorog2p will be documented in this file.
 
 ## Unreleased
 
-## [0.8.0] - Unreleased
+## [0.7.2] - 2026-08-04
 
 ### Added
 
