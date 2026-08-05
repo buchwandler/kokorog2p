@@ -151,16 +151,16 @@ German G2P uses a large dictionary (738k+ entries from Olaph) with rule-based fa
   - Vowel length rules
   - Schwa in unstressed syllables
 
-- **Deterministic normalization**: German cardinals, decimals, thousands groups,
-  years, conservative ordinals, dates, times, EUR amounts, temperatures, and
-  numbered units are classified before lexical abbreviation expansion.
-- **Abbreviations and units**: Flexible `z.B.`, `d.h.`, and `u.a.` forms, common
-  lexical abbreviations, and grammatical unit forms such as `1 Std.` → `eine
-  Stunde` and `2 kg` → `zwei Kilogramm`.
-- **Ambiguity policy**: Bare sentence-final numbers stay cardinals, invalid dates
-  and times remain unchanged, and unit symbols only expand when preceded by a
-  number. `ca.` is spoken as `zirka`, `etc.` as `ezetera`, and `GmbH`/`AG` use
-  German letter-name spellings.
+- **Deterministic normalization**: German cardinals, decimals, thousands groups, years,
+  conservative ordinals, dates, times, EUR amounts, temperatures, and numbered units are
+  classified before lexical abbreviation expansion.
+- **Abbreviations and units**: Flexible `z.B.`, `d.h.`, and `u.a.` forms, common lexical
+  abbreviations, and grammatical unit forms such as `1 Std.` → `eine Stunde` and `2 kg`
+  → `zwei Kilogramm`.
+- **Ambiguity policy**: Bare sentence-final numbers stay cardinals, invalid dates and
+  times remain unchanged, and unit symbols only expand when preceded by a number. `ca.`
+  is spoken as `zirka`, `etc.` as `ezetera`, and `GmbH`/`AG` use German letter-name
+  spellings.
 
 - **Regional variants**: de-de, de-at, de-ch
 

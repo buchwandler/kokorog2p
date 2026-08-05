@@ -132,11 +132,40 @@ def test_currency(normalizer, source, expected):
     assert normalizer(source) == expected
 
 
+@pytest.mark.parametrize(
+    ("source", "month"),
+    [
+        ("15.01.2026", "Januar"),
+        ("15.02.2026", "Februar"),
+        ("15.03.2026", "März"),
+        ("15.04.2026", "April"),
+        ("15.05.2026", "Mai"),
+        ("15.06.2026", "Juni"),
+        ("15.07.2026", "Juli"),
+        ("15.08.2026", "August"),
+        ("15.09.2026", "September"),
+        ("15.10.2026", "Oktober"),
+        ("15.11.2026", "November"),
+        ("15.12.2026", "Dezember"),
+    ],
+)
+def test_numeric_date_month_mapping(normalizer, source, month):
+    assert month in normalizer(source)
+
+
 def test_dates_times_and_invalid_forms(normalizer):
     assert normalizer("03.01.2026") == "dritte Januar zweitausendsechsundzwanzig"
     assert normalizer("3.1.2026") == "dritte Januar zweitausendsechsundzwanzig"
+    assert normalizer("14.05.2026") == "vierzehnte Mai zweitausendsechsundzwanzig"
     assert (
-        normalizer("am 3. Januar 2026") == "am dritte Januar zweitausendsechsundzwanzig"
+        normalizer("31.12.2026")
+        == "einunddreißigste Dezember zweitausendsechsundzwanzig"
+    )
+    assert normalizer("am 3. Januar 2026") == (
+        "am dritten Januar zweitausendsechsundzwanzig"
+    )
+    assert (
+        normalizer("Zum 14.05.2026") == "Zum vierzehnten Mai zweitausendsechsundzwanzig"
     )
     assert normalizer("14:05") == "vierzehn Uhr fünf"
     assert normalizer("14:05 Uhr") == "vierzehn Uhr fünf"
@@ -160,6 +189,42 @@ def test_temperature_and_numeric_classification(normalizer):
     assert normalizer("am 3. Tag") == "am dritten Tag"
     assert normalizer("der 3. Versuch") == "der dritte Versuch"
     assert normalizer("20°") == "zwanzig°"
+
+
+def test_contextual_ordinal_before_capitalized_noun(normalizer):
+    assert normalizer("auf die 2. Schiene") == "auf die zweite Schiene"
+    assert normalizer("im 3. Kapitel") == "im dritten Kapitel"
+    assert normalizer("die 4. Version") == "die vierte Version"
+    assert normalizer("der 5. Abschnitt") == "der fünfte Abschnitt"
+    assert normalizer("zur 6. Version") == "zur sechsten Version"
+    assert normalizer("auf der 7. Etage") == "auf der siebten Etage"
+    assert normalizer("in dem 8. Raum") == "in dem achten Raum"
+    assert normalizer("vom 9. März 2026") == (
+        "vom neunten März zweitausendsechsundzwanzig"
+    )
+    assert normalizer("Nummer 2. bleibt") == "Nummer zwei. bleibt"
+
+
+def test_requested_cooking_paragraph(normalizer):
+    source = (
+        "Zum 14.05.2026 um 18:20 Uhr ist das Abendessen geplant. "
+        "Für den Auflauf brauchen wir 1,5 kg Kartoffeln, 500 g Quark, "
+        "2 Eier, 1 ltr. Milch und ggf. 3 cm mehr Backpapier. "
+        'Prof. Klein sagt: "Bitte stelle die Form auf die 2. Schiene, '
+        "backe alles für 45 Min. und lass es danach 1 Min. oder auch "
+        '2 Min. ruhen." Die Kosten liegen bei ca. 12,80 EUR zzgl. Pfand.'
+    )
+    expected = (
+        "Zum vierzehnten Mai zweitausendsechsundzwanzig um achtzehn Uhr "
+        "zwanzig ist das Abendessen geplant. Für den Auflauf brauchen wir "
+        "eins Komma fünf Kilogramm Kartoffeln, fünfhundert Gramm Quark, "
+        "zwei Eier, ein Liter Milch und gegebenenfalls drei Zentimeter mehr "
+        'Backpapier. Professor Klein sagt: "Bitte stelle die Form auf die '
+        "zweite Schiene, backe alles für fünfundvierzig Minuten und lass es "
+        'danach eine Minute oder auch zwei Minuten ruhen." Die Kosten liegen '
+        "bei zirka zwölf Euro achtzig Cent zuzüglich Pfand."
+    )
+    assert normalizer(source) == expected
 
 
 def test_structured_numbers_are_independent_of_lexical_abbreviations():

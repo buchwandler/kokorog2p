@@ -7,7 +7,12 @@ from collections.abc import Callable
 from datetime import date
 from decimal import Decimal
 
-from kokorog2p.de.text_rules import MONTHS, NUMBERED_UNITS, NumberedUnit
+from kokorog2p.de.text_rules import (
+    MONTH_NAMES,
+    MONTHS,
+    NUMBERED_UNITS,
+    NumberedUnit,
+)
 
 ORDINALS = frozenset([".", "te", "ter", "tes", "ten", "tem"])
 CURRENCIES = {
@@ -292,9 +297,18 @@ _TIME = re.compile(
 _DATE_NUMERIC = re.compile(
     r"(?<!\w)(?P<day>\d{1,2})\.(?P<month>\d{1,2})\.(?P<year>\d{2,4})(?!\w)"
 )
+_CONTEXTUAL_DATE_NUMERIC = re.compile(
+    r"(?P<prefix>(?<!\w)(?i:am|zum|vom)\s+)"
+    r"(?P<day>\d{1,2})\.(?P<month>\d{1,2})\.(?P<year>\d{2,4})(?!\w)"
+)
 _DATE_TEXT = re.compile(
     r"(?<!\w)(?P<day>\d{1,2})\.\s*(?P<month>[A-Za-zÄÖÜäöü]+)\.?\s+(?P<year>\d{4})(?!\w)",
     re.IGNORECASE,
+)
+_CONTEXTUAL_DATE_TEXT = re.compile(
+    r"(?P<prefix>(?<!\w)(?i:am|zum|vom)\s+)"
+    r"(?P<day>\d{1,2})\.\s*(?P<month>[A-Za-zÄÖÜäöü]+)\.?\s+"
+    r"(?P<year>\d{4})(?!\w)"
 )
 _INVALID_DATE = re.compile(r"(?<!\w)\d{1,2}\.\d{1,2}\.\d{2,4}(?!\w)")
 _INVALID_TIME = re.compile(r"(?<!\w)\d{1,2}:\d{2}(?!\w)")
@@ -304,8 +318,10 @@ _LABEL_NUMBER = re.compile(
     re.IGNORECASE,
 )
 _CONTEXTUAL_ORDINAL = re.compile(
-    r"(?P<prefix>\b(?:am|der|die|im|in|zum|zur)\s+)(?P<number>\d{1,3})\.\s+(?P<noun>Tag|Versuch|Kapitel|Mal)\b",
-    re.IGNORECASE,
+    r"(?P<prefix>\b(?i:am|im|zum|zur|vom|der|die|das|den|dem|des|"
+    r"auf\s+die|auf\s+der|auf\s+dem|in\s+der|in\s+dem)\s+)"
+    r"(?P<number>\d{1,3})\.\s+"
+    r"(?P<noun>[A-ZÄÖÜ][A-Za-zÄÖÜäöüß-]*)\b"
 )
 _GENERIC_NUMBER = re.compile(
     r"(?<![\w:])(?P<number>-?(?:\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:[,.]\d+|\.\d{1,2})?|[,.]\d+))(?![\w:])"
@@ -367,30 +383,57 @@ def _unit_replacer(match: re.Match, converter: GermanNumberConverter) -> str:
     return replacement
 
 
+def _ordinal_with_ending(number: int, ending: str = "e") -> str:
+    ordinal = ordinal_to_german(number)
+    if not ordinal.endswith("e"):
+        return ordinal + ending
+    return ordinal[:-1] + ending
+
+
 def _date_words(
-    day: int, month: int, year: int, converter: GermanNumberConverter
+    day: int,
+    month: int,
+    year: int,
+    converter: GermanNumberConverter,
+    *,
+    ordinal_ending: str = "e",
 ) -> str:
     try:
         date(year, month, day)
     except ValueError:
         return ""
-    month_name = list(MONTHS.values())[month - 1]
-    return f"{ordinal_to_german(day)} {month_name} {converter.convert_year(str(year))}"
+    month_name = MONTH_NAMES[month - 1]
+    ordinal = _ordinal_with_ending(day, ordinal_ending)
+    return f"{ordinal} {month_name} {converter.convert_year(str(year))}"
 
 
-def _text_date_replacer(match: re.Match, converter: GermanNumberConverter) -> str:
+def _text_date_replacer(
+    match: re.Match,
+    converter: GermanNumberConverter,
+    *,
+    ordinal_ending: str = "e",
+) -> str:
     month_name = MONTHS.get(match.group("month").rstrip(".").lower())
     if month_name is None:
         return match.group(0)
-    month_number = next(
-        index
-        for index, value in enumerate(dict.fromkeys(MONTHS.values()), 1)
-        if value == month_name
-    )
+    month_number = MONTH_NAMES.index(month_name) + 1
     result = _date_words(
-        int(match.group("day")), month_number, int(match.group("year")), converter
+        int(match.group("day")),
+        month_number,
+        int(match.group("year")),
+        converter,
+        ordinal_ending=ordinal_ending,
     )
     return result or match.group(0)
+
+
+def _contextual_text_date_replacer(
+    match: re.Match, converter: GermanNumberConverter
+) -> str:
+    result = _text_date_replacer(match, converter, ordinal_ending="en")
+    if result == match.group(0):
+        return result
+    return match.group("prefix") + result
 
 
 def _numeric_date_replacer(match: re.Match, converter: GermanNumberConverter) -> str:
@@ -400,6 +443,21 @@ def _numeric_date_replacer(match: re.Match, converter: GermanNumberConverter) ->
         int(match.group("day")), int(match.group("month")), year, converter
     )
     return result or match.group(0)
+
+
+def _contextual_numeric_date_replacer(
+    match: re.Match, converter: GermanNumberConverter
+) -> str:
+    year = int(match.group("year"))
+    year += 2000 if year < 100 else 0
+    result = _date_words(
+        int(match.group("day")),
+        int(match.group("month")),
+        year,
+        converter,
+        ordinal_ending="en",
+    )
+    return match.group("prefix") + result if result else match.group(0)
 
 
 def _numeric_date_is_valid(match: re.Match) -> bool:
@@ -459,10 +517,23 @@ def _contextual_ordinal_replacer(
     match: re.Match, converter: GermanNumberConverter
 ) -> str:
     prefix = match.group("prefix")
-    number = int(match.group("number"))
-    ordinal = ordinal_to_german(number)
-    if re.match(r"(?:am|im|in|zum|zur)\b", prefix.strip(), re.IGNORECASE):
-        ordinal = ordinal[:-1] + "en" if ordinal.endswith("e") else ordinal + "en"
+    normalized_prefix = " ".join(prefix.lower().split())
+    weak_ending_prefixes = {
+        "am",
+        "im",
+        "zum",
+        "zur",
+        "vom",
+        "den",
+        "dem",
+        "des",
+        "auf der",
+        "auf dem",
+        "in der",
+        "in dem",
+    }
+    ending = "en" if normalized_prefix in weak_ending_prefixes else "e"
+    ordinal = _ordinal_with_ending(int(match.group("number")), ending)
     return f"{prefix}{ordinal} {match.group('noun')}"
 
 
@@ -503,7 +574,13 @@ def expand_structured_numbers(text: str) -> str:
     )
     text = _UNIT_PATTERN.sub(lambda m: _unit_replacer(m, converter), text)
     text = _TEMPERATURE.sub(lambda m: _temperature_replacer(m, converter), text)
+    text = _CONTEXTUAL_DATE_NUMERIC.sub(
+        lambda m: _contextual_numeric_date_replacer(m, converter), text
+    )
     text = _DATE_NUMERIC.sub(lambda m: _numeric_date_replacer(m, converter), text)
+    text = _CONTEXTUAL_DATE_TEXT.sub(
+        lambda m: _contextual_text_date_replacer(m, converter), text
+    )
     text = _DATE_TEXT.sub(lambda m: _text_date_replacer(m, converter), text)
     text = _TIME.sub(lambda m: _time_replacer(m, converter), text)
     text = _LABEL_NUMBER.sub(lambda m: _label_replacer(m, converter), text)
