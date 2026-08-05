@@ -293,10 +293,33 @@ class GermanAbbreviationExpander(AbbreviationExpander):
             )
         )
 
+        for abbreviation, expansion, description in (
+            ("etc.", "ezetera", "Et cetera"),
+            ("u.a.", "unter anderem", "Among other things"),
+            ("zzgl.", "zuzüglich", "Plus/additional"),
+            ("Abk.", "Abkürzung", "Abbreviation"),
+            ("Abb.", "Abbildung", "Illustration"),
+            ("geb.", "geboren", "Born"),
+            ("bspw.", "beispielsweise", "For example"),
+            ("ggü.", "gegenüber", "Opposite"),
+            ("Kap.", "Kapitel", "Chapter"),
+            ("Abs.", "Absatz", "Paragraph"),
+            ("Tsd.", "Tausend", "Thousand"),
+            ("Mio.", "Millionen", "Millions"),
+            ("Mrd.", "Milliarden", "Billions"),
+        ):
+            self.add_abbreviation(
+                AbbreviationEntry(
+                    abbreviation=abbreviation,
+                    expansion=expansion,
+                    description=description,
+                )
+            )
+
         self.add_abbreviation(
             AbbreviationEntry(
                 abbreviation="ca.",
-                expansion="circa",
+                expansion="zirka",
                 description="Approximately",
             )
         )
@@ -359,6 +382,16 @@ class GermanAbbreviationExpander(AbbreviationExpander):
 
         self.add_abbreviation(
             AbbreviationEntry(
+                abbreviation="S.",
+                expansion="Seite",
+                case_sensitive=True,
+                only_if_followed_by=r"^\s*\d",
+                description="Page, only before a page number",
+            )
+        )
+
+        self.add_abbreviation(
+            AbbreviationEntry(
                 abbreviation="Tel.",
                 expansion="Telefon",
                 description="Telephone",
@@ -404,16 +437,18 @@ class GermanAbbreviationExpander(AbbreviationExpander):
         self.add_abbreviation(
             AbbreviationEntry(
                 abbreviation="GmbH",
-                expansion="Gesellschaft mit beschränkter Haftung",
-                description="Limited liability company",
+                expansion="Geh Em Beh Hah",
+                case_sensitive=True,
+                description="Letter-name reading of limited liability company",
             )
         )
 
         self.add_abbreviation(
             AbbreviationEntry(
                 abbreviation="AG",
-                expansion="Aktiengesellschaft",
-                description="Stock corporation",
+                expansion="Ah Geh",
+                case_sensitive=True,
+                description="Letter-name reading of stock corporation",
             )
         )
 
@@ -422,66 +457,6 @@ class GermanAbbreviationExpander(AbbreviationExpander):
                 abbreviation="e.V.",
                 expansion="eingetragener Verein",
                 description="Registered association",
-            )
-        )
-
-        # =====================================================================
-        # MEASUREMENTS
-        # =====================================================================
-
-        self.add_abbreviation(
-            AbbreviationEntry(
-                abbreviation="km",
-                expansion="Kilometer",
-                description="Kilometer",
-            )
-        )
-
-        self.add_abbreviation(
-            AbbreviationEntry(
-                abbreviation="m",
-                expansion="Meter",
-                description="Meter",
-            )
-        )
-
-        self.add_abbreviation(
-            AbbreviationEntry(
-                abbreviation="cm",
-                expansion="Zentimeter",
-                description="Centimeter",
-            )
-        )
-
-        self.add_abbreviation(
-            AbbreviationEntry(
-                abbreviation="mm",
-                expansion="Millimeter",
-                description="Millimeter",
-            )
-        )
-
-        self.add_abbreviation(
-            AbbreviationEntry(
-                abbreviation="kg",
-                expansion="Kilogramm",
-                description="Kilogram",
-            )
-        )
-
-        self.add_abbreviation(
-            AbbreviationEntry(
-                abbreviation="g",
-                expansion="Gramm",
-                description="Gram",
-            )
-        )
-
-        self.add_abbreviation(
-            AbbreviationEntry(
-                abbreviation="mg",
-                expansion="Milligramm",
-                description="Milligram",
             )
         )
 

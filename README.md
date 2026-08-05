@@ -33,6 +33,9 @@ provides:
   languages (`trf` > `lg` > `md` > `sm`), with strict `use_spacy=True`, `spacy_model`,
   and `spacy_model_size` requests and no model downloads
 - **Number and currency handling** for supported languages
+- **German structured normalization** for safe abbreviations, German decimals
+  and thousands separators, dates, times, temperatures, EUR amounts, and
+  number-dependent units (`1 Std.` → `eine Stunde`, `2 kg` → `zwei Kilogramm`)
 - **Stress assignment** based on linguistic rules
 
 ## Installation

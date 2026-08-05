@@ -3,6 +3,15 @@
 German G2P provides phoneme conversion using a large 738k+ entry dictionary with
 rule-based fallback.
 
+German normalization is deterministic and runs before tokenization. It expands
+lexical abbreviations and classifies German structured forms including grouped
+numbers (`1.000`), decimals (`3,14`), EUR amounts, dates, times, temperatures,
+and numbered units with singular/plural agreement. Unit symbols are context
+bound: `2 kg` becomes `zwei Kilogramm`, while a standalone `kg` is preserved.
+Invalid dates/times and ambiguous punctuation are left unchanged. Flexible
+`z.B.`, `d.h.`, and `u.a.` spellings are supported; `ca.` is normalized to
+`zirka`, `etc.` to `ezetera`, and `GmbH`/`AG` to German letter-name spellings.
+
 ## Main Class
 
 ```{eval-rst}

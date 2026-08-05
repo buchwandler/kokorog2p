@@ -1,336 +1,260 @@
-"""Number-to-words conversion for German G2P.
+"""Deterministic German number parsing and text expansion."""
 
-This module provides functions to convert numbers (digits, decimals, ordinals,
-years, currency) into their German word representations for text-to-speech.
-
-Based on the English numbers module, adapted for German language rules.
-"""
+from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from datetime import date
+from decimal import Decimal
 
-# Ordinal suffixes in German
+from kokorog2p.de.text_rules import MONTHS, NUMBERED_UNITS, NumberedUnit
+
 ORDINALS = frozenset([".", "te", "ter", "tes", "ten", "tem"])
-
-# Currency symbols and their German word forms
 CURRENCIES = {
     "€": ("Euro", "Cent"),
+    "EUR": ("Euro", "Cent"),
     "$": ("Dollar", "Cent"),
     "£": ("Pfund", "Pence"),
     "CHF": ("Franken", "Rappen"),
 }
 
+_DIGIT_WORDS = (
+    "null",
+    "eins",
+    "zwei",
+    "drei",
+    "vier",
+    "fünf",
+    "sechs",
+    "sieben",
+    "acht",
+    "neun",
+)
+_TEENS = (
+    "zehn",
+    "elf",
+    "zwölf",
+    "dreizehn",
+    "vierzehn",
+    "fünfzehn",
+    "sechzehn",
+    "siebzehn",
+    "achtzehn",
+    "neunzehn",
+)
+_TENS = (
+    "",
+    "",
+    "zwanzig",
+    "dreißig",
+    "vierzig",
+    "fünfzig",
+    "sechzig",
+    "siebzig",
+    "achtzig",
+    "neunzig",
+)
+
 
 def is_digit(text: str) -> bool:
-    """Check if text consists only of digits."""
-    return bool(re.match(r"^[0-9]+$", text))
+    """Return whether *text* contains only ASCII digits."""
+
+    return bool(re.fullmatch(r"[0-9]+", text))
+
+
+def _normalized_number_text(value: str) -> str | None:
+    value = value.strip()
+    if value.startswith(("+", "-")):
+        sign, value = value[0], value[1:]
+    else:
+        sign = ""
+    if not value:
+        return None
+    if re.fullmatch(r"\d{1,3}(?:\.\d{3})+", value):
+        value = value.replace(".", "")
+    elif not re.fullmatch(r"\d+", value):
+        return None
+    return sign + value
 
 
 def is_currency_amount(word: str) -> bool:
-    """Check if word looks like a currency amount (e.g., '12,99' or '12.99')."""
-    # German uses comma as decimal separator
-    parts = word.replace(".", "").split(",")
-    if len(parts) > 2:
-        return False
-    return all(is_digit(p) for p in parts if p)
+    """Return whether *word* is a valid German-style amount."""
+
+    candidate = word.strip().lstrip("+-")
+    if re.fullmatch(r"\d{1,3}(?:\.\d{3})+(?:,\d+)?", candidate):
+        return True
+    return bool(re.fullmatch(r"\d+(?:[,.]\d+)?|[,.]\d+", candidate))
+
+
+def _under_thousand(n: int) -> str:
+    if n < 10:
+        return _DIGIT_WORDS[n]
+    if n < 20:
+        return _TEENS[n - 10]
+    if n < 100:
+        return (
+            _TENS[n // 10]
+            if n % 10 == 0
+            else _DIGIT_WORDS[n % 10].replace("eins", "ein") + "und" + _TENS[n // 10]
+        )
+    hundreds, remainder = divmod(n, 100)
+    prefix = "einhundert" if hundreds == 1 else _DIGIT_WORDS[hundreds] + "hundert"
+    return prefix + (_under_thousand(remainder) if remainder else "")
 
 
 def number_to_german(n: int) -> str:
-    """Convert an integer to German words.
+    """Convert an integer to deterministic German cardinal words."""
 
-    This is a fallback when num2words is not available.
-
-    Args:
-        n: Integer to convert.
-
-    Returns:
-        German word representation.
-    """
     if n < 0:
         return "minus " + number_to_german(-n)
-
-    if n == 0:
-        return "null"
-
-    ones = [
-        "",
-        "eins",
-        "zwei",
-        "drei",
-        "vier",
-        "fünf",
-        "sechs",
-        "sieben",
-        "acht",
-        "neun",
-        "zehn",
-        "elf",
-        "zwölf",
-        "dreizehn",
-        "vierzehn",
-        "fünfzehn",
-        "sechzehn",
-        "siebzehn",
-        "achtzehn",
-        "neunzehn",
-    ]
-
-    tens = [
-        "",
-        "",
-        "zwanzig",
-        "dreißig",
-        "vierzig",
-        "fünfzig",
-        "sechzig",
-        "siebzig",
-        "achtzig",
-        "neunzig",
-    ]
-
-    if n < 20:
-        return ones[n]
-    elif n < 100:
-        if n % 10 == 0:
-            return tens[n // 10]
-        elif n % 10 == 1:
-            return "einund" + tens[n // 10]
-        else:
-            return ones[n % 10] + "und" + tens[n // 10]
-    elif n < 1000:
-        if n % 100 == 0:
-            return ones[n // 100] + "hundert" if n // 100 > 1 else "hundert"
-        else:
-            prefix = ones[n // 100] + "hundert" if n // 100 > 1 else "hundert"
-            return prefix + number_to_german(n % 100)
-    elif n < 1000000:
-        thousands = n // 1000
-        remainder = n % 1000
-        if thousands == 1:
-            prefix = "eintausend"
-        else:
-            prefix = number_to_german(thousands) + "tausend"
-        if remainder == 0:
-            return prefix
-        return prefix + number_to_german(remainder)
-    elif n < 1000000000:
-        millions = n // 1000000
-        remainder = n % 1000000
-        if millions == 1:
-            prefix = "eine Million"
-        else:
-            prefix = number_to_german(millions) + " Millionen"
-        if remainder == 0:
-            return prefix
-        return prefix + " " + number_to_german(remainder)
-    elif n < 1000000000000:
-        billions = n // 1000000000
-        remainder = n % 1000000000
-        if billions == 1:
-            prefix = "eine Milliarde"
-        else:
-            prefix = number_to_german(billions) + " Milliarden"
-        if remainder == 0:
-            return prefix
-        return prefix + " " + number_to_german(remainder)
-    else:
-        return str(n)
+    if n < 1000:
+        return _under_thousand(n)
+    if n < 1_000_000:
+        thousands, remainder = divmod(n, 1000)
+        prefix = (
+            "eintausend" if thousands == 1 else number_to_german(thousands) + "tausend"
+        )
+        return prefix + (number_to_german(remainder) if remainder else "")
+    if n < 1_000_000_000:
+        millions, remainder = divmod(n, 1_000_000)
+        prefix = (
+            "eine Million"
+            if millions == 1
+            else number_to_german(millions) + " Millionen"
+        )
+        return prefix + (" " + number_to_german(remainder) if remainder else "")
+    if n < 1_000_000_000_000:
+        billions, remainder = divmod(n, 1_000_000_000)
+        prefix = (
+            "eine Milliarde"
+            if billions == 1
+            else number_to_german(billions) + " Milliarden"
+        )
+        return prefix + (" " + number_to_german(remainder) if remainder else "")
+    return str(n)
 
 
 def ordinal_to_german(n: int) -> str:
-    """Convert an integer to German ordinal words.
+    """Convert an integer to a basic German ordinal form."""
 
-    Args:
-        n: Integer to convert.
-
-    Returns:
-        German ordinal word representation.
-    """
     if n <= 0:
         return str(n) + "."
-
-    # Special cases
-    special = {
-        1: "erste",
-        3: "dritte",
-        7: "siebte",
-        8: "achte",
-    }
-
+    special = {1: "erste", 3: "dritte", 7: "siebte", 8: "achte"}
     if n in special:
         return special[n]
-    elif n < 20:
-        return number_to_german(n) + "te"
-    else:
-        return number_to_german(n) + "ste"
+    return number_to_german(n) + ("te" if n < 20 else "ste")
+
+
+def _decimal_parts(value: str) -> tuple[str, str] | None:
+    value = value.strip().lstrip("+-")
+    if not value:
+        return None
+    if re.fullmatch(r"\d{1,3}(?:\.\d{3})+,\d+", value):
+        integer, fraction = value.split(",", 1)
+        return integer.replace(".", ""), fraction
+    if "," in value:
+        integer, fraction = value.split(",", 1)
+        if not integer:
+            integer = "0"
+        return (
+            integer if integer.isdigit() else None,
+            fraction if fraction.isdigit() else None,
+        )  # type: ignore[return-value]
+    if value.count(".") == 1:
+        integer, fraction = value.split(".", 1)
+        if integer.isdigit() and fraction.isdigit() and len(fraction) <= 2:
+            return integer, fraction
+    if value.startswith(".") and value[1:].isdigit():
+        return "0", value[1:]
+    if value.isdigit():
+        return value, ""
+    return None
 
 
 class GermanNumberConverter:
-    """Convert numbers to their German word representations.
-
-    This class handles various number formats including:
-    - Cardinal numbers (1, 2, 3 -> eins, zwei, drei)
-    - Ordinal numbers (1., 2. -> erste, zweite)
-    - Years (1984 -> neunzehnhundertvierundachtzig)
-    - Decimals (3,14 -> drei Komma eins vier)
-    - Currency (12,50€ -> zwölf Euro fünfzig)
-    """
+    """Convert German numeric forms without optional runtime dependencies."""
 
     def __init__(
-        self,
-        lookup_fn: Callable[[str, str | None], str | None] | None = None,
+        self, lookup_fn: Callable[[str, str | None], str | None] | None = None
     ) -> None:
-        """Initialize the German number converter.
-
-        Args:
-            lookup_fn: Optional function to look up words in the lexicon.
-        """
         self.lookup = lookup_fn
         self._num2words: Callable | None = None
 
     @property
     def num2words(self) -> Callable:
-        """Lazily import num2words with German language."""
+        """Compatibility callable retained for callers of the old API."""
+
         if self._num2words is None:
-            try:
-                from num2words import num2words
-
-                def german_num2words(n, to="cardinal"):
-                    return num2words(n, lang="de", to=to)
-
-                self._num2words = german_num2words
-            except ImportError:
-                # Fallback to built-in converter
-                def fallback(n, to="cardinal"):
-                    if to == "ordinal":
-                        return ordinal_to_german(int(n))
-                    return number_to_german(int(n))
-
-                self._num2words = fallback
+            self._num2words = lambda n, to="cardinal": (
+                ordinal_to_german(int(n))
+                if to == "ordinal"
+                else number_to_german(int(n))
+            )
         return self._num2words
 
     def convert_cardinal(self, word: str) -> str:
-        """Convert cardinal number to German words.
-
-        Args:
-            word: Number string (e.g., "42", "1.000").
-
-        Returns:
-            German word representation.
-        """
-        # Remove thousand separators (German uses . for thousands)
-        word = word.replace(".", "")
+        normalized = _normalized_number_text(word)
+        if normalized is None:
+            return word
         try:
-            return self.num2words(int(word), to="cardinal")
+            return number_to_german(int(normalized))
         except (ValueError, OverflowError):
             return word
 
     def convert_ordinal(self, word: str) -> str:
-        """Convert ordinal number to German words.
-
-        Args:
-            word: Number string (e.g., "1", "42").
-
-        Returns:
-            German ordinal word representation.
-        """
-        word = word.replace(".", "")
+        normalized = _normalized_number_text(word.rstrip("."))
+        if normalized is None:
+            return word
         try:
-            return self.num2words(int(word), to="ordinal")
+            return ordinal_to_german(int(normalized))
         except (ValueError, OverflowError):
             return word
 
     def convert_year(self, word: str) -> str:
-        """Convert year to German words.
-
-        Args:
-            word: Year string (e.g., "1984", "2024").
-
-        Returns:
-            German year word representation.
-        """
         try:
             year = int(word)
-            if 1100 <= year <= 1999:
-                # Traditional German year reading: 1984 -> neunzehnhundertvierundachtzig
-                century = year // 100
-                remainder = year % 100
-                century_word = self.num2words(century, to="cardinal")
-                if remainder == 0:
-                    return century_word + "hundert"
-                remainder_word = self.num2words(remainder, to="cardinal")
-                return century_word + "hundert" + remainder_word
-            else:
-                # Modern years: 2024 -> zweitausendvierundzwanzig
-                return self.num2words(year, to="cardinal")
-        except (ValueError, OverflowError):
+        except ValueError:
             return word
+        if 1100 <= year <= 1999:
+            century, remainder = divmod(year, 100)
+            return (
+                number_to_german(century)
+                + "hundert"
+                + (number_to_german(remainder) if remainder else "")
+            )
+        return number_to_german(year)
 
     def convert_decimal(self, word: str) -> str:
-        """Convert decimal number to German words.
-
-        German uses comma as decimal separator.
-
-        Args:
-            word: Decimal string (e.g., "3,14" or "3.14").
-
-        Returns:
-            German word representation.
-        """
-        # Normalize to comma (German style)
-        word = word.replace(".", ",")
-        parts = word.split(",")
-
-        if len(parts) == 1:
-            return self.convert_cardinal(parts[0])
-
-        integer_part = self.convert_cardinal(parts[0]) if parts[0] else "null"
-        # Read decimal digits individually
-        decimal_digits = " ".join(
-            self.num2words(int(d), to="cardinal") for d in parts[1]
+        sign = "minus " if word.strip().startswith("-") else ""
+        parts = _decimal_parts(word)
+        if parts is None:
+            return word
+        integer, fraction = parts
+        if not fraction:
+            return sign + self.convert_cardinal(integer)
+        return (
+            sign
+            + self.convert_cardinal(integer)
+            + " Komma "
+            + " ".join(_DIGIT_WORDS[int(d)] for d in fraction)
         )
 
-        return f"{integer_part} Komma {decimal_digits}"
-
     def convert_currency(self, word: str, currency: str) -> str:
-        """Convert currency amount to German words.
-
-        Args:
-            word: Amount string (e.g., "12,50").
-            currency: Currency symbol (e.g., "€").
-
-        Returns:
-            German currency word representation.
-        """
-        currency_names = CURRENCIES.get(currency, ("", ""))
-
-        # Normalize decimal separator
-        word = word.replace(".", ",")
-        parts = word.split(",")
-
-        result_parts = []
-
-        # Integer part (euros/dollars/etc.)
-        if parts[0]:
-            int_val = int(parts[0])
-            int_word = self.num2words(int_val, to="cardinal")
-            unit = currency_names[0]
-            result_parts.append(f"{int_word} {unit}")
-
-        # Decimal part (cents/etc.)
-        if len(parts) > 1 and parts[1] and int(parts[1]) > 0:
-            dec_val = int(parts[1])
-            # Ensure two-digit cents
-            if len(parts[1]) == 1:
-                dec_val *= 10
-            dec_word = self.num2words(dec_val, to="cardinal")
-            unit = currency_names[1] if len(currency_names) > 1 else ""
-            if result_parts:
-                result_parts.append(f"{dec_word} {unit}")
-            else:
-                result_parts.append(f"{dec_word} {unit}")
-
-        return " ".join(result_parts).strip()
+        sign = "minus " if word.strip().startswith("-") else ""
+        candidate = word.strip().lstrip("+-")
+        parts = _decimal_parts(candidate)
+        if parts is None:
+            return word
+        integer, fraction = parts
+        names = CURRENCIES.get(currency, ("", ""))
+        integer_word = self.convert_cardinal(integer)
+        if integer_word == "eins":
+            integer_word = "ein"
+        result = [integer_word, names[0]]
+        if fraction and int(fraction) > 0:
+            cents = (fraction + "0")[:2]
+            result.extend((self.convert_cardinal(cents), names[1]))
+        return sign + " ".join(result)
 
     def convert(
         self,
@@ -339,84 +263,271 @@ class GermanNumberConverter:
         is_ordinal: bool = False,
         is_year: bool = False,
     ) -> str:
-        """Convert a number to its German word representation.
+        if is_ordinal:
+            return self.convert_ordinal(word)
+        if currency and currency in CURRENCIES:
+            return self.convert_currency(word, currency)
+        if is_year and re.fullmatch(r"\d{4}", word):
+            return self.convert_year(word)
+        if _decimal_parts(word) and ("," in word or "." in word):
+            return self.convert_decimal(word)
+        return self.convert_cardinal(word)
 
-        Args:
-            word: The number string to convert.
-            currency: Optional currency symbol (e.g., '€').
-            is_ordinal: Whether to convert as ordinal.
-            is_year: Whether to convert as year.
 
-        Returns:
-            German word representation.
-        """
-        # Handle negative numbers
-        negative = False
-        if word.startswith("-"):
-            negative = True
-            word = word[1:]
+_NUMBER = r"-?(?:\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:[,.]\d+)?|[,.]\d+)"
+_UNIT_ALTERNATIVE = "|".join(unit.pattern for unit in NUMBERED_UNITS)
+_UNIT_PATTERN = re.compile(
+    rf"(?<!\w)(?P<number>{_NUMBER})\s*(?P<unit>{_UNIT_ALTERNATIVE})(?!\w)"
+)
+_CURRENCY_SUFFIX = re.compile(
+    rf"(?<!\w)(?P<number>{_NUMBER})\s*(?P<currency>EUR|€|\$|£|CHF)(?!\w)"
+)
+_CURRENCY_PREFIX = re.compile(
+    rf"(?<!\w)(?P<currency>EUR|€|\$|£|CHF)\s*(?P<number>{_NUMBER})(?!\w)"
+)
+_TEMPERATURE = re.compile(rf"(?<!\w)(?P<number>{_NUMBER})\s*°\s*(?P<unit>[CFcf])(?!\w)")
+_TIME = re.compile(
+    r"(?<!\w)(?P<hour>\d{1,2}):(?P<minute>\d{2})(?P<suffix>\s*Uhr)?(?!\w)"
+)
+_DATE_NUMERIC = re.compile(
+    r"(?<!\w)(?P<day>\d{1,2})\.(?P<month>\d{1,2})\.(?P<year>\d{2,4})(?!\w)"
+)
+_DATE_TEXT = re.compile(
+    r"(?<!\w)(?P<day>\d{1,2})\.\s*(?P<month>[A-Za-zÄÖÜäöü]+)\.?\s+(?P<year>\d{4})(?!\w)",
+    re.IGNORECASE,
+)
+_INVALID_DATE = re.compile(r"(?<!\w)\d{1,2}\.\d{1,2}\.\d{2,4}(?!\w)")
+_INVALID_TIME = re.compile(r"(?<!\w)\d{1,2}:\d{2}(?!\w)")
+_LABEL_NUMBER = re.compile(
+    r"(?P<label>Nummer|laufende Nummer|Gleis|Kapitel|Absatz|Seite)"
+    r"(?P<space>\s+)(?P<number>\d+)(?P<period>\.)?",
+    re.IGNORECASE,
+)
+_CONTEXTUAL_ORDINAL = re.compile(
+    r"(?P<prefix>\b(?:am|der|die|im|in|zum|zur)\s+)(?P<number>\d{1,3})\.\s+(?P<noun>Tag|Versuch|Kapitel|Mal)\b",
+    re.IGNORECASE,
+)
+_GENERIC_NUMBER = re.compile(
+    r"(?<![\w:])(?P<number>-?(?:\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:[,.]\d+|\.\d{1,2})?|[,.]\d+))(?![\w:])"
+)
 
-        result = ""
 
-        if is_ordinal or word.endswith("."):
-            # Ordinal number
-            word = word.rstrip(".")
-            result = self.convert_ordinal(word)
-        elif is_year and len(word) == 4 and is_digit(word):
-            # Year
-            result = self.convert_year(word)
-        elif currency and currency in CURRENCIES:
-            # Currency amount
-            result = self.convert_currency(word, currency)
-        elif "," in word or ("." in word and word.count(".") == 1):
-            # Decimal number
-            result = self.convert_decimal(word)
-        else:
-            # Cardinal number
-            result = self.convert_cardinal(word)
+def _decimal_value(value: str) -> Decimal | None:
+    parts = _decimal_parts(value)
+    if parts is None:
+        normalized = _normalized_number_text(value)
+        if normalized is None:
+            return None
+        return Decimal(normalized)
+    return Decimal(f"{parts[0]}.{parts[1]}")
 
-        if negative:
-            result = "minus " + result
 
-        return result
+def _unit_words(
+    number: str, unit: NumberedUnit, converter: GermanNumberConverter
+) -> str:
+    value = _decimal_value(number)
+    if value is None:
+        return number
+    singular = abs(value) == Decimal(1)
+    if singular:
+        article = "eine" if unit.gender == "f" else "ein"
+        if number.startswith("-"):
+            return "minus " + article + " " + unit.singular
+        return article + " " + unit.singular
+    numeric = (
+        converter.convert_decimal(number)
+        if (
+            "," in number
+            or ("." in number and not re.fullmatch(r"\d{1,3}(?:\.\d{3})+", number))
+        )
+        else converter.convert_cardinal(number)
+    )
+    return numeric + " " + unit.plural
+
+
+def _unit_replacer(match: re.Match, converter: GermanNumberConverter) -> str:
+    unit_text = match.group("unit")
+    unit = next(
+        (
+            candidate
+            for candidate in NUMBERED_UNITS
+            if re.fullmatch(candidate.pattern, unit_text, candidate.flags)
+        ),
+        None,
+    )
+    if unit is None:
+        return match.group(0)
+    replacement = _unit_words(match.group("number"), unit, converter)
+    if (
+        unit.dotted
+        and match.end() == len(match.string)
+        and not match.string.endswith("..")
+    ):
+        replacement += "."
+    return replacement
+
+
+def _date_words(
+    day: int, month: int, year: int, converter: GermanNumberConverter
+) -> str:
+    try:
+        date(year, month, day)
+    except ValueError:
+        return ""
+    month_name = list(MONTHS.values())[month - 1]
+    return f"{ordinal_to_german(day)} {month_name} {converter.convert_year(str(year))}"
+
+
+def _text_date_replacer(match: re.Match, converter: GermanNumberConverter) -> str:
+    month_name = MONTHS.get(match.group("month").rstrip(".").lower())
+    if month_name is None:
+        return match.group(0)
+    month_number = next(
+        index
+        for index, value in enumerate(dict.fromkeys(MONTHS.values()), 1)
+        if value == month_name
+    )
+    result = _date_words(
+        int(match.group("day")), month_number, int(match.group("year")), converter
+    )
+    return result or match.group(0)
+
+
+def _numeric_date_replacer(match: re.Match, converter: GermanNumberConverter) -> str:
+    year = int(match.group("year"))
+    year += 2000 if year < 100 else 0
+    result = _date_words(
+        int(match.group("day")), int(match.group("month")), year, converter
+    )
+    return result or match.group(0)
+
+
+def _numeric_date_is_valid(match: re.Match) -> bool:
+    day_text, month_text, year_text = match.group(0).split(".")
+    year = int(year_text)
+    year += 2000 if year < 100 else 0
+    try:
+        date(year, int(month_text), int(day_text))
+    except ValueError:
+        return False
+    return True
+
+
+def _time_replacer(match: re.Match, converter: GermanNumberConverter) -> str:
+    hour, minute = int(match.group("hour")), int(match.group("minute"))
+    if hour > 23 or minute > 59:
+        return match.group(0)
+    hour_word = converter.convert_cardinal(str(hour)).replace("eins", "ein")
+    minute_word = converter.convert_cardinal(str(minute))
+    return f"{hour_word} Uhr" if minute == 0 else f"{hour_word} Uhr {minute_word}"
+
+
+def _time_is_valid(match: re.Match) -> bool:
+    hour_text, minute_text = match.group(0).split(":", 1)
+    return int(hour_text) <= 23 and int(minute_text) <= 59
+
+
+def _temperature_replacer(match: re.Match, converter: GermanNumberConverter) -> str:
+    number = match.group("number")
+    number_words = (
+        converter.convert_decimal(number)
+        if (
+            "," in number
+            or "." in number
+            and not re.fullmatch(r"\d{1,3}(?:\.\d{3})+", number)
+        )
+        else converter.convert_cardinal(number)
+    )
+    if number_words == "eins":
+        number_words = "ein"
+    unit_name = "Celsius" if match.group("unit").upper() == "C" else "Fahrenheit"
+    return f"{number_words} Grad {unit_name}"
+
+
+def _label_replacer(match: re.Match, converter: GermanNumberConverter) -> str:
+    label = match.group("label")
+    if label.lower() == "laufende nummer":
+        label = "laufende Nummer"
+    elif label and label[0].isupper():
+        label = label[0].upper() + label[1:].lower()
+    number = converter.convert_cardinal(match.group("number"))
+    period = match.group("period") or ""
+    return f"{label}{match.group('space')}{number}{period}"
+
+
+def _contextual_ordinal_replacer(
+    match: re.Match, converter: GermanNumberConverter
+) -> str:
+    prefix = match.group("prefix")
+    number = int(match.group("number"))
+    ordinal = ordinal_to_german(number)
+    if re.match(r"(?:am|im|in|zum|zur)\b", prefix.strip(), re.IGNORECASE):
+        ordinal = ordinal[:-1] + "en" if ordinal.endswith("e") else ordinal + "en"
+    return f"{prefix}{ordinal} {match.group('noun')}"
+
+
+def expand_structured_numbers(text: str) -> str:
+    """Expand structured German expressions in safe classification order."""
+
+    if not text:
+        return text
+    converter = GermanNumberConverter()
+    protected: dict[str, str] = {}
+
+    def protect_invalid(pattern: re.Pattern, value: re.Match) -> str:
+        token = f"\ue000{chr(0xE100 + len(protected))}\ue001"
+        protected[token] = value.group(0)
+        return token
+
+    text = _INVALID_DATE.sub(
+        lambda m: (
+            protect_invalid(_INVALID_DATE, m)
+            if not _numeric_date_is_valid(m)
+            else m.group(0)
+        ),
+        text,
+    )
+    text = _INVALID_TIME.sub(
+        lambda m: (
+            protect_invalid(_INVALID_TIME, m) if not _time_is_valid(m) else m.group(0)
+        ),
+        text,
+    )
+    text = _CURRENCY_SUFFIX.sub(
+        lambda m: converter.convert_currency(m.group("number"), m.group("currency")),
+        text,
+    )
+    text = _CURRENCY_PREFIX.sub(
+        lambda m: converter.convert_currency(m.group("number"), m.group("currency")),
+        text,
+    )
+    text = _UNIT_PATTERN.sub(lambda m: _unit_replacer(m, converter), text)
+    text = _TEMPERATURE.sub(lambda m: _temperature_replacer(m, converter), text)
+    text = _DATE_NUMERIC.sub(lambda m: _numeric_date_replacer(m, converter), text)
+    text = _DATE_TEXT.sub(lambda m: _text_date_replacer(m, converter), text)
+    text = _TIME.sub(lambda m: _time_replacer(m, converter), text)
+    text = _LABEL_NUMBER.sub(lambda m: _label_replacer(m, converter), text)
+    text = _CONTEXTUAL_ORDINAL.sub(
+        lambda m: _contextual_ordinal_replacer(m, converter), text
+    )
+
+    def generic_replacer(match: re.Match) -> str:
+        number = match.group("number")
+        if "," in number or (
+            number.count(".") == 1 and len(number.rsplit(".", 1)[1]) <= 2
+        ):
+            return converter.convert_decimal(number)
+        if re.fullmatch(r"\d{4}", number) and 1100 <= int(number) <= 2999:
+            return converter.convert_year(number)
+        return converter.convert_cardinal(number)
+
+    text = _GENERIC_NUMBER.sub(generic_replacer, text)
+    for token, original in protected.items():
+        text = text.replace(token, original)
+    return text
 
 
 def expand_number(text: str) -> str:
-    """Expand numbers in text to German words.
+    """Expand numbers and structured numeric expressions in *text*."""
 
-    This is a convenience function for simple number expansion.
-
-    Args:
-        text: Text potentially containing numbers.
-
-    Returns:
-        Text with numbers expanded to German words.
-    """
-    converter = GermanNumberConverter()
-
-    def replace_number(match: re.Match) -> str:
-        word = match.group(0)
-
-        # Check for currency
-        currency = None
-        if word.endswith("€"):
-            currency = "€"
-            word = word[:-1]
-        elif word.startswith("€"):
-            currency = "€"
-            word = word[1:]
-
-        # Check for ordinal (ends with .)
-        is_ordinal = word.endswith(".") and is_digit(word.rstrip("."))
-
-        # Check for year (4-digit standalone number)
-        is_year = len(word) == 4 and is_digit(word)
-
-        return converter.convert(
-            word, currency=currency, is_ordinal=is_ordinal, is_year=is_year
-        )
-
-    # Match numbers with optional currency symbols
-    pattern = r"€?\-?[\d.,]+€?\.?"
-
-    return re.sub(pattern, replace_number, text)
+    return expand_structured_numbers(text)
