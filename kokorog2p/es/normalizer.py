@@ -9,7 +9,7 @@ This module provides Spanish-specific text normalization including:
 
 import re
 
-from kokorog2p.es.abbreviations import get_expander
+from abbr2words import get_shared_expander
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
 
 
@@ -188,7 +188,7 @@ class SpanishNormalizer(TextNormalizer):
         """
         self.expand_abbreviations = expand_abbreviations
         self.abbrev_expander = (
-            get_expander(enable_context_detection=enable_context_detection)
+            get_shared_expander("es", context=enable_context_detection)
             if expand_abbreviations
             else None
         )

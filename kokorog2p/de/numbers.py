@@ -249,8 +249,12 @@ class GermanNumberConverter:
         candidate = word.strip().lstrip("+-")
         parts = _decimal_parts(candidate)
         if parts is None:
-            return word
-        integer, fraction = parts
+            normalized = _normalized_number_text(candidate)
+            if normalized is None:
+                return word
+            integer, fraction = normalized, ""
+        else:
+            integer, fraction = parts
         names = CURRENCIES.get(currency, ("", ""))
         integer_word = self.convert_cardinal(integer)
         if integer_word == "eins":
@@ -280,7 +284,17 @@ class GermanNumberConverter:
 
 
 _NUMBER = r"-?(?:\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:[,.]\d+)?|[,.]\d+)"
-_UNIT_ALTERNATIVE = "|".join(unit.pattern for unit in NUMBERED_UNITS)
+
+
+def _scoped_unit_pattern(unit: NumberedUnit) -> str:
+    """Return a master-regex alternative that preserves per-unit flags."""
+
+    if unit.flags & re.IGNORECASE:
+        return rf"(?i:{unit.pattern})"
+    return rf"(?:{unit.pattern})"
+
+
+_UNIT_ALTERNATIVE = "|".join(_scoped_unit_pattern(unit) for unit in NUMBERED_UNITS)
 _UNIT_PATTERN = re.compile(
     rf"(?<!\w)(?P<number>{_NUMBER})\s*(?P<unit>{_UNIT_ALTERNATIVE})(?!\w)"
 )
@@ -318,8 +332,12 @@ _LABEL_NUMBER = re.compile(
     re.IGNORECASE,
 )
 _CONTEXTUAL_ORDINAL = re.compile(
-    r"(?P<prefix>\b(?i:am|im|zum|zur|vom|der|die|das|den|dem|des|"
-    r"auf\s+die|auf\s+der|auf\s+dem|in\s+der|in\s+dem)\s+)"
+    r"(?P<prefix>\b(?i:"
+    r"auf\s+(?:die|der|dem|das|den)|"
+    r"in\s+(?:die|der|dem|das|den)|"
+    r"an\s+(?:die|der|dem|das|den)|"
+    r"am|im|ins|ans|zum|zur|vom|der|die|das|den|dem|des"
+    r")\s+)"
     r"(?P<number>\d{1,3})\.\s+"
     r"(?P<noun>[A-ZÄÖÜ][A-Za-zÄÖÜäöüß-]*)\b"
 )
@@ -529,8 +547,13 @@ def _contextual_ordinal_replacer(
         "des",
         "auf der",
         "auf dem",
+        "auf den",
         "in der",
         "in dem",
+        "in den",
+        "an der",
+        "an dem",
+        "an den",
     }
     ending = "en" if normalized_prefix in weak_ending_prefixes else "e"
     ordinal = _ordinal_with_ending(int(match.group("number")), ending)

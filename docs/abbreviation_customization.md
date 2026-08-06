@@ -12,6 +12,11 @@ when:
   instead of "Doctor")
 - You need context-aware expansions (e.g., "St." → "Street" vs "Saint")
 
+The abbreviation registry is provided by the required `abbr2words` dependency. The
+legacy `kokorog2p.*.abbreviations` import paths remain as deprecated, warning-free
+compatibility shims for this transition release; new integrations should import
+registry types and shared registries from `abbr2words`.
+
 ## Quick Start
 
 ```python

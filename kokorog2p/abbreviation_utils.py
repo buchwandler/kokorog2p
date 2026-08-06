@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-import importlib
 from collections.abc import Callable, Sequence
-from typing import Protocol, TypeVar, cast
+from typing import Protocol, TypeVar
 
-from kokorog2p.pipeline.abbreviations import (
+from abbr2words import (
     AbbreviationEntry,
     AbbreviationExpander,
     abbreviation_guards_match,
+    get_shared_expander,
+    normalize_language,
 )
 
 
@@ -34,27 +35,11 @@ def _get_abbreviation_definitions(lang: str | None) -> list[AbbreviationEntry]:
     """Collect complete abbreviation definitions for a language."""
     normalized = _normalize_lang(lang)
 
-    module_name: str | None = None
-    if normalized.startswith("en"):
-        module_name = "kokorog2p.en.abbreviations"
-    elif normalized.startswith("de"):
-        module_name = "kokorog2p.de.abbreviations"
-    elif normalized.startswith("fr"):
-        module_name = "kokorog2p.fr.abbreviations"
-    elif normalized.startswith("es"):
-        module_name = "kokorog2p.es.abbreviations"
-    elif normalized.startswith("pt"):
-        module_name = "kokorog2p.pt.abbreviations"
-    elif normalized.startswith("it"):
-        module_name = "kokorog2p.it.abbreviations"
-    elif normalized.startswith("cs"):
-        module_name = "kokorog2p.cs.abbreviations"
-    else:
+    try:
+        language = normalize_language(normalized)
+    except ValueError:
         return []
-
-    module = importlib.import_module(module_name)
-    get_expander = cast(Callable[[], AbbreviationExpander], module.get_expander)
-    return list(get_expander().entries.values())
+    return list(get_shared_expander(language, context=True).entries.values())
 
 
 def get_abbreviation_entries(lang: str | None) -> list[tuple[str, bool]]:

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from kokorog2p.de.g2p import GermanG2P
 from kokorog2p.de.normalizer import GermanNormalizer
 
 
@@ -227,6 +228,34 @@ def test_requested_cooking_paragraph(normalizer):
     assert normalizer(source) == expected
 
 
+def test_requested_cooking_paragraph_reaches_rule_based_g2p(normalizer):
+    source = (
+        "Zum 14.05.2026 um 18:20 Uhr ist das Abendessen geplant. "
+        "Für den Auflauf brauchen wir 1,5 kg Kartoffeln, 500 g Quark, "
+        "2 Eier, 1 ltr. Milch und ggf. 3 cm mehr Backpapier. "
+        'Prof. Klein sagt: "Bitte stelle die Form auf die 2. Schiene, '
+        "backe alles für 45 Min. und lass es danach 1 Min. oder auch "
+        '2 Min. ruhen." Die Kosten liegen bei ca. 12,80 EUR zzgl. Pfand.'
+    )
+    g2p = GermanG2P(
+        use_lexicon=False,
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+    )
+
+    tokens = g2p(normalizer(source))
+
+    assert all(
+        not any(character.isdigit() for character in token.text) for token in tokens
+    )
+    assert all(token.text == "." or "." not in token.text for token in tokens)
+    assert all(
+        token.phonemes != "?"
+        for token in tokens
+        if any(character.isalnum() for character in token.text)
+    )
+
+
 def test_structured_numbers_are_independent_of_lexical_abbreviations():
     normalizer = GermanNormalizer(expand_abbreviations=False)
     assert normalizer("1 Std. 42 kg") == "eine Stunde zweiundvierzig Kilogramm"
@@ -243,3 +272,70 @@ def test_structured_normalization_is_tracked():
 def test_german_lexicon_data_is_packaged():
     data_file = Path(__file__).parents[1] / "kokorog2p" / "de" / "data" / "de_gold.json"
     assert data_file.is_file()
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("1.234 EUR", "eintausendzweihundertvierunddreißig Euro"),
+        ("EUR 1.234", "eintausendzweihundertvierunddreißig Euro"),
+        ("-1.234 EUR", "minus eintausendzweihundertvierunddreißig Euro"),
+        (
+            "1.234,56 EUR",
+            "eintausendzweihundertvierunddreißig Euro sechsundfünfzig Cent",
+        ),
+    ],
+)
+def test_grouped_integer_currency_keeps_currency_name(normalizer, source, expected):
+    assert normalizer(source) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("45 min. backen", "fünfundvierzig Minuten backen"),
+        ("1 MIN. warten", "eine Minute warten"),
+        ("1 Ltr. Milch", "ein Liter Milch"),
+        ("2 STCK. Eier", "zwei Stück Eier"),
+        ("1 mio.", "eine Million."),
+        ("2 mrd.", "zwei Milliarden."),
+    ],
+)
+def test_numbered_unit_case_variants_use_numeric_grammar(normalizer, source, expected):
+    assert normalizer(source) == expected
+
+
+def test_minimum_and_minute_abbreviations_do_not_collide(normalizer):
+    assert normalizer("min. 5 Zeichen") == "minimal fünf Zeichen"
+    assert normalizer("Min. Beispiel") == "Minute Beispiel"
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("(Prof.) Klein", "(Professor) Klein"),
+        ('Er sagte "ggf."', 'Er sagte "gegebenenfalls"'),
+        ("Prof.–Klein", "Professor—Klein"),
+        ("Dr.foo", "Dr.foo"),
+    ],
+)
+def test_dotted_abbreviations_before_closers_and_punctuation(
+    normalizer, source, expected
+):
+    assert normalizer(source) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("an der 2. Stelle", "an der zweiten Stelle"),
+        ("auf den 2. Rost", "auf den zweiten Rost"),
+        ("in den 3. Raum", "in den dritten Raum"),
+        ("ins 4. Fach", "ins vierte Fach"),
+        ("ans 5. Ende", "ans fünfte Ende"),
+    ],
+)
+def test_contextual_ordinals_keep_full_prepositional_context(
+    normalizer, source, expected
+):
+    assert normalizer(source) == expected

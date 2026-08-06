@@ -917,21 +917,9 @@ def clear_cache(*, deep: bool = False) -> None:
 
 def reset_abbreviations() -> None:
     """Reset abbreviation expanders to their default state."""
-    from kokorog2p.cs.abbreviations import reset_expander as reset_cs
-    from kokorog2p.de.abbreviations import reset_expander as reset_de
-    from kokorog2p.en.abbreviations import reset_expander as reset_en
-    from kokorog2p.es.abbreviations import reset_expander as reset_es
-    from kokorog2p.fr.abbreviations import reset_expander as reset_fr
-    from kokorog2p.it.abbreviations import reset_expander as reset_it
-    from kokorog2p.pt.abbreviations import reset_expander as reset_pt
+    from abbr2words import reset_expanders
 
-    reset_cs()
-    reset_de()
-    reset_en()
-    reset_es()
-    reset_fr()
-    reset_it()
-    reset_pt()
+    reset_expanders()
 
     clear_cache(deep=True)
 

@@ -5,7 +5,7 @@ This module provides French-specific text normalization for the G2P pipeline.
 
 import re
 
-from kokorog2p.fr.abbreviations import get_expander
+from abbr2words import get_shared_expander
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
 
 # Number to word conversion for French temperatures
@@ -160,7 +160,7 @@ class FrenchNormalizer(TextNormalizer):
         """
         self.expand_abbreviations = expand_abbreviations
         self.abbrev_expander = (
-            get_expander(enable_context_detection=enable_context_detection)
+            get_shared_expander("fr", context=enable_context_detection)
             if expand_abbreviations
             else None
         )

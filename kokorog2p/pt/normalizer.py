@@ -11,8 +11,8 @@ Supports both European Portuguese (pt-PT) and Brazilian Portuguese (pt-BR).
 
 import re
 
+from abbr2words import get_shared_expander
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
-from kokorog2p.pt.abbreviations import get_expander
 
 
 def portuguese_number_to_words(n: int, dialect: str = "br") -> str:
@@ -150,7 +150,7 @@ class PortugueseNormalizer(TextNormalizer):
         self.expand_abbreviations = expand_abbreviations
         self.dialect = dialect
         self.abbrev_expander = (
-            get_expander(enable_context_detection=enable_context_detection)
+            get_shared_expander("pt", context=enable_context_detection)
             if expand_abbreviations
             else None
         )

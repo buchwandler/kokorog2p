@@ -4,7 +4,15 @@ import pytest
 
 from kokorog2p import clear_cache, get_g2p, reset_abbreviations
 from kokorog2p.en import EnglishG2P
-from kokorog2p.en.abbreviations import get_expander
+from kokorog2p.en.abbreviations import EnglishAbbreviationExpander, get_expander
+
+
+def test_shared_dotted_abbreviation_boundary_handles_punctuation():
+    expander = EnglishAbbreviationExpander(enable_context_detection=False)
+
+    assert expander.expand("(Dr.) Smith") == "(Doctor) Smith"
+    assert expander.expand('He said "etc."') == 'He said "et cetera"'
+    assert expander.expand("Dr.foo") == "Dr.foo"
 
 
 class TestAbbreviationCustomization:

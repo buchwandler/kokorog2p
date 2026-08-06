@@ -9,7 +9,7 @@ This module provides Czech-specific text normalization including:
 
 import re
 
-from kokorog2p.cs.abbreviations import get_expander
+from abbr2words import get_shared_expander
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
 
 
@@ -178,7 +178,7 @@ class CzechNormalizer(TextNormalizer):
         """
         self.expand_abbreviations = expand_abbreviations
         self.abbrev_expander = (
-            get_expander(enable_context_detection=enable_context_detection)
+            get_shared_expander("cs", context=enable_context_detection)
             if expand_abbreviations
             else None
         )
