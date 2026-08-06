@@ -6,6 +6,7 @@ This module provides French-specific text normalization for the G2P pipeline.
 import re
 
 from abbr2words import get_shared_expander
+
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
 
 # Number to word conversion for French temperatures

@@ -13,6 +13,7 @@ from kokorog2p.de.text_rules import (
     NUMBERED_UNITS,
     NumberedUnit,
 )
+from kokorog2p.types import TextReplacement
 
 ORDINALS = frozenset([".", "te", "ter", "tes", "ten", "tem"])
 CURRENCIES = {
@@ -560,56 +561,10 @@ def _contextual_ordinal_replacer(
     return f"{prefix}{ordinal} {match.group('noun')}"
 
 
-def expand_structured_numbers(text: str) -> str:
-    """Expand structured German expressions in safe classification order."""
+def _replacement_candidates(text: str) -> list[TextReplacement]:
+    """Build semantic replacements against the untouched source text."""
 
-    if not text:
-        return text
     converter = GermanNumberConverter()
-    protected: dict[str, str] = {}
-
-    def protect_invalid(pattern: re.Pattern, value: re.Match) -> str:
-        token = f"\ue000{chr(0xE100 + len(protected))}\ue001"
-        protected[token] = value.group(0)
-        return token
-
-    text = _INVALID_DATE.sub(
-        lambda m: (
-            protect_invalid(_INVALID_DATE, m)
-            if not _numeric_date_is_valid(m)
-            else m.group(0)
-        ),
-        text,
-    )
-    text = _INVALID_TIME.sub(
-        lambda m: (
-            protect_invalid(_INVALID_TIME, m) if not _time_is_valid(m) else m.group(0)
-        ),
-        text,
-    )
-    text = _CURRENCY_SUFFIX.sub(
-        lambda m: converter.convert_currency(m.group("number"), m.group("currency")),
-        text,
-    )
-    text = _CURRENCY_PREFIX.sub(
-        lambda m: converter.convert_currency(m.group("number"), m.group("currency")),
-        text,
-    )
-    text = _UNIT_PATTERN.sub(lambda m: _unit_replacer(m, converter), text)
-    text = _TEMPERATURE.sub(lambda m: _temperature_replacer(m, converter), text)
-    text = _CONTEXTUAL_DATE_NUMERIC.sub(
-        lambda m: _contextual_numeric_date_replacer(m, converter), text
-    )
-    text = _DATE_NUMERIC.sub(lambda m: _numeric_date_replacer(m, converter), text)
-    text = _CONTEXTUAL_DATE_TEXT.sub(
-        lambda m: _contextual_text_date_replacer(m, converter), text
-    )
-    text = _DATE_TEXT.sub(lambda m: _text_date_replacer(m, converter), text)
-    text = _TIME.sub(lambda m: _time_replacer(m, converter), text)
-    text = _LABEL_NUMBER.sub(lambda m: _label_replacer(m, converter), text)
-    text = _CONTEXTUAL_ORDINAL.sub(
-        lambda m: _contextual_ordinal_replacer(m, converter), text
-    )
 
     def generic_replacer(match: re.Match) -> str:
         number = match.group("number")
@@ -621,9 +576,157 @@ def expand_structured_numbers(text: str) -> str:
             return converter.convert_year(number)
         return converter.convert_cardinal(number)
 
-    text = _GENERIC_NUMBER.sub(generic_replacer, text)
-    for token, original in protected.items():
-        text = text.replace(token, original)
+    invalid_ranges = [
+        (match.start(), match.end())
+        for pattern, validator in (
+            (_INVALID_DATE, _numeric_date_is_valid),
+            (_INVALID_TIME, _time_is_valid),
+        )
+        for match in pattern.finditer(text)
+        if not validator(match)
+    ]
+
+    candidates: list[TextReplacement] = []
+
+    def add_matches(
+        pattern: re.Pattern[str],
+        kind: str,
+        priority: int,
+        replacer: Callable[[re.Match], str],
+        *,
+        skip_if_overlaps_invalid: bool = False,
+    ) -> None:
+        for match in pattern.finditer(text):
+            if skip_if_overlaps_invalid and any(
+                match.start() < end and match.end() > start
+                for start, end in invalid_ranges
+            ):
+                continue
+            replacement = replacer(match)
+            if replacement == match.group(0):
+                continue
+            candidates.append(
+                TextReplacement(
+                    start=match.start(),
+                    end=match.end(),
+                    text=replacement,
+                    kind=kind,
+                    priority=priority,
+                )
+            )
+
+    add_matches(
+        _CURRENCY_SUFFIX,
+        "currency_suffix",
+        100,
+        lambda m: converter.convert_currency(m.group("number"), m.group("currency")),
+    )
+    add_matches(
+        _CURRENCY_PREFIX,
+        "currency_prefix",
+        100,
+        lambda m: converter.convert_currency(m.group("number"), m.group("currency")),
+    )
+    add_matches(
+        _UNIT_PATTERN,
+        "unit",
+        95,
+        lambda m: _unit_replacer(m, converter),
+    )
+    add_matches(
+        _TEMPERATURE,
+        "temperature",
+        90,
+        lambda m: _temperature_replacer(m, converter),
+    )
+    add_matches(
+        _CONTEXTUAL_DATE_NUMERIC,
+        "contextual_date_numeric",
+        88,
+        lambda m: _contextual_numeric_date_replacer(m, converter),
+    )
+    add_matches(
+        _DATE_NUMERIC,
+        "date_numeric",
+        87,
+        lambda m: _numeric_date_replacer(m, converter),
+    )
+    add_matches(
+        _CONTEXTUAL_DATE_TEXT,
+        "contextual_date_text",
+        86,
+        lambda m: _contextual_text_date_replacer(m, converter),
+    )
+    add_matches(
+        _DATE_TEXT,
+        "date_text",
+        85,
+        lambda m: _text_date_replacer(m, converter),
+    )
+    add_matches(
+        _TIME,
+        "time",
+        84,
+        lambda m: _time_replacer(m, converter),
+    )
+    add_matches(
+        _LABEL_NUMBER,
+        "label_number",
+        83,
+        lambda m: _label_replacer(m, converter),
+    )
+    add_matches(
+        _CONTEXTUAL_ORDINAL,
+        "contextual_ordinal",
+        82,
+        lambda m: _contextual_ordinal_replacer(m, converter),
+    )
+    add_matches(
+        _GENERIC_NUMBER,
+        "number",
+        10,
+        generic_replacer,
+        skip_if_overlaps_invalid=True,
+    )
+
+    selected: list[TextReplacement] = []
+    for candidate in sorted(
+        candidates,
+        key=lambda item: (
+            -item.priority,
+            item.start,
+            -(item.end - item.start),
+        ),
+    ):
+        if any(
+            candidate.start < existing.end and candidate.end > existing.start
+            for existing in selected
+        ):
+            continue
+        selected.append(candidate)
+
+    return sorted(selected, key=lambda item: (item.start, item.end))
+
+
+def iter_structured_replacements(text: str) -> list[TextReplacement]:
+    """Return non-overlapping German semantic replacements in source order."""
+
+    if not text:
+        return []
+    return _replacement_candidates(text)
+
+
+def expand_structured_numbers(text: str) -> str:
+    """Expand structured German expressions in safe classification order."""
+
+    if not text:
+        return text
+    for replacement in reversed(iter_structured_replacements(text)):
+        text = (
+            text[: replacement.start]
+            + replacement.text
+            + text[replacement.end :]
+        )
     return text
 
 
@@ -631,3 +734,14 @@ def expand_number(text: str) -> str:
     """Expand numbers and structured numeric expressions in *text*."""
 
     return expand_structured_numbers(text)
+
+
+__all__ = [
+    "GermanNumberConverter",
+    "TextReplacement",
+    "expand_number",
+    "expand_structured_numbers",
+    "iter_structured_replacements",
+    "number_to_german",
+    "ordinal_to_german",
+]

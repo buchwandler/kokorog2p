@@ -1,10 +1,21 @@
 """Cross-package checks for the abbr2words abbreviation source of truth."""
 
+from importlib.metadata import version
+
 from abbr2words import abbr2words, get_shared_expander
+
 from kokorog2p import reset_abbreviations
 from kokorog2p.abbreviation_utils import get_abbreviation_entries
 from kokorog2p.en.normalizer import EnglishNormalizer
 from kokorog2p.pipeline_api import _expand_abbreviation, _get_abbreviation_expander
+
+
+def test_runtime_abbr2words_is_the_unit_capable_release():
+    installed = tuple(int(part) for part in version("abbr2words").split(".")[:2])
+    assert (0, 2) <= installed < (0, 3)
+    expander = get_shared_expander("de", context=True)
+    assert hasattr(expander, "expand")
+    assert expander.expand("1,5 kg") == "1,5 Kilogramm"
 
 
 def test_shared_custom_entry_reaches_all_kokorog2p_consumers() -> None:
@@ -22,4 +33,3 @@ def test_shared_custom_entry_reaches_all_kokorog2p_consumers() -> None:
 
     assert abbr2words("X.Y.", lang="en") == "X.Y."
     assert ("X.Y.", False) not in get_abbreviation_entries("en-us")
-

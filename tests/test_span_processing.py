@@ -5,8 +5,11 @@ from dataclasses import dataclass
 import pytest
 
 from kokorog2p.integrations import coerce_override_spans
-from kokorog2p.span_processing import apply_overrides_to_tokens
-from kokorog2p.types import OverrideSpan, TokenSpan
+from kokorog2p.span_processing import (
+    apply_overrides_to_tokens,
+    apply_text_replacements_to_tokens,
+)
+from kokorog2p.types import OverrideSpan, TextReplacement, TokenSpan
 
 
 @dataclass
@@ -177,6 +180,55 @@ class TestApplyOverridesToTokens:
         assert result_tokens[0].meta["rate"] == "fast"
         assert result_tokens[0].meta["volume"] == "loud"
         assert len(warnings) == 0
+
+
+class TestApplyTextReplacementsToTokens:
+    def test_merges_source_tokens_and_keeps_original_offsets(self):
+        source = "1,5 kg Kartoffeln"
+        tokens = [
+            TokenSpan("1", 0, 1),
+            TokenSpan(",", 1, 2),
+            TokenSpan("5", 2, 3),
+            TokenSpan("kg", 4, 6),
+            TokenSpan("Kartoffeln", 7, 17),
+        ]
+        replacements = [
+            TextReplacement(0, 6, "eins Komma fünf Kilogramm", "unit", 95)
+        ]
+
+        result, warnings = apply_text_replacements_to_tokens(
+            tokens, source, replacements, default_lang="de"
+        )
+
+        assert not warnings
+        assert [(token.text, token.char_start, token.char_end) for token in result] == [
+            ("1,5 kg", 0, 6),
+            ("Kartoffeln", 7, 17),
+        ]
+        assert result[0].extended_text == "eins Komma fünf Kilogramm"
+        assert result[0].meta["_extended_text_changed"] is True
+
+    def test_does_not_cross_phoneme_or_language_boundaries(self):
+        source = "1 kg"
+        replacement = TextReplacement(0, 4, "ein Kilogramm", "unit", 95)
+
+        ph_tokens = [
+            TokenSpan("1", 0, 1),
+            TokenSpan("kg", 2, 4, meta={"ph": "custom"}),
+        ]
+        _, ph_warnings = apply_text_replacements_to_tokens(
+            ph_tokens, source, [replacement], default_lang="de"
+        )
+        assert any("phoneme override" in warning for warning in ph_warnings)
+
+        language_tokens = [
+            TokenSpan("1", 0, 1, lang="de"),
+            TokenSpan("kg", 2, 4, lang="en-us"),
+        ]
+        _, language_warnings = apply_text_replacements_to_tokens(
+            language_tokens, source, [replacement], default_lang="de"
+        )
+        assert any("language overrides" in warning for warning in language_warnings)
 
     def test_empty_tokens(self):
         """Test with no tokens."""

@@ -6,6 +6,7 @@ import pytest
 
 from kokorog2p.de.g2p import GermanG2P
 from kokorog2p.de.normalizer import GermanNormalizer
+from kokorog2p.de.numbers import iter_structured_replacements
 
 
 @pytest.fixture
@@ -114,7 +115,16 @@ def test_numbered_units_handle_decimals_negatives_and_overlap(normalizer):
 
 
 def test_unit_letters_are_not_expanded_without_numbers(normalizer):
-    assert normalizer("g m kg km cm mm mA MHz W V") == "g m kg km cm mm mA MHz W V"
+    assert normalizer("g m kg km cm mm mA MHz W V ltr. Ltr.") == (
+        "g m kg km cm mm mA MHz W V ltr. Ltr."
+    )
+
+
+def test_numbered_unit_boundaries_and_attached_forms(normalizer):
+    assert normalizer("Model5kg abcg") == "Model5kg abcg"
+    assert normalizer("3cm 3 cm 3\u00a0cm") == (
+        "drei Zentimeter drei Zentimeter drei Zentimeter"
+    )
 
 
 @pytest.mark.parametrize(
@@ -269,6 +279,22 @@ def test_structured_normalization_is_tracked():
     assert any(change.rule_name == "german_structured_numbers" for change in changes)
 
 
+def test_structured_replacements_are_source_aligned_and_prioritized():
+    source = "1,5 kg und 12,80 EUR sowie 32.13.2026"
+    replacements = iter_structured_replacements(source)
+
+    assert [(item.start, item.end, item.kind, item.text) for item in replacements] == [
+        (0, 6, "unit", "eins Komma fünf Kilogramm"),
+        (11, 20, "currency_suffix", "zwölf Euro achtzig Cent"),
+    ]
+    assert all(
+        left.end <= right.start
+        for left, right in zip(replacements, replacements[1:], strict=True)
+    )
+    assert not iter_structured_replacements("32.13.2026")
+    assert not iter_structured_replacements("25:99")
+
+
 def test_german_lexicon_data_is_packaged():
     data_file = Path(__file__).parents[1] / "kokorog2p" / "de" / "data" / "de_gold.json"
     assert data_file.is_file()
@@ -307,7 +333,7 @@ def test_numbered_unit_case_variants_use_numeric_grammar(normalizer, source, exp
 
 def test_minimum_and_minute_abbreviations_do_not_collide(normalizer):
     assert normalizer("min. 5 Zeichen") == "minimal fünf Zeichen"
-    assert normalizer("Min. Beispiel") == "Minute Beispiel"
+    assert normalizer("Min. Beispiel") == "Min. Beispiel"
 
 
 @pytest.mark.parametrize(

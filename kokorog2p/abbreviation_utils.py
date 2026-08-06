@@ -7,7 +7,6 @@ from typing import Protocol, TypeVar
 
 from abbr2words import (
     AbbreviationEntry,
-    AbbreviationExpander,
     abbreviation_guards_match,
     get_shared_expander,
     normalize_language,

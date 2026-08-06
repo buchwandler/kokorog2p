@@ -5,7 +5,11 @@ from __future__ import annotations
 import re
 
 from abbr2words import get_shared_expander
-from kokorog2p.de.numbers import expand_structured_numbers
+
+from kokorog2p.de.numbers import (
+    expand_structured_numbers,
+    iter_structured_replacements,
+)
 from kokorog2p.de.text_rules import COMPOSITE_ABBREVIATIONS
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
 
@@ -168,6 +172,12 @@ class GermanNormalizer(TextNormalizer):
     def __call__(self, text: str) -> str:
         result, _ = self.normalize(text)
         return result
+
+    @staticmethod
+    def iter_structured_replacements(text: str):
+        """Return source-aligned replacements for German semantic forms."""
+
+        return iter_structured_replacements(text)
 
     def normalize_token(
         self,

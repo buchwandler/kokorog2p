@@ -41,6 +41,33 @@ class TokenSpan:
             raise ValueError(f"char_start must be >= 0, got {self.char_start}")
 
 
+@dataclass(frozen=True)
+class TextReplacement:
+    """A source-aligned semantic text replacement.
+
+    ``start`` and ``end`` always refer to the original source text.  The
+    replacement text may have a different length, which is why callers should
+    apply a collection of replacements from right to left when rebuilding the
+    normalized text.
+    """
+
+    start: int
+    end: int
+    text: str
+    kind: str
+    priority: int = 0
+
+    def __post_init__(self) -> None:
+        if self.start < 0:
+            raise ValueError(f"start must be >= 0, got {self.start}")
+        if self.end < self.start:
+            raise ValueError(
+                f"end ({self.end}) must be >= start ({self.start})"
+            )
+        if not self.kind:
+            raise ValueError("kind must not be empty")
+
+
 class OverrideSpanLike(Protocol):
     """Structural interface accepted for annotation override spans."""
 
@@ -110,5 +137,6 @@ __all__ = [
     "OverrideSpan",
     "OverrideSpanLike",
     "PhonemizeResult",
+    "TextReplacement",
     "TokenSpan",
 ]

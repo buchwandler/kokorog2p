@@ -12,6 +12,7 @@ Supports both European Portuguese (pt-PT) and Brazilian Portuguese (pt-BR).
 import re
 
 from abbr2words import get_shared_expander
+
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
 
 

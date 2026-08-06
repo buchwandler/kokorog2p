@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from typing import Literal
 
 from kokorog2p.integrations import coerce_override_spans
-from kokorog2p.types import TokenSpan
+from kokorog2p.types import TextReplacement, TokenSpan
 
 
 def apply_overrides_to_tokens(
@@ -134,6 +134,110 @@ def apply_overrides_to_tokens(
     return modified_tokens, warnings
 
 
+def apply_text_replacements_to_tokens(
+    tokens: list[TokenSpan],
+    source: str,
+    replacements: Sequence[TextReplacement],
+    *,
+    default_lang: str | None = None,
+) -> tuple[list[TokenSpan], list[str]]:
+    """Merge tokens covered by source-aligned semantic replacements.
+
+    Replacement offsets are in ``source`` coordinates.  A replacement is
+    applied only when it covers complete token content and all covered tokens
+    have the same effective language and no phoneme override.  This keeps
+    semantic normalization from silently consuming an annotation boundary.
+    """
+
+    warnings: list[str] = []
+    modified_tokens = [
+        TokenSpan(
+            text=token.text,
+            char_start=token.char_start,
+            char_end=token.char_end,
+            lang=token.lang,
+            extended_text=token.extended_text,
+            meta=dict(token.meta),
+        )
+        for token in tokens
+    ]
+
+    def normalized_lang(lang: str | None) -> str | None:
+        if not lang:
+            return None
+        return lang.lower().replace("_", "-")
+
+    for replacement in sorted(replacements, key=lambda item: (item.start, item.end)):
+        if replacement.start < 0 or replacement.end > len(source):
+            warnings.append(
+                f"[REPLACEMENT] {replacement.kind} span "
+                f"[{replacement.start}:{replacement.end}] is outside source; skipping"
+            )
+            continue
+        overlapping_indices = [
+            index
+            for index, token in enumerate(modified_tokens)
+            if token.char_start < replacement.end
+            and token.char_end > replacement.start
+        ]
+        if not overlapping_indices:
+            warnings.append(
+                f"[REPLACEMENT] {replacement.kind} span "
+                f"[{replacement.start}:{replacement.end}] overlaps no tokens; skipping"
+            )
+            continue
+
+        first_idx = overlapping_indices[0]
+        last_idx = overlapping_indices[-1]
+        covered = modified_tokens[first_idx : last_idx + 1]
+        if any("ph" in token.meta for token in covered):
+            warnings.append(
+                f"[REPLACEMENT] {replacement.kind} span "
+                f"[{replacement.start}:{replacement.end}] crosses a phoneme "
+                "override; skipping"
+            )
+            continue
+
+        effective_languages = {
+            normalized_lang(token.lang or default_lang) for token in covered
+        }
+        if len(effective_languages) > 1:
+            warnings.append(
+                f"[REPLACEMENT] {replacement.kind} span "
+                f"[{replacement.start}:{replacement.end}] crosses language "
+                "overrides; skipping"
+            )
+            continue
+
+        first_token = covered[0]
+        last_token = covered[-1]
+        if (
+            replacement.start < first_token.char_start
+            or replacement.end > last_token.char_end
+        ):
+            warnings.append(
+                f"[REPLACEMENT] {replacement.kind} span "
+                f"[{replacement.start}:{replacement.end}] does not align to "
+                "complete tokens; skipping"
+            )
+            continue
+
+        merged = TokenSpan(
+            text=source[replacement.start : replacement.end],
+            char_start=replacement.start,
+            char_end=replacement.end,
+            lang=first_token.lang,
+            extended_text=replacement.text,
+            meta=dict(first_token.meta),
+        )
+        merged.meta["_extended_text_changed"] = True
+        merged.meta["_extended_text"] = replacement.text
+        merged.meta["_replacement_kind"] = replacement.kind
+        modified_tokens[first_idx : last_idx + 1] = [merged]
+
+    return modified_tokens, warnings
+
+
 def tokens_to_text_with_spacing(tokens: list[TokenSpan]) -> str:
     """Reconstruct text from tokens, preserving original spacing.
 
@@ -164,5 +268,6 @@ def tokens_to_text_with_spacing(tokens: list[TokenSpan]) -> str:
 
 __all__ = [
     "apply_overrides_to_tokens",
+    "apply_text_replacements_to_tokens",
     "tokens_to_text_with_spacing",
 ]

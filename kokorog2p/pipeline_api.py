@@ -14,14 +14,23 @@ from typing import TYPE_CHECKING, Any, Literal
 from weakref import WeakKeyDictionary
 
 from abbr2words import AbbreviationExpander, get_shared_expander, normalize_language
+
 from kokorog2p.punctuation import normalize_punctuation
-from kokorog2p.span_processing import apply_overrides_to_tokens
+from kokorog2p.span_processing import (
+    apply_overrides_to_tokens,
+    apply_text_replacements_to_tokens,
+)
 from kokorog2p.tokenization import (
     ensure_gtoken_positions,
     gtokens_to_tokenspans,
     tokenize_with_offsets,
 )
-from kokorog2p.types import OverrideSpanLike, PhonemizeResult, TokenSpan
+from kokorog2p.types import (
+    OverrideSpanLike,
+    PhonemizeResult,
+    TextReplacement,
+    TokenSpan,
+)
 from kokorog2p.vocab import filter_for_kokoro, phonemes_to_ids, validate_for_kokoro
 
 if TYPE_CHECKING:
@@ -170,6 +179,75 @@ def _get_language_normalizer(lang: str | None) -> Any | None:
     return None
 
 
+def _get_structured_replacements(
+    text: str,
+    lang: str | None,
+) -> list[TextReplacement]:
+    """Get source-aligned semantic replacements for one language run."""
+
+    normalizer = _get_language_normalizer(lang)
+    iterator = getattr(normalizer, "iter_structured_replacements", None)
+    if not callable(iterator):
+        return []
+    return list(iterator(text))
+
+
+def _apply_structured_replacements_to_tokens(
+    tokens: list[TokenSpan],
+    clean_text: str,
+    default_lang: str,
+) -> tuple[list[TokenSpan], list[str]]:
+    """Apply semantic replacements independently within language runs."""
+
+    if not tokens:
+        return tokens, []
+
+    all_warnings: list[str] = []
+    processed_tokens: list[TokenSpan] = []
+    run_start = 0
+
+    def flush_run(start: int, end: int) -> None:
+        if start >= end:
+            return
+        run_tokens = tokens[start:end]
+        run_text_start = run_tokens[0].char_start
+        run_text_end = run_tokens[-1].char_end
+        run_lang = run_tokens[0].lang or default_lang
+        replacements = _get_structured_replacements(
+            clean_text[run_text_start:run_text_end], run_lang
+        )
+        rebased = [
+            TextReplacement(
+                start=replacement.start + run_text_start,
+                end=replacement.end + run_text_start,
+                text=replacement.text,
+                kind=replacement.kind,
+                priority=replacement.priority,
+            )
+            for replacement in replacements
+        ]
+        replaced, warnings = apply_text_replacements_to_tokens(
+            run_tokens,
+            clean_text,
+            rebased,
+            default_lang=run_lang,
+        )
+        processed_tokens.extend(replaced)
+        all_warnings.extend(warnings)
+
+    previous_lang = (tokens[0].lang or default_lang).lower().replace("_", "-")
+    for index in range(1, len(tokens)):
+        current_lang = (
+            tokens[index].lang or default_lang
+        ).lower().replace("_", "-")
+        if current_lang != previous_lang:
+            flush_run(run_start, index)
+            run_start = index
+            previous_lang = current_lang
+    flush_run(run_start, len(tokens))
+    return processed_tokens, all_warnings
+
+
 @cache
 def _get_num2words() -> Callable[..., str] | None:
     try:
@@ -241,7 +319,10 @@ def _apply_extended_text(
         token_lang = token.lang or default_lang
         expanded = None
         used_normalizer = False
-        if "ph" not in token.meta:
+        if token.extended_text is not None:
+            expanded = token.extended_text
+            used_normalizer = True
+        elif "ph" not in token.meta:
             before = clean_text[: token.char_start].strip()
             after = clean_text[token.char_end :].strip()
             if use_normalizer_rules:
@@ -266,7 +347,7 @@ def _apply_extended_text(
             token.extended_text = expanded
             token.meta["_extended_text_changed"] = True
             token.meta["_extended_text"] = expanded
-        else:
+        elif token.extended_text is None:
             token.extended_text = None
             token.meta.pop("_extended_text_changed", None)
             token.meta.pop("_extended_text", None)
@@ -524,6 +605,11 @@ def phonemize_to_result(
                 token_spans, overrides, mode=overlap
             )
             warnings.extend(override_warnings)
+
+        token_spans, replacement_warnings = _apply_structured_replacements_to_tokens(
+            token_spans, clean_text, lang
+        )
+        warnings.extend(replacement_warnings)
 
         extended_text = _apply_extended_text(
             token_spans,

@@ -3,14 +3,20 @@
 German G2P provides phoneme conversion using a large 738k+ entry dictionary with
 rule-based fallback.
 
-German normalization is deterministic and runs before tokenization. It expands lexical
-abbreviations and classifies German structured forms including grouped numbers
-(`1.000`), decimals (`3,14`), EUR amounts, dates, times, temperatures, and numbered
-units with singular/plural agreement. Unit symbols are context bound: `2 kg` becomes
-`zwei Kilogramm`, while a standalone `kg` is preserved. Invalid dates/times and
-ambiguous punctuation are left unchanged. Flexible `z.B.`, `d.h.`, and `u.a.` spellings
-are supported; `ca.` is normalized to `zirka`, `etc.` to `ezetera`, and `GmbH`/`AG` to
-German letter-name spellings.
+German normalization is deterministic and runs before tokenization. In the public
+default span pipeline, structured replacements are matched against the original
+source offsets and then merged into semantic token spans before token-local expansion.
+This keeps numeric context intact for grouped numbers (`1.000`), decimals (`3,14`),
+EUR amounts, dates, times, temperatures, ordinals, and numbered units with
+singular/plural agreement, including when the backend has no language-owned
+normalizer. Unit symbols are context bound: `2 kg` becomes `zwei Kilogramm`, while a
+standalone `kg` is preserved. Dotted numeric aliases such as `1 ltr.` and `45 Min.`
+are consumed as part of the semantic span, so their periods are not treated as
+independent sentence punctuation. `Min.` is intentionally numeric-only: standalone
+`Min. Beispiel` remains unchanged, while `1 Min.` becomes `eine Minute`.
+Invalid dates/times and ambiguous punctuation are left unchanged. Flexible `z.B.`,
+`d.h.`, and `u.a.` spellings are supported; `ca.` is normalized to `zirka`, `etc.` to
+`ezetera`, and `GmbH`/`AG` to German letter-name spellings.
 
 ## Main Class
 

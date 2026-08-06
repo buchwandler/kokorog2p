@@ -10,6 +10,7 @@ This module provides Czech-specific text normalization including:
 import re
 
 from abbr2words import get_shared_expander
+
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
 
 

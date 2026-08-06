@@ -126,6 +126,34 @@ def test_phonemize_segments_validates_exact_slices_and_passes_local_overrides():
         )
 
 
+def test_numeric_dotted_units_remain_one_normalized_offset_span():
+    from kokorog2p import phonemize
+    from kokorog2p.de.g2p import GermanG2P
+
+    source = "1 ltr. Milch und danach 2 Min. ruhen."
+    segments = [SplitSegment(source, 0, len(source))]
+    g2p = GermanG2P(
+        use_lexicon=False,
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+        load_gold=False,
+        load_silver=False,
+    )
+    results = phonemize_segments(
+        source,
+        segments,
+        phonemize=phonemize,
+        language="de",
+        g2p=g2p,
+        return_ids=False,
+    )
+
+    assert results[0].extended_text == "ein Liter Milch und danach zwei Minuten ruhen."
+    unit = next(token for token in results[0].tokens if token.text == "1 ltr.")
+    assert source[unit.char_start : unit.char_end] == "1 ltr."
+    assert unit.extended_text == "ein Liter"
+
+
 def test_installed_phrasplit_and_ssmd_pipeline_uses_clean_text_coordinates():
     if find_spec("phrasplit") is None or find_spec("ssmd") is None:
         pytest.skip("phrasplit and ssmd are optional integration dependencies")

@@ -1,5 +1,6 @@
 """Tests for pipeline-friendly phonemization API."""
 
+import re
 from importlib.util import find_spec
 
 import pytest
@@ -369,6 +370,144 @@ class TestPhonemizeToResult:
         assert result.clean_text == ""
         assert len(result.tokens) == 0
         assert result.phonemes == ""
+
+    def test_german_structured_forms_use_source_aligned_span_normalization(self):
+        from kokorog2p.de.g2p import GermanG2P
+
+        source = (
+            "Zum 14.05.2026 um 18:20 Uhr ist das Abendessen geplant. "
+            "Für den Auflauf brauchen wir 1,5 kg Kartoffeln, 500 g Quark, "
+            "2 Eier, 1 ltr. Milch und ggf. 3 cm mehr Backpapier. "
+            'Prof. Klein sagt: "Bitte stelle die Form auf die 2. Schiene, '
+            "backe alles für 45 Min. und lass es danach 1 Min. oder auch "
+            '2 Min. ruhen." Die Kosten liegen bei ca. 12,80 EUR zzgl. Pfand.'
+        )
+        expected = (
+            "Zum vierzehnten Mai zweitausendsechsundzwanzig um achtzehn Uhr "
+            "zwanzig ist das Abendessen geplant. Für den Auflauf brauchen wir "
+            "eins Komma fünf Kilogramm Kartoffeln, fünfhundert Gramm Quark, "
+            "zwei Eier, ein Liter Milch und gegebenenfalls drei Zentimeter mehr "
+            'Backpapier. Professor Klein sagt: "Bitte stelle die Form auf die '
+            "zweite Schiene, backe alles für fünfundvierzig Minuten und lass es "
+            'danach eine Minute oder auch zwei Minuten ruhen." Die Kosten liegen '
+            "bei zirka zwölf Euro achtzig Cent zuzüglich Pfand."
+        )
+        g2p = GermanG2P(
+            use_lexicon=False,
+            use_espeak_fallback=False,
+            use_goruut_fallback=False,
+            load_gold=False,
+            load_silver=False,
+        )
+
+        result = phonemize(
+            source,
+            language="de",
+            g2p=g2p,
+            alignment="span",
+            return_ids=False,
+        )
+
+        assert result.extended_text == expected
+        assert not any(char.isdigit() for char in result.extended_text)
+        assert not any(
+            symbol in result.extended_text for symbol in ("kg", " cm", " EUR")
+        )
+        assert not any("[ALIGNMENT]" in warning for warning in result.warnings)
+        assert all(
+            source[token.char_start : token.char_end] == token.text
+            for token in result.tokens
+        )
+        assert sum(token.text == "1,5 kg" for token in result.tokens) == 1
+
+    def test_german_semantic_stage_reaches_backend_without_normalizer(self):
+        from kokorog2p.base import G2PBase
+        from kokorog2p.token import GToken
+
+        class RecordingG2P(G2PBase):
+            def __init__(self):
+                super().__init__(language="de")
+                self.calls: list[str] = []
+
+            def __call__(self, text: str) -> list[GToken]:
+                self.calls.append(text)
+                matches = list(re.finditer(r"\w+|[^\w\s]", text))
+                result: list[GToken] = []
+                for index, match in enumerate(matches):
+                    next_start = (
+                        matches[index + 1].start()
+                        if index + 1 < len(matches)
+                        else len(text)
+                    )
+                    result.append(
+                        GToken(
+                            text=match.group(),
+                            tag="PUNCT" if not match.group().isalnum() else "WORD",
+                            whitespace=text[match.end() : next_start],
+                            phonemes=match.group(),
+                        )
+                    )
+                return result
+
+            def lookup(self, word: str, tag: str | None = None) -> str | None:
+                return None
+
+        g2p = RecordingG2P()
+        result = phonemize(
+            "Wir brauchen 1,5 kg.",
+            language="de",
+            g2p=g2p,
+            alignment="span",
+            return_ids=False,
+        )
+
+        assert g2p.calls == ["Wir brauchen eins Komma fünf Kilogramm."]
+        assert result.extended_text == g2p.calls[0]
+        assert "1,5 kg" not in g2p.calls[0]
+
+    def test_german_span_and_legacy_paths_have_semantic_parity(self):
+        from kokorog2p.de.g2p import GermanG2P
+        from kokorog2p.de.normalizer import GermanNormalizer
+
+        expressions = (
+            "1,5 kg",
+            "500 g",
+            "1 ltr. Milch",
+            "3 cm",
+            "45 Min.",
+            "1 Min.",
+            "2 Min.",
+            "12,80 EUR",
+            "auf die 2. Schiene",
+        )
+        g2p = GermanG2P(
+            use_lexicon=False,
+            use_espeak_fallback=False,
+            use_goruut_fallback=False,
+            load_gold=False,
+            load_silver=False,
+        )
+        normalizer = GermanNormalizer()
+
+        for source in expressions:
+            span = phonemize(
+                source,
+                language="de",
+                g2p=g2p,
+                alignment="span",
+                return_ids=False,
+            )
+            legacy = phonemize(
+                source,
+                language="de",
+                g2p=g2p,
+                alignment="legacy",
+                return_ids=False,
+            )
+            legacy_text = " ".join(token.text for token in legacy.tokens)
+            legacy_text = legacy_text.replace(" .", ".")
+            assert span.extended_text == normalizer(source)
+            assert legacy_text == span.extended_text
 
     def test_whitespace_only(self):
         """Test with whitespace-only text."""
