@@ -1,5 +1,7 @@
 """Regression tests for structured German normalization."""
 
+from importlib import resources
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
@@ -287,10 +289,7 @@ def test_structured_replacements_are_source_aligned_and_prioritized():
         (0, 6, "unit", "eins Komma fünf Kilogramm"),
         (11, 20, "currency_suffix", "zwölf Euro achtzig Cent"),
     ]
-    assert all(
-        left.end <= right.start
-        for left, right in zip(replacements, replacements[1:], strict=True)
-    )
+    assert all(left.end <= right.start for left, right in pairwise(replacements))
     assert not iter_structured_replacements("32.13.2026")
     assert not iter_structured_replacements("25:99")
 
@@ -298,6 +297,7 @@ def test_structured_replacements_are_source_aligned_and_prioritized():
 def test_german_lexicon_data_is_packaged():
     data_file = Path(__file__).parents[1] / "kokorog2p" / "de" / "data" / "de_gold.json"
     assert data_file.is_file()
+    assert resources.files("kokorog2p.de.data").joinpath("de_gold.json").is_file()
 
 
 @pytest.mark.parametrize(

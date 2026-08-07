@@ -722,11 +722,7 @@ def expand_structured_numbers(text: str) -> str:
     if not text:
         return text
     for replacement in reversed(iter_structured_replacements(text)):
-        text = (
-            text[: replacement.start]
-            + replacement.text
-            + text[replacement.end :]
-        )
+        text = text[: replacement.start] + replacement.text + text[replacement.end :]
     return text
 
 

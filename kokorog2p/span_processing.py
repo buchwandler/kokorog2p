@@ -6,6 +6,7 @@ mixed languages.
 """
 
 from collections.abc import Sequence
+from itertools import pairwise
 from typing import Literal
 
 from kokorog2p.integrations import coerce_override_spans
@@ -90,9 +91,14 @@ def apply_overrides_to_tokens(
 
         # ---- NEW: if 'ph' spans multiple tokens, merge into one token ----
         if "ph" in override.attrs and first_idx != last_idx:
-            merged_text = " ".join(
-                t.text for t in modified_tokens[first_idx : last_idx + 1]
-            )
+            covered_tokens = modified_tokens[first_idx : last_idx + 1]
+            merged_parts = [covered_tokens[0].text]
+            for previous, current in pairwise(covered_tokens):
+                gap = current.char_start - previous.char_end
+                if gap > 0:
+                    merged_parts.append(" " * gap)
+                merged_parts.append(current.text)
+            merged_text = "".join(merged_parts)
             merged = TokenSpan(
                 text=merged_text,
                 char_start=first_token.char_start,
@@ -177,8 +183,7 @@ def apply_text_replacements_to_tokens(
         overlapping_indices = [
             index
             for index, token in enumerate(modified_tokens)
-            if token.char_start < replacement.end
-            and token.char_end > replacement.start
+            if token.char_start < replacement.end and token.char_end > replacement.start
         ]
         if not overlapping_indices:
             warnings.append(

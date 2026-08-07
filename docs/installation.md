@@ -10,6 +10,10 @@ The core package has minimal dependencies:
 pip install kokorog2p
 ```
 
+The core install includes bounded `abbr2words` and `spokenform` runtime dependencies.
+`abbr2words` owns abbreviation recognition and customization, `spokenform` owns reusable
+written-to-spoken semantic preparation, and kokorog2p remains the G2P and phoneme layer.
+
 This gives you:
 
 - Core G2P functionality

@@ -61,9 +61,7 @@ class TextReplacement:
         if self.start < 0:
             raise ValueError(f"start must be >= 0, got {self.start}")
         if self.end < self.start:
-            raise ValueError(
-                f"end ({self.end}) must be >= start ({self.start})"
-            )
+            raise ValueError(f"end ({self.end}) must be >= start ({self.start})")
         if not self.kind:
             raise ValueError("kind must not be empty")
 

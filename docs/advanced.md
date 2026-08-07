@@ -2,6 +2,16 @@
 
 This guide covers advanced features and usage patterns for kokorog2p.
 
+## Semantic preparation boundary
+
+For migrated German text, `abbr2words` supplies lexical abbreviation recognition,
+`spokenform` prepares written numbers, quantities, dates, times, currency, temperatures,
+ordinals, and abbreviations, and `kokorog2p` applies source-aligned replacements while
+owning routing, tokenization, overrides, punctuation/model cleanup, G2P, phonemes, and
+vocabulary IDs. Preparation runs separately for each homogeneous language run, with
+caller-protected ranges passed to spokenform first. Use spokenform directly for reusable
+spoken text or abbr2words directly for registry-only workflows.
+
 ## Custom G2P Configuration
 
 ### Tri-state spaCy model resolution

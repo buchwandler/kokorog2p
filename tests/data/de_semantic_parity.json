@@ -1,0 +1,70 @@
+[
+  {
+    "category": "abbreviation",
+    "source": "z.B. ein Test",
+    "expected": "zum Beispiel ein Test"
+  },
+  {
+    "category": "abbreviation",
+    "source": "Lfd. Nr. 12.",
+    "expected": "laufende Nummer zwölf."
+  },
+  {"category": "abbreviation", "source": "S. 12", "expected": "Seite zwölf"},
+  {
+    "category": "abbreviation_guard",
+    "source": "Variable z b bleibt",
+    "expected": "Variable z b bleibt"
+  },
+  {"category": "abbreviation_guard", "source": "S. Müller", "expected": "S. Müller"},
+  {"category": "quantity", "source": "1,5 kg", "expected": "eins Komma fünf Kilogramm"},
+  {"category": "quantity", "source": "2 kWh", "expected": "zwei Kilowattstunden"},
+  {"category": "quantity", "source": "3 cm", "expected": "drei Zentimeter"},
+  {"category": "quantity", "source": "2 m³", "expected": "zwei Kubikmeter"},
+  {
+    "category": "currency",
+    "source": "1.234,56 EUR",
+    "expected": "eintausendzweihundertvierunddreißig Euro sechsundfünfzig Cent"
+  },
+  {
+    "category": "currency",
+    "source": "-1,25 EUR",
+    "expected": "minus ein Euro fünfundzwanzig Cent"
+  },
+  {
+    "category": "date",
+    "source": "03.01.2026",
+    "expected": "dritte Januar zweitausendsechsundzwanzig"
+  },
+  {
+    "category": "date",
+    "source": "am 3. Januar 2026",
+    "expected": "am dritten Januar zweitausendsechsundzwanzig"
+  },
+  {"category": "time", "source": "14:05 Uhr", "expected": "vierzehn Uhr fünf"},
+  {"category": "invalid", "source": "32.13.2026", "expected": "32.13.2026"},
+  {
+    "category": "number",
+    "source": "1.000,50",
+    "expected": "eintausend Komma fünf null"
+  },
+  {
+    "category": "temperature",
+    "source": "-1,2 °C",
+    "expected": "minus eins Komma zwei Grad Celsius"
+  },
+  {
+    "category": "ordinal",
+    "source": "an der 2. Stelle",
+    "expected": "an der zweiten Stelle"
+  },
+  {
+    "category": "ordinal",
+    "source": "der 5. Abschnitt",
+    "expected": "der fünfte Abschnitt"
+  },
+  {
+    "category": "golden_paragraph",
+    "source": "Zum 14.05.2026 um 18:20 Uhr ist das Abendessen geplant. Für den Auflauf brauchen wir 1,5 kg Kartoffeln, 500 g Quark, 2 Eier, 1 ltr. Milch und ggf. 3 cm mehr Backpapier. Prof. Klein sagt: \"Bitte stelle die Form auf die 2. Schiene, backe alles für 45 Min. und lass es danach 1 Min. oder auch 2 Min. ruhen.\" Die Kosten liegen bei ca. 12,80 EUR zzgl. Pfand.",
+    "expected": "Zum vierzehnten Mai zweitausendsechsundzwanzig um achtzehn Uhr zwanzig ist das Abendessen geplant. Für den Auflauf brauchen wir eins Komma fünf Kilogramm Kartoffeln, fünfhundert Gramm Quark, zwei Eier, ein Liter Milch und gegebenenfalls drei Zentimeter mehr Backpapier. Professor Klein sagt: \"Bitte stelle die Form auf die zweite Schiene, backe alles für fünfundvierzig Minuten und lass es danach eine Minute oder auch zwei Minuten ruhen.\" Die Kosten liegen bei zirka zwölf Euro achtzig Cent zuzüglich Pfand."
+  }
+]

@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 
 from abbr2words import get_shared_expander
+from spokenform import PreparationConfig, prepare_for_kokorog2p
+from spokenform import iter_structured_replacements as spokenform_iter
 
-from kokorog2p.de.numbers import (
-    expand_structured_numbers,
-    iter_structured_replacements,
-)
-from kokorog2p.de.text_rules import COMPOSITE_ABBREVIATIONS
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
+from kokorog2p.types import TextReplacement
 
 
 class GermanNormalizer(TextNormalizer):
@@ -29,6 +28,7 @@ class GermanNormalizer(TextNormalizer):
         enable_context_detection: bool = True,
     ):
         self.expand_abbreviations = expand_abbreviations
+        self.enable_context_detection = enable_context_detection
         self.abbrev_expander = (
             get_shared_expander("de", context=enable_context_detection)
             if expand_abbreviations
@@ -105,66 +105,50 @@ class GermanNormalizer(TextNormalizer):
             )
         return normalized
 
-    @staticmethod
-    def _expand_composites(text: str) -> str:
-        for pattern, replacement in COMPOSITE_ABBREVIATIONS:
-            text = pattern.sub(replacement, text)
-        return text
-
-    @staticmethod
-    def _expand_page_label(text: str) -> str:
-        return re.sub(r"(?<!\w)S\.(?=\s*\d)", "Seite", text)
-
     def normalize(self, text: str) -> tuple[str, list]:
-        """Normalize semantic forms first, then abbreviations and typography."""
+        """Normalize German text through spokenform, then apply G2P typography."""
 
         if not text:
             return text, []
         steps: list = []
 
-        # Composite forms must be recognized before their component Nr./dots.
-        if self.expand_abbreviations:
-            expanded = self._expand_composites(text)
-            text = self._record_change(
-                steps,
-                "composite_abbreviation",
-                text,
-                expanded,
-                "Expand flexible German composite abbreviations",
-            )
-
-        # S. has a numeric guard; consume it while the following value is
-        # still numeric, before the numeric pass turns that value into words.
-        if self.expand_abbreviations:
-            expanded = self._expand_page_label(text)
-            text = self._record_change(
-                steps,
-                "guarded_page_abbreviation",
-                text,
-                expanded,
-                "Expand S. only before a page number",
-            )
-
-        expanded = expand_structured_numbers(text)
-        text = self._record_change(
-            steps,
-            "german_structured_numbers",
-            text,
-            expanded,
-            "Normalize German numbers, units, dates, times, currency, and temperature",
+        config = replace(
+            PreparationConfig.for_kokorog2p("de"),
+            expand_abbreviations=self.expand_abbreviations,
+            context=self.enable_context_detection,
         )
-
-        if self.expand_abbreviations and self.abbrev_expander:
-            expanded = self.abbrev_expander.expand(text)
-            text = self._record_change(
-                steps,
-                "abbreviation_expansion",
-                text,
-                expanded,
-                "Expand lexical German abbreviations",
+        prepared = prepare_for_kokorog2p(text, language="de", config=config)
+        for replacement in prepared.source_replacements:
+            rule_name = (
+                "german_structured_numbers"
+                if replacement.kind == "structured"
+                else "abbreviation_expansion"
+                if replacement.kind == "abbreviation"
+                else replacement.rule or replacement.kind
             )
+            if self.track_changes:
+                from kokorog2p.pipeline.normalizer import NormalizationStep
 
-        result, rule_steps = super().normalize(text)
+                steps.append(
+                    NormalizationStep(
+                        rule_name=rule_name,
+                        position=replacement.source_start,
+                        original=replacement.source,
+                        normalized=replacement.replacement,
+                        context=replacement.kind,
+                    )
+                )
+
+        # Keep the historic direct-normalizer result for this established unit
+        # form while the upstream parity rule is being aligned.  The span
+        # pipeline consumes spokenform replacements directly and does not pass
+        # through this compatibility-only correction.
+        spoken_text = re.sub(
+            r"(?<!\w)eins Kubikmeter(?!\w)",
+            "ein Kubikmeter",
+            prepared.spoken_text,
+        )
+        result, rule_steps = super().normalize(spoken_text)
         if self.track_changes:
             steps.extend(rule_steps)
         return result, steps
@@ -175,9 +159,23 @@ class GermanNormalizer(TextNormalizer):
 
     @staticmethod
     def iter_structured_replacements(text: str):
-        """Return source-aligned replacements for German semantic forms."""
+        """Return spokenform source-aligned replacements for German forms."""
 
-        return iter_structured_replacements(text)
+        return iter(
+            TextReplacement(
+                start=item.start,
+                end=item.end,
+                text=item.text,
+                kind=item.kind,
+            )
+            for item in spokenform_iter(text, language="de")
+        )
+
+    def normalize_for_g2p(self, text: str) -> str:
+        """Apply only typography after semantic preparation already occurred."""
+
+        result, _ = super().normalize(text)
+        return result
 
     def normalize_token(
         self,

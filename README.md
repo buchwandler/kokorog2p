@@ -38,10 +38,23 @@ provides:
   units (`1 Std.` → `eine Stunde`, `2 kg` → `zwei Kilogramm`)
 - **Stress assignment** based on linguistic rules
 
+## Text-preparation architecture
+
+```text
+abbr2words → lexical abbreviation recognition and customization
+spokenform → written text to spoken semantic preparation
+kokorog2p  → language routing, spans, overrides, tokenization, G2P, and phonemes
+```
+
+German is the first migrated language. Its span-aware pipeline prepares each homogeneous
+German run with `spokenform` and keeps model-specific punctuation and phoneme behavior
+in kokorog2p. Use `spokenform` for spoken text without phonemes and `abbr2words` for
+abbreviation registry-only workflows.
+
 ## Installation
 
 ```bash
-# Core package (no dependencies)
+# Core package (includes abbr2words and spokenform)
 pip install kokorog2p
 
 # With English support

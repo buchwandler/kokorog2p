@@ -192,9 +192,7 @@ class TestApplyTextReplacementsToTokens:
             TokenSpan("kg", 4, 6),
             TokenSpan("Kartoffeln", 7, 17),
         ]
-        replacements = [
-            TextReplacement(0, 6, "eins Komma fünf Kilogramm", "unit", 95)
-        ]
+        replacements = [TextReplacement(0, 6, "eins Komma fünf Kilogramm", "unit", 95)]
 
         result, warnings = apply_text_replacements_to_tokens(
             tokens, source, replacements, default_lang="de"

@@ -164,6 +164,11 @@ German G2P uses a large dictionary (738k+ entries from Olaph) with rule-based fa
 
 - **Regional variants**: de-de, de-at, de-ch
 
+German semantic preparation is delegated per homogeneous language run to `spokenform`.
+This is the current German-only migration phase; other languages retain their existing
+caller-managed number and normalizer paths. `abbr2words` remains the shared lexical
+source of truth for abbreviation recognition and customization.
+
 ### Usage
 
 ```python

@@ -14,8 +14,13 @@ when:
 
 The abbreviation registry is provided by the required `abbr2words` dependency. The
 legacy `kokorog2p.*.abbreviations` import paths remain as deprecated, warning-free
-compatibility shims for this transition release; new integrations should import
-registry types and shared registries from `abbr2words`.
+compatibility shims for this transition release; new integrations should import registry
+types and shared registries from `abbr2words`.
+
+The German Phase 1 migration uses this same shared registry through spokenform and
+kokorog2p. A customization made through the kokorog2p API remains visible to subsequent
+German semantic preparation; legacy normalizer import paths are compatibility facades,
+not independent registries.
 
 ## Quick Start
 
