@@ -5,8 +5,8 @@ Based on misaki French implementation, adapted for kokorog2p.
 
 import importlib.resources
 import json
-import re
 import unicodedata
+import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import lru_cache
@@ -75,65 +75,6 @@ SYMBOLS: Final[dict[str, str]] = {
     "+": "plus",
     "@": "arobase",
 }
-
-# Currency symbols
-CURRENCIES: Final[dict[str, tuple[str, str]]] = {
-    "€": ("euro", "centime"),
-    "$": ("dollar", "cent"),
-    "£": ("livre", "pence"),
-}
-
-# Common French abbreviations
-ABBREVIATIONS: Final[dict[str, str]] = {
-    # Titles
-    "M.": "monsieur",
-    "Mme": "madame",
-    "Mlle": "mademoiselle",
-    "Dr": "docteur",
-    "Pr": "professeur",
-    "Me": "maître",
-    "Mgr": "monseigneur",
-    "St": "saint",
-    "Ste": "sainte",
-    # Common abbreviations
-    "etc.": "et cetera",
-    "cf.": "confer",
-    "ex.": "exemple",
-    "n°": "numéro",
-    "N°": "numéro",
-    "p.": "page",
-    "pp.": "pages",
-    "vol.": "volume",
-    "chap.": "chapitre",
-    "éd.": "édition",
-    "env.": "environ",
-    "min.": "minute",
-    "sec.": "seconde",
-    "h": "heure",
-    "km": "kilomètre",
-    "m": "mètre",
-    "cm": "centimètre",
-    "mm": "millimètre",
-    "kg": "kilogramme",
-    "g": "gramme",
-    "mg": "milligramme",
-    "l": "litre",
-    "ml": "millilitre",
-}
-
-# Ordinal suffixes
-ORDINALS: Final[dict[str, str]] = {
-    "1er": "premier",
-    "1ère": "première",
-    "1re": "première",
-    "2e": "deuxième",
-    "2ème": "deuxième",
-    "2nd": "second",
-    "2nde": "seconde",
-    "3e": "troisième",
-    "3ème": "troisième",
-}
-
 
 # =============================================================================
 # Helper Classes
@@ -326,27 +267,31 @@ class FrenchLexicon:
         return (ps, 4)
 
     def expand_abbreviation(self, text: str) -> str:
-        """Expand common French abbreviations."""
-        for abbr, expansion in ABBREVIATIONS.items():
-            pattern = re.escape(abbr)
-            if abbr.endswith("."):
-                text = re.sub(
-                    rf"\b{pattern}(?=\s|$|[,;:!?])",
-                    expansion,
-                    text,
-                    flags=re.IGNORECASE,
-                )
-            else:
-                text = re.sub(rf"\b{pattern}\b", expansion, text, flags=re.IGNORECASE)
-        return text
+        """Compatibility shim for the former local abbreviation registry.
+
+        New code should use ``abbr2words`` or ``FrenchNormalizer``. Keeping
+        this method avoids an abrupt API break without retaining a duplicate
+        registry in the French G2P path.
+        """
+        warnings.warn(
+            "FrenchLexicon.expand_abbreviation is deprecated; use abbr2words.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        from abbr2words import get_shared_expander
+
+        return get_shared_expander("fr", context=True).expand(text)
 
     def expand_ordinals(self, text: str) -> str:
-        """Expand ordinal numbers."""
-        for ordinal, expansion in ORDINALS.items():
-            text = re.sub(
-                rf"\b{re.escape(ordinal)}\b", expansion, text, flags=re.IGNORECASE
-            )
-        return text
+        """Deprecated compatibility shim for upstream ordinal preparation."""
+        warnings.warn(
+            "FrenchLexicon.expand_ordinals is deprecated; use spokenform.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        from kokorog2p.fr.numbers import expand_ordinal
+
+        return expand_ordinal(text)
 
     def get_special_case(
         self,

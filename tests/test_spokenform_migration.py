@@ -8,6 +8,8 @@ import pytest
 import kokorog2p.pipeline_api as pipeline_api
 from kokorog2p.de.g2p import GermanG2P
 from kokorog2p.de.normalizer import GermanNormalizer
+from kokorog2p.fr.g2p import FrenchG2P
+from kokorog2p.fr.normalizer import FrenchNormalizer
 from kokorog2p.pipeline_api import (
     _apply_structured_replacements_to_tokens,
     _spokenform_replacements_for_run,
@@ -19,6 +21,18 @@ from kokorog2p.types import OverrideSpan
 PARITY_CASES = json.loads(
     (Path(__file__).parent / "data" / "de_semantic_parity.json").read_text()
 )
+FRENCH_PARITY_CASES = json.loads(
+    (Path(__file__).parent / "data" / "fr_spokenform_parity.json").read_text()
+)
+
+
+@pytest.mark.parametrize(
+    "case",
+    FRENCH_PARITY_CASES,
+    ids=lambda case: case["category"] + ":" + case["source"][:18],
+)
+def test_french_parity_corpus(case):
+    assert FrenchNormalizer()(case["source"]) == case["expected"]
 
 
 @pytest.mark.parametrize(
@@ -41,7 +55,7 @@ def test_spokenform_adapter_rebases_and_preserves_source_provenance():
     ]
     assert all(
         left.end <= right.start
-        for left, right in zip(replacements, replacements[1:], strict=True)
+        for left, right in zip(replacements[:-1], replacements[1:], strict=True)
     )
     assert replacements[0].text == "eins Komma fünf Kilogramm"
     assert replacements[1].text == "zwölf Euro achtzig Cent"
@@ -53,6 +67,97 @@ def test_spokenform_adapter_handles_empty_and_protected_ranges():
         _spokenform_replacements_for_run("1,5 kg", "de", protected_spans=((0, 6),))
         == []
     )
+
+
+def test_french_adapter_rebases_repeated_source_fragments():
+    source = "A 1,5 kg puis 1,5 kg"
+    replacements = _spokenform_replacements_for_run(source, "fr", source_offset=10)
+
+    assert [(item.start, item.end) for item in replacements] == [
+        (12, 18),
+        (24, 30),
+    ]
+    assert [source[item.start - 10 : item.end - 10] for item in replacements] == [
+        "1,5 kg",
+        "1,5 kg",
+    ]
+    assert [item.text for item in replacements] == [
+        "un virgule cinq kilogrammes",
+        "un virgule cinq kilogrammes",
+    ]
+
+
+def test_french_protection_fails_closed_for_partial_structured_spans():
+    replacements = _spokenform_replacements_for_run(
+        "5€ 14h30", "fr", protected_spans=((0, 1),)
+    )
+    assert [(item.start, item.end, item.text) for item in replacements] == [
+        (3, 8, "quatorze heures trente")
+    ]
+
+
+def test_french_runs_are_isolated_from_other_languages():
+    source = "1,5 kg 2 kg"
+    tokens = tokenize_with_offsets(source, lang="fr", keep_punct=True)
+    for token in tokens:
+        if token.char_start >= 7:
+            token.lang = "en-us"
+
+    replaced, warnings = _apply_structured_replacements_to_tokens(tokens, source, "fr")
+
+    assert not warnings
+    assert replaced[0].extended_text == "un virgule cinq kilogrammes"
+    assert any(token.text == "2" and token.extended_text is None for token in replaced)
+
+
+@pytest.mark.parametrize("track_changes", [False, True])
+def test_french_normalizer_direct_api_and_tracking(track_changes):
+    normalizer = FrenchNormalizer(track_changes=track_changes)
+    normalized, steps = normalizer.normalize("Mme Dupont a 1,5 kg.")
+
+    assert normalized == "madame Dupont a un virgule cinq kilogrammes."
+    if track_changes:
+        assert any(step.rule_name == "fr.quantity" for step in steps)
+    else:
+        assert steps == []
+
+
+@pytest.mark.parametrize(
+    "expand_nums, expected",
+    [
+        (True, "trois pommes, quatorze heures trente."),
+        (False, "3 pommes, 14h30."),
+    ],
+)
+def test_french_expand_nums_compatibility(expand_nums, expected):
+    g2p = FrenchG2P(
+        use_spacy=False,
+        use_espeak_fallback=False,
+        load_gold=False,
+        load_silver=False,
+        expand_nums=expand_nums,
+    )
+    assert g2p._preprocess("3 pommes, 14h30.") == expected
+    assert g2p._normalizer.expand_nums is expand_nums
+
+
+def test_french_direct_and_span_paths_have_phoneme_parity():
+    source = "14h30 et 37°C, puis 1€."
+    g2p = FrenchG2P(
+        use_spacy=False,
+        use_espeak_fallback=False,
+        load_gold=False,
+        load_silver=False,
+    )
+    direct = g2p(source)
+    direct_phonemes = "".join(
+        (token.phonemes or "") + (token.whitespace or "") for token in direct
+    ).strip()
+    result = phonemize_to_result(source, lang="fr", g2p=g2p, return_ids=False)
+
+    assert result.extended_text == FrenchNormalizer()(source)
+    assert result.phonemes == direct_phonemes
+    assert not result.warnings
 
 
 def test_german_runs_are_prepared_independently(monkeypatch):

@@ -41,6 +41,20 @@ if TYPE_CHECKING:
 
 _G2P_LOCKS: "WeakKeyDictionary[object, threading.RLock]" = WeakKeyDictionary()
 
+# Semantic preparation is owned by spokenform for migrated languages.  Keep
+# this policy centralized so run-level preparation and token-level fallbacks
+# cannot drift apart as more locales move upstream.
+_SPOKENFORM_SEMANTIC_LANGUAGES = frozenset({"de", "fr"})
+
+
+def _uses_spokenform_semantics(lang: str | None) -> bool:
+    """Return whether *lang* has migrated semantic preparation upstream."""
+
+    normalized = _normalize_lang(lang)
+    if not normalized:
+        return False
+    return normalized.split("-", 1)[0] in _SPOKENFORM_SEMANTIC_LANGUAGES
+
 
 def _get_g2p_lock(g2p: Any) -> threading.RLock:
     try:
@@ -186,16 +200,18 @@ def _get_structured_replacements(
     *,
     source_offset: int = 0,
     protected_spans: Sequence[tuple[int, int]] = (),
+    expand_nums: bool = True,
 ) -> list[TextReplacement]:
     """Get source-aligned semantic replacements for one language run."""
 
     normalized = _normalize_lang(lang) or "en-us"
-    if normalized.startswith("de"):
+    if _uses_spokenform_semantics(normalized):
         return _spokenform_replacements_for_run(
             text,
             normalized,
             source_offset=source_offset,
             protected_spans=protected_spans,
+            expand_nums=expand_nums,
         )
 
     normalizer = _get_language_normalizer(lang)
@@ -220,14 +236,26 @@ def _spokenform_replacements_for_run(
     *,
     source_offset: int = 0,
     protected_spans: Sequence[tuple[int, int]] = (),
+    expand_nums: bool = True,
 ) -> list[TextReplacement]:
     """Adapt spokenform source replacements into kokorog2p's public type."""
 
-    from spokenform import prepare_for_kokorog2p
+    from dataclasses import replace
+
+    from spokenform import NumberPolicy, PreparationConfig, prepare_for_kokorog2p
+
+    config = PreparationConfig.for_kokorog2p(language)
+    if _normalize_lang(language).split("-", 1)[0] == "fr" and not expand_nums:
+        config = replace(
+            config,
+            expand_numbers=False,
+            number_policy=NumberPolicy.NONE,
+        )
 
     prepared = prepare_for_kokorog2p(
         text,
         language=language,
+        config=config,
         protected_spans=protected_spans,
     )
     replacements: list[TextReplacement] = []
@@ -252,6 +280,7 @@ def _apply_structured_replacements_to_tokens(
     clean_text: str,
     default_lang: str,
     overrides: Sequence[object] = (),
+    expand_nums: bool = True,
 ) -> tuple[list[TokenSpan], list[str]]:
     """Apply semantic replacements independently within language runs."""
 
@@ -283,6 +312,11 @@ def _apply_structured_replacements_to_tokens(
             run_lang,
             source_offset=run_text_start,
             protected_spans=run_protected,
+            expand_nums=(
+                expand_nums
+                if (_normalize_lang(run_lang) or "").startswith("fr")
+                else True
+            ),
         )
         replaced, warnings = apply_text_replacements_to_tokens(
             run_tokens,
@@ -382,7 +416,7 @@ def _apply_extended_text(
             before = clean_text[: token.char_start].strip()
             after = clean_text[token.char_end :].strip()
             semantic_rules_enabled = use_normalizer_rules and not (
-                (_normalize_lang(token_lang) or "").startswith("de")
+                _uses_spokenform_semantics(token_lang)
             )
             if semantic_rules_enabled:
                 normalizer = _get_language_normalizer(token_lang)
@@ -647,9 +681,19 @@ def phonemize_to_result(
     lang = lang or "en-us"
     warnings: list[str] = []
 
-    # Normalize punctuation into Kokoro-compatible forms early
-    # (e.g. '-' -> '—', '...' -> '…', fullwidth punctuation -> ASCII)
-    clean_text = normalize_punctuation(clean_text)
+    # Normalize punctuation into Kokoro-compatible forms early.  Preserve
+    # French semantic symbols until the run-level spokenform pass consumes
+    # them; the final G2P text contains only model-supported punctuation.
+    if (_normalize_lang(lang) or "").split("-", 1)[0] == "fr":
+        semantic_symbols = "°$£%€"
+        placeholders = {
+            symbol: chr(0xE000 + index) for index, symbol in enumerate(semantic_symbols)
+        }
+        clean_text = normalize_punctuation(
+            clean_text.translate(str.maketrans(placeholders))
+        ).translate(str.maketrans({value: key for key, value in placeholders.items()}))
+    else:
+        clean_text = normalize_punctuation(clean_text)
 
     # Get or create G2P instance
     if g2p is None:
@@ -669,7 +713,11 @@ def phonemize_to_result(
             warnings.extend(override_warnings)
 
         token_spans, replacement_warnings = _apply_structured_replacements_to_tokens(
-            token_spans, clean_text, lang, overrides or ()
+            token_spans,
+            clean_text,
+            lang,
+            overrides or (),
+            expand_nums=bool(getattr(g2p, "expand_nums", True)),
         )
         warnings.extend(replacement_warnings)
 

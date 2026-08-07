@@ -2,6 +2,20 @@
 
 French G2P provides phoneme conversion using a gold dictionary with espeak-ng fallback.
 
+French semantic preparation runs through the released shared stack:
+
+```text
+abbr2words -> French abbreviation/symbol recognition
+spokenform -> French semantic written-to-spoken preparation
+kokorog2p  -> French G2P, tokenization, and phonemes
+```
+
+The span pipeline prepares each homogeneous French run once and rebases the exact source
+replacements to document offsets. French typography, tokenization, lexicon lookup,
+fallback, and phoneme conversion remain local to kokorog2p. The number helper functions
+below are retained for compatibility and are deprecated; new code should call
+`spokenform` directly.
+
 ## Main Class
 
 ```{eval-rst}
@@ -21,6 +35,11 @@ French G2P provides phoneme conversion using a gold dictionary with espeak-ng fa
 ```
 
 ## Number Conversion
+
+The public helper functions are deprecated compatibility wrappers around the released
+`spokenform` implementation. `FrenchG2P(expand_nums=False)` selects the upstream
+no-number-expansion policy, so ordinary written numbers and structured expressions
+remain written rather than being silently expanded.
 
 ### Helper Functions
 

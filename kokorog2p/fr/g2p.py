@@ -13,7 +13,6 @@ from kokorog2p.base import G2PBase
 from kokorog2p.fr.fallback import FrenchFallback, FrenchGoruutFallback
 from kokorog2p.fr.lexicon import FrenchLexicon, TokenContext
 from kokorog2p.fr.normalizer import FrenchNormalizer
-from kokorog2p.fr.numbers import expand_currency, expand_numbers, expand_time
 from kokorog2p.pipeline.tokenizer import RegexTokenizer, SpacyTokenizer
 from kokorog2p.spacy_models import resolve_spacy_model
 from kokorog2p.token import GToken
@@ -118,6 +117,7 @@ class FrenchG2P(G2PBase):
         self._normalizer = FrenchNormalizer(
             expand_abbreviations=expand_abbreviations,
             enable_context_detection=enable_context_detection,
+            expand_nums=expand_nums,
         )
 
         # Initialize lexicon
@@ -234,7 +234,7 @@ class FrenchG2P(G2PBase):
         # Normalize Unicode
         text = unicodedata.normalize("NFC", text)
 
-        # Apply normalizer (abbreviations, temperature, etc.)
+        # Apply semantic preparation once, then retain only G2P typography.
         text = self._normalizer(text)
 
         # Normalize punctuation (keep for legacy compatibility)
@@ -247,22 +247,6 @@ class FrenchG2P(G2PBase):
 
         # Collapse multiple spaces
         text = re.sub(r" +", " ", text)
-
-        # Expand abbreviations (legacy - now handled by normalizer)
-        text = self.lexicon.expand_abbreviation(text)
-
-        # Expand ordinals
-        text = self.lexicon.expand_ordinals(text)
-
-        # Expand time expressions
-        text = expand_time(text)
-
-        # Expand numbers
-        if self.expand_nums:
-            text = expand_numbers(text)
-
-        # Expand currency
-        text = expand_currency(text)
 
         return text.strip()
 

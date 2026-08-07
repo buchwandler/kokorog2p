@@ -46,10 +46,12 @@ spokenform → written text to spoken semantic preparation
 kokorog2p  → language routing, spans, overrides, tokenization, G2P, and phonemes
 ```
 
-German is the first migrated language. Its span-aware pipeline prepares each homogeneous
-German run with `spokenform` and keeps model-specific punctuation and phoneme behavior
-in kokorog2p. Use `spokenform` for spoken text without phonemes and `abbr2words` for
-abbreviation registry-only workflows.
+German was the first migrated language, and French now uses the same shared semantic
+preparation architecture. For both languages, `abbr2words` recognizes lexical
+abbreviations and symbols, `spokenform` prepares written semantic forms, and kokorog2p
+keeps language routing, spans, overrides, tokenization, G2P, and phonemes. Use
+`spokenform` for spoken text without phonemes and `abbr2words` for registry-only
+workflows; other languages have not all migrated.
 
 ## Installation
 

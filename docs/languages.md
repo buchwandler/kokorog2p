@@ -164,10 +164,11 @@ German G2P uses a large dictionary (738k+ entries from Olaph) with rule-based fa
 
 - **Regional variants**: de-de, de-at, de-ch
 
-German semantic preparation is delegated per homogeneous language run to `spokenform`.
-This is the current German-only migration phase; other languages retain their existing
-caller-managed number and normalizer paths. `abbr2words` remains the shared lexical
-source of truth for abbreviation recognition and customization.
+German was the first language migrated to the shared semantic-preparation architecture.
+French now follows the same per-homogeneous-run `spokenform` path. `abbr2words` remains
+the shared source of truth for lexical abbreviation and symbol recognition, while
+`spokenform` owns reusable written-to-spoken semantics. Other languages retain their
+existing caller-managed number and normalizer paths.
 
 ### Usage
 
@@ -207,8 +208,14 @@ French G2P uses a gold dictionary with espeak-ng fallback.
 ### Features
 
 - **Gold dictionary**: High-quality French pronunciations
-- **Number handling**: Cardinals, ordinals, currency
+- **Semantic ownership**: `abbr2words` recognizes French abbreviations and symbols;
+  `spokenform` prepares dates, times, numbers, ordinals, currencies, quantities, units,
+  and temperatures
 - **espeak-ng fallback**: For out-of-vocabulary words
+
+French was the second migrated language. kokorog2p retains French typography,
+tokenization, lexicon lookup, fallback, and phoneme conversion. The legacy helpers in
+`kokorog2p.fr.numbers` remain as deprecated compatibility wrappers.
 
 ### Usage
 

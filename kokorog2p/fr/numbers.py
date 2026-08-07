@@ -1,17 +1,65 @@
-"""French number to words conversion using num2words."""
+"""Deprecated French semantic helper compatibility wrappers.
+
+Semantic preparation now belongs to the released :mod:`spokenform` package.
+These functions remain importable for the compatible API window, but none is
+used by the French G2P hot path.
+"""
 
 import re
-from collections.abc import Callable
+import warnings
+from dataclasses import replace
 
-# Try to import num2words
-_num2words_fn: Callable[..., str] | None = None
-try:
-    from num2words import num2words as _n2w
+from spokenform import NumberPolicy, PreparationConfig, prepare_for_kokorog2p
 
-    _num2words_fn = _n2w
-    NUM2WORDS_AVAILABLE = True
-except ImportError:
-    NUM2WORDS_AVAILABLE = False
+
+def _get_num2words():
+    try:
+        from num2words import num2words
+    except ImportError:
+        return None
+    return num2words
+
+
+NUM2WORDS_AVAILABLE = _get_num2words() is not None
+
+
+def _warn_deprecated(name: str) -> None:
+    warnings.warn(
+        f"kokorog2p.fr.numbers.{name} is deprecated; use spokenform instead.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
+def _spokenform_replacements(
+    text: str,
+    *,
+    rule: str,
+    protected_spans: tuple[tuple[int, int], ...] = (),
+):
+    config = replace(
+        PreparationConfig.for_kokorog2p("fr"),
+        expand_abbreviations=False,
+        number_policy=NumberPolicy.STRUCTURED_AND_PLAIN,
+    )
+    prepared = prepare_for_kokorog2p(
+        text,
+        language="fr",
+        config=config,
+        protected_spans=protected_spans,
+    )
+    return [
+        item
+        for item in prepared.source_replacements
+        if item.rule == rule
+        and text[item.source_start : item.source_end] == item.source
+    ]
+
+
+def _apply_replacements(text: str, replacements) -> str:
+    for item in reversed(replacements):
+        text = text[: item.source_start] + item.replacement + text[item.source_end :]
+    return text
 
 
 def number_to_french(n: int, ordinal: bool = False) -> str:
@@ -33,15 +81,17 @@ def number_to_french(n: int, ordinal: bool = False) -> str:
         >>> number_to_french(1, ordinal=True)
         'premier'
     """
-    if _num2words_fn is None:
+    _warn_deprecated("number_to_french")
+    num2words = _get_num2words()
+    if num2words is None:
         raise ImportError(
             "num2words is required for number conversion."
             " Install with: pip install num2words"
         )
 
     if ordinal:
-        return _num2words_fn(n, lang="fr", to="ordinal")
-    return _num2words_fn(n, lang="fr")
+        return num2words(n, lang="fr", to="ordinal")
+    return num2words(n, lang="fr")
 
 
 def expand_numbers(text: str, max_value: int = 1000000) -> str:
@@ -58,16 +108,16 @@ def expand_numbers(text: str, max_value: int = 1000000) -> str:
         >>> expand_numbers("J'ai 3 pommes et 42 oranges.")
         "J'ai trois pommes et quarante-deux oranges."
     """
-    if not NUM2WORDS_AVAILABLE:
-        return text
-
-    def replace_match(match: re.Match[str]) -> str:
-        num = int(match.group(0))
-        if num <= max_value:
-            return number_to_french(num)
-        return match.group(0)
-
-    return re.sub(r"\b\d+\b", replace_match, text)
+    _warn_deprecated("expand_numbers")
+    protected = tuple(
+        (match.start(), match.end())
+        for match in re.finditer(r"\b\d+\b", text)
+        if int(match.group(0)) > max_value
+    )
+    return _apply_replacements(
+        text,
+        _spokenform_replacements(text, rule="fr.number", protected_spans=protected),
+    )
 
 
 def expand_time(text: str) -> str:
@@ -83,22 +133,8 @@ def expand_time(text: str) -> str:
         >>> expand_time("Le rendez-vous est à 14h30.")
         'Le rendez-vous est à quatorze heures trente.'
     """
-    if not NUM2WORDS_AVAILABLE:
-        return text
-
-    def replace_time(match: re.Match[str]) -> str:
-        hours = int(match.group(1))
-        minutes = match.group(2)
-        result = number_to_french(hours) + " heure"
-        if hours > 1:
-            result += "s"
-        if minutes:
-            mins = int(minutes)
-            if mins > 0:
-                result += " " + number_to_french(mins)
-        return result
-
-    return re.sub(r"\b(\d{1,2})h(\d{2})?\b", replace_time, text)
+    _warn_deprecated("expand_time")
+    return _apply_replacements(text, _spokenform_replacements(text, rule="fr.time"))
 
 
 def expand_currency(text: str) -> str:
@@ -114,30 +150,8 @@ def expand_currency(text: str) -> str:
         >>> expand_currency("Ça coûte 5€.")
         'Ça coûte cinq euros.'
     """
-    if not NUM2WORDS_AVAILABLE:
-        return text
-
-    # Euro
-    text = re.sub(
-        r"(\d+)\s*€",
-        lambda m: (
-            number_to_french(int(m.group(1)))
-            + (" euro" if int(m.group(1)) == 1 else " euros")
-        ),
-        text,
-    )
-
-    # Dollar
-    text = re.sub(
-        r"\$\s*(\d+)",
-        lambda m: (
-            number_to_french(int(m.group(1)))
-            + (" dollar" if int(m.group(1)) == 1 else " dollars")
-        ),
-        text,
-    )
-
-    return text
+    _warn_deprecated("expand_currency")
+    return _apply_replacements(text, _spokenform_replacements(text, rule="fr.currency"))
 
 
 def expand_ordinal(text: str) -> str:
@@ -153,36 +167,8 @@ def expand_ordinal(text: str) -> str:
         >>> expand_ordinal("Le 1er janvier")
         'Le premier janvier'
     """
-    if not NUM2WORDS_AVAILABLE:
-        return text
-
-    # Match patterns like 1er, 1ère, 2e, 2ème, 2nd, 2nde, etc.
-    def replace_ordinal(match: re.Match[str]) -> str:
-        num = int(match.group(1))
-        suffix = match.group(2).lower()
-
-        # Handle feminine forms
-        if suffix in ("ère", "re", "nde"):
-            # For feminine, we need to modify the output
-            ordinal = number_to_french(num, ordinal=True)
-            # Convert masculine to feminine
-            if ordinal.endswith("premier"):
-                ordinal = ordinal[:-7] + "première"
-            elif ordinal.endswith("second"):
-                ordinal = ordinal[:-6] + "seconde"
-            return ordinal
-
-        return number_to_french(num, ordinal=True)
-
-    # Match ordinal patterns
-    text = re.sub(
-        r"\b(\d+)(er|ère|re|e|ème|nd|nde)\b",
-        replace_ordinal,
-        text,
-        flags=re.IGNORECASE,
-    )
-
-    return text
+    _warn_deprecated("expand_ordinal")
+    return _apply_replacements(text, _spokenform_replacements(text, rule="fr.ordinal"))
 
 
 def is_available() -> bool:
@@ -191,4 +177,5 @@ def is_available() -> bool:
     Returns:
         True if num2words is installed.
     """
-    return NUM2WORDS_AVAILABLE
+    _warn_deprecated("is_available")
+    return _get_num2words() is not None

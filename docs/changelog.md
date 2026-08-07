@@ -9,13 +9,16 @@ All notable changes to kokorog2p will be documented in this file.
 - Delegated German written-to-spoken semantic preparation to `spokenform` per
   source-aligned language run while preserving kokorog2p overrides, token mapping, G2P,
   phoneme, and model responsibilities.
-- Kept `abbr2words` as the direct shared abbreviation source of truth and retained the
-  German normalizer compatibility facade.
+- Delegated French written-to-spoken semantic preparation to `spokenform` per
+  source-aligned language run, removed duplicate French semantic hot-path helpers, and
+  retained public number helpers as deprecated compatibility wrappers.
+- Kept `abbr2words` as the shared lexical abbreviation and symbol source of truth for
+  German and French while retaining local G2P typography and phoneme behavior.
 
 ### Documentation
 
 - Documented the `abbr2words` → `spokenform` → `kokorog2p` ownership boundary and the
-  German-only Phase 1 migration scope.
+  German-first/French-second migration scope without claiming every language migrated.
 
 ## [0.7.2] - 2026-08-04
 

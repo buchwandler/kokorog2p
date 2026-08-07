@@ -1,0 +1,57 @@
+[
+  {"category": "number", "source": "3 pommes", "expected": "trois pommes"},
+  {
+    "category": "decimal_quantity",
+    "source": "1,5 kg",
+    "expected": "un virgule cinq kilogrammes"
+  },
+  {
+    "category": "date",
+    "source": "14.05.2026",
+    "expected": "quatorze mai deux mille vingt-six"
+  },
+  {
+    "category": "first_of_month",
+    "source": "01.01.2026",
+    "expected": "premier janvier deux mille vingt-six"
+  },
+  {"category": "time", "source": "18h20", "expected": "dix-huit heures vingt"},
+  {"category": "singular_time", "source": "1h", "expected": "une heure"},
+  {"category": "ordinal", "source": "1er janvier", "expected": "premier janvier"},
+  {"category": "feminine_ordinal", "source": "1ère fois", "expected": "première fois"},
+  {
+    "category": "currency",
+    "source": "5€ et $5",
+    "expected": "cinq euros et cinq dollars"
+  },
+  {
+    "category": "units",
+    "source": "1 l et 2 kg",
+    "expected": "un litre et deux kilogrammes"
+  },
+  {
+    "category": "temperature",
+    "source": "1°C et 37°C",
+    "expected": "un degré Celsius et trente-sept degrés Celsius"
+  },
+  {
+    "category": "duration",
+    "source": "45 min. puis 2 min.",
+    "expected": "quarante-cinq minutes puis deux minutes."
+  },
+  {
+    "category": "decimal",
+    "source": "0,02 seconde",
+    "expected": "zéro virgule zéro deux seconde"
+  },
+  {
+    "category": "repeated",
+    "source": "1,5 kg, 1,5 kg",
+    "expected": "un virgule cinq kilogrammes, un virgule cinq kilogrammes"
+  },
+  {
+    "category": "punctuation_nbsp",
+    "source": "500\u00a0g et 500\u202fg",
+    "expected": "cinq cents grammes et cinq cents grammes"
+  }
+]
