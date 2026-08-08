@@ -15,13 +15,19 @@ All notable changes to kokorog2p will be documented in this file.
 - Delegated Spanish written-to-spoken semantic preparation to `spokenform` per
   source-aligned language run, removed the duplicate local number and temperature
   hot-path helpers, and retained Spanish typography and dialect phoneme behavior.
+- Delegated Italian written-to-spoken semantic preparation to `spokenform` per
+  source-aligned language run, removed the duplicate Italian number/temperature hot
+  path, and retained Italian typography, contraction handling, tokenization,
+  stress/gemination, and phoneme behavior downstream.
 - Kept `abbr2words` as the shared lexical abbreviation and symbol source of truth for
-  German, French, and Spanish while retaining local G2P typography and phoneme behavior.
+  German, French, Spanish, and Italian while retaining local G2P typography and phoneme
+  behavior.
 
 ### Documentation
 
 - Documented the `abbr2words` → `spokenform` → `kokorog2p` ownership boundary and the
-  exact German/French/Spanish migration scope without claiming other languages migrated.
+  exact German/French/Spanish/Italian migration scope without claiming other languages
+  migrated.
 
 ## [0.7.2] - 2026-08-04
 

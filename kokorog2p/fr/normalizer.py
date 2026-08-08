@@ -1,5 +1,6 @@
 """French G2P typography with semantic preparation delegated to spokenform."""
 
+from collections.abc import Iterator
 from dataclasses import replace
 
 from abbr2words import get_shared_expander
@@ -208,7 +209,7 @@ class FrenchNormalizer(TextNormalizer):
         return result
 
     @staticmethod
-    def iter_structured_replacements(text: str):
+    def iter_structured_replacements(text: str) -> Iterator[TextReplacement]:
         """Return spokenform source-aligned replacements for French forms."""
 
         return iter(

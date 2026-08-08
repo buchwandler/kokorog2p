@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from dataclasses import replace
 
 from abbr2words import get_shared_expander
@@ -158,7 +159,7 @@ class GermanNormalizer(TextNormalizer):
         return result
 
     @staticmethod
-    def iter_structured_replacements(text: str):
+    def iter_structured_replacements(text: str) -> Iterator[TextReplacement]:
         """Return spokenform source-aligned replacements for German forms."""
 
         return iter(

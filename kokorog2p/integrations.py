@@ -6,7 +6,7 @@ itself while passing compatible objects from either package when installed.
 """
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, cast
 
 from kokorog2p.types import OverrideSpan, PhonemizeResult
 
@@ -28,10 +28,11 @@ def _validated_offset(value: object, name: str) -> int:
 
 
 def _span_values(span: object) -> tuple[int, int, Mapping[str, object]]:
+    span_any = cast(Any, span)
     try:
-        start = _validated_offset(span.char_start, "char_start")
-        end = _validated_offset(span.char_end, "char_end")
-        attrs = span.attrs
+        start = _validated_offset(span_any.char_start, "char_start")
+        end = _validated_offset(span_any.char_end, "char_end")
+        attrs = span_any.attrs
     except AttributeError as exc:
         raise TypeError(
             "override spans must provide char_start, char_end, and attrs"
@@ -155,10 +156,11 @@ def overrides_for_segment(
 
 
 def _validate_segment(segment: object, clean_text: str) -> tuple[str, int, int]:
+    segment_any = cast(Any, segment)
     try:
-        text = segment.text
-        start = _validated_offset(segment.char_start, "char_start")
-        end = _validated_offset(segment.char_end, "char_end")
+        text = segment_any.text
+        start = _validated_offset(segment_any.char_start, "char_start")
+        end = _validated_offset(segment_any.char_end, "char_end")
     except AttributeError as exc:
         raise TypeError("segments must provide text, char_start, and char_end") from exc
     if not isinstance(text, str):

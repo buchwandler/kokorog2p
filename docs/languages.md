@@ -165,11 +165,11 @@ German G2P uses a large dictionary (738k+ entries from Olaph) with rule-based fa
 - **Regional variants**: de-de, de-at, de-ch
 
 German was the first language migrated to the shared semantic-preparation architecture,
-followed by French and Spanish. These three languages use the same per-homogeneous-run
-`spokenform` path. `abbr2words` remains the shared source of truth for lexical
-abbreviation and symbol recognition, while `spokenform` owns reusable written-to-spoken
-semantics. Italian, Portuguese, Czech, and English retain their existing caller-managed
-number and normalizer paths.
+followed by French, Spanish, and Italian. These four languages use the same
+per-homogeneous-run `spokenform` path. `abbr2words` remains the shared source of truth
+for lexical abbreviation and symbol recognition, while `spokenform` owns reusable
+written-to-spoken semantics. Portuguese, Czech, and English retain their existing
+caller-managed number and normalizer paths.
 
 ### Usage
 
@@ -342,6 +342,19 @@ print(phonemize("perro", language="es"))    # → pero (trilled r)
 ## Italian (it)
 
 Italian G2P uses rule-based phonology with predictable stress and gemination handling.
+
+### Semantic ownership
+
+- `abbr2words` owns Italian lexical abbreviations, units, currency symbols, canonical
+  structured IDs, and source-span matching.
+- `spokenform` owns reviewed dates, quantities, temperatures, currencies, and ordinary
+  written numbers for each homogeneous Italian run.
+- kokorog2p retains Italian typography, apostrophe/contraction handling, tokenization,
+  spaCy integration, and G2P stress, gemination, phoneme, and vocabulary behavior.
+
+Italian colon times remain caller-managed in this migration. `spokenform` does not
+perform language detection, mixed-language segmentation, markup parsing, or phoneme
+generation. Portuguese, Czech, and English remain caller-managed.
 
 ### Features
 

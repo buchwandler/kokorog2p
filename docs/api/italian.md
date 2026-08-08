@@ -3,6 +3,17 @@
 Italian G2P provides rule-based phoneme conversion for Italian, designed for Kokoro TTS
 models.
 
+## Semantic preparation
+
+Italian uses the shared per-language-run semantic-preparation path. `abbr2words`
+recognizes Italian abbreviations, units, and currency symbols; `spokenform` verbalizes
+reviewed dates, quantities, temperatures, currencies, and ordinary numbers. kokorog2p
+keeps Italian typography, tokenization, contractions, stress, gemination, and phoneme
+generation downstream. Italian colon times remain caller-managed in this migration.
+
+This boundary does not make `spokenform` responsible for language detection,
+mixed-language segmentation, markup parsing, or phoneme generation.
+
 ## Main Class
 
 ```{eval-rst}

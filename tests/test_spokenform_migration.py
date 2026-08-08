@@ -1,18 +1,20 @@
-"""Phase 1 German spokenform delegation and provenance checks."""
+"""Spokenform delegation and provenance checks for migrated languages."""
 
 import json
 from pathlib import Path
 
 import pytest
 
-from kokorog2p import get_g2p, phonemize
 import kokorog2p.pipeline_api as pipeline_api
+from kokorog2p import get_g2p, phonemize
 from kokorog2p.de.g2p import GermanG2P
 from kokorog2p.de.normalizer import GermanNormalizer
 from kokorog2p.es.g2p import SpanishG2P
 from kokorog2p.es.normalizer import SpanishNormalizer
 from kokorog2p.fr.g2p import FrenchG2P
 from kokorog2p.fr.normalizer import FrenchNormalizer
+from kokorog2p.it.g2p import ItalianG2P
+from kokorog2p.it.normalizer import ItalianNormalizer
 from kokorog2p.pipeline_api import (
     _apply_structured_replacements_to_tokens,
     _spokenform_replacements_for_run,
@@ -140,6 +142,161 @@ def test_spanish_protection_allows_adjacent_semantics():
     ]
 
 
+def test_italian_adapter_rebases_repeated_source_fragments():
+    source = "A 1,5 kg e 1,5 kg"
+    replacements = _spokenform_replacements_for_run(source, "it", source_offset=10)
+
+    assert [(item.start, item.end) for item in replacements] == [
+        (12, 18),
+        (21, 27),
+    ]
+    assert [source[item.start - 10 : item.end - 10] for item in replacements] == [
+        "1,5 kg",
+        "1,5 kg",
+    ]
+    assert [item.text for item in replacements] == [
+        "uno virgola cinque chilogrammi",
+        "uno virgola cinque chilogrammi",
+    ]
+    assert all(
+        left.end <= right.start
+        for left, right in zip(replacements[:-1], replacements[1:], strict=True)
+    )
+
+
+def test_italian_protection_allows_adjacent_semantics():
+    replacements = _spokenform_replacements_for_run(
+        "25°C e 2 kg", "it", protected_spans=((0, 4),)
+    )
+
+    assert [(item.start, item.end, item.text) for item in replacements] == [
+        (7, 11, "due chilogrammi")
+    ]
+
+
+def test_italian_runs_are_isolated_from_other_languages(monkeypatch):
+    source = "2 kg and 3 kg"
+    tokens = tokenize_with_offsets(source, lang="it", keep_punct=True)
+    for token in tokens:
+        if token.char_start >= 8:
+            token.lang = "en-us"
+
+    calls = []
+    real_adapter = pipeline_api._spokenform_replacements_for_run
+
+    def record_call(text, language, **kwargs):
+        calls.append((text, language))
+        return real_adapter(text, language, **kwargs)
+
+    monkeypatch.setattr(pipeline_api, "_spokenform_replacements_for_run", record_call)
+    replaced, warnings = _apply_structured_replacements_to_tokens(tokens, source, "it")
+
+    assert calls == [("2 kg and", "it")]
+    assert not warnings
+    assert replaced[0].extended_text == "due chilogrammi"
+    assert any(token.text == "3" and token.extended_text is None for token in replaced)
+
+
+def test_italian_normalizer_direct_api_and_tracking():
+    normalizer = ItalianNormalizer(track_changes=True)
+    normalized, steps = normalizer.normalize("Prof. Klein ha 1,5 kg e 25°C.")
+
+    assert normalized == (
+        "Professor Klein ha uno virgola cinque chilogrammi e venticinque gradi Celsius."
+    )
+    semantic_rules = [step.rule_name for step in steps]
+    assert semantic_rules.count("it.quantity") == 2
+    assert "abbr:Prof." in semantic_rules
+
+
+def test_italian_token_normalization_is_typography_only():
+    normalizer = ItalianNormalizer()
+
+    assert normalizer.normalize_token("1,5") == "1,5"
+    assert normalizer.normalize_token("Prof.") == "Prof."
+    assert normalizer.normalize_token("\u2019") == "'"
+
+
+def test_italian_override_protects_quantity_and_preserves_coordinates():
+    source = "1,5 kg e 2 kg"
+    result = phonemize_to_result(
+        source,
+        lang="it",
+        overrides=[OverrideSpan(0, 6, {"ph": "a"})],
+        return_ids=False,
+    )
+
+    assert result.extended_text == "1,5 kg e due chilogrammi"
+    assert result.tokens[0].meta.get("ph") == "a"
+    assert result.tokens[0].char_start == 0
+    assert result.tokens[0].char_end == 6
+    assert "\ue000" not in result.extended_text
+    assert not any("[ALIGNMENT]" in warning for warning in result.warnings)
+
+
+@pytest.mark.parametrize(
+    "source, expected",
+    [
+        ("12,80 EUR", "dodici euro e ottanta centesimi"),
+        ("€12,80", "dodici euro e ottanta centesimi"),
+        ("25°C", "venticinque gradi Celsius"),
+    ],
+)
+def test_italian_currency_and_temperature_symbols_survive_top_level_preprocessing(
+    source, expected
+):
+    result = phonemize_to_result(source, lang="it", return_ids=False)
+
+    assert result.clean_text == source
+    assert result.extended_text == expected
+    assert "\ue000" not in result.clean_text
+    assert "\ue000" not in result.extended_text
+
+
+def test_italian_direct_and_span_paths_have_phoneme_parity():
+    source = "Prof. Klein usa 25°C, 1,5 kg e 12,80 EUR."
+    g2p = ItalianG2P(
+        use_spacy=False,
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+    )
+    direct = g2p(source)
+    direct_phonemes = "".join(
+        (token.phonemes or "") + (token.whitespace or "") for token in direct
+    ).strip()
+    result = phonemize_to_result(source, lang="it", g2p=g2p, return_ids=False)
+
+    assert result.extended_text == ItalianNormalizer()(source)
+    assert result.phonemes == direct_phonemes
+    assert not result.warnings
+
+
+def test_italian_top_level_result_uses_reviewed_semantics():
+    source = "Il 14.05.2026 il Prof. Klein usa 1,5 kg e paga 12,80 EUR."
+    result = phonemize_to_result(source, lang="it", return_ids=False)
+
+    assert "quattordici maggio duemilaventisei" in result.extended_text
+    assert "Professor" in result.extended_text
+    assert "uno virgola cinque chilogrammi" in result.extended_text
+    assert "dodici euro e ottanta centesimi" in result.extended_text
+    assert not any(character.isdigit() for character in result.extended_text)
+    assert all(
+        0 <= token.char_start <= token.char_end <= len(result.clean_text)
+        for token in result.tokens
+    )
+    assert "\ue000" not in result.extended_text
+
+
+def test_italian_direct_g2p_accepts_spoken_semantic_forms_and_is_idempotent():
+    normalizer = ItalianNormalizer()
+    spoken = "dodici euro e ottanta centesimi"
+    assert normalizer(normalizer(spoken)) == spoken
+
+    g2p = ItalianG2P(use_spacy=False, use_espeak_fallback=False)
+    tokens = g2p("Prof. Klein 25°C 1,5 kg 12,80 EUR")
+    assert all(token.phonemes not in (None, "?") for token in tokens if token.is_word)
+
+
 def test_spanish_runs_are_isolated_from_other_languages():
     source = "2 kg and 3 kg"
     tokens = tokenize_with_offsets(source, lang="es", keep_punct=True)
@@ -159,7 +316,9 @@ def test_spanish_normalizer_direct_api_and_tracking(track_changes):
     normalizer = SpanishNormalizer(track_changes=track_changes)
     normalized, steps = normalizer.normalize("Dr. Pérez tiene 2 kg y 25°C.")
 
-    assert normalized == "Doctor Pérez tiene dos kilogramos y veinticinco grados Celsius."
+    assert normalized == (
+        "Doctor Pérez tiene dos kilogramos y veinticinco grados Celsius."
+    )
     if track_changes:
         semantic_rules = [step.rule_name for step in steps]
         assert "es.quantity" in semantic_rules
@@ -339,7 +498,7 @@ def test_override_protects_number_plus_unit_and_preserves_offsets():
         return_ids=False,
     )
 
-    assert result.extended_text.startswith("3 C neben vier Grad Celsius")
+    assert result.extended_text.startswith("3°C neben vier Grad Celsius")
     assert (
         result.clean_text[result.tokens[0].char_start : result.tokens[0].char_end]
         == result.tokens[0].text

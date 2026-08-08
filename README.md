@@ -46,13 +46,13 @@ spokenform → written text to spoken semantic preparation
 kokorog2p  → language routing, spans, overrides, tokenization, G2P, and phonemes
 ```
 
-German was the first migrated language, followed by French and Spanish. For these
-three languages, `abbr2words` recognizes lexical abbreviations and symbols,
+German was the first migrated language, followed by French, Spanish, and Italian. For
+these four languages, `abbr2words` recognizes lexical abbreviations and symbols,
 `spokenform` prepares written semantic forms, and kokorog2p keeps language routing,
 spans, overrides, typography, tokenization, G2P, and phonemes. Spanish keeps
-European/Latin-American dialect behavior in its G2P layer. Use `spokenform` for
-spoken text without phonemes and `abbr2words` for registry-only workflows; Italian,
-Portuguese, Czech, and English retain their existing ownership boundaries.
+European/Latin-American dialect behavior in its G2P layer. Use `spokenform` for spoken
+text without phonemes and `abbr2words` for registry-only workflows; Portuguese, Czech,
+and English retain their existing caller-managed ownership boundaries.
 
 ## Installation
 

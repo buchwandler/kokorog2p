@@ -8,6 +8,7 @@ used by the French G2P hot path.
 import re
 import warnings
 from dataclasses import replace
+from typing import Any
 
 from spokenform import NumberPolicy, PreparationConfig, prepare_for_kokorog2p
 
@@ -36,7 +37,7 @@ def _spokenform_replacements(
     *,
     rule: str,
     protected_spans: tuple[tuple[int, int], ...] = (),
-):
+) -> list[Any]:
     config = replace(
         PreparationConfig.for_kokorog2p("fr"),
         expand_abbreviations=False,
@@ -56,7 +57,7 @@ def _spokenform_replacements(
     ]
 
 
-def _apply_replacements(text: str, replacements) -> str:
+def _apply_replacements(text: str, replacements: list[Any]) -> str:
     for item in reversed(replacements):
         text = text[: item.source_start] + item.replacement + text[item.source_end :]
     return text

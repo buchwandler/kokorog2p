@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator
 from dataclasses import replace
-from collections.abc import Iterable
 
 from abbr2words import get_shared_expander
 from spokenform import PreparationConfig, prepare_for_kokorog2p
@@ -148,7 +148,7 @@ class SpanishNormalizer(TextNormalizer):
         text: str,
         *,
         protected_spans: Iterable[tuple[int, int]] = (),
-    ):
+    ) -> Iterator[TextReplacement]:
         """Return spokenform source-aligned replacements for Spanish forms."""
         return iter(
             TextReplacement(
