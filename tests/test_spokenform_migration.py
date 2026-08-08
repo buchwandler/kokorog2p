@@ -15,6 +15,8 @@ from kokorog2p.fr.g2p import FrenchG2P
 from kokorog2p.fr.normalizer import FrenchNormalizer
 from kokorog2p.it.g2p import ItalianG2P
 from kokorog2p.it.normalizer import ItalianNormalizer
+from kokorog2p.pt.g2p import PortugueseG2P
+from kokorog2p.pt.normalizer import PortugueseNormalizer
 from kokorog2p.pipeline_api import (
     _apply_structured_replacements_to_tokens,
     _spokenform_replacements_for_run,
@@ -31,6 +33,9 @@ FRENCH_PARITY_CASES = json.loads(
 )
 SPANISH_PARITY_CASES = json.loads(
     (Path(__file__).parent / "data" / "es_spokenform_parity.json").read_text()
+)
+PORTUGUESE_PARITY_CASES = json.loads(
+    (Path(__file__).parent / "data" / "pt_spokenform_parity.json").read_text()
 )
 
 
@@ -59,6 +64,15 @@ def test_german_parity_corpus(case):
 )
 def test_spanish_parity_corpus(case):
     assert SpanishNormalizer()(case["source"]) == case["expected"]
+
+
+@pytest.mark.parametrize(
+    "case",
+    PORTUGUESE_PARITY_CASES,
+    ids=lambda case: case["category"] + ":" + case["source"][:18],
+)
+def test_portuguese_parity_corpus(case):
+    assert PortugueseNormalizer()(case["source"]) == case["expected"]
 
 
 def test_spokenform_adapter_rebases_and_preserves_source_provenance():
@@ -172,6 +186,108 @@ def test_italian_protection_allows_adjacent_semantics():
     assert [(item.start, item.end, item.text) for item in replacements] == [
         (7, 11, "due chilogrammi")
     ]
+
+
+def test_portuguese_adapter_rebases_repeated_source_fragments():
+    source = "A 1,5 kg e 1,5 kg"
+    replacements = _spokenform_replacements_for_run(source, "pt", source_offset=10)
+
+    assert [(item.start, item.end) for item in replacements] == [
+        (12, 18),
+        (21, 27),
+    ]
+    assert [source[item.start - 10 : item.end - 10] for item in replacements] == [
+        "1,5 kg",
+        "1,5 kg",
+    ]
+    assert [item.text for item in replacements] == [
+        "um vírgula cinco quilogramas",
+        "um vírgula cinco quilogramas",
+    ]
+    assert all(
+        left.end <= right.start
+        for left, right in zip(replacements[:-1], replacements[1:], strict=True)
+    )
+
+
+@pytest.mark.parametrize("protected_span", [((0, 4),), ((0, 1),)])
+def test_portuguese_protection_preserves_intersecting_quantity_and_allows_adjacent(
+    protected_span,
+):
+    replacements = _spokenform_replacements_for_run(
+        "25°C e 2 kg",
+        "pt",
+        protected_spans=protected_span,
+    )
+
+    assert [(item.start, item.end, item.text) for item in replacements] == [
+        (7, 11, "dois quilogramas")
+    ]
+
+
+def test_portuguese_runs_are_isolated_from_other_languages(monkeypatch):
+    source = "2 kg e 3 kg"
+    tokens = tokenize_with_offsets(source, lang="pt", keep_punct=True)
+    for token in tokens:
+        if token.char_start >= 7:
+            token.lang = "en-us"
+
+    calls = []
+    real_adapter = pipeline_api._spokenform_replacements_for_run
+
+    def record_call(text, language, **kwargs):
+        calls.append((text, language))
+        return real_adapter(text, language, **kwargs)
+
+    monkeypatch.setattr(pipeline_api, "_spokenform_replacements_for_run", record_call)
+    replaced, warnings = _apply_structured_replacements_to_tokens(tokens, source, "pt")
+
+    assert calls == [("2 kg e", "pt")]
+    assert not warnings
+    assert replaced[0].extended_text == "dois quilogramas"
+    assert any(token.text == "3" and token.extended_text is None for token in replaced)
+
+
+@pytest.mark.parametrize("dialect, expected", [("br", "dezesseis"), ("pt", "dezasseis")])
+def test_portuguese_normalizer_routes_dialect_semantics(dialect, expected):
+    normalizer = PortugueseNormalizer(dialect=dialect)
+    assert normalizer("16") == expected
+    assert normalizer("R$ 16,80").endswith(
+        "oitenta centavos" if dialect == "br" else "oitenta cêntimos"
+    )
+
+
+def test_portuguese_normalizer_token_api_is_typography_only():
+    normalizer = PortugueseNormalizer()
+
+    assert normalizer.normalize_token("16") == "16"
+    assert normalizer.normalize_token("Dr.") == "Dr."
+    assert normalizer.normalize_token("\u2019") == "'"
+
+
+def test_portuguese_direct_g2p_accepts_spoken_semantic_forms_and_is_idempotent():
+    normalizer = PortugueseNormalizer()
+    spoken = "dezesseis quilogramas e oitenta centavos"
+    assert normalizer(normalizer(spoken)) == spoken
+
+    g2p = PortugueseG2P(use_spacy=False, use_espeak_fallback=False)
+    tokens = g2p("Doutor Ana tem vinte e cinco graus Celsius")
+    assert all(token.phonemes not in (None, "?") for token in tokens if token.is_word)
+
+
+def test_portuguese_full_pipeline_prepares_semantics_before_g2p():
+    source = "Dr. Ana tem 1,5 kg, 25°C e paga R$ 12,80 — ok."
+    result = phonemize_to_result(source, lang="pt", return_ids=False)
+
+    assert result.extended_text == (
+        "Doutor Ana tem um vírgula cinco quilogramas, "
+        "vinte e cinco graus Celsius e paga doze reais e oitenta centavos — ok."
+    )
+    assert not any(character.isdigit() for character in result.extended_text)
+    assert "kg" not in result.extended_text
+    assert "R$" not in result.extended_text
+    assert result.phonemes
+    assert not result.warnings
 
 
 def test_italian_runs_are_isolated_from_other_languages(monkeypatch):

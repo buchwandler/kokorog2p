@@ -126,6 +126,12 @@ class PortugueseG2P(G2PBase):
         self.spacy_model = spacy_model
         self.mark_stress = mark_stress
         self.affricate_ti_di = affricate_ti_di
+        # Preserve the historical Brazilian default while allowing direct
+        # construction with language="pt-pt" to select European semantic
+        # wording, just like the factory and span pipeline.
+        normalized_language = language.lower().replace("_", "-")
+        if dialect == "br" and normalized_language == "pt-pt":
+            dialect = "pt"
         self.dialect = dialect
         self._nlp: object | None = None
         self._spacy_tokenizer: SpacyTokenizer | None = None

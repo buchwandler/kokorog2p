@@ -41,6 +41,26 @@ def test_native_factory_routing(language: str, expected: type) -> None:
 
 
 @pytest.mark.parametrize(
+    ("language", "expected_dialect", "expected_number"),
+    [("pt", "br", "dezesseis"), ("pt-br", "br", "dezesseis"), ("pt-pt", "pt", "dezasseis")],
+)
+def test_portuguese_factory_routes_spokenform_dialect(
+    language: str, expected_dialect: str, expected_number: str
+) -> None:
+    g2p = get_g2p(
+        language,
+        use_spacy=False,
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+        load_gold=False,
+        load_silver=False,
+    )
+
+    assert g2p.dialect == expected_dialect
+    assert g2p._normalizer("16") == expected_number
+
+
+@pytest.mark.parametrize(
     ("language", "text"),
     [("es", "Hola"), ("it", "Ciao"), ("pt", "Olá")],
 )

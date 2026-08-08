@@ -1,0 +1,22 @@
+[
+  {
+    "category": "quantity_temperature_currency",
+    "source": "Dr. Ana tem 1,5 kg e paga R$ 12,80.",
+    "expected": "Doutor Ana tem um vírgula cinco quilogramas e paga doze reais e oitenta centavos."
+  },
+  {
+    "category": "date_and_quantity",
+    "source": "14.05.2026, 16 kg.",
+    "expected": "catorze de maio de dois mil e vinte e seis, dezesseis quilogramas."
+  },
+  {
+    "category": "typography",
+    "source": "«Olá»… — teste – fim",
+    "expected": "“Olá”… — teste — fim"
+  },
+  {
+    "category": "caller_managed_time",
+    "source": "A reunião começa às 12:30.",
+    "expected": "A reunião começa às 12:30."
+  }
+]

@@ -165,10 +165,10 @@ German G2P uses a large dictionary (738k+ entries from Olaph) with rule-based fa
 - **Regional variants**: de-de, de-at, de-ch
 
 German was the first language migrated to the shared semantic-preparation architecture,
-followed by French, Spanish, and Italian. These four languages use the same
-per-homogeneous-run `spokenform` path. `abbr2words` remains the shared source of truth
-for lexical abbreviation and symbol recognition, while `spokenform` owns reusable
-written-to-spoken semantics. Portuguese, Czech, and English retain their existing
+followed by French, Spanish, Italian, and Portuguese. These five languages use the
+same per-homogeneous-run `spokenform` path. `abbr2words` remains the shared source of
+truth for lexical abbreviation and symbol recognition, while `spokenform` owns
+reusable written-to-spoken semantics. Czech and English retain their existing
 caller-managed number and normalizer paths.
 
 ### Usage
@@ -354,7 +354,7 @@ Italian G2P uses rule-based phonology with predictable stress and gemination han
 
 Italian colon times remain caller-managed in this migration. `spokenform` does not
 perform language detection, mixed-language segmentation, markup parsing, or phoneme
-generation. Portuguese, Czech, and English remain caller-managed.
+generation. Czech and English remain caller-managed.
 
 ### Features
 
@@ -402,6 +402,14 @@ print(phonemize("figlio", language="it"))   # → fiʎo
 
 ## Portuguese (pt)
 
+Portuguese semantic preparation is applied once per homogeneous language run. Bare
+`pt` and `pt-br` select Brazilian Portuguese wording; `pt-pt` preserves European
+Portuguese wording. `abbr2words` owns Portuguese lexical abbreviation and canonical
+unit/currency symbol recognition, `spokenform` owns Portuguese written-to-spoken
+semantics for dates, numbers, quantities, temperatures, currencies, and reviewed
+structured forms, and kokorog2p retains Portuguese typography, tokenization, and G2P.
+Colon times remain caller-managed in this migration.
+
 Portuguese G2P supports Brazilian Portuguese with comprehensive phonological rules.
 
 ### Features
@@ -416,7 +424,8 @@ Portuguese G2P supports Brazilian Portuguese with comprehensive phonological rul
   - Sibilants: s [s/z], x [ʃ], z [z]
   - Liquids: r [ʁ/x/h], rr [ʁ/x], single r [ɾ]
 
-- **Dialect**: Brazilian Portuguese (pt-br)
+- **Dialect**: Brazilian Portuguese (pt-br) by default; semantic preparation also
+  supports European Portuguese wording (pt-pt)
 
 - **Stress marking**: Automatic stress assignment
 

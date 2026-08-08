@@ -15,6 +15,26 @@ class TestPortugueseG2P:
         assert g2p.use_spacy is True
         assert g2p.spacy_model == "pt_core_news_md"
 
+    @pytest.mark.parametrize(
+        ("language", "expected_dialect", "expected_number"),
+        [
+            ("pt-br", "br", "dezesseis"),
+            ("pt-pt", "pt", "dezasseis"),
+        ],
+    )
+    def test_language_selects_semantic_dialect(
+        self, language, expected_dialect, expected_number
+    ):
+        """Direct G2P construction preserves Brazilian/European wording."""
+        g2p = PortugueseG2P(
+            language=language,
+            use_spacy=False,
+            use_espeak_fallback=False,
+        )
+
+        assert g2p.dialect == expected_dialect
+        assert g2p._normalizer("16") == expected_number
+
     @pytest.fixture
     def g2p(self):
         """Create a Portuguese G2P instance."""
