@@ -164,11 +164,12 @@ German G2P uses a large dictionary (738k+ entries from Olaph) with rule-based fa
 
 - **Regional variants**: de-de, de-at, de-ch
 
-German was the first language migrated to the shared semantic-preparation architecture.
-French now follows the same per-homogeneous-run `spokenform` path. `abbr2words` remains
-the shared source of truth for lexical abbreviation and symbol recognition, while
-`spokenform` owns reusable written-to-spoken semantics. Other languages retain their
-existing caller-managed number and normalizer paths.
+German was the first language migrated to the shared semantic-preparation architecture,
+followed by French and Spanish. These three languages use the same per-homogeneous-run
+`spokenform` path. `abbr2words` remains the shared source of truth for lexical
+abbreviation and symbol recognition, while `spokenform` owns reusable written-to-spoken
+semantics. Italian, Portuguese, Czech, and English retain their existing caller-managed
+number and normalizer paths.
 
 ### Usage
 
@@ -304,6 +305,14 @@ Latin American dialects.
 - **Dialect support**: es (European), la (Latin American)
 
 - **Number handling**: Cardinals, ordinals, currency
+
+- **Semantic ownership**: `abbr2words` recognizes Spanish abbreviations and symbols;
+  `spokenform` prepares written numbers, quantities, temperatures, currencies, and
+  reviewed dates; kokorog2p retains typography, tokenization, alignment, and G2P
+
+Spanish semantic preparation is applied once per homogeneous language run. Dialect
+selection remains a phoneme-layer concern: `es` provides European theta behavior and
+`la` provides Latin-American seseo behavior over the same prepared text.
 
 ### Usage
 

@@ -230,7 +230,7 @@ class SpanishG2P(G2PBase):
         # Normalize Unicode
         text = unicodedata.normalize("NFC", text)
 
-        # Apply normalizer (abbreviations, temperature, etc.)
+        # Apply semantic preparation and downstream Spanish typography.
         text = self._normalizer(text)
 
         # Normalize punctuation (keep for legacy compatibility)

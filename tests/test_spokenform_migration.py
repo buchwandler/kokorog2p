@@ -5,9 +5,12 @@ from pathlib import Path
 
 import pytest
 
+from kokorog2p import get_g2p, phonemize
 import kokorog2p.pipeline_api as pipeline_api
 from kokorog2p.de.g2p import GermanG2P
 from kokorog2p.de.normalizer import GermanNormalizer
+from kokorog2p.es.g2p import SpanishG2P
+from kokorog2p.es.normalizer import SpanishNormalizer
 from kokorog2p.fr.g2p import FrenchG2P
 from kokorog2p.fr.normalizer import FrenchNormalizer
 from kokorog2p.pipeline_api import (
@@ -23,6 +26,9 @@ PARITY_CASES = json.loads(
 )
 FRENCH_PARITY_CASES = json.loads(
     (Path(__file__).parent / "data" / "fr_spokenform_parity.json").read_text()
+)
+SPANISH_PARITY_CASES = json.loads(
+    (Path(__file__).parent / "data" / "es_spokenform_parity.json").read_text()
 )
 
 
@@ -42,6 +48,15 @@ def test_french_parity_corpus(case):
 )
 def test_german_parity_corpus(case):
     assert GermanNormalizer()(case["source"]) == case["expected"]
+
+
+@pytest.mark.parametrize(
+    "case",
+    SPANISH_PARITY_CASES,
+    ids=lambda case: case["category"] + ":" + case["source"][:18],
+)
+def test_spanish_parity_corpus(case):
+    assert SpanishNormalizer()(case["source"]) == case["expected"]
 
 
 def test_spokenform_adapter_rebases_and_preserves_source_provenance():
@@ -94,6 +109,123 @@ def test_french_protection_fails_closed_for_partial_structured_spans():
     assert [(item.start, item.end, item.text) for item in replacements] == [
         (3, 8, "quatorze heures trente")
     ]
+
+
+def test_spanish_adapter_rebases_repeated_source_fragments():
+    source = "A 1 kg y 1 kg"
+    replacements = _spokenform_replacements_for_run(source, "es", source_offset=10)
+
+    assert [(item.start, item.end) for item in replacements] == [(12, 16), (19, 23)]
+    assert [source[item.start - 10 : item.end - 10] for item in replacements] == [
+        "1 kg",
+        "1 kg",
+    ]
+    assert [item.text for item in replacements] == ["un kilogramo", "un kilogramo"]
+    assert all(
+        left.end <= right.start
+        for left, right in zip(replacements[:-1], replacements[1:], strict=True)
+    )
+
+
+def test_spanish_protection_allows_adjacent_semantics():
+    source = "25°C y 2 kg"
+    replacements = _spokenform_replacements_for_run(
+        source,
+        "es",
+        protected_spans=((0, 4),),
+    )
+
+    assert [(item.start, item.end, item.text) for item in replacements] == [
+        (7, 11, "dos kilogramos")
+    ]
+
+
+def test_spanish_runs_are_isolated_from_other_languages():
+    source = "2 kg and 3 kg"
+    tokens = tokenize_with_offsets(source, lang="es", keep_punct=True)
+    for token in tokens:
+        if token.char_start >= 8:
+            token.lang = "en-us"
+
+    replaced, warnings = _apply_structured_replacements_to_tokens(tokens, source, "es")
+
+    assert not warnings
+    assert replaced[0].extended_text == "dos kilogramos"
+    assert any(token.text == "3" and token.extended_text is None for token in replaced)
+
+
+@pytest.mark.parametrize("track_changes", [False, True])
+def test_spanish_normalizer_direct_api_and_tracking(track_changes):
+    normalizer = SpanishNormalizer(track_changes=track_changes)
+    normalized, steps = normalizer.normalize("Dr. Pérez tiene 2 kg y 25°C.")
+
+    assert normalized == "Doctor Pérez tiene dos kilogramos y veinticinco grados Celsius."
+    if track_changes:
+        semantic_rules = [step.rule_name for step in steps]
+        assert "es.quantity" in semantic_rules
+        assert any(rule.startswith("abbr:") for rule in semantic_rules)
+        assert semantic_rules.count("es.quantity") == 2
+    else:
+        assert steps == []
+
+
+def test_spanish_token_normalization_is_typography_only():
+    normalizer = SpanishNormalizer()
+
+    assert normalizer.normalize_token("2") == "2"
+    assert normalizer.normalize_token("Dr.") == "Dr."
+    assert normalizer.normalize_token("\u2019") == "'"
+
+
+@pytest.mark.parametrize("dialect", ["es", "la"])
+def test_spanish_direct_and_span_paths_have_phoneme_parity(dialect):
+    source = "El Dr. Pérez tiene 2 kg y 25°C."
+    g2p = SpanishG2P(
+        dialect=dialect,
+        use_spacy=False,
+        use_espeak_fallback=False,
+        load_gold=False,
+        load_silver=False,
+    )
+    direct = g2p(source)
+    direct_phonemes = "".join(
+        (token.phonemes or "") + (token.whitespace or "") for token in direct
+    ).strip()
+    result = phonemize_to_result(source, lang="es", g2p=g2p, return_ids=False)
+
+    assert result.extended_text == SpanishNormalizer()(source)
+    assert result.phonemes == direct_phonemes
+    assert not result.warnings
+
+
+@pytest.mark.parametrize(
+    "source, expected",
+    [
+        ("¿Hola?", "¿Hola?"),
+        ("¡Buenos días!", "¡Buenos días!"),
+        ("«Hola»", "“Hola”"),
+        ("Wait…", "Wait…"),
+        ("word — word", "word — word"),
+        ("word – word", "word — word"),
+    ],
+)
+def test_spanish_typography_regressions(source, expected):
+    assert SpanishNormalizer()(source) == expected
+
+
+@pytest.mark.parametrize("alias", ["es", "es-es", "spa", "spanish"])
+def test_spanish_public_factory_aliases(alias):
+    g2p = get_g2p(
+        alias,
+        use_spacy=False,
+        use_espeak_fallback=False,
+        load_gold=False,
+        load_silver=False,
+    )
+    assert isinstance(g2p, SpanishG2P)
+    result = phonemize("Hola 2 kg.", language=alias, return_ids=False)
+    assert result.phonemes
+    assert not result.warnings
 
 
 def test_french_runs_are_isolated_from_other_languages():

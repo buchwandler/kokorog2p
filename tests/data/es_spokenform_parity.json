@@ -1,0 +1,72 @@
+[
+  {
+    "category": "abbreviation",
+    "source": "Dr. Pérez tiene 2 kg.",
+    "expected": "Doctor Pérez tiene dos kilogramos."
+  },
+  {
+    "category": "integer",
+    "source": "Tengo 42 libros.",
+    "expected": "Tengo cuarenta y dos libros."
+  },
+  {
+    "category": "decimal",
+    "source": "Mide 3,14 metros.",
+    "expected": "Mide tres coma uno cuatro metros."
+  },
+  {
+    "category": "mass",
+    "source": "Pesa 2 kg.",
+    "expected": "Pesa dos kilogramos."
+  },
+  {
+    "category": "length",
+    "source": "Mide 3 m.",
+    "expected": "Mide tres metros."
+  },
+  {
+    "category": "duration",
+    "source": "Espera 5 min.",
+    "expected": "Espera cinco minutos."
+  },
+  {
+    "category": "temperature",
+    "source": "Hay 25°C y -10 °F.",
+    "expected": "Hay veinticinco grados Celsius y menos diez grados Fahrenheit."
+  },
+  {
+    "category": "currency",
+    "source": "Cuesta 12,80 EUR y 5€.",
+    "expected": "Cuesta doce euros con ochenta céntimos y cinco euros."
+  },
+  {
+    "category": "date",
+    "source": "Será el 14.05.2026.",
+    "expected": "Será el catorce de mayo de dos mil veintiséis."
+  },
+  {
+    "category": "time_unexpanded",
+    "source": "Nos vemos a las 18:20.",
+    "expected": "Nos vemos a las 18:20."
+  },
+  {
+    "category": "protected_behavior",
+    "source": "Protege 25°C pero cambia 2 kg.",
+    "expected": "Protege veinticinco grados Celsius pero cambia dos kilogramos."
+  },
+  {
+    "category": "punctuation_adjacency",
+    "source": "2 kg, y 3 kg.",
+    "expected": "dos kilogramos, y tres kilogramos."
+  },
+  {
+    "category": "repeated",
+    "source": "1 kg y 1 kg.",
+    "expected": "un kilogramo y un kilogramo."
+  },
+  {
+    "category": "typography",
+    "source": "¿Hola? ¡Buenos días! «Hola» Wait… word — word – word",
+    "expected": "¿Hola? ¡Buenos días! “Hola” Wait… word — word — word"
+  }
+]

@@ -4,14 +4,15 @@ This guide covers advanced features and usage patterns for kokorog2p.
 
 ## Semantic preparation boundary
 
-For migrated German and French text, `abbr2words` supplies lexical abbreviation and
-symbol recognition, `spokenform` prepares written numbers, quantities, dates, times,
+For migrated German, French, and Spanish text, `abbr2words` supplies lexical abbreviation
+and symbol recognition, `spokenform` prepares written numbers, quantities, dates, times,
 currency, temperatures, ordinals, and abbreviations, and `kokorog2p` applies
 source-aligned replacements while owning routing, tokenization, overrides,
 punctuation/model cleanup, G2P, phonemes, and vocabulary IDs. Preparation runs
 separately for each homogeneous language run, with caller-protected ranges passed to
-spokenform first. Use `spokenform` directly for reusable spoken text or `abbr2words`
-directly for registry-only workflows. Other languages have not all migrated.
+spokenform first. Spanish dialect phoneme behavior remains downstream in kokorog2p.
+Use `spokenform` directly for reusable spoken text or `abbr2words` directly for
+registry-only workflows. Italian, Portuguese, Czech, and English have not migrated.
 
 ## Custom G2P Configuration
 

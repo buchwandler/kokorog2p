@@ -44,7 +44,7 @@ _G2P_LOCKS: "WeakKeyDictionary[object, threading.RLock]" = WeakKeyDictionary()
 # Semantic preparation is owned by spokenform for migrated languages.  Keep
 # this policy centralized so run-level preparation and token-level fallbacks
 # cannot drift apart as more locales move upstream.
-_SPOKENFORM_SEMANTIC_LANGUAGES = frozenset({"de", "fr"})
+_SPOKENFORM_SEMANTIC_LANGUAGES = frozenset({"de", "fr", "es"})
 
 
 def _uses_spokenform_semantics(lang: str | None) -> bool:
@@ -681,10 +681,11 @@ def phonemize_to_result(
     lang = lang or "en-us"
     warnings: list[str] = []
 
-    # Normalize punctuation into Kokoro-compatible forms early.  Preserve
-    # French semantic symbols until the run-level spokenform pass consumes
-    # them; the final G2P text contains only model-supported punctuation.
-    if (_normalize_lang(lang) or "").split("-", 1)[0] == "fr":
+    # Normalize punctuation into Kokoro-compatible forms early. Preserve
+    # semantic symbols for migrated languages until the run-level spokenform
+    # pass consumes them; the final G2P text contains only model-supported
+    # punctuation.
+    if (_normalize_lang(lang) or "").split("-", 1)[0] in {"fr", "es"}:
         semantic_symbols = "°$£%€"
         placeholders = {
             symbol: chr(0xE000 + index) for index, symbol in enumerate(semantic_symbols)

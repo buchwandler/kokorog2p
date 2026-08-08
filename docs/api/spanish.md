@@ -3,6 +3,14 @@
 Spanish G2P provides rule-based phoneme conversion for Spanish, designed for Kokoro TTS
 models.
 
+## Text preparation ownership
+
+`abbr2words` owns Spanish abbreviation and symbol recognition, `spokenform` owns
+semantic written-to-spoken preparation for numbers, quantities, temperatures,
+currencies, and reviewed dates, and kokorog2p owns downstream typography, tokenization,
+overrides, alignment, and G2P. European (`dialect="es"`) and Latin-American
+(`dialect="la"`) phoneme behavior remains local to `SpanishG2P`.
+
 ## Main Class
 
 ```{eval-rst}
