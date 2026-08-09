@@ -165,11 +165,10 @@ German G2P uses a large dictionary (738k+ entries from Olaph) with rule-based fa
 - **Regional variants**: de-de, de-at, de-ch
 
 German was the first language migrated to the shared semantic-preparation architecture,
-followed by French, Spanish, Italian, and Portuguese. These five languages use the
-same per-homogeneous-run `spokenform` path. `abbr2words` remains the shared source of
-truth for lexical abbreviation and symbol recognition, while `spokenform` owns
-reusable written-to-spoken semantics. Czech and English retain their existing
-caller-managed number and normalizer paths.
+followed by French, Spanish, Italian, Portuguese, and Czech. These six languages use
+the same per-homogeneous-run `spokenform` path. `abbr2words` remains the shared source
+of truth for lexical abbreviation and symbol recognition, while `spokenform` owns
+reusable written-to-spoken semantics. English remains caller-managed.
 
 ### Usage
 
@@ -257,6 +256,15 @@ Czech G2P is entirely rule-based with comprehensive phonological rules.
   - Voicing assimilation
 
 - **No dictionary required**: Works with any Czech text
+
+- **Semantic ownership**: `abbr2words` owns Czech abbreviation and canonical
+  quantity/currency recognition; `spokenform` owns reusable numbers, dates, quantities,
+  temperatures, and currencies; kokorog2p retains Czech typography, tokenization,
+  alignment, phonology, lexicon, and fallbacks.
+
+Czech semantic preparation runs once per homogeneous language run. The Czech
+normalizer is a downstream typography adapter, so direct `CzechG2P` use and the public
+pipeline share the same spokenform preparation. Czech times remain caller-managed.
 
 ### Usage
 
@@ -354,7 +362,7 @@ Italian G2P uses rule-based phonology with predictable stress and gemination han
 
 Italian colon times remain caller-managed in this migration. `spokenform` does not
 perform language detection, mixed-language segmentation, markup parsing, or phoneme
-generation. Czech and English remain caller-managed.
+generation. English remains caller-managed.
 
 ### Features
 

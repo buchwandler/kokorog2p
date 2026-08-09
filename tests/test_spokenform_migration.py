@@ -7,6 +7,8 @@ import pytest
 
 import kokorog2p.pipeline_api as pipeline_api
 from kokorog2p import get_g2p, phonemize
+from kokorog2p.cs.g2p import CzechG2P
+from kokorog2p.cs.normalizer import CzechNormalizer
 from kokorog2p.de.g2p import GermanG2P
 from kokorog2p.de.normalizer import GermanNormalizer
 from kokorog2p.es.g2p import SpanishG2P
@@ -15,13 +17,13 @@ from kokorog2p.fr.g2p import FrenchG2P
 from kokorog2p.fr.normalizer import FrenchNormalizer
 from kokorog2p.it.g2p import ItalianG2P
 from kokorog2p.it.normalizer import ItalianNormalizer
-from kokorog2p.pt.g2p import PortugueseG2P
-from kokorog2p.pt.normalizer import PortugueseNormalizer
 from kokorog2p.pipeline_api import (
     _apply_structured_replacements_to_tokens,
     _spokenform_replacements_for_run,
     phonemize_to_result,
 )
+from kokorog2p.pt.g2p import PortugueseG2P
+from kokorog2p.pt.normalizer import PortugueseNormalizer
 from kokorog2p.tokenization import tokenize_with_offsets
 from kokorog2p.types import OverrideSpan
 
@@ -36,6 +38,9 @@ SPANISH_PARITY_CASES = json.loads(
 )
 PORTUGUESE_PARITY_CASES = json.loads(
     (Path(__file__).parent / "data" / "pt_spokenform_parity.json").read_text()
+)
+CS_PARITY_CASES = json.loads(
+    (Path(__file__).parent / "data" / "cs_spokenform_parity.json").read_text()
 )
 
 
@@ -73,6 +78,47 @@ def test_spanish_parity_corpus(case):
 )
 def test_portuguese_parity_corpus(case):
     assert PortugueseNormalizer()(case["source"]) == case["expected"]
+
+
+@pytest.mark.parametrize(
+    "case",
+    CS_PARITY_CASES,
+    ids=lambda case: case["category"] + ":" + case["source"][:18],
+)
+def test_czech_parity_corpus(case):
+    assert CzechNormalizer()(case["source"]) == case["expected"]
+
+
+def test_czech_direct_g2p_speaks_supported_semantics_without_unknowns():
+    g2p = CzechG2P(use_espeak_fallback=False, use_goruut_fallback=False)
+    tokens = g2p("Dr. Novák má 2 kg a teplota je 25°C.")
+
+    assert all(
+        not any(character.isdigit() for character in token.text) for token in tokens
+    )
+    assert all(token.phonemes not in (None, "?") for token in tokens if token.is_word)
+    assert next(token for token in tokens if token.text == "Novák").phonemes == "novaːk"
+
+
+def test_czech_public_pipeline_prepares_semantics_once_and_preserves_alignment():
+    source = "Dr. Novák má 2 kg a teplota je 25°C."
+    result = phonemize_to_result(source, lang="cs-cz", return_ids=False)
+
+    assert result.extended_text == (
+        "Doktor Novák má dva kilogramy a teplota je "
+        "dvacet pět stupňů Celsia."
+    )
+    assert not any(character.isdigit() for character in result.extended_text)
+    assert not any(
+        token.extended_text and token.extended_text.count("dva") > 1
+        for token in result.tokens
+    )
+    assert result.extended_text.endswith(".")
+    assert result.phonemes
+    assert not result.warnings
+    assert all(
+        token.char_start <= token.char_end <= len(source) for token in result.tokens
+    )
 
 
 def test_spokenform_adapter_rebases_and_preserves_source_provenance():
@@ -248,7 +294,9 @@ def test_portuguese_runs_are_isolated_from_other_languages(monkeypatch):
     assert any(token.text == "3" and token.extended_text is None for token in replaced)
 
 
-@pytest.mark.parametrize("dialect, expected", [("br", "dezesseis"), ("pt", "dezasseis")])
+@pytest.mark.parametrize(
+    "dialect, expected", [("br", "dezesseis"), ("pt", "dezasseis")]
+)
 def test_portuguese_normalizer_routes_dialect_semantics(dialect, expected):
     normalizer = PortugueseNormalizer(dialect=dialect)
     assert normalizer("16") == expected

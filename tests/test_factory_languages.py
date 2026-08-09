@@ -3,6 +3,7 @@
 import pytest
 
 from kokorog2p import get_g2p, phonemize
+from kokorog2p.cs import CzechG2P
 from kokorog2p.es import SpanishG2P
 from kokorog2p.it import ItalianG2P
 from kokorog2p.pt import PortugueseG2P
@@ -25,6 +26,10 @@ from kokorog2p.types import OverrideSpan
         ("pt-pt", PortugueseG2P),
         ("por", PortugueseG2P),
         ("portuguese", PortugueseG2P),
+        ("cs", CzechG2P),
+        ("cs-cz", CzechG2P),
+        ("ces", CzechG2P),
+        ("czech", CzechG2P),
     ],
 )
 def test_native_factory_routing(language: str, expected: type) -> None:
@@ -42,7 +47,11 @@ def test_native_factory_routing(language: str, expected: type) -> None:
 
 @pytest.mark.parametrize(
     ("language", "expected_dialect", "expected_number"),
-    [("pt", "br", "dezesseis"), ("pt-br", "br", "dezesseis"), ("pt-pt", "pt", "dezasseis")],
+    [
+        ("pt", "br", "dezesseis"),
+        ("pt-br", "br", "dezesseis"),
+        ("pt-pt", "pt", "dezasseis"),
+    ],
 )
 def test_portuguese_factory_routes_spokenform_dialect(
     language: str, expected_dialect: str, expected_number: str

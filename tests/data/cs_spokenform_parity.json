@@ -1,0 +1,23 @@
+[
+  {"id": "cs-number-zero", "source": "0", "expected": "nula", "category": "number"},
+  {"id": "cs-number-precision", "source": "1,50", "expected": "jedna celá pět nula", "category": "number"},
+  {"id": "cs-number-negative", "source": "-25", "expected": "mínus dvacet pět", "category": "number"},
+  {"id": "cs-date-leap-day", "source": "29.02.2024", "expected": "dvacátého devátého února dva tisíce dvacet čtyři", "category": "date"},
+  {"id": "cs-date-invalid", "source": "29.02.2023", "expected": "29.02.2023", "category": "protection"},
+  {"id": "cs-quantity-hour", "source": "2 h", "expected": "dvě hodiny", "category": "quantity"},
+  {"id": "cs-quantity-distance", "source": "5 km", "expected": "pět kilometrů", "category": "quantity"},
+  {"id": "cs-quantity-decimal", "source": "1,5 kg", "expected": "jedna celá pět kilogramů", "category": "quantity"},
+  {"id": "cs-temperature-one", "source": "1°C", "expected": "jeden stupeň Celsia", "category": "temperature", "intentional_bug_fix": true},
+  {"id": "cs-temperature-many", "source": "25°C", "expected": "dvacet pět stupňů Celsia", "category": "temperature", "intentional_bug_fix": true},
+  {"id": "cs-temperature-fahrenheit", "source": "-10°F", "expected": "mínus deset stupňů Fahrenheita", "category": "temperature"},
+  {"id": "cs-currency-koruna", "source": "12,80 Kč", "expected": "dvanáct korun a osmdesát haléřů", "category": "currency"},
+  {"id": "cs-currency-euro", "source": "2 EUR", "expected": "dvě eura", "category": "currency"},
+  {"id": "cs-currency-dollar", "source": "5 USD", "expected": "pět dolarů", "category": "currency"},
+  {"id": "cs-currency-pound", "source": "1 GBP", "expected": "jedna libra šterlinků", "category": "currency"},
+  {"id": "cs-abbreviation-dotted", "source": "1 hod.", "expected": "jedna hodina.", "category": "abbreviation"},
+  {"id": "cs-protection-time", "source": "18:20", "expected": "18:20", "category": "protection"},
+  {"id": "cs-protection-invalid-time", "source": "25:99", "expected": "25:99", "category": "protection"},
+  {"id": "cs-protection-url", "source": "https://example.org/2kg", "expected": "https://example.org/2kg", "category": "protection"},
+  {"id": "cs-protection-email", "source": "dev2@example.org", "expected": "dev2@example.org", "category": "protection"},
+  {"id": "cs-protection-version", "source": "1.2.3", "expected": "1.2.3", "category": "protection"}
+]
