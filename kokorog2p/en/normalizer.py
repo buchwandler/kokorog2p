@@ -4,140 +4,15 @@ This module extracts the normalization logic from the English G2P implementation
 to make it testable, observable, and reusable.
 """
 
-import re
+from collections.abc import Iterable, Iterator
+from dataclasses import replace
 
 from abbr2words import get_shared_expander
+from spokenform import PreparationConfig, prepare_for_kokorog2p
+from spokenform import iter_structured_replacements as spokenform_iter
 
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
-
-# Number to word conversion for hours/minutes
-_ONES = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
-_TEENS = [
-    "ten",
-    "eleven",
-    "twelve",
-    "thirteen",
-    "fourteen",
-    "fifteen",
-    "sixteen",
-    "seventeen",
-    "eighteen",
-    "nineteen",
-]
-_TENS = [
-    "",
-    "",
-    "twenty",
-    "thirty",
-    "forty",
-    "fifty",
-    "sixty",
-    "seventy",
-    "eighty",
-    "ninety",
-]
-
-
-def _number_to_words(n: int) -> str:
-    """Convert a number (0-999) to words.
-
-    Args:
-        n: Number to convert
-
-    Returns:
-        Word representation of the number
-    """
-    if n == 0:
-        return "zero"
-    elif n < 10:
-        return _ONES[n]
-    elif n < 20:
-        return _TEENS[n - 10]
-    elif n < 100:
-        tens_digit = n // 10
-        ones_digit = n % 10
-        if ones_digit == 0:
-            return _TENS[tens_digit]
-        else:
-            return f"{_TENS[tens_digit]} {_ONES[ones_digit]}"
-    elif n < 1000:
-        hundreds_digit = n // 100
-        remainder = n % 100
-        result = f"{_ONES[hundreds_digit]} hundred"
-        if remainder > 0:
-            result += f" {_number_to_words(remainder)}"
-        return result
-    else:
-        # For numbers >= 1000, just return the number as-is
-        # (could be extended to handle thousands, millions, etc.)
-        return str(n)
-
-
-def _normalize_temperature(match: re.Match) -> str:
-    """Normalize temperature expressions like 98°F, 37°C, etc.
-
-    Args:
-        match: Regex match object containing temperature pattern
-
-    Returns:
-        Normalized temperature expression
-    """
-    number_str = match.group(1)
-    number = int(number_str)
-    unit = match.group(2).upper()
-    period = match.group(3)  # Capture optional period
-
-    # Convert number to words
-    if number < 0:
-        number_words = f"minus {_number_to_words(abs(number))}"
-    else:
-        number_words = _number_to_words(number)
-
-    # Map unit to full name
-    if unit == "F":
-        unit_name = "degrees Fahrenheit"
-    elif unit == "C":
-        unit_name = "degrees Celsius"
-    else:
-        # Unknown unit, keep as-is
-        return match.group(0)
-
-    return f"{number_words} {unit_name}{period}"
-
-
-def _normalize_time(match: re.Match) -> str:
-    """Normalize time expressions like 3:00, 12:30, etc.
-
-    Args:
-        match: Regex match object containing time pattern
-
-    Returns:
-        Normalized time expression
-    """
-    hour = int(match.group(1))
-    minute_str = match.group(2)
-
-    # Convert hour to words
-    hour_words = _number_to_words(hour)
-
-    # Handle minutes
-    if minute_str:
-        minute = int(minute_str)
-        if minute == 0:
-            # "3:00" → "three o'clock"
-            return f"{hour_words} o'clock"
-        else:
-            # "3:30" → "three thirty"
-            minute_words = _number_to_words(minute)
-            # For minutes < 10, say "oh three" for "03"
-            if minute < 10:
-                return f"{hour_words} oh {minute_words}"
-            else:
-                return f"{hour_words} {minute_words}"
-    else:
-        # Just hour number, no colon (e.g., "3" in "at 3 p.m.")
-        # Return as-is (will be handled by number normalization later)
-        return match.group(0)
+from kokorog2p.types import TextReplacement
 
 
 class EnglishNormalizer(TextNormalizer):
@@ -168,6 +43,7 @@ class EnglishNormalizer(TextNormalizer):
             enable_context_detection: Context-aware abbreviation expansion
         """
         self.expand_abbreviations = expand_abbreviations
+        self.enable_context_detection = enable_context_detection
         self.abbrev_expander = (
             get_shared_expander("en", context=enable_context_detection)
             if expand_abbreviations
@@ -176,37 +52,12 @@ class EnglishNormalizer(TextNormalizer):
         super().__init__(track_changes=track_changes)
 
     def _initialize_rules(self) -> None:
-        """Initialize English normalization rules in the correct order."""
+        """Initialize English typography rules in the correct order."""
 
-        # Phase 0: Time normalization (BEFORE abbreviation expansion)
-        # Convert time patterns like "3:00" to "three o'clock"
-        self.add_rule(
-            NormalizationRule(
-                name="time_with_minutes",
-                pattern=r"\b(\d{1,2}):(\d{2})\b",
-                replacement=_normalize_time,
-                description="Time: 3:00 → three o'clock, 12:30 → twelve thirty",
-            )
-        )
+        # Semantic preparation is source-aligned and run-local upstream in
+        # spokenform. These rules are deliberately typography-only.
 
-        # Temperature normalization (98°F → ninety eight degrees Fahrenheit)
-        # Pattern now handles optional period after F/C to prevent "C." from being
-        # expanded to "circa" by abbreviation expander. The period is captured
-        # and preserved in the output.
-        self.add_rule(
-            NormalizationRule(
-                name="temperature_fahrenheit_celsius",
-                pattern=r"(-?\d+)\s*°?\s*([FCfc])(\.?)(?=\s|[,;:!?]|$)",
-                replacement=_normalize_temperature,
-                description="Temperature: 98°F → ninety eight degrees Fahrenheit",
-            )
-        )
-
-        # Phase 1: Abbreviation expansion (BEFORE other normalizations)
-        # This happens first so that expanded text goes through normal processing
-        # NOTE: This is handled separately in normalize() method, not as a rule
-
-        # Phase 2: Normalize apostrophes FIRST (before quote handling)
+        # Normalize apostrophes FIRST (before quote handling)
         # This ensures contractions are handled correctly
         self.add_rule(
             NormalizationRule(
@@ -241,7 +92,7 @@ class EnglishNormalizer(TextNormalizer):
             )
         )
 
-        # Phase 3: Smart backtick/acute/prime handling
+        # Smart backtick/acute/prime handling
         # Normalize to apostrophe ONLY when inside words (contractions)
         # This must happen BEFORE general backtick normalization
         self.add_rule(
@@ -285,7 +136,7 @@ class EnglishNormalizer(TextNormalizer):
             )
         )
 
-        # Phase 4: Normalize quotes
+        # Normalize quotes
         # Standalone backtick and acute are treated as quotes
         self.add_rule(
             NormalizationRule(
@@ -375,7 +226,7 @@ class EnglishNormalizer(TextNormalizer):
         # Note: Existing curly quotes (U+201C, U+201D) are preserved as-is
         # Straight quotes (") remain straight and will be converted by tokenizer
 
-        # Phase 5: Normalize ellipsis
+        # Normalize ellipsis
         # Order matters: replace longer sequences first to avoid partial matches
         # Use regex with escaped dots (\.) to match literal dots, not any character
         self.add_rule(
@@ -436,7 +287,7 @@ class EnglishNormalizer(TextNormalizer):
             )
         )
 
-        # Phase 6: Normalize dashes
+        # Normalize dashes
         # Order matters: do space-surrounded replacements first
         self.add_rule(
             NormalizationRule(
@@ -524,71 +375,87 @@ class EnglishNormalizer(TextNormalizer):
 
         # Note: Single hyphen (-) without spaces is kept for compound words
 
-    def normalize(self, text: str) -> tuple[str, list]:
-        """Normalize text by applying rules, with careful ordering.
+    def normalize(
+        self,
+        text: str,
+        *,
+        protected_spans: tuple[tuple[int, int], ...] = (),
+    ) -> tuple[str, list]:
+        """Prepare English semantics with spokenform, then apply typography.
 
-        The order is critical:
-        1. Time/temperature patterns (to prevent "C." → "circa")
-        2. Abbreviation expansion
-        3. All other normalization rules
-
-        Args:
-            text: Text to normalize
-
-        Returns:
-            Tuple of (normalized_text, list of all normalization steps)
+        Semantic preparation is source-aligned and run-local. ``protected_spans``
+        therefore reaches spokenform before any structured replacement is made.
         """
         if not text:
             return text, []
 
-        # Import NormalizationStep here to avoid circular import
         from kokorog2p.pipeline.normalizer import NormalizationStep
 
-        all_steps: list[NormalizationStep] = []
+        config = replace(
+            PreparationConfig.for_kokorog2p("en"),
+            expand_abbreviations=self.expand_abbreviations,
+            context=self.enable_context_detection,
+        )
+        prepared = prepare_for_kokorog2p(
+            text,
+            language="en",
+            config=config,
+            protected_spans=protected_spans,
+        )
 
-        # Phase 0: Apply time and temperature rules FIRST
-        # This prevents "37°C." from being expanded to "37°circa"
-        # (where "C." matches the circa abbreviation)
-        time_temp_rules = []
-        other_rules = []
-
-        for rule in self._rules:
-            if rule.name in ("time_with_minutes", "temperature_fahrenheit_celsius"):
-                time_temp_rules.append(rule)
-            else:
-                other_rules.append(rule)
-
-        # Apply time/temperature rules first
-        for rule in time_temp_rules:
-            result, steps = rule.apply(text, track_changes=self.track_changes)
-            all_steps.extend(steps)
-            text = result
-
-        # Phase 1: Expand abbreviations
-        if self.expand_abbreviations and self.abbrev_expander:
-            expanded = self.abbrev_expander.expand(text)
-            if expanded != text and self.track_changes:
-                # Track abbreviation expansions
-                # Find all changes (this is a simplified approach)
-                # In a more sophisticated version, we could track individual expansions
-                all_steps.append(
+        steps: list[NormalizationStep] = []
+        if self.track_changes:
+            for replacement in prepared.source_replacements:
+                steps.append(
                     NormalizationStep(
-                        rule_name="abbreviation_expansion",
-                        position=0,
-                        original=text,
-                        normalized=expanded,
-                        context="Expand abbreviations to full forms",
+                        rule_name=replacement.rule or replacement.kind,
+                        position=replacement.source_start,
+                        original=replacement.source,
+                        normalized=replacement.replacement,
+                        context=replacement.kind,
                     )
                 )
-            text = expanded
 
-        # Phase 2: Apply all other normalization rules
-        for rule in other_rules:
-            result, steps = rule.apply(text, track_changes=self.track_changes)
-            all_steps.extend(steps)
-            text = result
+        result, typography_steps = super().normalize(prepared.spoken_text)
+        if self.track_changes:
+            steps.extend(typography_steps)
+        return result, steps
 
-        return text, all_steps
+    def __call__(
+        self,
+        text: str,
+        *,
+        protected_spans: tuple[tuple[int, int], ...] = (),
+    ) -> str:
+        """Normalize English text and discard change tracking."""
+        result, _ = self.normalize(text, protected_spans=protected_spans)
+        return result
+
+    @staticmethod
+    def iter_structured_replacements(
+        text: str,
+        *,
+        protected_spans: Iterable[tuple[int, int]] = (),
+    ) -> Iterator[TextReplacement]:
+        """Return spokenform source-aligned replacements for English forms."""
+        return iter(
+            TextReplacement(
+                start=item.start,
+                end=item.end,
+                text=item.text,
+                kind=item.kind,
+            )
+            for item in spokenform_iter(
+                text,
+                language="en",
+                protected_ranges=protected_spans,
+            )
+        )
+
+    def normalize_for_g2p(self, text: str) -> str:
+        """Apply only English typography after semantic preparation."""
+        result, _ = super().normalize(text)
+        return result
 
     def normalize_token(
         self,
@@ -599,7 +466,10 @@ class EnglishNormalizer(TextNormalizer):
         apply_rules: bool = True,
         expand_abbreviations: bool | None = None,
     ) -> str:
-        """Normalize a single token using the full rule set.
+        """Normalize token typography without re-running English semantics.
+
+        Source-aligned semantic preparation is owned by the full-text/run-level
+        path. The legacy semantic arguments remain for API compatibility.
 
         Args:
             text: Token text to normalize.
@@ -614,44 +484,8 @@ class EnglishNormalizer(TextNormalizer):
         if not text:
             return text
 
-        if expand_abbreviations is None:
-            expand_abbreviations = self.expand_abbreviations
-
-        result = text
-
-        if apply_rules:
-            time_temp_rules = [
-                rule
-                for rule in self._rules
-                if rule.name in ("time_with_minutes", "temperature_fahrenheit_celsius")
-            ]
-            result = self._apply_rules(result, time_temp_rules)
-
-        if expand_abbreviations and self.abbrev_expander:
-            entry = self.abbrev_expander.get_abbreviation(result, case_sensitive=True)
-            if entry is None:
-                entry = self.abbrev_expander.get_abbreviation(
-                    result, case_sensitive=False
-                )
-            if entry is not None:
-                if self.abbrev_expander.context_detector:
-                    context = self.abbrev_expander.context_detector.detect_context(
-                        result, before, after
-                    )
-                    result = entry.get_expansion(context)
-                else:
-                    result = entry.expansion
-
-        if apply_rules:
-            other_rules = [
-                rule
-                for rule in self._rules
-                if rule.name
-                not in ("time_with_minutes", "temperature_fahrenheit_celsius")
-            ]
-            result = self._apply_rules(result, other_rules)
-
-        return result
+        del before, after, expand_abbreviations
+        return self._apply_rules(text) if apply_rules else text
 
     def add_abbreviation(
         self,

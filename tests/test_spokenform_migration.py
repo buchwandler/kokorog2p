@@ -11,6 +11,8 @@ from kokorog2p.cs.g2p import CzechG2P
 from kokorog2p.cs.normalizer import CzechNormalizer
 from kokorog2p.de.g2p import GermanG2P
 from kokorog2p.de.normalizer import GermanNormalizer
+from kokorog2p.en.g2p import EnglishG2P
+from kokorog2p.en.normalizer import EnglishNormalizer
 from kokorog2p.es.g2p import SpanishG2P
 from kokorog2p.es.normalizer import SpanishNormalizer
 from kokorog2p.fr.g2p import FrenchG2P
@@ -20,6 +22,7 @@ from kokorog2p.it.normalizer import ItalianNormalizer
 from kokorog2p.pipeline_api import (
     _apply_structured_replacements_to_tokens,
     _spokenform_replacements_for_run,
+    _uses_spokenform_semantics,
     phonemize_to_result,
 )
 from kokorog2p.pt.g2p import PortugueseG2P
@@ -42,6 +45,125 @@ PORTUGUESE_PARITY_CASES = json.loads(
 CS_PARITY_CASES = json.loads(
     (Path(__file__).parent / "data" / "cs_spokenform_parity.json").read_text()
 )
+ENGLISH_PARITY_CASES = json.loads(
+    (Path(__file__).parent / "data" / "en_spokenform_parity.json").read_text()
+)
+
+
+def test_english_aliases_use_the_generic_spokenform_adapter():
+    assert all(
+        _uses_spokenform_semantics(language)
+        for language in ("en", "en-us", "en-gb")
+    )
+
+
+@pytest.mark.parametrize(
+    "case",
+    ENGLISH_PARITY_CASES,
+    ids=lambda case: case["category"] + ":" + case["source"][:18],
+)
+def test_english_parity_corpus(case):
+    assert EnglishNormalizer()(case["source"]) == case["expected"]
+
+
+def test_english_adapter_rebases_repeated_sources_and_preserves_provenance():
+    source = "2 kg and 2 kg"
+    replacements = _spokenform_replacements_for_run(source, "en", source_offset=10)
+
+    assert [(item.start, item.end) for item in replacements] == [(10, 14), (19, 23)]
+    assert [source[item.start - 10 : item.end - 10] for item in replacements] == [
+        "2 kg",
+        "2 kg",
+    ]
+    assert [item.text for item in replacements] == ["two kilograms", "two kilograms"]
+
+
+def test_english_adapter_protection_fails_closed_but_adjacent_semantics_apply():
+    source = "37 C. and 2 kg"
+    replacements = _spokenform_replacements_for_run(
+        source, "en-us", protected_spans=((0, 5),)
+    )
+
+    assert [(item.start, item.end, item.text) for item in replacements] == [
+        (10, 14, "two kilograms")
+    ]
+
+
+def test_english_adapter_keeps_abbreviations_adjacent_to_quantities():
+    source = "Visit St. and 2 kg"
+    replacements = _spokenform_replacements_for_run(source, "en-gb")
+
+    assert [source[item.start : item.end] for item in replacements] == ["St.", "2 kg"]
+    assert [item.text for item in replacements] == ["Saint", "two kilograms"]
+
+
+def test_english_runs_are_isolated_from_other_languages(monkeypatch):
+    source = "2 kg and 3 kg"
+    tokens = tokenize_with_offsets(source, lang="en-us", keep_punct=True)
+    for token in tokens:
+        if token.char_start >= 8:
+            token.lang = "de"
+
+    calls = []
+    real_adapter = pipeline_api._spokenform_replacements_for_run
+
+    def record_call(text, language, **kwargs):
+        calls.append((text, language))
+        return real_adapter(text, language, **kwargs)
+
+    monkeypatch.setattr(pipeline_api, "_spokenform_replacements_for_run", record_call)
+    replaced, warnings = _apply_structured_replacements_to_tokens(
+        tokens, source, "en-us"
+    )
+
+    assert calls == [("2 kg and", "en-us"), ("3 kg", "de")]
+    assert not warnings
+    assert replaced[0].extended_text == "two kilograms"
+    assert any(
+        token.text == "3 kg" and token.extended_text == "drei Kilogramm"
+        for token in replaced
+    )
+
+
+def test_english_symbols_survive_top_level_preprocessing():
+    source = "$12.50, £2.00, €3.00 and 50%"
+    result = phonemize_to_result(source, lang="en-us", return_ids=False)
+
+    assert result.clean_text == source
+    assert result.extended_text == (
+        "twelve dollars and fifty cents, two pounds, three euros and fifty%"
+    )
+    assert "$" not in result.extended_text
+    assert "£" not in result.extended_text
+    assert "€" not in result.extended_text
+    assert "fifty%" in result.extended_text
+
+
+def test_english_direct_and_public_pipeline_have_phoneme_parity():
+    source = "Dr. Smith has 2 kg at 3:00."
+    g2p = EnglishG2P(
+        use_spacy=False,
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+        load_gold=True,
+        load_silver=False,
+    )
+    direct = g2p(source)
+    direct_phonemes = "".join(
+        (token.phonemes or "") + (token.whitespace or "") for token in direct
+    ).strip()
+    result = phonemize_to_result(source, lang="en-us", g2p=g2p, return_ids=False)
+
+    assert result.extended_text == EnglishNormalizer()(source)
+    assert result.phonemes == direct_phonemes
+    assert not result.warnings
+
+
+def test_english_preparation_is_idempotent_before_direct_g2p():
+    normalizer = EnglishNormalizer()
+    prepared = normalizer("At 3:00, pay $12.50 for 2 kg.")
+
+    assert normalizer(prepared) == prepared
 
 
 @pytest.mark.parametrize(
@@ -288,10 +410,13 @@ def test_portuguese_runs_are_isolated_from_other_languages(monkeypatch):
     monkeypatch.setattr(pipeline_api, "_spokenform_replacements_for_run", record_call)
     replaced, warnings = _apply_structured_replacements_to_tokens(tokens, source, "pt")
 
-    assert calls == [("2 kg e", "pt")]
+    assert calls == [("2 kg e", "pt"), ("3 kg", "en-us")]
     assert not warnings
     assert replaced[0].extended_text == "dois quilogramas"
-    assert any(token.text == "3" and token.extended_text is None for token in replaced)
+    assert any(
+        token.text == "3 kg" and token.extended_text == "three kilograms"
+        for token in replaced
+    )
 
 
 @pytest.mark.parametrize(
@@ -355,10 +480,13 @@ def test_italian_runs_are_isolated_from_other_languages(monkeypatch):
     monkeypatch.setattr(pipeline_api, "_spokenform_replacements_for_run", record_call)
     replaced, warnings = _apply_structured_replacements_to_tokens(tokens, source, "it")
 
-    assert calls == [("2 kg and", "it")]
+    assert calls == [("2 kg and", "it"), ("3 kg", "en-us")]
     assert not warnings
     assert replaced[0].extended_text == "due chilogrammi"
-    assert any(token.text == "3" and token.extended_text is None for token in replaced)
+    assert any(
+        token.text == "3 kg" and token.extended_text == "three kilograms"
+        for token in replaced
+    )
 
 
 def test_italian_normalizer_direct_api_and_tracking():
@@ -472,7 +600,10 @@ def test_spanish_runs_are_isolated_from_other_languages():
 
     assert not warnings
     assert replaced[0].extended_text == "dos kilogramos"
-    assert any(token.text == "3" and token.extended_text is None for token in replaced)
+    assert any(
+        token.text == "3 kg" and token.extended_text == "three kilograms"
+        for token in replaced
+    )
 
 
 @pytest.mark.parametrize("track_changes", [False, True])
@@ -562,7 +693,10 @@ def test_french_runs_are_isolated_from_other_languages():
 
     assert not warnings
     assert replaced[0].extended_text == "un virgule cinq kilogrammes"
-    assert any(token.text == "2" and token.extended_text is None for token in replaced)
+    assert any(
+        token.text == "2 kg" and token.extended_text == "two kilograms"
+        for token in replaced
+    )
 
 
 @pytest.mark.parametrize("track_changes", [False, True])
@@ -633,10 +767,13 @@ def test_german_runs_are_prepared_independently(monkeypatch):
     monkeypatch.setattr(pipeline_api, "_spokenform_replacements_for_run", record_call)
     replaced, warnings = _apply_structured_replacements_to_tokens(tokens, source, "de")
 
-    assert calls == [("1,5 kg and", "de")]
+    assert calls == [("1,5 kg and", "de"), ("2 kg", "en-us")]
     assert not warnings
     assert replaced[0].extended_text == "eins Komma fünf Kilogramm"
-    assert any(token.text == "2" and token.extended_text is None for token in replaced)
+    assert any(
+        token.text == "2 kg" and token.extended_text == "two kilograms"
+        for token in replaced
+    )
 
 
 def test_override_protects_quantity_but_allows_adjacent_quantity():

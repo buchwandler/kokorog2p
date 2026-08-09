@@ -84,7 +84,7 @@ class TestEnglishNormalizer:
 
     def test_double_prime_to_quote(self, normalizer):
         """Test double prime is normalized to quote."""
-        assert normalizer("5″ tall") == '5" tall'
+        assert normalizer("5″ tall") == 'five" tall'
 
     def test_fullwidth_quote(self, normalizer):
         """Test fullwidth quotation mark is normalized."""
@@ -247,6 +247,40 @@ class TestEnglishNormalizer:
         text2 = normalizer(text1)
         text3 = normalizer(text2)
         assert text2 == text3 == "I'm here"
+
+    def test_full_text_semantics_are_prepared_by_spokenform(self, normalizer):
+        assert normalizer("3:00") == "three o'clock"
+        assert normalizer("37 C.") == "thirty seven degrees Celsius."
+        assert normalizer("42") == "forty two"
+
+    def test_normalize_for_g2p_is_typography_only(self, normalizer):
+        assert normalizer.normalize_for_g2p("3:00 37°C – test") == "3:00 37°C—test"
+
+    def test_normalize_token_is_typography_only(self, normalizer):
+        assert normalizer.normalize_token("3:00") == "3:00"
+        assert normalizer.normalize_token("37°C") == "37°C"
+        assert normalizer.normalize_token("Dr.") == "Dr."
+        assert normalizer.normalize_token("\u2019") == "'"
+
+    def test_protected_spans_fail_closed_for_structured_semantics(self, normalizer):
+        assert normalizer("37 C. and 2 kg", protected_spans=((0, 5),)) == (
+            "37 C. and two kilograms"
+        )
+
+    def test_custom_abbreviation_uses_shared_spokenform_registry(self, normalizer):
+        normalizer.add_abbreviation("Qz.", "Quizzical")
+        assert normalizer("Qz.") == "Quizzical"
+
+    def test_tracking_uses_exact_spokenform_source_positions(self):
+        normalizer = EnglishNormalizer(track_changes=True)
+        source = "At 3:00 and 2 kg."
+        _result, steps = normalizer.normalize(source)
+
+        semantic = [step for step in steps if step.rule_name.startswith("en.")]
+        assert [(step.position, step.original) for step in semantic] == [
+            (3, "3:00"),
+            (12, "2 kg"),
+        ]
 
 
 class TestNormalizationStepModel:

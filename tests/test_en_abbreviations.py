@@ -400,8 +400,8 @@ class TestEnglishNormalizerWithAbbreviations:
         assert "Professor" in result
         assert "Monday" in result
 
-        # Should have at least one abbreviation expansion step
-        assert any(step.rule_name == "abbreviation_expansion" for step in steps)
+        # Abbreviation provenance now comes directly from spokenform.
+        assert any(step.rule_name.startswith("abbr:") for step in steps)
 
     def test_abbreviation_disabled(self, normalizer_no_abbrev):
         """Test that abbreviations are NOT expanded when disabled."""
@@ -428,8 +428,8 @@ class TestEnglishNormalizerWithAbbreviations:
         text = "Prof. Smith teaches"
         _result, steps = normalizer.normalize(text)
 
-        # Find the abbreviation expansion step
-        abbrev_steps = [s for s in steps if s.rule_name == "abbreviation_expansion"]
+        # Find the source-aligned spokenform abbreviation step.
+        abbrev_steps = [s for s in steps if s.rule_name.startswith("abbr:")]
         assert len(abbrev_steps) == 1
 
         step = abbrev_steps[0]
@@ -455,7 +455,7 @@ class TestEnglishNormalizerWithAbbreviations:
     def test_no_dot_guard_in_normalizer(self, normalizer):
         """No. should stay No.; No. 244 should expand to number 244."""
         assert normalizer("No.") == "No."
-        assert "number 244" in normalizer("No. 244").lower()
+        assert normalizer("No. 244").lower() == "number two hundred and forty four"
 
     def test_units_guard_in_normalizer(self, normalizer):
         """Units should expand only when preceded by numbers."""

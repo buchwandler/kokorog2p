@@ -44,7 +44,9 @@ _G2P_LOCKS: "WeakKeyDictionary[object, threading.RLock]" = WeakKeyDictionary()
 # Semantic preparation is owned by spokenform for migrated languages.  Keep
 # this policy centralized so run-level preparation and token-level fallbacks
 # cannot drift apart as more locales move upstream.
-_SPOKENFORM_SEMANTIC_LANGUAGES = frozenset({"cs", "de", "fr", "es", "it", "pt"})
+_SPOKENFORM_SEMANTIC_LANGUAGES = frozenset(
+    {"cs", "de", "fr", "es", "it", "pt", "en"}
+)
 
 
 def _uses_spokenform_semantics(lang: str | None) -> bool:

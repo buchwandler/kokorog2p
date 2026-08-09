@@ -344,7 +344,7 @@ class TestEnglishG2PTokenization:
         assert tokens[-1].phonemes == "."
 
     def test_regex_leading_decimal_is_not_preclassified_as_punctuation(self):
-        """A leading decimal reaches number conversion as one unresolved token."""
+        """A leading decimal is prepared upstream as exact digit words."""
         g2p = EnglishG2P(
             language="en-us",
             use_spacy=False,
@@ -355,8 +355,12 @@ class TestEnglishG2PTokenization:
 
         tokens = g2p._tokenize_simple("Three hesitated for .02 seconds.")
 
-        decimal = next(token for token in tokens if token.text == ".02")
-        assert decimal.phonemes is None
+        texts = [token.text for token in tokens]
+        assert texts[texts.index("point") : texts.index("seconds")] == [
+            "point",
+            "zero",
+            "two",
+        ]
 
     def test_simple_tokenization(self, english_g2p_no_espeak):
         """Test simple tokenization without spaCy."""
