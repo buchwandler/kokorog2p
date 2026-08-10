@@ -77,6 +77,14 @@ def test_english_adapter_rebases_repeated_sources_and_preserves_provenance():
     assert [item.text for item in replacements] == ["two kilograms", "two kilograms"]
 
 
+def test_english_adapter_keeps_terminal_quantity_punctuation_outside_span():
+    replacements = _spokenform_replacements_for_run("30C.", "en-us")
+
+    assert [(item.start, item.end, item.text) for item in replacements] == [
+        (0, 3, "thirty degrees Celsius")
+    ]
+
+
 def test_english_adapter_protection_fails_closed_but_adjacent_semantics_apply():
     source = "37 C. and 2 kg"
     replacements = _spokenform_replacements_for_run(

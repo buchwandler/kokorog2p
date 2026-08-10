@@ -264,11 +264,24 @@ def _spokenform_replacements_for_run(
             continue
         if text[item.source_start : item.source_end] != item.source:
             continue
+        source_end = item.source_end
+        replacement = item.replacement
+        # spokenform keeps a terminal dot on some quantity aliases (for
+        # example ``30C.``) so direct normalization preserves it. The span
+        # pipeline tokenizes that dot separately; keep the source and
+        # replacement aligned with those token boundaries here.
+        if (
+            source_end > item.source_start
+            and text[item.source_start:source_end].endswith(".")
+            and replacement.endswith(".")
+        ):
+            source_end -= 1
+            replacement = replacement[:-1]
         replacements.append(
             TextReplacement(
                 start=source_offset + item.source_start,
-                end=source_offset + item.source_end,
-                text=item.replacement,
+                end=source_offset + source_end,
+                text=replacement,
                 kind=item.kind or "spokenform",
             )
         )
