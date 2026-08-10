@@ -474,6 +474,13 @@ class TestPhonemizeToResult:
             "500 g",
             "1 ltr. Milch",
             "3 cm",
+            "1 m²",
+            "2 m³",
+            "1 ha",
+            "2 m/s",
+            "1 km/h",
+            "1 m2",
+            "1 m3",
             "45 Min.",
             "1 Min.",
             "2 Min.",
@@ -508,6 +515,49 @@ class TestPhonemizeToResult:
             legacy_text = legacy_text.replace(" .", ".")
             assert span.extended_text == normalizer(source)
             assert legacy_text == span.extended_text
+
+    @pytest.mark.parametrize(
+        ("source", "expected"),
+        [
+            ("1 mm²", "ein Quadratmillimeter"),
+            ("2 cm²", "zwei Quadratzentimeter"),
+            ("1 m²", "ein Quadratmeter"),
+            ("2 km²", "zwei Quadratkilometer"),
+            ("1 ha", "ein Hektar"),
+            ("2 mm³", "zwei Kubikmillimeter"),
+            ("1 cm³", "ein Kubikzentimeter"),
+            ("2 m³", "zwei Kubikmeter"),
+            ("1 m/s", "ein Meter pro Sekunde"),
+            ("2 km/h", "zwei Kilometer pro Stunde"),
+            ("1 m2", "ein Quadratmeter"),
+            ("1 m3", "ein Kubikmeter"),
+        ],
+    )
+    def test_german_extended_quantity_public_path_matches_direct_normalizer(
+        self, source, expected
+    ):
+        from kokorog2p.de.g2p import GermanG2P
+        from kokorog2p.de.normalizer import GermanNormalizer
+
+        g2p = GermanG2P(
+            use_lexicon=False,
+            use_espeak_fallback=False,
+            use_goruut_fallback=False,
+            load_gold=False,
+            load_silver=False,
+        )
+        direct = GermanNormalizer()(source)
+        result = phonemize(
+            source,
+            language="de",
+            g2p=g2p,
+            alignment="span",
+            return_ids=False,
+        )
+
+        assert direct == expected
+        assert result.extended_text == expected
+        assert not result.warnings
 
     def test_whitespace_only(self):
         """Test with whitespace-only text."""

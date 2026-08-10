@@ -5,10 +5,10 @@ English G2P provides high-quality phoneme conversion for US and British English.
 ## Semantic Preparation
 
 English written-to-spoken preparation is delegated to the shared source-aligned
-`spokenform` path, with lexical abbreviation recognition and customization owned by
-the shared `abbr2words` registry. Dates, times, currencies, quantities, temperatures,
-safe ordinary numbers, and exact decimal digit reading are prepared once per
-homogeneous language run, with protected source spans preserved.
+`spokenform` path, with lexical abbreviation recognition and customization owned by the
+shared `abbr2words` registry. Dates, times, currencies, quantities, temperatures, safe
+ordinary numbers, and exact decimal digit reading are prepared once per homogeneous
+language run, with protected source spans preserved.
 
 Kokorog2p retains English typography normalization, tokenization, lexicon, G2P and
 fallback behavior. The English `NumberConverter` remains downstream for reserved and

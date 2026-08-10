@@ -4,17 +4,16 @@ This guide covers advanced features and usage patterns for kokorog2p.
 
 ## Semantic preparation boundary
 
-For migrated English, German, French, Spanish, Italian, Portuguese, and Czech text, `abbr2words`
-supplies lexical abbreviation and symbol recognition, `spokenform` prepares written numbers, quantities,
-dates, times, currency, temperatures, ordinals, and abbreviations, and `kokorog2p`
-applies source-aligned replacements while owning routing, tokenization, overrides,
-punctuation/model cleanup, G2P, phonemes, and vocabulary IDs. Preparation runs
-separately for each homogeneous language run, with caller-protected ranges passed to
-spokenform first. English typography and its reserved phoneme-sensitive number
-conversion remain downstream in kokorog2p; Spanish dialect phoneme behavior remains
-downstream as well.
-Italian and Portuguese colon times remain caller-managed. Use
-`spokenform` directly for reusable spoken text or `abbr2words` directly for
+For migrated English, German, French, Spanish, Italian, Portuguese, and Czech text,
+`abbr2words` supplies lexical abbreviation and symbol recognition, `spokenform` prepares
+written numbers, quantities, dates, times, currency, temperatures, ordinals, and
+abbreviations, and `kokorog2p` applies source-aligned replacements while owning routing,
+tokenization, overrides, punctuation/model cleanup, G2P, phonemes, and vocabulary IDs.
+Preparation runs separately for each homogeneous language run, with caller-protected
+ranges passed to spokenform first. English typography and its reserved phoneme-sensitive
+number conversion remain downstream in kokorog2p; Spanish dialect phoneme behavior
+remains downstream as well. Italian and Portuguese colon times remain caller-managed.
+Use `spokenform` directly for reusable spoken text or `abbr2words` directly for
 registry-only workflows. Czech uses the same shared semantic-preparation path as the
 other six migrated languages.
 

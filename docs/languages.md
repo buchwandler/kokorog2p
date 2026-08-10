@@ -92,6 +92,15 @@ English G2P uses a two-tier dictionary system with spaCy for POS tagging.
 - **Number handling**: Cardinals, ordinals, currency
 - **Contraction support**: Proper handling of "can't", "won't", etc.
 
+### Semantic ownership
+
+English reviewed written-to-spoken preparation runs once per homogeneous language run
+through `abbr2words` and `spokenform`, covering shared abbreviations, dates, quantities,
+temperatures, currencies, and ordinary number forms. `kokorog2p` retains English
+typography, tokenization, alignment, and G2P behavior. Phoneme- sensitive number
+categories, including forms whose pronunciation depends on the English G2P context,
+remain downstream-owned by the local `NumberConverter` path.
+
 ### Usage
 
 ```python
@@ -165,10 +174,11 @@ German G2P uses a large dictionary (738k+ entries from Olaph) with rule-based fa
 - **Regional variants**: de-de, de-at, de-ch
 
 German was the first language migrated to the shared semantic-preparation architecture,
-followed by French, Spanish, Italian, Portuguese, and Czech. These six languages use
-the same per-homogeneous-run `spokenform` path. `abbr2words` remains the shared source
-of truth for lexical abbreviation and symbol recognition, while `spokenform` owns
-reusable written-to-spoken semantics. English remains caller-managed.
+followed by French, Spanish, Italian, Portuguese, Czech, and English. These seven
+languages use the same per-homogeneous-run `spokenform` path. `abbr2words` remains the
+shared source of truth for lexical abbreviation and symbol recognition, while
+`spokenform` owns reusable written-to-spoken semantics. English phoneme-sensitive number
+categories remain downstream-owned.
 
 ### Usage
 
@@ -262,9 +272,9 @@ Czech G2P is entirely rule-based with comprehensive phonological rules.
   temperatures, and currencies; kokorog2p retains Czech typography, tokenization,
   alignment, phonology, lexicon, and fallbacks.
 
-Czech semantic preparation runs once per homogeneous language run. The Czech
-normalizer is a downstream typography adapter, so direct `CzechG2P` use and the public
-pipeline share the same spokenform preparation. Czech times remain caller-managed.
+Czech semantic preparation runs once per homogeneous language run. The Czech normalizer
+is a downstream typography adapter, so direct `CzechG2P` use and the public pipeline
+share the same spokenform preparation. Czech times remain caller-managed.
 
 ### Usage
 
@@ -362,7 +372,7 @@ Italian G2P uses rule-based phonology with predictable stress and gemination han
 
 Italian colon times remain caller-managed in this migration. `spokenform` does not
 perform language detection, mixed-language segmentation, markup parsing, or phoneme
-generation. English remains caller-managed.
+generation.
 
 ### Features
 
@@ -410,13 +420,13 @@ print(phonemize("figlio", language="it"))   # → fiʎo
 
 ## Portuguese (pt)
 
-Portuguese semantic preparation is applied once per homogeneous language run. Bare
-`pt` and `pt-br` select Brazilian Portuguese wording; `pt-pt` preserves European
-Portuguese wording. `abbr2words` owns Portuguese lexical abbreviation and canonical
-unit/currency symbol recognition, `spokenform` owns Portuguese written-to-spoken
-semantics for dates, numbers, quantities, temperatures, currencies, and reviewed
-structured forms, and kokorog2p retains Portuguese typography, tokenization, and G2P.
-Colon times remain caller-managed in this migration.
+Portuguese semantic preparation is applied once per homogeneous language run. Bare `pt`
+and `pt-br` select Brazilian Portuguese wording; `pt-pt` preserves European Portuguese
+wording. `abbr2words` owns Portuguese lexical abbreviation and canonical unit/currency
+symbol recognition, `spokenform` owns Portuguese written-to-spoken semantics for dates,
+numbers, quantities, temperatures, currencies, and reviewed structured forms, and
+kokorog2p retains Portuguese typography, tokenization, and G2P. Colon times remain
+caller-managed in this migration.
 
 Portuguese G2P supports Brazilian Portuguese with comprehensive phonological rules.
 

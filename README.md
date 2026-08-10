@@ -46,17 +46,17 @@ spokenform → written text to spoken semantic preparation
 kokorog2p  → language routing, spans, overrides, tokenization, G2P, and phonemes
 ```
 
-German was the first migrated language, followed by French, Spanish, Italian, Portuguese,
-Czech, and English. For these seven languages, `abbr2words` recognizes lexical abbreviations and
-symbols, `spokenform` prepares written semantic forms, and kokorog2p keeps language
-routing, spans, overrides, typography, tokenization, G2P, and phonemes. Czech
-abbreviation and canonical quantity/currency recognition remains owned by `abbr2words`,
-while Czech numbers, dates, quantities, temperatures, and currencies are prepared by
-`spokenform`. Spanish keeps European/Latin-American dialect behavior in its G2P layer,
-while Portuguese keeps Brazilian/European semantic wording through its spokenform
-locale. English keeps its G2P-specific `NumberConverter` for reserved forms while
-delegating source-aligned semantic preparation to `spokenform`. Use `spokenform` for
-spoken text without phonemes and `abbr2words` for registry-only workflows.
+German was the first migrated language, followed by French, Spanish, Italian,
+Portuguese, Czech, and English. For these seven languages, `abbr2words` recognizes
+lexical abbreviations and symbols, `spokenform` prepares written semantic forms, and
+kokorog2p keeps language routing, spans, overrides, typography, tokenization, G2P, and
+phonemes. Czech abbreviation and canonical quantity/currency recognition remains owned
+by `abbr2words`, while Czech numbers, dates, quantities, temperatures, and currencies
+are prepared by `spokenform`. Spanish keeps European/Latin-American dialect behavior in
+its G2P layer, while Portuguese keeps Brazilian/European semantic wording through its
+spokenform locale. English keeps its G2P-specific `NumberConverter` for reserved forms
+while delegating source-aligned semantic preparation to `spokenform`. Use `spokenform`
+for spoken text without phonemes and `abbr2words` for registry-only workflows.
 
 ## Installation
 

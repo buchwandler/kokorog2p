@@ -52,8 +52,7 @@ ENGLISH_PARITY_CASES = json.loads(
 
 def test_english_aliases_use_the_generic_spokenform_adapter():
     assert all(
-        _uses_spokenform_semantics(language)
-        for language in ("en", "en-us", "en-gb")
+        _uses_spokenform_semantics(language) for language in ("en", "en-us", "en-gb")
     )
 
 
@@ -227,8 +226,7 @@ def test_czech_public_pipeline_prepares_semantics_once_and_preserves_alignment()
     result = phonemize_to_result(source, lang="cs-cz", return_ids=False)
 
     assert result.extended_text == (
-        "Doktor Novák má dva kilogramy a teplota je "
-        "dvacet pět stupňů Celsia."
+        "Doktor Novák má dva kilogramy a teplota je dvacet pět stupňů Celsia."
     )
     assert not any(character.isdigit() for character in result.extended_text)
     assert not any(
@@ -774,6 +772,67 @@ def test_german_runs_are_prepared_independently(monkeypatch):
         token.text == "2 kg" and token.extended_text == "two kilograms"
         for token in replaced
     )
+
+
+def test_german_extended_quantity_replacements_rebase_and_repeat():
+    source = "prefix 1 m³ and 2 km/h"
+    replacements = _spokenform_replacements_for_run(source, "de", source_offset=10)
+
+    assert [(item.start, item.end) for item in replacements] == [
+        (10 + source.index("1 m³"), 10 + source.index("1 m³") + len("1 m³")),
+        (10 + source.index("2 km/h"), 10 + source.index("2 km/h") + len("2 km/h")),
+    ]
+    assert [item.text for item in replacements] == [
+        "ein Kubikmeter",
+        "zwei Kilometer pro Stunde",
+    ]
+    assert [source[item.start - 10 : item.end - 10] for item in replacements] == [
+        "1 m³",
+        "2 km/h",
+    ]
+
+
+def test_german_extended_quantity_protection_is_fail_closed():
+    source = "1 m³, then 2 m³"
+    replacements = _spokenform_replacements_for_run(
+        source,
+        "de",
+        protected_spans=((0, len("1 m³")),),
+    )
+
+    assert [(item.start, item.end, item.text) for item in replacements] == [
+        (11, 15, "zwei Kubikmeter")
+    ]
+
+
+def test_german_extended_quantity_preparation_is_idempotent():
+    normalizer = GermanNormalizer()
+    prepared = normalizer("1 m², 2 m³, 1 km/h")
+
+    assert normalizer(prepared) == prepared
+
+
+def test_german_extended_quantity_runs_remain_language_isolated(monkeypatch):
+    source = "1 m³ and 2 m³"
+    tokens = tokenize_with_offsets(source, lang="de", keep_punct=True)
+    for token in tokens:
+        if token.char_start >= source.index("2 m³"):
+            token.lang = "en-us"
+
+    real_adapter = pipeline_api._spokenform_replacements_for_run
+    calls = []
+
+    def record_call(text, language, **kwargs):
+        calls.append((text, language))
+        return real_adapter(text, language, **kwargs)
+
+    monkeypatch.setattr(pipeline_api, "_spokenform_replacements_for_run", record_call)
+    replaced, warnings = _apply_structured_replacements_to_tokens(tokens, source, "de")
+
+    assert calls == [("1 m³ and", "de"), ("2 m³", "en-us")]
+    assert not warnings
+    assert any(token.extended_text == "ein Kubikmeter" for token in replaced)
+    assert any(token.extended_text == "two cubic meters" for token in replaced)
 
 
 def test_override_protects_quantity_but_allows_adjacent_quantity():

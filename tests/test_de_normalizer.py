@@ -105,6 +105,41 @@ def test_numbered_units(normalizer, source, expected):
     assert normalizer(source) == expected
 
 
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("1 mm²", "ein Quadratmillimeter"),
+        ("2 mm²", "zwei Quadratmillimeter"),
+        ("1 cm²", "ein Quadratzentimeter"),
+        ("2 cm²", "zwei Quadratzentimeter"),
+        ("1 m²", "ein Quadratmeter"),
+        ("2 m²", "zwei Quadratmeter"),
+        ("1 km²", "ein Quadratkilometer"),
+        ("2 km²", "zwei Quadratkilometer"),
+        ("1 ha", "ein Hektar"),
+        ("2 ha", "zwei Hektar"),
+        ("1 mm³", "ein Kubikmillimeter"),
+        ("2 mm³", "zwei Kubikmillimeter"),
+        ("1 cm³", "ein Kubikzentimeter"),
+        ("2 cm³", "zwei Kubikzentimeter"),
+        ("1 m³", "ein Kubikmeter"),
+        ("2 m³", "zwei Kubikmeter"),
+        ("1 m/s", "ein Meter pro Sekunde"),
+        ("2 m/s", "zwei Meter pro Sekunde"),
+        ("1 km/h", "ein Kilometer pro Stunde"),
+        ("2 km/h", "zwei Kilometer pro Stunde"),
+        ("1 m2", "ein Quadratmeter"),
+        ("1 m3", "ein Kubikmeter"),
+        ("1 cm2", "ein Quadratzentimeter"),
+        ("1 cm3", "ein Kubikzentimeter"),
+    ],
+)
+def test_extended_quantities_use_released_spokenform_grammar(
+    normalizer, source, expected
+):
+    assert normalizer(source) == expected
+
+
 def test_numbered_units_handle_decimals_negatives_and_overlap(normalizer):
     assert normalizer("1,0 kg") == "ein Kilogramm"
     assert normalizer("1,5 kg") == "eins Komma fünf Kilogramm"

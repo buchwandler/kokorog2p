@@ -22,8 +22,7 @@ def test_czech_normalizer_tracks_source_aligned_semantics() -> None:
     normalized, steps = normalizer.normalize(source)
 
     assert normalized == (
-        "Doktor Novák má dva kilogramy a teplota je "
-        "dvacet pět stupňů Celsia."
+        "Doktor Novák má dva kilogramy a teplota je dvacet pět stupňů Celsia."
     )
     assert [(step.position, step.original, step.normalized) for step in steps[:3]] == [
         (0, "Dr.", "Doktor"),
@@ -60,7 +59,7 @@ def test_czech_token_normalization_is_typography_only() -> None:
 
 def test_czech_typography_composition_is_preserved() -> None:
     assert CzechNormalizer()("„...“ «...» ‘...’ ’...’ … – —") == (
-        '"..." “...” \'...\' \'...\' … — —'
+        "\"...\" “...” '...' '...' … — —"
     )
 
 

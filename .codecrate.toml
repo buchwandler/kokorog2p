@@ -11,6 +11,10 @@ include = [
   "**/*.md",
   "**/*.yaml",
   "**/*.yml",
+  "**/py.typed",
+  "**/NOTICE",
+  "**/NOTICE.*",
+  "**/MANIFEST.in",
   "LICENSE*",
 ]
 split_max_chars = 2500000

@@ -44,9 +44,7 @@ _G2P_LOCKS: "WeakKeyDictionary[object, threading.RLock]" = WeakKeyDictionary()
 # Semantic preparation is owned by spokenform for migrated languages.  Keep
 # this policy centralized so run-level preparation and token-level fallbacks
 # cannot drift apart as more locales move upstream.
-_SPOKENFORM_SEMANTIC_LANGUAGES = frozenset(
-    {"cs", "de", "fr", "es", "it", "pt", "en"}
-)
+_SPOKENFORM_SEMANTIC_LANGUAGES = frozenset({"cs", "de", "fr", "es", "it", "pt", "en"})
 
 
 def _uses_spokenform_semantics(lang: str | None) -> bool:
@@ -688,7 +686,10 @@ def phonemize_to_result(
     # pass consumes them; the final G2P text contains only model-supported
     # punctuation.
     if _uses_spokenform_semantics(lang):
-        semantic_symbols = "°$£%€"
+        # Keep structured quantity symbols intact until spokenform has a
+        # chance to consume them.  In particular, slash is part of reviewed
+        # speed-unit aliases such as ``m/s`` and ``km/h``.
+        semantic_symbols = "°$£%€/"
         placeholders = {
             symbol: chr(0xE000 + index) for index, symbol in enumerate(semantic_symbols)
         }

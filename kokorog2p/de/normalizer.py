@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterator
 from dataclasses import replace
 
@@ -140,16 +139,7 @@ class GermanNormalizer(TextNormalizer):
                     )
                 )
 
-        # Keep the historic direct-normalizer result for this established unit
-        # form while the upstream parity rule is being aligned.  The span
-        # pipeline consumes spokenform replacements directly and does not pass
-        # through this compatibility-only correction.
-        spoken_text = re.sub(
-            r"(?<!\w)eins Kubikmeter(?!\w)",
-            "ein Kubikmeter",
-            prepared.spoken_text,
-        )
-        result, rule_steps = super().normalize(spoken_text)
+        result, rule_steps = super().normalize(prepared.spoken_text)
         if self.track_changes:
             steps.extend(rule_steps)
         return result, steps
