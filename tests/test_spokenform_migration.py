@@ -65,6 +65,46 @@ def test_english_parity_corpus(case):
     assert EnglishNormalizer()(case["source"]) == case["expected"]
 
 
+def test_english_dot_zero_version_label_is_prepared_by_spokenform():
+    source = "We had built bot 2.0."
+
+    assert EnglishNormalizer()(source) == "We had built bot two point oh."
+
+
+def test_english_version_label_adapter_rebases_exact_span_and_excludes_period():
+    source = "We had built bot 2.0."
+    source_offset = 10
+    replacements = _spokenform_replacements_for_run(
+        source, "en-us", source_offset=source_offset
+    )
+
+    assert [(item.start, item.end, item.text) for item in replacements] == [
+        (source_offset + 17, source_offset + 20, "two point oh")
+    ]
+    replacement = replacements[0]
+    assert (
+        source[replacement.start - source_offset : replacement.end - source_offset]
+        == "2.0"
+    )
+    assert source[replacement.end - source_offset] == "."
+
+
+def test_english_version_label_public_pipeline_preserves_source_alignment():
+    source = "We had built bot 2.0."
+    result = phonemize_to_result(source, lang="en-us", return_ids=False)
+
+    assert result.clean_text == source
+    assert result.extended_text == "We had built bot two point oh."
+    assert result.extended_text.endswith(".")
+    assert not any(character.isdigit() for character in result.extended_text)
+    assert result.phonemes
+    assert not result.warnings
+    assert all(
+        0 <= token.char_start <= token.char_end <= len(source)
+        for token in result.tokens
+    )
+
+
 def test_english_adapter_rebases_repeated_sources_and_preserves_provenance():
     source = "2 kg and 2 kg"
     replacements = _spokenform_replacements_for_run(source, "en", source_offset=10)

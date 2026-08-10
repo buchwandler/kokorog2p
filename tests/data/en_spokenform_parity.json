@@ -198,6 +198,24 @@
     "expected": "two euros"
   },
   {
+    "id": "version-label-bot-dot-zero",
+    "category": "version_label",
+    "source": "We had built bot 2.0.",
+    "expected": "We had built bot two point oh."
+  },
+  {
+    "id": "version-label-release-dot-zero",
+    "category": "version_label",
+    "source": "release 3.0",
+    "expected": "release three point oh"
+  },
+  {
+    "id": "quantity-dot-zero",
+    "category": "quantity",
+    "source": "The value is 2.0 kg.",
+    "expected": "The value is two point zero kilograms."
+  },
+  {
     "id": "plain-integer",
     "category": "number",
     "source": "42",
