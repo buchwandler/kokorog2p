@@ -238,6 +238,9 @@ def apply_text_replacements_to_tokens(
         merged.meta["_extended_text_changed"] = True
         merged.meta["_extended_text"] = replacement.text
         merged.meta["_replacement_kind"] = replacement.kind
+        merged.meta["_replacement_rule"] = replacement.rule
+        merged.meta["_replacement_language"] = replacement.language
+        merged.meta["_replacement_stages"] = replacement.stages
         modified_tokens[first_idx : last_idx + 1] = [merged]
 
     return modified_tokens, warnings

@@ -22,6 +22,7 @@ from kokorog2p.it.normalizer import ItalianNormalizer
 from kokorog2p.pipeline_api import (
     _apply_structured_replacements_to_tokens,
     _spokenform_replacements_for_run,
+    _SpokenformRunResult,
     _uses_spokenform_semantics,
     phonemize_to_result,
 )
@@ -48,7 +49,10 @@ def assert_spokenform_handoff(
         protected_spans=protected_spans,
     )
     for replacement in prepared.source_replacements:
-        assert source[replacement.source_start : replacement.source_end] == replacement.source
+        assert (
+            source[replacement.source_start : replacement.source_end]
+            == replacement.source
+        )
 
     result = phonemize_to_result(source, lang=language, return_ids=False)
     assert result.extended_text == prepared.spoken_text
@@ -326,7 +330,38 @@ def test_spokenform_adapter_rebases_and_preserves_source_provenance():
         for left, right in zip(replacements[:-1], replacements[1:], strict=True)
     )
     assert replacements[0].text == "eins Komma fünf Kilogramm"
-    assert replacements[1].text == "zwölf Euro achtzig Cent"
+    assert replacements[1].text == "zwölf Euro achtzig"
+    assert replacements[0].rule == "de.quantity"
+    assert replacements[0].language == "de"
+    assert replacements[0].stages == ("structured",)
+
+
+def test_spokenform_adapter_propagates_upstream_warnings():
+    result = _spokenform_replacements_for_run(
+        "2 kg",
+        "en",
+        protected_spans=((99, 100),),
+    )
+
+    assert isinstance(result, _SpokenformRunResult)
+    assert any("[SPOKENFORM]" in warning for warning in result.warnings)
+
+
+def test_spokenform_run_result_warnings_reach_pipeline(monkeypatch):
+    source = "2 kg"
+    tokens = tokenize_with_offsets(source, lang="en", keep_punct=True)
+    replacement = _spokenform_replacements_for_run(source, "en")
+    replacement.warnings.append("[SPOKENFORM] synthetic adapter warning")
+
+    monkeypatch.setattr(
+        pipeline_api,
+        "_spokenform_replacements_for_run",
+        lambda *args, **kwargs: replacement,
+    )
+    replaced, warnings = _apply_structured_replacements_to_tokens(tokens, source, "en")
+
+    assert replaced[0].extended_text == "two kilograms"
+    assert "[SPOKENFORM] synthetic adapter warning" in warnings
 
 
 def test_spokenform_adapter_handles_empty_and_protected_ranges():

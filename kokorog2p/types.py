@@ -56,6 +56,9 @@ class TextReplacement:
     text: str
     kind: str
     priority: int = 0
+    rule: str | None = None
+    language: str | None = None
+    stages: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.start < 0:

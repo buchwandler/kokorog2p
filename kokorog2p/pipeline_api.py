@@ -14,7 +14,8 @@ from typing import TYPE_CHECKING, Any, Literal
 from weakref import WeakKeyDictionary
 
 from abbr2words import AbbreviationExpander, get_shared_expander, normalize_language
-from spokenform import SUPPORTED_BASE_LANGUAGES, base_language as spokenform_base_language
+from spokenform import SUPPORTED_BASE_LANGUAGES
+from spokenform import base_language as spokenform_base_language
 
 from kokorog2p.integrations import coerce_override_spans
 from kokorog2p.punctuation import normalize_punctuation
@@ -278,7 +279,9 @@ def _spokenform_replacements_for_run(
         protected_spans=protected_spans,
     )
     replacements: list[TextReplacement] = []
-    warnings = [f"[SPOKENFORM] {warning}" for warning in getattr(prepared, "warnings", ())]
+    warnings = [
+        f"[SPOKENFORM] {warning}" for warning in getattr(prepared, "warnings", ())
+    ]
     for item in prepared.source_replacements:
         if item.source_start < 0 or item.source_end > len(text):
             warnings.append(
@@ -299,6 +302,9 @@ def _spokenform_replacements_for_run(
                 end=source_offset + item.source_end,
                 text=item.replacement,
                 kind=item.kind or "spokenform",
+                rule=getattr(item, "rule", None),
+                language=getattr(item, "language", None),
+                stages=tuple(str(stage) for stage in getattr(item, "stages", ())),
             )
         )
     return _SpokenformRunResult(replacements, warnings)
