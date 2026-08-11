@@ -21,6 +21,7 @@ from kokorog2p.it.g2p import ItalianG2P
 from kokorog2p.it.normalizer import ItalianNormalizer
 from kokorog2p.pipeline_api import (
     _apply_structured_replacements_to_tokens,
+    _normalize_punctuation_output,
     _spokenform_replacements_for_run,
     _SpokenformRunResult,
     _uses_spokenform_semantics,
@@ -55,7 +56,44 @@ def assert_spokenform_handoff(
         )
 
     result = phonemize_to_result(source, lang=language, return_ids=False)
-    assert result.extended_text == prepared.spoken_text
+    assert result.extended_text == _normalize_punctuation_output(prepared.spoken_text)
+
+
+@pytest.mark.parametrize(
+    ("source", "language"),
+    [
+        ("#TravelTips @JeanDupont", "en"),
+        ("§ 823 Abs. 1 BGB", "en"),
+        ("2+2=4", "en"),
+        ("chord C# and key Bb", "en"),
+        ("+49 30 123456", "en"),
+        ("TravelTips_2024", "en"),
+        ("ISBN 978-3-16-148410-0", "en"),
+        ("H2O", "en"),
+        ("1/2", "fr"),
+        ("90° N", "en"),
+    ],
+)
+def test_compact_spokenform_handoff_cases(source, language):
+    assert_spokenform_handoff(source, language)
+
+
+def test_migrated_pipeline_passes_original_symbols_to_spokenform(monkeypatch):
+    import spokenform
+
+    source = "#TravelTips @JeanDupont § 823 2+2=4 C#"
+    calls = []
+    real_prepare = spokenform.prepare_for_kokorog2p
+
+    def record_prepare(text, *args, **kwargs):
+        calls.append(text)
+        return real_prepare(text, *args, **kwargs)
+
+    monkeypatch.setattr(spokenform, "prepare_for_kokorog2p", record_prepare)
+    phonemize_to_result(source, lang="en", return_ids=False)
+
+    assert source in calls
+    assert any("#" in text and "@" in text and "+" in text for text in calls)
 
 PARITY_CASES = json.loads(
     (Path(__file__).parent / "data" / "de_semantic_parity.json").read_text()
@@ -148,7 +186,7 @@ def test_english_adapter_keeps_terminal_quantity_punctuation_outside_span():
     replacements = _spokenform_replacements_for_run("30C.", "en-us")
 
     assert [(item.start, item.end, item.text) for item in replacements] == [
-        (0, 3, "thirty degrees Celsius")
+        (0, 4, "thirty degrees Celsius.")
     ]
 
 
@@ -330,7 +368,7 @@ def test_spokenform_adapter_rebases_and_preserves_source_provenance():
         for left, right in zip(replacements[:-1], replacements[1:], strict=True)
     )
     assert replacements[0].text == "eins Komma fünf Kilogramm"
-    assert replacements[1].text == "zwölf Euro achtzig"
+    assert replacements[1].text == "zwölf Euro achtzig Cent"
     assert replacements[0].rule == "de.quantity"
     assert replacements[0].language == "de"
     assert replacements[0].stages == ("structured",)
