@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from abbr2words import get_shared_expander, reset_expanders
 from abbr2words.languages.en import EnglishAbbreviationExpander
 
@@ -10,7 +12,10 @@ def get_expander(
     enable_context_detection: bool = True,
 ) -> EnglishAbbreviationExpander:
     """Return the shared English registry for the requested context mode."""
-    return get_shared_expander("en", context=enable_context_detection)
+    return cast(
+        EnglishAbbreviationExpander,
+        get_shared_expander("en", context=enable_context_detection),
+    )
 
 
 def reset_expander() -> None:
