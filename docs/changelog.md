@@ -6,6 +6,12 @@ All notable changes to kokorog2p will be documented in this file.
 
 ### Changed
 
+- Reordered migrated-language processing so Spokenform receives original source syntax
+  before kokorog2p model-punctuation cleanup; removed the semantic-symbol allowlist.
+- Preserved exact Spokenform source replacements, propagated upstream warnings, and
+  retained replacement rule/language/stage provenance in token metadata.
+- Raised the released dependency floors to `abbr2words>=0.2.6,<0.3.0` and
+  `spokenform>=0.2.4,<0.3.0`, with compact structured handoff regressions.
 - Fixed English contextual `N.0` release-label pronunciation through the
   `spokenform` preparation layer, preserving source alignment and reading
   `bot 2.0` as `bot two point oh` once the upstream release is consumed.

@@ -188,7 +188,7 @@ def tokenize_with_offsets(
     grouped_integer = r"\d{1,3}(?:,\d{3})+"
     pattern = re.compile(
         rf"({number}|{leading_decimal}|{grouped_integer}|"
-        rf"\w+(?:-\w+)+|\w+(?:'\w+)+|\w+|[^\w\s]|\s+)"
+        rf"\w+(?:-\w+)+|\w+(?:['\u2019]\w+)+|\w+|\.{{2,}}|…|[^\w\s]|\s+)"
     )
     tokens: list[TokenSpan] = []
 

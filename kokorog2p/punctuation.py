@@ -10,6 +10,9 @@ The Kokoro vocabulary supports these punctuation marks:
     ; : , . ! ? — … " ( ) " "
 
 All other punctuation is either normalized or removed.
+
+This is a downstream/model layer. Spokenform-supported runs must reach semantic
+preparation with their original syntax before this module is used.
 """
 
 import re

@@ -177,8 +177,9 @@ German was the first language migrated to the shared semantic-preparation archit
 followed by French, Spanish, Italian, Portuguese, Czech, and English. These seven
 languages use the same per-homogeneous-run `spokenform` path. `abbr2words` remains the
 shared source of truth for lexical abbreviation and symbol recognition, while
-`spokenform` owns reusable written-to-spoken semantics. English phoneme-sensitive number
-categories remain downstream-owned.
+`spokenform` owns the behavior exposed by its `for_kokorog2p` profile. The examples in
+this guide are illustrative; the pinned Spokenform release/API is authoritative.
+English phoneme-sensitive number categories remain downstream-owned.
 
 ### Usage
 

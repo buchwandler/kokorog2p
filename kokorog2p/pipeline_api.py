@@ -750,7 +750,7 @@ def phonemize_to_result(
         )
         warnings.extend(replacement_warnings)
 
-        extended_text = _apply_extended_text(
+        semantic_text = _apply_extended_text(
             token_spans,
             clean_text,
             lang,
@@ -759,10 +759,12 @@ def phonemize_to_result(
         # Spokenform has already produced the semantic text.  Only now may
         # Kokorog2p discard punctuation that the target model cannot consume.
         if migrated_semantics:
-            extended_text = _normalize_punctuation_output(extended_text)
-        normalized_text = _normalize_for_g2p_alignment(extended_text, g2p)
+            model_text = _normalize_punctuation_output(semantic_text)
+        else:
+            model_text = semantic_text
+        normalized_text = _normalize_for_g2p_alignment(model_text, g2p)
         alignment_warnings = _align_tokens_to_normalized_text(
-            token_spans, extended_text, normalized_text
+            token_spans, semantic_text, normalized_text
         )
         warnings.extend(alignment_warnings)
         extended_text = normalized_text
