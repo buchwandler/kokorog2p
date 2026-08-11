@@ -12,5 +12,9 @@ def test_migrated_semantic_dependency_floors() -> None:
     data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
     dependencies = data["project"]["dependencies"]
 
-    assert "abbr2words>=0.2.4,<0.3.0" in dependencies
-    assert "spokenform>=0.2.3,<0.3.0" in dependencies
+    # abbr2words 0.2.6 is the released compact-unit/identity baseline consumed
+    # by Spokenform's kokorog2p profile.  Spokenform 0.2.4 is the first
+    # published release containing the broad structured adapter contract used
+    # by this downstream integration.
+    assert "abbr2words>=0.2.6,<0.3.0" in dependencies
+    assert "spokenform>=0.2.4,<0.3.0" in dependencies

@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from weakref import WeakKeyDictionary
 
 from abbr2words import AbbreviationExpander, get_shared_expander, normalize_language
+from spokenform import SUPPORTED_BASE_LANGUAGES, base_language as spokenform_base_language
 
 from kokorog2p.integrations import coerce_override_spans
 from kokorog2p.punctuation import normalize_punctuation
@@ -44,7 +45,9 @@ _G2P_LOCKS: "WeakKeyDictionary[object, threading.RLock]" = WeakKeyDictionary()
 # Semantic preparation is owned by spokenform for migrated languages.  Keep
 # this policy centralized so run-level preparation and token-level fallbacks
 # cannot drift apart as more locales move upstream.
-_SPOKENFORM_SEMANTIC_LANGUAGES = frozenset({"cs", "de", "fr", "es", "it", "pt", "en"})
+# Spokenform owns this metadata.  Kokorog2p consumes the stable exported base
+# language set instead of maintaining a second upstream shortlist.
+_SPOKENFORM_SEMANTIC_LANGUAGES = frozenset(SUPPORTED_BASE_LANGUAGES)
 
 
 def _uses_spokenform_semantics(lang: str | None) -> bool:
@@ -53,7 +56,11 @@ def _uses_spokenform_semantics(lang: str | None) -> bool:
     normalized = _normalize_lang(lang)
     if not normalized:
         return False
-    return normalized.split("-", 1)[0] in _SPOKENFORM_SEMANTIC_LANGUAGES
+    try:
+        base = spokenform_base_language(normalized)
+    except (TypeError, ValueError):
+        base = normalized.split("-", 1)[0]
+    return base in _SPOKENFORM_SEMANTIC_LANGUAGES
 
 
 def _get_g2p_lock(g2p: Any) -> threading.RLock:
@@ -694,29 +701,11 @@ def phonemize_to_result(
     lang = lang or "en-us"
     warnings: list[str] = []
 
-    # Normalize punctuation into Kokoro-compatible forms early. Preserve
-    # semantic symbols for migrated languages until the run-level spokenform
-    # pass consumes them; the final G2P text contains only model-supported
-    # punctuation.
-    if _uses_spokenform_semantics(lang):
-        # Keep structured quantity symbols intact until spokenform has a
-        # chance to consume them.  In particular, slash is part of reviewed
-        # speed-unit aliases such as ``m/s`` and ``km/h``.
-        semantic_symbols = "°$£%€/"
-        placeholders = {
-            symbol: chr(0xE000 + index) for index, symbol in enumerate(semantic_symbols)
-        }
-        clean_text = normalize_punctuation(
-            clean_text.translate(
-                str.maketrans(semantic_symbols, "".join(placeholders.values()))
-            )
-        ).translate(
-            str.maketrans(
-                "".join(placeholders.values()),
-                "".join(placeholders.keys()),
-            )
-        )
-    else:
+    # The original source is the coordinate authority for migrated runs.  In
+    # particular, do not remove or replace semantic punctuation before the
+    # run reaches Spokenform; model punctuation belongs after preparation.
+    migrated_semantics = _uses_spokenform_semantics(lang)
+    if not migrated_semantics:
         clean_text = normalize_punctuation(clean_text)
 
     # Get or create G2P instance
@@ -751,6 +740,10 @@ def phonemize_to_result(
             lang,
             use_normalizer_rules=use_normalizer_rules,
         )
+        # Spokenform has already produced the semantic text.  Only now may
+        # Kokorog2p discard punctuation that the target model cannot consume.
+        if migrated_semantics:
+            extended_text = _normalize_punctuation_output(extended_text)
         normalized_text = _normalize_for_g2p_alignment(extended_text, g2p)
         alignment_warnings = _align_tokens_to_normalized_text(
             token_spans, extended_text, normalized_text

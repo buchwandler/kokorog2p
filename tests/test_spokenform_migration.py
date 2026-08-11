@@ -30,6 +30,29 @@ from kokorog2p.pt.normalizer import PortugueseNormalizer
 from kokorog2p.tokenization import tokenize_with_offsets
 from kokorog2p.types import OverrideSpan
 
+
+def assert_spokenform_handoff(
+    source: str,
+    language: str,
+    *,
+    protected_spans=(),
+) -> None:
+    """Assert the compact semantic handoff contract at the adapter boundary."""
+
+    from spokenform import PreparationConfig, prepare_for_kokorog2p
+
+    prepared = prepare_for_kokorog2p(
+        source,
+        language=language,
+        config=PreparationConfig.for_kokorog2p(language),
+        protected_spans=protected_spans,
+    )
+    for replacement in prepared.source_replacements:
+        assert source[replacement.source_start : replacement.source_end] == replacement.source
+
+    result = phonemize_to_result(source, lang=language, return_ids=False)
+    assert result.extended_text == prepared.spoken_text
+
 PARITY_CASES = json.loads(
     (Path(__file__).parent / "data" / "de_semantic_parity.json").read_text()
 )
