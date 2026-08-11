@@ -5,6 +5,7 @@ import pytest
 from kokorog2p import clear_cache, get_g2p, reset_abbreviations
 from kokorog2p.en import EnglishG2P
 from kokorog2p.en.abbreviations import EnglishAbbreviationExpander, get_expander
+from kokorog2p.pipeline.abbreviations import AbbreviationEntry
 
 
 def test_shared_dotted_abbreviation_boundary_handles_punctuation():
@@ -256,12 +257,35 @@ class TestExpanderMethods:
         entry = expander.get_abbreviation("NonExistent.")
         assert entry is None
 
-    def test_expander_context_warning(self):
-        """Warn when expander settings change after init."""
+    def test_expander_context_modes_use_separate_shared_registries(self):
+        """Use separate shared registries for each context mode."""
         reset_abbreviations()
-        get_expander(enable_context_detection=True)
-        with pytest.warns(RuntimeWarning, match="enable_context_detection"):
-            get_expander(enable_context_detection=False)
+        contextual = get_expander(enable_context_detection=True)
+        plain = get_expander(enable_context_detection=False)
+
+        assert contextual is get_expander(enable_context_detection=True)
+        assert plain is get_expander(enable_context_detection=False)
+        assert contextual is not plain
+        assert contextual.enable_context_detection is True
+        assert plain.enable_context_detection is False
+
+        contextual.add_abbreviation(
+            AbbreviationEntry(
+                abbreviation="Ctx.",
+                expansion="Context",
+                only_if_followed_by=r"[ \t]+\d",
+            )
+        )
+        assert contextual.get_abbreviation("Ctx.") is not None
+        assert plain.get_abbreviation("Ctx.") is None
+
+        reset_abbreviations()
+        rebuilt_contextual = get_expander(enable_context_detection=True)
+        rebuilt_plain = get_expander(enable_context_detection=False)
+        assert rebuilt_contextual is not contextual
+        assert rebuilt_plain is not plain
+        assert rebuilt_contextual.get_abbreviation("Ctx.") is None
+        assert rebuilt_plain.get_abbreviation("Ctx.") is None
 
 
 if __name__ == "__main__":

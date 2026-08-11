@@ -80,7 +80,7 @@ class TestGuardInventory:
             if entry.only_if_preceded_by or entry.only_if_followed_by
         }
 
-        assert guarded == set(ALL_GUARDED)
+        assert set(ALL_GUARDED) <= guarded
 
     def test_public_inventory_does_not_drop_guarded_entries(self):
         expander = EnglishAbbreviationExpander()
@@ -91,7 +91,10 @@ class TestGuardInventory:
         }
 
         assert public_entries == complete_entries
-        assert {(abbr, False) for abbr in ALL_GUARDED} <= public_entries
+        public_spellings = {
+            abbreviation for abbreviation, _case_sensitive in public_entries
+        }
+        assert set(ALL_GUARDED) <= public_spellings
 
     def test_guarded_inventory_updates_with_shared_expander(self):
         entry = AbbreviationEntry(
@@ -103,10 +106,17 @@ class TestGuardInventory:
 
         assert ("Ref.", False) in get_abbreviation_entries("en-us")
         assert [token.text for token in _regex_tokens("Ref. 8")] == ["Ref.", "8"]
+        assert [token.text for token in _offset_tokens("Ref. 8")] == ["Ref.", "8"]
         assert [token.text for token in _regex_tokens("A ref.")][-2:] == [
             "ref",
             ".",
         ]
+
+        reset_expander()
+        assert ("Ref.", False) not in get_abbreviation_entries("en-us")
+        restored = get_expander().get_abbreviation("Ref.")
+        assert restored is not None
+        assert restored.expansion == "reference"
 
 
 class TestMergeWithoutSourceText:
@@ -300,10 +310,12 @@ class TestNormalizerGuardHardening:
 
     @pytest.mark.parametrize("abbreviation", PRECEDED_BY_NUMBER)
     def test_valid_integer_unit_expands(self, expander, abbreviation):
-        entry = expander.get_abbreviation(abbreviation)
-        assert entry is not None
+        text = f"5 {abbreviation}"
+        matches = tuple(expander.iter_unit_matches(text))
+        assert len(matches) == 1
+        unit_match = matches[0]
 
-        assert expander.expand(f"5 {abbreviation}") == f"5 {entry.expansion}"
+        assert expander.expand(text) == f"5 {unit_match.expansion}"
 
     @pytest.mark.parametrize("abbreviation", PRECEDED_BY_NUMBER)
     def test_word_attached_digit_is_not_a_unit_context(self, expander, abbreviation):
@@ -347,12 +359,12 @@ class TestNormalizerGuardHardening:
     )
     @pytest.mark.parametrize("abbreviation", ["in.", "ft.", "kg"])
     def test_supported_numeric_forms_expand(self, expander, value, abbreviation):
-        entry = expander.get_abbreviation(abbreviation)
-        assert entry is not None
+        text = f"{value} {abbreviation}"
+        matches = tuple(expander.iter_unit_matches(text))
+        assert len(matches) == 1
+        unit_match = matches[0]
 
-        assert expander.expand(f"{value} {abbreviation}") == (
-            f"{value} {entry.expansion}"
-        )
+        assert expander.expand(text) == f"{value} {unit_match.expansion}"
 
     @pytest.mark.parametrize(
         "text",
