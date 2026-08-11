@@ -50,6 +50,18 @@ _G2P_LOCKS: "WeakKeyDictionary[object, threading.RLock]" = WeakKeyDictionary()
 _SPOKENFORM_SEMANTIC_LANGUAGES = frozenset(SUPPORTED_BASE_LANGUAGES)
 
 
+class _SpokenformRunResult(list[TextReplacement]):
+    """List-compatible replacement result carrying upstream diagnostics."""
+
+    def __init__(
+        self,
+        replacements: Sequence[TextReplacement] = (),
+        warnings: Sequence[str] = (),
+    ) -> None:
+        super().__init__(replacements)
+        self.warnings = list(warnings)
+
+
 def _uses_spokenform_semantics(lang: str | None) -> bool:
     """Return whether *lang* has migrated semantic preparation upstream."""
 
@@ -244,7 +256,7 @@ def _spokenform_replacements_for_run(
     source_offset: int = 0,
     protected_spans: Sequence[tuple[int, int]] = (),
     expand_nums: bool = True,
-) -> list[TextReplacement]:
+) -> _SpokenformRunResult:
     """Adapt spokenform source replacements into kokorog2p's public type."""
 
     from dataclasses import replace
@@ -266,33 +278,30 @@ def _spokenform_replacements_for_run(
         protected_spans=protected_spans,
     )
     replacements: list[TextReplacement] = []
+    warnings = [f"[SPOKENFORM] {warning}" for warning in getattr(prepared, "warnings", ())]
     for item in prepared.source_replacements:
         if item.source_start < 0 or item.source_end > len(text):
+            warnings.append(
+                "[SPOKENFORM] source replacement has invalid bounds "
+                f"[{item.source_start}:{item.source_end}] for run length {len(text)}"
+            )
             continue
         if text[item.source_start : item.source_end] != item.source:
-            continue
-        source_end = item.source_end
-        replacement = item.replacement
-        # spokenform keeps a terminal dot on some quantity aliases (for
-        # example ``30C.``) so direct normalization preserves it. The span
-        # pipeline tokenizes that dot separately; keep the source and
-        # replacement aligned with those token boundaries here.
-        if (
-            source_end > item.source_start
-            and text[item.source_start:source_end].endswith(".")
-            and replacement.endswith(".")
-        ):
-            source_end -= 1
-            replacement = replacement[:-1]
+            warnings.append(
+                "[SPOKENFORM] source replacement mismatch at "
+                f"[{item.source_start}:{item.source_end}]: "
+                f"expected {item.source!r}, got "
+                f"{text[item.source_start:item.source_end]!r}"
+            )
         replacements.append(
             TextReplacement(
                 start=source_offset + item.source_start,
-                end=source_offset + source_end,
-                text=replacement,
+                end=source_offset + item.source_end,
+                text=item.replacement,
                 kind=item.kind or "spokenform",
             )
         )
-    return replacements
+    return _SpokenformRunResult(replacements, warnings)
 
 
 def _apply_structured_replacements_to_tokens(
@@ -338,6 +347,7 @@ def _apply_structured_replacements_to_tokens(
                 else True
             ),
         )
+        all_warnings.extend(getattr(replacements, "warnings", ()))
         replaced, warnings = apply_text_replacements_to_tokens(
             run_tokens,
             clean_text,
