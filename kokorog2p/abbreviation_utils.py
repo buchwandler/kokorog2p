@@ -35,7 +35,10 @@ def _get_abbreviation_definitions(lang: str | None) -> list[AbbreviationEntry]:
     normalized = _normalize_lang(lang)
 
     try:
-        language = normalize_language(normalized)
+        # Shared custom registries are keyed by the base language.  Using
+        # ``en_US`` here would create/read a different registry from the
+        # English compatibility expander's ``en`` registry.
+        language = normalize_language(normalized.split("-", 1)[0])
     except ValueError:
         return []
     return list(get_shared_expander(language, context=True).entries.values())
