@@ -178,8 +178,8 @@ followed by French, Spanish, Italian, Portuguese, Czech, and English. These seve
 languages use the same per-homogeneous-run `spokenform` path. `abbr2words` remains the
 shared source of truth for lexical abbreviation and symbol recognition, while
 `spokenform` owns the behavior exposed by its `for_kokorog2p` profile. The examples in
-this guide are illustrative; the pinned Spokenform release/API is authoritative.
-English phoneme-sensitive number categories remain downstream-owned.
+this guide are illustrative; the pinned Spokenform release/API is authoritative. English
+phoneme-sensitive number categories remain downstream-owned.
 
 ### Usage
 

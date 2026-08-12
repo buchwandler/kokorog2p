@@ -294,7 +294,7 @@ def _spokenform_replacements_for_run(
                 "[SPOKENFORM] source replacement mismatch at "
                 f"[{item.source_start}:{item.source_end}]: "
                 f"expected {item.source!r}, got "
-                f"{text[item.source_start:item.source_end]!r}"
+                f"{text[item.source_start : item.source_end]!r}"
             )
         replacements.append(
             TextReplacement(

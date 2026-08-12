@@ -95,6 +95,7 @@ def test_migrated_pipeline_passes_original_symbols_to_spokenform(monkeypatch):
     assert source in calls
     assert any("#" in text and "@" in text and "+" in text for text in calls)
 
+
 PARITY_CASES = json.loads(
     (Path(__file__).parent / "data" / "de_semantic_parity.json").read_text()
 )

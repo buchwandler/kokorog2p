@@ -48,8 +48,8 @@ kokorog2p  → language routing, spans, overrides, tokenization, G2P, and phonem
 
 For Spokenform-supported languages, kokorog2p passes the original source syntax to
 Spokenform first. Semantic replacements and their source offsets are applied before
-kokorog2p performs model-specific punctuation cleanup; the current Spokenform profile
-is the semantic source of truth and may gain broader structured coverage within the
+kokorog2p performs model-specific punctuation cleanup; the current Spokenform profile is
+the semantic source of truth and may gain broader structured coverage within the
 supported dependency line. PolyNorm remains an upstream Spokenform benchmark, while
 kokorog2p verifies compact downstream handoffs rather than copying that corpus.
 

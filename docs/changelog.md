@@ -12,9 +12,9 @@ All notable changes to kokorog2p will be documented in this file.
   retained replacement rule/language/stage provenance in token metadata.
 - Raised the released dependency floors to `abbr2words>=0.2.6,<0.3.0` and
   `spokenform>=0.2.4,<0.3.0`, with compact structured handoff regressions.
-- Fixed English contextual `N.0` release-label pronunciation through the
-  `spokenform` preparation layer, preserving source alignment and reading
-  `bot 2.0` as `bot two point oh` once the upstream release is consumed.
+- Fixed English contextual `N.0` release-label pronunciation through the `spokenform`
+  preparation layer, preserving source alignment and reading `bot 2.0` as
+  `bot two point oh` once the upstream release is consumed.
 - Delegated German written-to-spoken semantic preparation to `spokenform` per
   source-aligned language run while preserving kokorog2p overrides, token mapping, G2P,
   phoneme, and model responsibilities.
