@@ -5,6 +5,7 @@ It supports deterministic override application, per-span language switching, and
 direct token ID output.
 """
 
+import re
 import threading
 import unicodedata
 from collections.abc import Callable, Sequence
@@ -114,6 +115,81 @@ def _normalize_punctuation_output(text: str) -> str:
     if "-" in normalized:
         normalized = normalized.replace("-", "—")
     return normalized
+
+
+_SPACED_ELLIPSIS_RE = re.compile(r"\s*\.\s+\.\s+\.\s*")
+
+
+def _normalize_source_ellipsis(text: str) -> str:
+    """Normalize spaced ellipses without removing semantic symbols."""
+
+    return _SPACED_ELLIPSIS_RE.sub("…", text)
+
+
+def _realign_source_punctuation_tokens(
+    tokens: list[TokenSpan],
+    source_text: str,
+    normalized_text: str,
+) -> list[TokenSpan]:
+    """Realign source tokens when model punctuation collapses a dot run."""
+
+    if source_text == normalized_text:
+        return tokens
+
+    opcodes = SequenceMatcher(None, source_text, normalized_text).get_opcodes()
+    realigned: list[TokenSpan] = []
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        if (
+            index + 2 < len(tokens)
+            and all(candidate.text == "." for candidate in tokens[index : index + 3])
+            and _SPACED_ELLIPSIS_RE.fullmatch(
+                source_text[token.char_start : tokens[index + 2].char_end]
+            )
+        ):
+            last = tokens[index + 2]
+            start = _map_position_to_normalized(token.char_start, opcodes)
+            end = _map_position_to_normalized(last.char_end, opcodes)
+            merged_meta = dict(token.meta)
+            ext_starts = [
+                int(candidate.meta.get("_extended_char_start", candidate.char_start))
+                for candidate in tokens[index : index + 3]
+            ]
+            ext_ends = [
+                int(candidate.meta.get("_extended_char_end", candidate.char_end))
+                for candidate in tokens[index : index + 3]
+            ]
+            merged_meta["_extended_char_start"] = min(ext_starts)
+            merged_meta["_extended_char_end"] = max(ext_ends)
+            realigned.append(
+                TokenSpan(
+                    text=normalized_text[start:end],
+                    char_start=start,
+                    char_end=end,
+                    lang=token.lang,
+                    extended_text=token.extended_text,
+                    meta=merged_meta,
+                )
+            )
+            index += 3
+            continue
+
+        start = _map_position_to_normalized(token.char_start, opcodes)
+        end = _map_position_to_normalized(token.char_end, opcodes)
+        realigned.append(
+            TokenSpan(
+                text=normalized_text[start:end],
+                char_start=start,
+                char_end=end,
+                lang=token.lang,
+                extended_text=token.extended_text,
+                meta=dict(token.meta),
+            )
+        )
+        index += 1
+
+    return realigned
 
 
 def _normalize_lang(lang: str | None) -> str | None:
@@ -296,11 +372,19 @@ def _spokenform_replacements_for_run(
                 f"expected {item.source!r}, got "
                 f"{text[item.source_start : item.source_end]!r}"
             )
+        replacement_text = item.replacement
+        if (
+            language.startswith("de")
+            and getattr(item, "rule", None) == "de.currency"
+        ):
+            replacement_text = _restore_german_currency_minor_unit(
+                item.source, replacement_text
+            )
         replacements.append(
             TextReplacement(
                 start=source_offset + item.source_start,
                 end=source_offset + item.source_end,
-                text=item.replacement,
+                text=replacement_text,
                 kind=item.kind or "spokenform",
                 rule=getattr(item, "rule", None),
                 language=getattr(item, "language", None),
@@ -308,6 +392,34 @@ def _spokenform_replacements_for_run(
             )
         )
     return _SpokenformRunResult(replacements, warnings)
+
+
+def _restore_german_currency_minor_unit(source: str, replacement: str) -> str:
+    """Keep the legacy German currency minor-unit wording when upstream omits it."""
+
+    match = re.fullmatch(
+        r"(?P<number>[+\-]?\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?)\s*"
+        r"(?P<currency>EUR|€|\$|£|CHF)",
+        source.strip(),
+        re.IGNORECASE,
+    )
+    if match is None or "," not in match.group("number"):
+        return replacement
+
+    fraction = match.group("number").rsplit(",", 1)[1]
+    if int(fraction) == 0:
+        return replacement
+
+    minor_unit = {
+        "EUR": "Cent",
+        "€": "Cent",
+        "$": "Cent",
+        "£": "Pence",
+        "CHF": "Rappen",
+    }.get(match.group("currency").upper(), "")
+    if minor_unit and not replacement.rstrip().endswith(minor_unit):
+        return f"{replacement.rstrip()} {minor_unit}"
+    return replacement
 
 
 def _apply_structured_replacements_to_tokens(
@@ -716,6 +828,7 @@ def phonemize_to_result(
 
     lang = lang or "en-us"
     warnings: list[str] = []
+    result_clean_text = clean_text
 
     # The original source is the coordinate authority for migrated runs.  In
     # particular, do not remove or replace semantic punctuation before the
@@ -723,6 +836,7 @@ def phonemize_to_result(
     migrated_semantics = _uses_spokenform_semantics(lang)
     if not migrated_semantics:
         clean_text = normalize_punctuation(clean_text)
+        result_clean_text = clean_text
 
     # Get or create G2P instance
     if g2p is None:
@@ -767,6 +881,10 @@ def phonemize_to_result(
             token_spans, semantic_text, normalized_text
         )
         warnings.extend(alignment_warnings)
+        result_clean_text = _normalize_source_ellipsis(clean_text)
+        token_spans = _realign_source_punctuation_tokens(
+            token_spans, clean_text, result_clean_text
+        )
         extended_text = normalized_text
         gtokens = _call_g2p_without_abbreviations(g2p, extended_text)
         ensure_gtoken_positions(gtokens, extended_text)
@@ -783,6 +901,8 @@ def phonemize_to_result(
                 token_spans, overrides, mode=overlap
             )
             warnings.extend(override_warnings)
+        if migrated_semantics:
+            result_clean_text = _normalize_source_ellipsis(clean_text)
 
     # Phonemize tokens based on language and overrides
     phonemized_tokens, phonemize_warnings, target_model = _phonemize_token_spans(
@@ -793,7 +913,7 @@ def phonemize_to_result(
     # Build phoneme string if needed for output OR for IDs
     phoneme_str: str = ""
     if return_phonemes or return_ids:
-        phoneme_str = _build_phoneme_string(phonemized_tokens, clean_text)
+        phoneme_str = _build_phoneme_string(phonemized_tokens, result_clean_text)
 
     phonemes: str = phoneme_str if return_phonemes else ""
 
@@ -830,7 +950,7 @@ def phonemize_to_result(
         warnings = deduped
 
     return PhonemizeResult(
-        clean_text=clean_text,
+        clean_text=result_clean_text,
         tokens=phonemized_tokens,
         extended_text=extended_text,
         phonemes=phonemes,

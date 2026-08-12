@@ -174,21 +174,52 @@ def apply_text_replacements_to_tokens(
         return lang.lower().replace("_", "-")
 
     for replacement in sorted(replacements, key=lambda item: (item.start, item.end)):
-        if replacement.start < 0 or replacement.end > len(source):
+        replacement_start = replacement.start
+        replacement_end = replacement.end
+        replacement_text = replacement.text
+
+        # Spokenform may include a sentence-final period in a structured
+        # replacement (for example ``30C.``).  Keep that period as its own
+        # source token when the source tokenizer did so, while retaining the
+        # exact semantic replacement for the alphanumeric token.
+        if (
+            replacement_end > replacement_start
+            and replacement_end <= len(source)
+            and source[replacement_end - 1] == "."
+            and replacement_text.endswith(".")
+            and modified_tokens
+            and modified_tokens[-1].char_end >= replacement_end
+        ):
+            candidate_indices = [
+                index
+                for index, token in enumerate(modified_tokens)
+                if token.char_start < replacement_end
+                and token.char_end > replacement_start
+            ]
+            if candidate_indices:
+                final_token = modified_tokens[candidate_indices[-1]]
+                if (
+                    final_token.char_end == replacement_end
+                    and final_token.text == "."
+                ):
+                    replacement_end -= 1
+                    replacement_text = replacement_text[:-1]
+
+        if replacement_start < 0 or replacement_end > len(source):
             warnings.append(
                 f"[REPLACEMENT] {replacement.kind} span "
-                f"[{replacement.start}:{replacement.end}] is outside source; skipping"
+                f"[{replacement_start}:{replacement_end}] is outside source; skipping"
             )
             continue
         overlapping_indices = [
             index
             for index, token in enumerate(modified_tokens)
-            if token.char_start < replacement.end and token.char_end > replacement.start
+            if token.char_start < replacement_end and token.char_end > replacement_start
         ]
         if not overlapping_indices:
             warnings.append(
                 f"[REPLACEMENT] {replacement.kind} span "
-                f"[{replacement.start}:{replacement.end}] overlaps no tokens; skipping"
+                f"[{replacement_start}:{replacement_end}] overlaps no tokens; skipping"
             )
             continue
 
@@ -198,7 +229,7 @@ def apply_text_replacements_to_tokens(
         if any("ph" in token.meta for token in covered):
             warnings.append(
                 f"[REPLACEMENT] {replacement.kind} span "
-                f"[{replacement.start}:{replacement.end}] crosses a phoneme "
+                f"[{replacement_start}:{replacement_end}] crosses a phoneme "
                 "override; skipping"
             )
             continue
@@ -209,7 +240,7 @@ def apply_text_replacements_to_tokens(
         if len(effective_languages) > 1:
             warnings.append(
                 f"[REPLACEMENT] {replacement.kind} span "
-                f"[{replacement.start}:{replacement.end}] crosses language "
+                f"[{replacement_start}:{replacement_end}] crosses language "
                 "overrides; skipping"
             )
             continue
@@ -217,26 +248,26 @@ def apply_text_replacements_to_tokens(
         first_token = covered[0]
         last_token = covered[-1]
         if (
-            replacement.start < first_token.char_start
-            or replacement.end > last_token.char_end
+            replacement_start < first_token.char_start
+            or replacement_end > last_token.char_end
         ):
             warnings.append(
                 f"[REPLACEMENT] {replacement.kind} span "
-                f"[{replacement.start}:{replacement.end}] does not align to "
+                f"[{replacement_start}:{replacement_end}] does not align to "
                 "complete tokens; skipping"
             )
             continue
 
         merged = TokenSpan(
-            text=source[replacement.start : replacement.end],
-            char_start=replacement.start,
-            char_end=replacement.end,
+            text=source[replacement_start:replacement_end],
+            char_start=replacement_start,
+            char_end=replacement_end,
             lang=first_token.lang,
-            extended_text=replacement.text,
+            extended_text=replacement_text,
             meta=dict(first_token.meta),
         )
         merged.meta["_extended_text_changed"] = True
-        merged.meta["_extended_text"] = replacement.text
+        merged.meta["_extended_text"] = replacement_text
         merged.meta["_replacement_kind"] = replacement.kind
         merged.meta["_replacement_rule"] = replacement.rule
         merged.meta["_replacement_language"] = replacement.language

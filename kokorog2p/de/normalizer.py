@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from dataclasses import replace
 
@@ -11,6 +12,55 @@ from spokenform import iter_structured_replacements as spokenform_iter
 
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
 from kokorog2p.types import TextReplacement
+
+
+def _restore_german_currency_minor_unit(source: str, replacement: str) -> str:
+    """Keep the reviewed German currency wording when upstream omits cents."""
+
+    match = re.fullmatch(
+        r"(?P<number>[+\-]?\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?)\s*"
+        r"(?P<currency>EUR|€|\$|£|CHF)",
+        source.strip(),
+        re.IGNORECASE,
+    )
+    if match is None or "," not in match.group("number"):
+        return replacement
+    if int(match.group("number").rsplit(",", 1)[1]) == 0:
+        return replacement
+    minor_unit = {
+        "EUR": "Cent",
+        "€": "Cent",
+        "$": "Cent",
+        "£": "Pence",
+        "CHF": "Rappen",
+    }.get(match.group("currency").upper(), "")
+    if minor_unit and not replacement.rstrip().endswith(minor_unit):
+        return f"{replacement.rstrip()} {minor_unit}"
+    return replacement
+
+
+def _compatibility_spoken_text(prepared: object, spoken_text: str) -> str:
+    """Apply only the narrow German currency compatibility suffix."""
+
+    replacements = getattr(prepared, "source_replacements", ())
+    result = spoken_text
+    for item in sorted(
+        replacements,
+        key=lambda replacement: int(getattr(replacement, "output_start", 0)),
+        reverse=True,
+    ):
+        if getattr(item, "rule", None) != "de.currency":
+            continue
+        original = str(getattr(item, "replacement", ""))
+        repaired = _restore_german_currency_minor_unit(
+            str(getattr(item, "source", "")), original
+        )
+        start = int(getattr(item, "output_start", -1))
+        end = int(getattr(item, "output_end", -1))
+        if repaired != original and 0 <= start <= end <= len(result):
+            if result[start:end] == original:
+                result = result[:start] + repaired + result[end:]
+    return result
 
 
 class GermanNormalizer(TextNormalizer):
@@ -139,7 +189,9 @@ class GermanNormalizer(TextNormalizer):
                     )
                 )
 
-        result, rule_steps = super().normalize(prepared.spoken_text)
+        result, rule_steps = super().normalize(
+            _compatibility_spoken_text(prepared, prepared.spoken_text)
+        )
         if self.track_changes:
             steps.extend(rule_steps)
         return result, steps
