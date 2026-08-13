@@ -23,12 +23,12 @@
   {
     "category": "currency",
     "source": "1.234,56 EUR",
-    "expected": "eintausendzweihundertvierunddreißig Euro sechsundfünfzig Cent"
+    "expected": "eintausendzweihundertvierunddreißig Euro sechsundfünfzig"
   },
   {
     "category": "currency",
     "source": "-1,25 EUR",
-    "expected": "minus ein Euro fünfundzwanzig Cent"
+    "expected": "minus ein Euro fünfundzwanzig"
   },
   {
     "category": "date",
@@ -65,6 +65,6 @@
   {
     "category": "golden_paragraph",
     "source": "Zum 14.05.2026 um 18:20 Uhr ist das Abendessen geplant. Für den Auflauf brauchen wir 1,5 kg Kartoffeln, 500 g Quark, 2 Eier, 1 ltr. Milch und ggf. 3 cm mehr Backpapier. Prof. Klein sagt: \"Bitte stelle die Form auf die 2. Schiene, backe alles für 45 Min. und lass es danach 1 Min. oder auch 2 Min. ruhen.\" Die Kosten liegen bei ca. 12,80 EUR zzgl. Pfand.",
-    "expected": "Zum vierzehnten Mai zweitausendsechsundzwanzig um achtzehn Uhr zwanzig ist das Abendessen geplant. Für den Auflauf brauchen wir eins Komma fünf Kilogramm Kartoffeln, fünfhundert Gramm Quark, zwei Eier, ein Liter Milch und gegebenenfalls drei Zentimeter mehr Backpapier. Professor Klein sagt: \"Bitte stelle die Form auf die zweite Schiene, backe alles für fünfundvierzig Minuten und lass es danach eine Minute oder auch zwei Minuten ruhen.\" Die Kosten liegen bei zirka zwölf Euro achtzig Cent zuzüglich Pfand."
+    "expected": "Zum vierzehnten Mai zweitausendsechsundzwanzig um achtzehn Uhr zwanzig ist das Abendessen geplant. Für den Auflauf brauchen wir eins Komma fünf Kilogramm Kartoffeln, fünfhundert Gramm Quark, zwei Eier, ein Liter Milch und gegebenenfalls drei Zentimeter mehr Backpapier. Professor Klein sagt: \"Bitte stelle die Form auf die zweite Schiene, backe alles für fünfundvierzig Minuten und lass es danach eine Minute oder auch zwei Minuten ruhen.\" Die Kosten liegen bei zirka zwölf Euro achtzig zuzüglich Pfand."
   }
 ]

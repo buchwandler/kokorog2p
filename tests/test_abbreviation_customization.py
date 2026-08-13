@@ -12,7 +12,7 @@ def test_shared_dotted_abbreviation_boundary_handles_punctuation():
     expander = EnglishAbbreviationExpander(enable_context_detection=False)
 
     assert expander.expand("(Dr.) Smith") == "(Doctor) Smith"
-    assert expander.expand('He said "etc."') == 'He said "et cetera"'
+    assert expander.expand('He said "etc."') == 'He said "et cetera."'
     assert expander.expand("Dr.foo") == "Dr.foo"
 
 

@@ -1,10 +1,9 @@
-"""English text normalization for G2P processing.
+"""English G2P typography over semantic text owned by Spokenform.
 
 This module extracts the normalization logic from the English G2P implementation
 to make it testable, observable, and reusable.
 """
 
-import re
 from collections.abc import Iterable, Iterator
 from dataclasses import replace
 
@@ -14,43 +13,6 @@ from spokenform import iter_structured_replacements as spokenform_iter
 
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
 from kokorog2p.types import TextReplacement
-
-
-def _restore_legacy_guarded_number_conjunctions(
-    source: str,
-    semantic_text: str,
-    replacements: Iterable[object],
-) -> str:
-    """Preserve the historical ``No. 244`` wording in the compatibility API.
-
-    Spokenform remains the semantic authority.  This narrow adapter only
-    restores the legacy conjunction expected by kokorog2p's public English
-    normalizer for the downstream-owned guarded-number compatibility case.
-    """
-
-    del source
-    replacement_list = list(replacements)
-    for index, item in enumerate(replacement_list):
-        if getattr(item, "source", "").casefold() != "no.":
-            continue
-        for number_item in replacement_list[index + 1 :]:
-            raw_number = getattr(number_item, "source", "")
-            if not re.fullmatch(r"\d+", raw_number):
-                continue
-            try:
-                from num2words import num2words
-
-                legacy = str(num2words(int(raw_number))).replace("-", " ")
-            except (ImportError, NotImplementedError, ValueError):
-                continue
-            start = int(getattr(number_item, "output_start", -1))
-            end = int(getattr(number_item, "output_end", -1))
-            if start < 0 or end > len(semantic_text) or end <= start:
-                continue
-            if semantic_text[start:end] != getattr(number_item, "replacement", ""):
-                continue
-            return semantic_text[:start] + legacy + semantic_text[end:]
-    return semantic_text
 
 
 class EnglishNormalizer(TextNormalizer):
@@ -454,12 +416,7 @@ class EnglishNormalizer(TextNormalizer):
                     )
                 )
 
-        semantic_text = _restore_legacy_guarded_number_conjunctions(
-            text,
-            prepared.spoken_text,
-            prepared.source_replacements,
-        )
-        result, typography_steps = super().normalize(semantic_text)
+        result, typography_steps = super().normalize(prepared.spoken_text)
         if self.track_changes:
             steps.extend(typography_steps)
         return result, steps

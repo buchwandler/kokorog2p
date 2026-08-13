@@ -1,4 +1,4 @@
-"""Spokenform delegation and provenance checks for migrated languages."""
+"""Spokenform authority and provenance checks for migrated languages."""
 
 import json
 from pathlib import Path
@@ -8,7 +8,6 @@ import pytest
 import kokorog2p.pipeline_api as pipeline_api
 from kokorog2p import get_g2p, phonemize
 from kokorog2p.cs.g2p import CzechG2P
-from kokorog2p.cs.normalizer import CzechNormalizer
 from kokorog2p.de.g2p import GermanG2P
 from kokorog2p.de.normalizer import GermanNormalizer
 from kokorog2p.en.g2p import EnglishG2P
@@ -128,13 +127,33 @@ def test_english_aliases_use_the_generic_spokenform_adapter():
     ids=lambda case: case["category"] + ":" + case["source"][:18],
 )
 def test_english_parity_corpus(case):
-    assert EnglishNormalizer()(case["source"]) == case["expected"]
+    assert_spokenform_handoff(case["source"], "en")
 
 
 def test_english_dot_zero_version_label_is_prepared_by_spokenform():
     source = "We had built bot 2.0."
 
     assert EnglishNormalizer()(source) == "We had built bot two point oh."
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "14.05.2026",
+        "2026-05-14",
+        "1984",
+        "World War II began in 1984.",
+        "There was a chance in the high 70s that they knew.",
+        "3.14",
+        ".02",
+        "30,000",
+        "100,000",
+    ],
+)
+def test_english_spokenform_025_regressions_follow_upstream(source):
+    """Keep 0.2.5 behavior dynamic instead of freezing a second oracle."""
+
+    assert_spokenform_handoff(source, "en")
 
 
 def test_english_version_label_adapter_rebases_exact_span_and_excludes_period():
@@ -294,7 +313,7 @@ def test_french_parity_corpus(case):
     ids=lambda case: case["category"] + ":" + case["source"][:18],
 )
 def test_german_parity_corpus(case):
-    assert GermanNormalizer()(case["source"]) == case["expected"]
+    assert_spokenform_handoff(case["source"], "de")
 
 
 @pytest.mark.parametrize(
@@ -303,7 +322,7 @@ def test_german_parity_corpus(case):
     ids=lambda case: case["category"] + ":" + case["source"][:18],
 )
 def test_spanish_parity_corpus(case):
-    assert SpanishNormalizer()(case["source"]) == case["expected"]
+    assert_spokenform_handoff(case["source"], "es")
 
 
 @pytest.mark.parametrize(
@@ -312,7 +331,7 @@ def test_spanish_parity_corpus(case):
     ids=lambda case: case["category"] + ":" + case["source"][:18],
 )
 def test_portuguese_parity_corpus(case):
-    assert PortugueseNormalizer()(case["source"]) == case["expected"]
+    assert_spokenform_handoff(case["source"], "pt")
 
 
 @pytest.mark.parametrize(
@@ -321,7 +340,7 @@ def test_portuguese_parity_corpus(case):
     ids=lambda case: case["category"] + ":" + case["source"][:18],
 )
 def test_czech_parity_corpus(case):
-    assert CzechNormalizer()(case["source"]) == case["expected"]
+    assert_spokenform_handoff(case["source"], "cs")
 
 
 def test_czech_direct_g2p_speaks_supported_semantics_without_unknowns():
@@ -369,7 +388,7 @@ def test_spokenform_adapter_rebases_and_preserves_source_provenance():
         for left, right in zip(replacements[:-1], replacements[1:], strict=True)
     )
     assert replacements[0].text == "eins Komma fünf Kilogramm"
-    assert replacements[1].text == "zwölf Euro achtzig Cent"
+    assert replacements[1].text == "zwölf Euro achtzig"
     assert replacements[0].rule == "de.quantity"
     assert replacements[0].language == "de"
     assert replacements[0].stages == ("structured",)

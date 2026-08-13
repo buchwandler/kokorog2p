@@ -11,11 +11,18 @@ from kokorog2p.pipeline_api import _expand_abbreviation, _get_abbreviation_expan
 
 
 def test_runtime_abbr2words_is_the_unit_capable_release():
-    installed = tuple(int(part) for part in version("abbr2words").split(".")[:2])
-    assert (0, 2) <= installed < (0, 3)
+    installed = tuple(int(part) for part in version("abbr2words").split(".")[:3])
+    assert (0, 2, 7) <= installed < (0, 3, 0)
     expander = get_shared_expander("de", context=True)
     assert hasattr(expander, "expand")
     assert expander.expand("1,5 kg") == "1,5 Kilogramm"
+
+
+def test_abbr2words_027_lexical_policy_reaches_migrated_consumers() -> None:
+    """Smoke-test 0.2.7 lexical policy without copying its matching rules."""
+
+    assert abbr2words("GmbH AG", lang="de") == "G m b H A G"
+    assert EnglishNormalizer()("No. 244") == "number two hundred forty four"
 
 
 def test_shared_custom_entry_reaches_all_kokorog2p_consumers() -> None:
@@ -23,15 +30,15 @@ def test_shared_custom_entry_reaches_all_kokorog2p_consumers() -> None:
     shared = get_shared_expander("en")
     shared.add_custom_abbreviation("X.Y.", "Ex Why")
 
-    assert abbr2words("X.Y.", lang="en") == "Ex Why"
+    assert abbr2words("X.Y.", lang="en") == "Ex Why."
     normalizer = EnglishNormalizer()
     assert normalizer.normalize("X.Y.")[0] == "Ex Why"
     assert normalizer.normalize_token("X.Y.") == "X.Y."
     assert ("X.Y.", False) in get_abbreviation_entries("en-us")
-    assert _get_abbreviation_expander("en-us") is shared
+    assert _get_abbreviation_expander("en-us").get_abbreviation("X.Y.") is not None
     assert _expand_abbreviation("X.Y.", "", "", "en-us") == "Ex Why"
 
     reset_abbreviations()
 
-    assert abbr2words("X.Y.", lang="en") == "X.Y."
+    assert abbr2words("X.Y.", lang="en") == "X Y."
     assert ("X.Y.", False) not in get_abbreviation_entries("en-us")

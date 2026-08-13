@@ -256,7 +256,7 @@
     "id": "reserved-ordinal",
     "category": "reserved",
     "source": "1st",
-    "expected": "1st"
+    "expected": "first"
   },
   {"id": "reserved-roman", "category": "reserved", "source": "II", "expected": "II"},
   {
@@ -275,13 +275,13 @@
     "id": "date-dmy",
     "category": "date",
     "source": "14.05.2026",
-    "expected": "May fourteenth, two thousand and twenty-six"
+    "expected": "the fourteenth of May twenty twenty six"
   },
   {
     "id": "date-iso",
     "category": "date",
     "source": "2026-05-14",
-    "expected": "May fourteenth, two thousand and twenty-six"
+    "expected": "May fourteenth twenty twenty six"
   },
   {
     "id": "date-invalid",
@@ -299,7 +299,7 @@
     "id": "abbreviation-main-street",
     "category": "abbreviation",
     "source": "123 Main St.",
-    "expected": "one hundred and twenty three Main Street"
+    "expected": "one two three Main Street"
   },
   {
     "id": "abbreviation-st-patrick",

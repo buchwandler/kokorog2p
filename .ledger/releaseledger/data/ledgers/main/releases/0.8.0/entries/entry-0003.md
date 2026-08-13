@@ -3,25 +3,25 @@ schema_version: 2
 object_type: release_entry
 versioning:
   schema_version: 1
-  revision: 1
+  revision: 3
 entry_id: entry-0003
 release_version: 0.8.0
-kind: quality
-summary:
-  Added cross-package coordinate, normalization, and no-model integration coverage
+kind: docs
+summary: Documented English semantic ownership and the Portuguese migration boundary
 status: accepted
 audience: null
 scopes: []
-source_refs: []
-paths:
-  - tests/test_ssmd_phrasplit_integration.py
-  - tests/test_minimal_install.py
+source_refs:
+  - tl:task-0018
+paths: []
 issues: []
 prs: []
-sources:
-  - tl:task-0006#tests
+sources: []
 contributors: []
 breaking: false
 internal: false
 order: 3
 ---
+
+Language documentation now describes the seven-language spokenform path, retained
+downstream responsibilities, and the Portuguese migration entry.

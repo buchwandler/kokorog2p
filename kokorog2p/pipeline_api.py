@@ -205,7 +205,10 @@ def _get_abbreviation_expander(lang: str | None) -> AbbreviationExpander | None:
         normalized = "en-us"
 
     try:
-        language = normalize_language(normalized)
+        # Custom registries are keyed by the base language.  Resolve locale
+        # aliases to that same registry so Spokenform and kokorog2p consumers
+        # observe identical public abbreviation customizations.
+        language = normalize_language(normalized.split("-", 1)[0])
     except ValueError:
         return None
     return get_shared_expander(language, context=True)
@@ -372,19 +375,11 @@ def _spokenform_replacements_for_run(
                 f"expected {item.source!r}, got "
                 f"{text[item.source_start : item.source_end]!r}"
             )
-        replacement_text = item.replacement
-        if (
-            language.startswith("de")
-            and getattr(item, "rule", None) == "de.currency"
-        ):
-            replacement_text = _restore_german_currency_minor_unit(
-                item.source, replacement_text
-            )
         replacements.append(
             TextReplacement(
                 start=source_offset + item.source_start,
                 end=source_offset + item.source_end,
-                text=replacement_text,
+                text=item.replacement,
                 kind=item.kind or "spokenform",
                 rule=getattr(item, "rule", None),
                 language=getattr(item, "language", None),
@@ -392,34 +387,6 @@ def _spokenform_replacements_for_run(
             )
         )
     return _SpokenformRunResult(replacements, warnings)
-
-
-def _restore_german_currency_minor_unit(source: str, replacement: str) -> str:
-    """Keep the legacy German currency minor-unit wording when upstream omits it."""
-
-    match = re.fullmatch(
-        r"(?P<number>[+\-]?\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?)\s*"
-        r"(?P<currency>EUR|€|\$|£|CHF)",
-        source.strip(),
-        re.IGNORECASE,
-    )
-    if match is None or "," not in match.group("number"):
-        return replacement
-
-    fraction = match.group("number").rsplit(",", 1)[1]
-    if int(fraction) == 0:
-        return replacement
-
-    minor_unit = {
-        "EUR": "Cent",
-        "€": "Cent",
-        "$": "Cent",
-        "£": "Pence",
-        "CHF": "Rappen",
-    }.get(match.group("currency").upper(), "")
-    if minor_unit and not replacement.rstrip().endswith(minor_unit):
-        return f"{replacement.rstrip()} {minor_unit}"
-    return replacement
 
 
 def _apply_structured_replacements_to_tokens(

@@ -1,4 +1,4 @@
-"""French G2P typography with semantic preparation delegated to spokenform."""
+"""French G2P typography over semantics owned by spokenform."""
 
 from collections.abc import Iterator
 from dataclasses import replace

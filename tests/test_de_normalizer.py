@@ -28,7 +28,7 @@ def normalizer() -> GermanNormalizer:
         ("d. h. heute", "das heißt heute"),
         ("u.a. Bücher", "unter anderem Bücher"),
         ("u. a. Bücher", "unter anderem Bücher"),
-        ("etc.", "ezetera"),
+        ("etc.", "et cetera"),
         ("usw.", "und so weiter"),
         ("ca.", "zirka"),
         ("ggf.", "gegebenenfalls"),
@@ -40,7 +40,7 @@ def normalizer() -> GermanNormalizer:
         ("Nr. ggü. Kap. Abs.", "Nummer gegenüber Kapitel Absatz"),
         ("Tsd. Mio. Mrd.", "Tausend Millionen Milliarden"),
         ("S. 12", "Seite zwölf"),
-        ("GmbH AG", "Geh Em Beh Hah Ah Geh"),
+        ("GmbH AG", "G m b H A G"),
     ],
 )
 def test_requested_lexical_abbreviations(normalizer, source, expected):
@@ -169,11 +169,11 @@ def test_numbered_unit_boundaries_and_attached_forms(normalizer):
     [
         ("1 EUR", "ein Euro"),
         ("2 EUR", "zwei Euro"),
-        ("12,50 EUR", "zwölf Euro fünfzig Cent"),
-        ("12.50 EUR", "zwölf Euro fünfzig Cent"),
-        ("-1,25 EUR", "minus ein Euro fünfundzwanzig Cent"),
-        ("0,05 EUR", "null Euro fünf Cent"),
-        ("EUR 12,50", "zwölf Euro fünfzig Cent"),
+        ("12,50 EUR", "zwölf Euro fünfzig"),
+        ("12.50 EUR", "zwölf Euro fünfzig"),
+        ("-1,25 EUR", "minus ein Euro fünfundzwanzig"),
+        ("0,05 EUR", "null Euro fünf"),
+        ("EUR 12,50", "zwölf Euro fünfzig"),
     ],
 )
 def test_currency(normalizer, source, expected):
@@ -236,7 +236,7 @@ def test_temperature_and_numeric_classification(normalizer):
     assert normalizer("Gleis 7.") == "Gleis sieben."
     assert normalizer("am 3. Tag") == "am dritten Tag"
     assert normalizer("der 3. Versuch") == "der dritte Versuch"
-    assert normalizer("20°") == "zwanzig°"
+    assert normalizer("20°") == "zwanzig Grad"
 
 
 def test_contextual_ordinal_before_capitalized_noun(normalizer):
@@ -270,7 +270,7 @@ def test_requested_cooking_paragraph(normalizer):
         'Backpapier. Professor Klein sagt: "Bitte stelle die Form auf die '
         "zweite Schiene, backe alles für fünfundvierzig Minuten und lass es "
         'danach eine Minute oder auch zwei Minuten ruhen." Die Kosten liegen '
-        "bei zirka zwölf Euro achtzig Cent zuzüglich Pfand."
+        "bei zirka zwölf Euro achtzig zuzüglich Pfand."
     )
     assert normalizer(source) == expected
 
@@ -343,7 +343,7 @@ def test_german_lexicon_data_is_packaged():
         ("-1.234 EUR", "minus eintausendzweihundertvierunddreißig Euro"),
         (
             "1.234,56 EUR",
-            "eintausendzweihundertvierunddreißig Euro sechsundfünfzig Cent",
+            "eintausendzweihundertvierunddreißig Euro sechsundfünfzig",
         ),
     ],
 )

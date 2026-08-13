@@ -455,7 +455,7 @@ class TestEnglishNormalizerWithAbbreviations:
     def test_no_dot_guard_in_normalizer(self, normalizer):
         """No. should stay No.; No. 244 should expand to number 244."""
         assert normalizer("No.") == "No."
-        assert normalizer("No. 244").lower() == "number two hundred and forty four"
+        assert normalizer("No. 244").lower() == "number two hundred forty four"
 
     def test_units_guard_in_normalizer(self, normalizer):
         """Units should expand only when preceded by numbers."""

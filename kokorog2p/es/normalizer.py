@@ -1,4 +1,4 @@
-"""Spanish G2P typography with semantic preparation delegated to spokenform."""
+"""Spanish G2P typography over semantics owned by spokenform."""
 
 from __future__ import annotations
 

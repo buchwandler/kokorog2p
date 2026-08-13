@@ -25,8 +25,8 @@ authors = [
 ]
 keywords = ["g2p", "grapheme-to-phoneme", "tts", "text-to-speech", "kokoro", "phonemizer", "espeak"]
 dependencies = [
-    "abbr2words>=0.2.6,<0.3.0",
-    "spokenform>=0.2.4,<0.3.0",
+    "abbr2words>=0.2.7,<0.3.0",
+    "spokenform>=0.2.5,<0.3.0",
 ]
 classifiers=[
     'Development Status :: 4 - Beta',
@@ -63,15 +63,15 @@ goruut = [
 ]
 en = [
     "spacy>=3.5.0",
-    "num2words>=0.5.12",
+    "num2words>=0.5.14,<0.6",
 ]
 de = [
     "spacy>=3.5.0",
-    "num2words>=0.5.12",
+    "num2words>=0.5.14,<0.6",
 ]
 fr = [
     "spacy>=3.5.0",
-    "num2words>=0.5.12",
+    "num2words>=0.5.14,<0.6",
 ]
 zh = [
     "jieba>=0.42.1",

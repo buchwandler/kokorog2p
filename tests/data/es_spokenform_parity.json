@@ -47,7 +47,7 @@
   {
     "category": "time_unexpanded",
     "source": "Nos vemos a las 18:20.",
-    "expected": "Nos vemos a las 18:20."
+    "expected": "Nos vemos a las dieciocho y veinte."
   },
   {
     "category": "protected_behavior",

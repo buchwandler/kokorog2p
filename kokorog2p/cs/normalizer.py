@@ -1,4 +1,4 @@
-"""Czech G2P typography with semantic preparation delegated to spokenform."""
+"""Czech G2P typography over semantics owned by spokenform."""
 
 from collections.abc import Iterable, Iterator
 from dataclasses import replace
@@ -24,7 +24,7 @@ class CzechNormalizer(TextNormalizer):
 
         ``abbrev_expander`` remains available for callers that inspect or
         temporarily toggle the historical compatibility surface. Semantic
-        expansion itself is delegated to the shared preparation pipeline.
+        expansion itself is owned by the shared Spokenform preparation pipeline.
         """
         self.expand_abbreviations = expand_abbreviations
         self.enable_context_detection = enable_context_detection

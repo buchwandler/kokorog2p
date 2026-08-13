@@ -198,10 +198,7 @@ def apply_text_replacements_to_tokens(
             ]
             if candidate_indices:
                 final_token = modified_tokens[candidate_indices[-1]]
-                if (
-                    final_token.char_end == replacement_end
-                    and final_token.text == "."
-                ):
+                if final_token.char_end == replacement_end and final_token.text == ".":
                     replacement_end -= 1
                     replacement_text = replacement_text[:-1]
 

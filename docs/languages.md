@@ -167,9 +167,9 @@ German G2P uses a large dictionary (738k+ entries from Olaph) with rule-based fa
   abbreviations, and grammatical unit forms such as `1 Std.` → `eine Stunde` and `2 kg`
   → `zwei Kilogramm`.
 - **Ambiguity policy**: Bare sentence-final numbers stay cardinals, invalid dates and
-  times remain unchanged, and unit symbols only expand when preceded by a number. `ca.`
-  is spoken as `zirka`, `etc.` as `ezetera`, and `GmbH`/`AG` use German letter-name
-  spellings.
+  times remain unchanged, and unit symbols only expand when preceded by a number. The
+  exact written-to-spoken result, including abbreviation and initialism choices, is
+  supplied by the pinned Spokenform profile rather than a second kokorog2p rule set.
 
 - **Regional variants**: de-de, de-at, de-ch
 
@@ -177,9 +177,10 @@ German was the first language migrated to the shared semantic-preparation archit
 followed by French, Spanish, Italian, Portuguese, Czech, and English. These seven
 languages use the same per-homogeneous-run `spokenform` path. `abbr2words` remains the
 shared source of truth for lexical abbreviation and symbol recognition, while
-`spokenform` owns the behavior exposed by its `for_kokorog2p` profile. The examples in
-this guide are illustrative; the pinned Spokenform release/API is authoritative. English
-phoneme-sensitive number categories remain downstream-owned.
+`spokenform` owns accepted written-to-spoken behavior through its `for_kokorog2p`
+profile. The examples in this guide are illustrative; the pinned Spokenform release/API
+is authoritative. Kokorog2p retains only typography and phoneme-sensitive handling for
+spans Spokenform leaves protected or unsupported.
 
 ### Usage
 

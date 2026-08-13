@@ -42,16 +42,16 @@ provides:
 
 ```text
 abbr2words → lexical abbreviation recognition and customization
-spokenform → written text to spoken semantic preparation
+spokenform → authoritative written text to spoken semantic preparation
 kokorog2p  → language routing, spans, overrides, tokenization, G2P, and phonemes
 ```
 
 For Spokenform-supported languages, kokorog2p passes the original source syntax to
-Spokenform first. Semantic replacements and their source offsets are applied before
-kokorog2p performs model-specific punctuation cleanup; the current Spokenform profile is
-the semantic source of truth and may gain broader structured coverage within the
-supported dependency line. PolyNorm remains an upstream Spokenform benchmark, while
-kokorog2p verifies compact downstream handoffs rather than copying that corpus.
+Spokenform first. Once Spokenform accepts a source span, its replacement text and source
+provenance are preserved literally; kokorog2p only performs model-specific punctuation
+cleanup, tokenization, G2P, and phoneme conversion. PolyNorm remains an upstream
+Spokenform benchmark, while kokorog2p verifies compact downstream handoffs rather than
+copying that corpus.
 
 German was the first migrated language, followed by French, Spanish, Italian,
 Portuguese, Czech, and English. For these seven languages, `abbr2words` recognizes
@@ -61,9 +61,10 @@ phonemes. Czech abbreviation and canonical quantity/currency recognition remains
 by `abbr2words`, while Czech numbers, dates, quantities, temperatures, and currencies
 are prepared by `spokenform`. Spanish keeps European/Latin-American dialect behavior in
 its G2P layer, while Portuguese keeps Brazilian/European semantic wording through its
-spokenform locale. English keeps its G2P-specific `NumberConverter` for reserved forms
-while delegating source-aligned semantic preparation to `spokenform`. Use `spokenform`
-for spoken text without phonemes and `abbr2words` for registry-only workflows.
+spokenform locale. English keeps G2P-specific handling only for spans that Spokenform
+leaves protected or unsupported; accepted Spokenform replacements are never rewritten
+downstream. Use `spokenform` for spoken text without phonemes and `abbr2words` for
+registry-only workflows.
 
 ## Installation
 

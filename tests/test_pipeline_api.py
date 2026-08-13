@@ -390,7 +390,7 @@ class TestPhonemizeToResult:
             'Backpapier. Professor Klein sagt: "Bitte stelle die Form auf die '
             "zweite Schiene, backe alles für fünfundvierzig Minuten und lass es "
             'danach eine Minute oder auch zwei Minuten ruhen." Die Kosten liegen '
-            "bei zirka zwölf Euro achtzig Cent zuzüglich Pfand."
+            "bei zirka zwölf Euro achtzig zuzüglich Pfand."
         )
         g2p = GermanG2P(
             use_lexicon=False,
