@@ -15,8 +15,10 @@ def test_pipeline_test_module_does_not_import_spacy() -> None:
         [
             sys.executable,
             "-c",
-            "import sys; import tests.test_pipeline_api; "
-            "assert 'spacy' not in sys.modules",
+            (
+                "import sys; import tests.test_pipeline_api; "
+                "assert 'spacy' not in sys.modules"
+            ),
         ],
         check=False,
         cwd=Path(__file__).parents[1],

@@ -39,9 +39,8 @@ def load_spacy_model(name: str, *, enable: list[str] | None = None) -> Any:
         available = set(pipe_names)
         requested = set(enable)
         missing = requested - available
-        if missing & _TRANSFORMER_COMPONENTS:
-            if available & _TRANSFORMER_COMPONENTS:
-                missing -= _TRANSFORMER_COMPONENTS
+        if missing & _TRANSFORMER_COMPONENTS and available & _TRANSFORMER_COMPONENTS:
+            missing -= _TRANSFORMER_COMPONENTS
         if "tagger" in missing and available & _TAGGING_COMPONENTS:
             missing -= {"tagger"}
         if missing:

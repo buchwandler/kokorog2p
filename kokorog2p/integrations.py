@@ -116,9 +116,7 @@ def overrides_from_ssmd(
                     "X-SAMPA phoneme attributes are rejected explicitly; provide "
                     "IPA instead"
                 )
-            if normalized_key == "ph":
-                attrs["ph"] = value
-            elif normalized_key == "ipa":
+            if normalized_key == "ph" or normalized_key == "ipa":
                 attrs["ph"] = value
             elif normalized_key in {"lang", "language"}:
                 attrs["lang"] = value

@@ -113,8 +113,14 @@ def _normalize_punctuation_output(text: str) -> str:
         return text
     normalized = normalize_punctuation(text)
     if "-" in normalized:
-        normalized = normalized.replace("-", "—")
+        # Word-internal hyphens join compound words (e.g. "trente-sept",
+        # "mother-in-law") and must survive for lexicon lookups. Remaining
+        # hyphen-as-dash usage maps to the Kokoro em dash.
+        normalized = _HYPHEN_AS_DASH_RE.sub("—", normalized)
     return normalized
+
+
+_HYPHEN_AS_DASH_RE = re.compile(r"(?<!\w)-|-(?!\w)")
 
 
 _SPACED_ELLIPSIS_RE = re.compile(r"\s*\.\s+\.\s+\.\s*")

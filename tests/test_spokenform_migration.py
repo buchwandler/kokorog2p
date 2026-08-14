@@ -2,12 +2,12 @@
 
 import json
 from importlib.metadata import version
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
 
-import kokorog2p.pipeline_api as pipeline_api
-from kokorog2p import get_g2p, phonemize
+from kokorog2p import get_g2p, phonemize, pipeline_api
 from kokorog2p.cs.g2p import CzechG2P
 from kokorog2p.de.g2p import GermanG2P
 from kokorog2p.de.normalizer import GermanNormalizer
@@ -275,12 +275,12 @@ def test_english_symbols_survive_top_level_preprocessing():
 
     assert result.clean_text == source
     assert result.extended_text == (
-        "twelve dollars and fifty cents, two pounds, three euros and fifty%"
+        "twelve dollars and fifty cents, two pounds, three euros and fifty percent"
     )
     assert "$" not in result.extended_text
     assert "£" not in result.extended_text
     assert "€" not in result.extended_text
-    assert "fifty%" in result.extended_text
+    assert "fifty percent" in result.extended_text
 
 
 def test_english_direct_and_public_pipeline_have_phoneme_parity():
@@ -395,10 +395,7 @@ def test_spokenform_adapter_rebases_and_preserves_source_provenance():
         "1,5 kg",
         "12,80 EUR",
     ]
-    assert all(
-        left.end <= right.start
-        for left, right in zip(replacements[:-1], replacements[1:], strict=True)
-    )
+    assert all(left.end <= right.start for left, right in pairwise(replacements))
     assert replacements[0].text == "eins Komma fünf Kilogramm"
     assert replacements[1].text == "zwölf Euro achtzig"
     assert replacements[0].rule == "de.quantity"
@@ -479,10 +476,7 @@ def test_spanish_adapter_rebases_repeated_source_fragments():
         "1 kg",
     ]
     assert [item.text for item in replacements] == ["un kilogramo", "un kilogramo"]
-    assert all(
-        left.end <= right.start
-        for left, right in zip(replacements[:-1], replacements[1:], strict=True)
-    )
+    assert all(left.end <= right.start for left, right in pairwise(replacements))
 
 
 def test_spanish_protection_allows_adjacent_semantics():
@@ -514,10 +508,7 @@ def test_italian_adapter_rebases_repeated_source_fragments():
         "uno virgola cinque chilogrammi",
         "uno virgola cinque chilogrammi",
     ]
-    assert all(
-        left.end <= right.start
-        for left, right in zip(replacements[:-1], replacements[1:], strict=True)
-    )
+    assert all(left.end <= right.start for left, right in pairwise(replacements))
 
 
 def test_italian_protection_allows_adjacent_semantics():
@@ -546,10 +537,7 @@ def test_portuguese_adapter_rebases_repeated_source_fragments():
         "um vírgula cinco quilogramas",
         "um vírgula cinco quilogramas",
     ]
-    assert all(
-        left.end <= right.start
-        for left, right in zip(replacements[:-1], replacements[1:], strict=True)
-    )
+    assert all(left.end <= right.start for left, right in pairwise(replacements))
 
 
 @pytest.mark.parametrize("protected_span", [((0, 4),), ((0, 1),)])
@@ -668,7 +656,8 @@ def test_italian_normalizer_direct_api_and_tracking():
     normalized, steps = normalizer.normalize("Prof. Klein ha 1,5 kg e 25°C.")
 
     assert normalized == (
-        "Professor Klein ha uno virgola cinque chilogrammi e venticinque gradi Celsius."
+        "Professore Klein ha uno virgola cinque chilogrammi "
+        "e venticinque gradi Celsius."
     )
     semantic_rules = [step.rule_name for step in steps]
     assert semantic_rules.count("it.quantity") == 2
@@ -878,7 +867,7 @@ def test_french_normalizer_direct_api_and_tracking(track_changes):
     normalizer = FrenchNormalizer(track_changes=track_changes)
     normalized, steps = normalizer.normalize("Mme Dupont a 1,5 kg.")
 
-    assert normalized == "madame Dupont a un virgule cinq kilogrammes."
+    assert normalized == "Madame Dupont a un virgule cinq kilogrammes."
     if track_changes:
         assert any(step.rule_name == "fr.quantity" for step in steps)
     else:

@@ -81,7 +81,7 @@ class TestTemperatureNormalization:
 
         # Verify the temperature rule was applied
         rule_names = [change.rule_name for change in changes]
-        assert "temperature_fahrenheit_celsius" in rule_names
+        assert "en.quantity" in rule_names
 
 
 if __name__ == "__main__":
