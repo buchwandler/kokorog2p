@@ -104,6 +104,27 @@ class TestGoruutBackend:
         assert result  # Should return non-empty string
         assert isinstance(result, str)
 
+    def test_startup_retries_after_server_exit(self, monkeypatch):
+        """Retry the pygoruut 0.8.1 startup race."""
+        import kokorog2p.backends.goruut.backend as backend
+
+        attempts = 0
+        instance = object()
+
+        class FakePygoruut:
+            def __new__(cls, **kwargs):
+                nonlocal attempts
+                attempts += 1
+                if attempts == 1:
+                    raise RuntimeError("Phonemize server exited before becoming ready")
+                return instance
+
+        monkeypatch.setattr("pygoruut.pygoruut.Pygoruut", FakePygoruut)
+        monkeypatch.setattr(backend, "_goruut_instance", None)
+
+        assert backend._get_goruut() is instance
+        assert attempts == 2
+
     def test_phonemize_sentence(self, goruut_backend):
         """Test phonemizing a sentence."""
         result = goruut_backend.phonemize("Hello world")

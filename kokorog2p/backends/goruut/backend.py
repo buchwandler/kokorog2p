@@ -133,6 +133,7 @@ LANGUAGE_MAP: dict[str, str] = {
 
 # Singleton instance for the pygoruut process
 _goruut_instance: Optional["Pygoruut"] = None  # noqa: F821
+_GORUUT_STARTUP_RETRIES = 3
 
 
 def _get_goruut() -> "Pygoruut":  # noqa: F821
@@ -141,7 +142,19 @@ def _get_goruut() -> "Pygoruut":  # noqa: F821
     if _goruut_instance is None:
         from pygoruut.pygoruut import Pygoruut
 
-        _goruut_instance = Pygoruut(writeable_bin_dir="")
+        for attempt in range(_GORUUT_STARTUP_RETRIES):
+            try:
+                _goruut_instance = Pygoruut(writeable_bin_dir="")
+                break
+            except RuntimeError as exc:
+                # pygoruut >= 0.8.1 reports a process that exits while its
+                # HTTP server is coming up. Retrying gives its random port a
+                # chance to avoid a transient Windows port collision.
+                if (
+                    "exited before becoming ready" not in str(exc)
+                    or attempt == _GORUUT_STARTUP_RETRIES - 1
+                ):
+                    raise
     return _goruut_instance
 
 
