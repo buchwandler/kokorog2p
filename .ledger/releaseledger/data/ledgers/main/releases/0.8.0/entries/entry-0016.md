@@ -7,7 +7,8 @@ versioning:
 entry_id: entry-0016
 release_version: 0.8.0
 kind: changed
-summary: Changed German written-to-spoken semantic preparation to use spokenform while
+summary:
+  Changed German written-to-spoken semantic preparation to use spokenform while
   preserving kokorog2p overrides
 status: accepted
 audience: null

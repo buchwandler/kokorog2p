@@ -7,8 +7,9 @@ versioning:
 entry_id: entry-0013
 release_version: 0.8.0
 kind: changed
-summary: Changed Spokenform source replacement handling to preserve exact spans and
-  retain provenance in token metadata
+summary:
+  Changed Spokenform source replacement handling to preserve exact spans and retain
+  provenance in token metadata
 status: accepted
 audience: null
 scopes: []
