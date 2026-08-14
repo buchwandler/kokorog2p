@@ -6,7 +6,9 @@ from pathlib import Path
 from kokorog2p.cs.normalizer import CzechNormalizer
 
 PARITY_CASES = json.loads(
-    (Path(__file__).parent / "data" / "cs_spokenform_parity.json").read_text()
+    (Path(__file__).parent / "data" / "cs_spokenform_parity.json").read_text(
+        encoding="utf-8"
+    )
 )
 
 

@@ -108,22 +108,34 @@ def test_migrated_pipeline_passes_original_symbols_to_spokenform(monkeypatch):
 
 
 PARITY_CASES = json.loads(
-    (Path(__file__).parent / "data" / "de_semantic_parity.json").read_text()
+    (Path(__file__).parent / "data" / "de_semantic_parity.json").read_text(
+        encoding="utf-8"
+    )
 )
 FRENCH_PARITY_CASES = json.loads(
-    (Path(__file__).parent / "data" / "fr_spokenform_parity.json").read_text()
+    (Path(__file__).parent / "data" / "fr_spokenform_parity.json").read_text(
+        encoding="utf-8"
+    )
 )
 SPANISH_PARITY_CASES = json.loads(
-    (Path(__file__).parent / "data" / "es_spokenform_parity.json").read_text()
+    (Path(__file__).parent / "data" / "es_spokenform_parity.json").read_text(
+        encoding="utf-8"
+    )
 )
 PORTUGUESE_PARITY_CASES = json.loads(
-    (Path(__file__).parent / "data" / "pt_spokenform_parity.json").read_text()
+    (Path(__file__).parent / "data" / "pt_spokenform_parity.json").read_text(
+        encoding="utf-8"
+    )
 )
 CS_PARITY_CASES = json.loads(
-    (Path(__file__).parent / "data" / "cs_spokenform_parity.json").read_text()
+    (Path(__file__).parent / "data" / "cs_spokenform_parity.json").read_text(
+        encoding="utf-8"
+    )
 )
 ENGLISH_PARITY_CASES = json.loads(
-    (Path(__file__).parent / "data" / "en_spokenform_parity.json").read_text()
+    (Path(__file__).parent / "data" / "en_spokenform_parity.json").read_text(
+        encoding="utf-8"
+    )
 )
 
 
