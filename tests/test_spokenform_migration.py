@@ -1,6 +1,7 @@
 """Spokenform authority and provenance checks for migrated languages."""
 
 import json
+from importlib.metadata import version
 from pathlib import Path
 
 import pytest
@@ -67,14 +68,25 @@ def assert_spokenform_handoff(
         ("chord C# and key Bb", "en"),
         ("+49 30 123456", "en"),
         ("TravelTips_2024", "en"),
+        ("Late 1830s", "en"),
+        ("The score was 5:3.", "en"),
+        ("Duration 2:15:30", "en"),
         ("ISBN 978-3-16-148410-0", "en"),
+        ("Version 2.0.", "en"),
+        ("M-XY 4711", "en"),
         ("H2O", "en"),
         ("1/2", "fr"),
+        ("1½", "it"),
         ("90° N", "en"),
     ],
 )
 def test_compact_spokenform_handoff_cases(source, language):
     assert_spokenform_handoff(source, language)
+
+
+def test_runtime_spokenform_is_supported_release() -> None:
+    installed = tuple(int(part) for part in version("spokenform").split(".")[:3])
+    assert (0, 2, 6) <= installed < (0, 3, 0)
 
 
 def test_migrated_pipeline_passes_original_symbols_to_spokenform(monkeypatch):
@@ -150,8 +162,8 @@ def test_english_dot_zero_version_label_is_prepared_by_spokenform():
         "100,000",
     ],
 )
-def test_english_spokenform_025_regressions_follow_upstream(source):
-    """Keep 0.2.5 behavior dynamic instead of freezing a second oracle."""
+def test_english_supported_spokenform_regressions_follow_upstream(source):
+    """Keep supported upstream behavior dynamic instead of freezing a second oracle."""
 
     assert_spokenform_handoff(source, "en")
 

@@ -7,8 +7,9 @@ versioning:
 entry_id: entry-0020
 release_version: 0.8.0
 kind: changed
-summary: Changed Portuguese written-to-spoken semantic preparation to use spokenform
-  and retained Portuguese phoneme behavior
+summary:
+  Changed Portuguese written-to-spoken semantic preparation to use spokenform and
+  retained Portuguese phoneme behavior
 status: accepted
 audience: null
 scopes: []

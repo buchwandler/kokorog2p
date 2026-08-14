@@ -15,9 +15,9 @@ has no language-owned normalizer. Unit symbols are context bound: `2 kg` becomes
 not treated as independent sentence punctuation. `Min.` is intentionally numeric-only:
 standalone `Min. Beispiel` remains unchanged, while `1 Min.` becomes `eine Minute`.
 Invalid dates/times and ambiguous punctuation are left unchanged. Flexible `z.B.`,
-`d.h.`, and `u.a.` spellings are supported through the pinned Spokenform and abbr2words
-profiles. Accepted semantic replacements are not rewritten by kokorog2p; only German G2P
-typography remains local.
+`d.h.`, and `u.a.` spellings are supported through the bounded Spokenform 0.2.x and
+abbr2words profiles. Accepted semantic replacements are not rewritten by kokorog2p; only
+German G2P typography remains local.
 
 `GermanNormalizer` remains available as a compatibility facade for direct callers. Its
 semantic result is backed by spokenform, while G2P-specific German typography remains

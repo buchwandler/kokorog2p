@@ -3,13 +3,13 @@ schema_version: 2
 object_type: release_entry
 versioning:
   schema_version: 1
-  revision: 3
+  revision: 4
 entry_id: entry-0005
 release_version: 0.8.0
 kind: changed
 summary:
-  Changed migrated-language written-to-spoken semantics to use Spokenform 0.2.5 and
-  raised the abbr2words floor to 0.2.7
+  Changed migrated-language written-to-spoken semantics to use Spokenform 0.2.6 and
+  raised the abbr2words floor to 0.2.9
 status: accepted
 audience: null
 scopes: []

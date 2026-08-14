@@ -7,8 +7,9 @@ versioning:
 entry_id: entry-0018
 release_version: 0.8.0
 kind: changed
-summary: Changed Spanish written-to-spoken semantic preparation to use spokenform
-  and retained dialect phoneme behavior
+summary:
+  Changed Spanish written-to-spoken semantic preparation to use spokenform and retained
+  dialect phoneme behavior
 status: accepted
 audience: null
 scopes: []

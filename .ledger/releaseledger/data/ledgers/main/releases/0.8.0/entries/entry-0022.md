@@ -7,8 +7,9 @@ versioning:
 entry_id: entry-0022
 release_version: 0.8.0
 kind: changed
-summary: Changed English written-to-spoken semantic preparation to use spokenform
-  and retained English G2P behavior
+summary:
+  Changed English written-to-spoken semantic preparation to use spokenform and retained
+  English G2P behavior
 status: accepted
 audience: null
 scopes: []

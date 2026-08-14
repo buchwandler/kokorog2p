@@ -7,8 +7,9 @@ versioning:
 entry_id: entry-0023
 release_version: 0.8.0
 kind: changed
-summary: Changed abbr2words to serve as shared lexical abbreviation source for all
-  seven languages
+summary:
+  Changed abbr2words to serve as shared lexical abbreviation source for all seven
+  languages
 status: accepted
 audience: null
 scopes: []

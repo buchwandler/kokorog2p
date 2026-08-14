@@ -34,8 +34,7 @@ jobs:
     - name: Install packages
       shell: bash
       run: |
-        pip install -e .[all]
-        pip install -r requirements-test.txt
+        python -m pip install -e ".[all,dev]"
         python -m nltk.downloader cmudict
         if [ "${{ matrix.test-group }}" = "core" ] || [ "${{ matrix.test-group }}" = "english" ]; then
           python -m spacy download en_core_web_md
@@ -46,7 +45,14 @@ jobs:
       run: |
         case "${{ matrix.test-group }}" in
           core)
-            python -m pytest -q tests/test_attr_parser.py tests/test_base.py tests/test_pipeline_api.py tests/test_public_api_consistency.py
+            python -m pytest -q \
+              tests/test_attr_parser.py \
+              tests/test_base.py \
+              tests/test_pipeline_api.py \
+              tests/test_public_api_consistency.py \
+              tests/test_dependency_contract.py \
+              tests/test_spokenform_migration.py \
+              tests/test_abbr2words_source_of_truth.py
             ;;
           english)
             python -m pytest -q -m "not spacy" tests/test_en_*.py tests/test_quote_*.py tests/test_contraction_detection.py tests/test_guarded_abbreviation_merging.py
@@ -84,8 +90,7 @@ jobs:
         sudo apt-get install -y espeak-ng
     - name: Install packages and models
       run: |
-        pip install -e .[all]
-        pip install -r requirements-test.txt
+        python -m pip install -e ".[all,dev]"
         python -m spacy download en_core_web_md
         python -m spacy download en_core_web_sm
         python -m nltk.downloader cmudict

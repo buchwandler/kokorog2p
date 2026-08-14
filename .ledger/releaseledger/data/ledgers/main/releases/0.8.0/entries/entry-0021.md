@@ -7,8 +7,9 @@ versioning:
 entry_id: entry-0021
 release_version: 0.8.0
 kind: changed
-summary: Changed Czech written-to-spoken semantic preparation to use spokenform and
-  retained Czech phonological rules
+summary:
+  Changed Czech written-to-spoken semantic preparation to use spokenform and retained
+  Czech phonological rules
 status: accepted
 audience: null
 scopes: []

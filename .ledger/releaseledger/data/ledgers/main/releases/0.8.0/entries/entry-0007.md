@@ -3,12 +3,12 @@ schema_version: 2
 object_type: release_entry
 versioning:
   schema_version: 1
-  revision: 1
+  revision: 2
 entry_id: entry-0007
 release_version: 0.8.0
 kind: fixed
 summary:
-  Preserved exact Spokenform replacement spans when sentence-final periods appear in
+  Fixed exact Spokenform replacement spans when sentence-final periods appear in
   structured replacements
 status: accepted
 audience: null

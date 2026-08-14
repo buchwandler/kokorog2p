@@ -7,8 +7,9 @@ versioning:
 entry_id: entry-0019
 release_version: 0.8.0
 kind: changed
-summary: Changed Italian written-to-spoken semantic preparation to use spokenform
-  and retained Italian phoneme behavior
+summary:
+  Changed Italian written-to-spoken semantic preparation to use spokenform and retained
+  Italian phoneme behavior
 status: accepted
 audience: null
 scopes: []

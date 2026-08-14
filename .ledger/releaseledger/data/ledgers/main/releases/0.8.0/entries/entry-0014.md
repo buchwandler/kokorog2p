@@ -3,12 +3,13 @@ schema_version: 2
 object_type: release_entry
 versioning:
   schema_version: 1
-  revision: 1
+  revision: 2
 entry_id: entry-0014
 release_version: 0.8.0
 kind: changed
-summary: Changed dependency floors to abbr2words>=0.2.7 and spokenform>=0.2.5 with
-  handoff regressions
+summary:
+  Changed dependency floors to abbr2words>=0.2.9 and spokenform>=0.2.6 with handoff
+  regressions
 status: accepted
 audience: null
 scopes: []

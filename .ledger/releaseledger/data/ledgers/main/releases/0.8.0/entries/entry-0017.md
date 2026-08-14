@@ -7,8 +7,9 @@ versioning:
 entry_id: entry-0017
 release_version: 0.8.0
 kind: changed
-summary: Changed French written-to-spoken semantic preparation to use spokenform and
-  retained number helpers as deprecated
+summary:
+  Changed French written-to-spoken semantic preparation to use spokenform and retained
+  number helpers as deprecated
 status: accepted
 audience: null
 scopes: []
