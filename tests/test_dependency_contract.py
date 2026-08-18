@@ -16,4 +16,4 @@ def test_migrated_semantic_dependency_floors() -> None:
     # by kokorog2p and by Spokenform 0.2.6. Spokenform 0.2.6 is the
     # benchmark-informed semantic adapter baseline for the 0.8.0 release.
     assert "abbr2words>=0.2.9,<0.3.0" in dependencies
-    assert "spokenform>=0.2.6,<0.3.0" in dependencies
+    assert "spokenform>=0.2.8,<0.3.0" in dependencies
