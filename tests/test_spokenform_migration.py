@@ -180,6 +180,24 @@ def test_english_supported_spokenform_regressions_follow_upstream(source):
     assert_spokenform_handoff(source, "en")
 
 
+def test_english_leading_decimal_pipeline_preserves_source_spacing_contract():
+    source = "It takes .2 seconds."
+
+    tokens = tokenize_with_offsets(source, lang="en-us", keep_punct=True)
+    assert [token.text for token in tokens] == ["It", "takes", ".2", "seconds", "."]
+
+    result = phonemize_to_result(source, lang="en-us", return_ids=False)
+
+    assert result.clean_text == source
+    assert sum(token.text == ".2" for token in result.tokens) == 1
+    assert all(token.text != "2" for token in result.tokens)
+    assert result.extended_text
+    assert not any(character.isdigit() for character in result.extended_text)
+    assert not result.warnings
+
+    assert_spokenform_handoff(source, "en")
+
+
 def test_english_version_label_adapter_rebases_exact_span_and_excludes_period():
     source = "We had built bot 2.0."
     source_offset = 10
@@ -774,7 +792,7 @@ def test_spanish_runs_are_isolated_from_other_languages():
     replaced, warnings = _apply_structured_replacements_to_tokens(tokens, source, "es")
 
     assert not warnings
-    assert replaced[0].extended_text == "dos kilogramos"
+    assert replaced[0].extended_text == "Dos kilogramos"
     assert any(
         token.text == "3 kg" and token.extended_text == "three kilograms"
         for token in replaced

@@ -6,13 +6,265 @@ from importlib.util import find_spec
 import pytest
 
 from kokorog2p import phonemize
-from kokorog2p.pipeline_api import phonemize_to_result
-from kokorog2p.types import OverrideSpan
+from kokorog2p.pipeline_api import (
+    _build_phoneme_string,
+    _phonemize_token_spans,
+    phonemize_to_result,
+)
+from kokorog2p.types import OverrideSpan, TokenSpan
 
 
 def _has_spacy_model(name: str) -> bool:
     """Return whether an optional spaCy model is installed locally."""
     return find_spec("spacy") is not None and find_spec(name) is not None
+
+
+class _NoFallbackG2P:
+    version = "1.0"
+
+    def __init__(self):
+        self.calls: list[str] = []
+
+    def __call__(self, text):
+        self.calls.append(text)
+        raise AssertionError(f"unexpected direct fallback for {text!r}")
+
+
+class _EchoG2P:
+    version = "1.0"
+
+    def __init__(self):
+        self.calls: list[str] = []
+
+    def __call__(self, text):
+        from kokorog2p.token import GToken
+
+        self.calls.append(text)
+        return [GToken(text=text, tag="WORD", whitespace="", phonemes=text.upper())]
+
+
+def test_coarse_g2p_span_is_consumed_once_across_domain_source_tokens():
+    source_tokens = [
+        TokenSpan(
+            "help",
+            0,
+            4,
+            meta={"_extended_char_start": 0, "_extended_char_end": 4},
+        ),
+        TokenSpan(
+            ".",
+            4,
+            5,
+            meta={"_extended_char_start": 4, "_extended_char_end": 5},
+        ),
+        TokenSpan(
+            "com",
+            5,
+            8,
+            meta={"_extended_char_start": 5, "_extended_char_end": 8},
+        ),
+        TokenSpan(
+            "now",
+            9,
+            12,
+            meta={"_extended_char_start": 9, "_extended_char_end": 12},
+        ),
+    ]
+    whole_text_tokens = [
+        TokenSpan(
+            "help.com",
+            0,
+            8,
+            meta={"phonemes": "DOMAIN", "whitespace": " "},
+        ),
+        TokenSpan("now", 9, 12, meta={"phonemes": "NOW", "whitespace": ""}),
+    ]
+
+    g2p = _NoFallbackG2P()
+
+    mapped, warnings, _ = _phonemize_token_spans(
+        source_tokens,
+        whole_text_tokens,
+        g2p,
+        "en-us",
+    )
+
+    assert warnings == []
+    assert g2p.calls == []
+    assert mapped[0].meta["phonemes"] == "DOMAIN"
+    assert mapped[0].meta["whitespace"] == " "
+    assert mapped[1].meta["_drop"] is True
+    assert mapped[1].meta["phonemes"] == ""
+    assert mapped[2].meta["_drop"] is True
+    assert mapped[2].meta["phonemes"] == ""
+    assert mapped[3].meta["phonemes"] == "NOW"
+    assert _build_phoneme_string(mapped, "help.com now") == "DOMAIN NOW"
+
+
+def test_fine_grained_domain_tokens_are_not_dropped():
+    source_tokens = [
+        TokenSpan(
+            "help",
+            0,
+            4,
+            meta={"_extended_char_start": 0, "_extended_char_end": 4},
+        ),
+        TokenSpan(
+            ".",
+            4,
+            5,
+            meta={"_extended_char_start": 4, "_extended_char_end": 5},
+        ),
+        TokenSpan(
+            "com",
+            5,
+            8,
+            meta={"_extended_char_start": 5, "_extended_char_end": 8},
+        ),
+    ]
+    whole_text_tokens = [
+        TokenSpan("help", 0, 4, meta={"phonemes": "HELP", "whitespace": ""}),
+        TokenSpan(".", 4, 5, meta={"phonemes": ".", "whitespace": ""}),
+        TokenSpan("com", 5, 8, meta={"phonemes": "COM", "whitespace": ""}),
+    ]
+
+    mapped, warnings, _ = _phonemize_token_spans(
+        source_tokens,
+        whole_text_tokens,
+        _NoFallbackG2P(),
+        "en-us",
+    )
+
+    assert warnings == []
+    assert [token.meta.get("_drop") for token in mapped] == [None, None, None]
+    assert [token.meta["phonemes"] for token in mapped] == ["HELP", ".", "COM"]
+
+
+def test_partial_overlap_with_consumed_g2p_span_warns_and_preserves_token():
+    source_tokens = [
+        TokenSpan(
+            "help",
+            0,
+            4,
+            meta={"_extended_char_start": 0, "_extended_char_end": 4},
+        ),
+        TokenSpan(
+            "portal",
+            6,
+            12,
+            meta={"_extended_char_start": 6, "_extended_char_end": 12},
+        ),
+    ]
+    whole_text_tokens = [
+        TokenSpan(
+            "help.com",
+            0,
+            8,
+            meta={"phonemes": "DOMAIN", "whitespace": " "},
+        ),
+        TokenSpan("portal", 9, 15, meta={"phonemes": "PORTAL", "whitespace": ""}),
+    ]
+
+    g2p = _EchoG2P()
+    mapped, warnings, _ = _phonemize_token_spans(
+        source_tokens,
+        whole_text_tokens,
+        g2p,
+        "en-us",
+    )
+
+    assert any("partially overlaps previously consumed G2P span" in w for w in warnings)
+    assert not mapped[1].meta.get("_drop")
+    assert mapped[1].meta["phonemes"] == "PORTAL"
+    assert g2p.calls == []
+
+
+def test_explicit_override_inside_consumed_g2p_span_is_preserved_with_warning():
+    source_tokens = [
+        TokenSpan(
+            "help",
+            0,
+            4,
+            meta={"_extended_char_start": 0, "_extended_char_end": 4},
+        ),
+        TokenSpan(
+            ".",
+            4,
+            5,
+            meta={"_extended_char_start": 4, "_extended_char_end": 5},
+        ),
+        TokenSpan(
+            "com",
+            5,
+            8,
+            meta={"_extended_char_start": 5, "_extended_char_end": 8, "ph": "CUSTOM"},
+        ),
+    ]
+    whole_text_tokens = [
+        TokenSpan(
+            "help.com",
+            0,
+            8,
+            meta={"phonemes": "DOMAIN", "whitespace": ""},
+        )
+    ]
+
+    mapped, warnings, _ = _phonemize_token_spans(
+        source_tokens,
+        whole_text_tokens,
+        _NoFallbackG2P(),
+        "en-us",
+    )
+
+    assert any(
+        "remains explicit within previously consumed G2P span" in w for w in warnings
+    )
+    assert mapped[1].meta["_drop"] is True
+    assert mapped[2].meta.get("_drop") is not True
+    assert mapped[2].meta["phonemes"] == "CUSTOM"
+
+
+def test_build_phoneme_string_skips_whitespace_only_punctuation_normalization():
+    tokens = [
+        TokenSpan("info", 0, 4, meta={"phonemes": "INFO", "whitespace": " "}),
+        TokenSpan("@", 4, 5, meta={"phonemes": "", "tag": "PUNCT"}),
+        TokenSpan("example", 5, 12, meta={"phonemes": "EXAMPLE", "whitespace": ""}),
+    ]
+
+    assert _build_phoneme_string(tokens, "info@example") == "INFO EXAMPLE"
+
+
+@pytest.mark.skipif(
+    not _has_spacy_model("en_core_web_sm"),
+    reason="spaCy English model not installed",
+)
+def test_span_alignment_bare_domain_matches_direct_whole_text_g2p():
+    from kokorog2p import get_g2p
+
+    source = "Visit help.com now."
+    g2p = get_g2p("en-us", use_spacy=True, spacy_model="en_core_web_sm")
+
+    result = phonemize_to_result(source, lang="en-us", return_ids=False, g2p=g2p)
+
+    assert not result.warnings
+    assert result.phonemes == g2p.phonemize(result.extended_text)
+
+
+@pytest.mark.skipif(
+    not _has_spacy_model("en_core_web_sm"),
+    reason="spaCy English model not installed",
+)
+def test_span_alignment_email_matches_direct_whole_text_g2p():
+    from kokorog2p import get_g2p
+
+    source = "Email info@example.com now."
+    g2p = get_g2p("en-us", use_spacy=True, spacy_model="en_core_web_sm")
+
+    result = phonemize_to_result(source, lang="en-us", return_ids=False, g2p=g2p)
+
+    assert not result.warnings
+    assert "  " not in result.phonemes
+    assert result.phonemes == g2p.phonemize(result.extended_text)
 
 
 class TestPhonemizeToResult:

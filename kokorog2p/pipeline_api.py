@@ -965,10 +965,41 @@ def _phonemize_token_spans(  # noqa: C901
         token_lang = token.lang or default_lang
         token_start = token.meta.get("_extended_char_start", token.char_start)
         token_end = token.meta.get("_extended_char_end", token.char_end)
+        token_is_punct = _is_punctuation_token(token)
         use_overlap_mapping = token_lang == default_lang and "ph" not in token.meta
         mapped_parts: list[str] = []
-        if carry_alnum_end is not None and token_start >= carry_alnum_end:
+        carried_from_previous = carry_alnum_end
+        if carried_from_previous is not None and token_start >= carried_from_previous:
             carry_alnum_end = None
+            carried_from_previous = None
+
+        consumed_by_previous_g2p = (
+            carried_from_previous is not None
+            and token_start < carried_from_previous
+            and token_end <= carried_from_previous
+            and token_lang == default_lang
+            and "ph" not in token.meta
+        )
+        if (
+            carried_from_previous is not None
+            and token_start < carried_from_previous < token_end
+        ):
+            warnings.append(
+                f"[ALIGNMENT] token '{token.text}' "
+                f"[{token_start}:{token_end}] partially overlaps previously "
+                f"consumed G2P span ending at {carried_from_previous}"
+            )
+        elif (
+            carried_from_previous is not None
+            and token_start < carried_from_previous
+            and token_end <= carried_from_previous
+            and not consumed_by_previous_g2p
+        ):
+            warnings.append(
+                f"[ALIGNMENT] token '{token.text}' "
+                f"[{token_start}:{token_end}] remains explicit within previously "
+                f"consumed G2P span ending at {carried_from_previous}"
+            )
 
         while (
             g2p_index < len(g2p_token_spans)
@@ -995,26 +1026,42 @@ def _phonemize_token_spans(  # noqa: C901
                     mapped_tag = str(tag)
             scan_index += 1
         if overlap_spans:
-            overlap_alnum_end = max(
-                (
-                    span.char_end
-                    for span in overlap_spans
-                    if any(c.isalnum() for c in span.text)
-                ),
-                default=None,
-            )
-            if overlap_alnum_end is not None and overlap_alnum_end > token_end:
-                carry_alnum_end = max(carry_alnum_end or 0, overlap_alnum_end)
-
-        token_is_punct = _is_punctuation_token(token)
-        drop_due_to_carry = (
-            token_is_punct
-            and carry_alnum_end is not None
-            and token_start < carry_alnum_end
-        )
+            overlap_alnum_spans = [
+                span for span in overlap_spans if any(c.isalnum() for c in span.text)
+            ]
+            if overlap_alnum_spans:
+                owner_token_text = (token.extended_text or token.text).casefold()
+                furthest_alnum_span = max(
+                    overlap_alnum_spans,
+                    key=lambda span: span.char_end,
+                )
+                owner_span = next(
+                    (
+                        span
+                        for span in overlap_alnum_spans
+                        if owner_token_text
+                        and span.text.casefold().startswith(owner_token_text)
+                    ),
+                    None,
+                )
+                if (
+                    owner_span is not None
+                    and not token_is_punct
+                    and use_overlap_mapping
+                    and furthest_alnum_span.char_end > token_end
+                ):
+                    carry_alnum_end = max(
+                        carry_alnum_end or 0,
+                        furthest_alnum_span.char_end,
+                    )
+                    owner_whitespace = furthest_alnum_span.meta.get("whitespace")
+                    if owner_whitespace is not None:
+                        mapped_whitespace = str(owner_whitespace)
+        drop_due_to_carry = consumed_by_previous_g2p
         if drop_due_to_carry:
             token.meta["_drop"] = True
             overlap_spans = []
+            mapped_whitespace = None
             mapped_tag = None
             g2p_index = scan_index
         elif token_is_punct and overlap_spans:
@@ -1064,7 +1111,9 @@ def _phonemize_token_spans(  # noqa: C901
         target_model = _merge_target_model(target_model, _get_target_model(token_g2p))
 
         # Check if phoneme override is present
-        if "ph" in token.meta:
+        if drop_due_to_carry:
+            phonemes = ""
+        elif "ph" in token.meta:
             # Use override phonemes
             phonemes = str(token.meta["ph"])
         elif token_lang != default_lang:
@@ -1187,7 +1236,7 @@ def _build_phoneme_string(tokens: list[TokenSpan], clean_text: str) -> str:
             # No phonemes - might be punctuation or failed phonemization
             # Check if it's punctuation and include as-is
             if token_is_punct:
-                if normalized_token_text:
+                if normalized_token_text.strip():
                     parts.append(normalized_token_text)
                 if whitespace:
                     parts.append(str(whitespace))
