@@ -94,8 +94,8 @@ jobs:
           "abbr2words==0.2.9" \
           "spokenform==0.3.1"
         python -m pip install -e ".[all,dev]"
-        python -m spacy download en_core_md
-        python -m spacy download en_core_sm
+        python -m spacy download en_core_web_md
+        python -m spacy download en_core_web_sm
         python -m nltk.downloader cmudict
     - name: Run lower-bound migration tests
       run: |
