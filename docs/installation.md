@@ -10,12 +10,12 @@ The core package has minimal dependencies:
 pip install kokorog2p
 ```
 
-The core install includes bounded `abbr2words>=0.2.9,<0.3.0` and
-`spokenform>=0.2.6,<0.3.0` runtime dependencies. `abbr2words` owns abbreviation
-recognition and customization, `spokenform` owns reusable written-to-spoken semantic
-preparation and is authoritative after accepting a source span, while kokorog2p remains
-the G2P and phoneme layer. These floors refer to published releases; unreleased upstream
-behavior is not claimed by kokorog2p.
+The core install includes runtime dependencies `abbr2words>=0.2.9,<0.3.0` and
+`spokenform>=0.3.1,<0.4.0`. `abbr2words` owns abbreviation recognition and
+customization, `spokenform` owns reusable written-to-spoken semantic preparation and is
+authoritative after accepting a source span, while kokorog2p remains the G2P and phoneme
+layer. The declared dependency floor guarantees the released Spokenform 0.3.1 behavior
+used by this package.
 
 This gives you:
 

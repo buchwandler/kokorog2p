@@ -106,7 +106,7 @@ class TestGoruutBackend:
 
     def test_startup_retries_after_server_exit(self, monkeypatch):
         """Retry the pygoruut 0.8.1 startup race."""
-        import kokorog2p.backends.goruut.backend as backend
+        from kokorog2p.backends.goruut import backend
 
         attempts = 0
         instance = object()

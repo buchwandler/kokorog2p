@@ -86,7 +86,88 @@ def test_compact_spokenform_handoff_cases(source, language):
 
 def test_runtime_spokenform_is_supported_release() -> None:
     installed = tuple(int(part) for part in version("spokenform").split(".")[:3])
-    assert (0, 2, 6) <= installed < (0, 3, 0)
+    assert (0, 3, 1) <= installed < (0, 4, 0)
+
+
+def test_english_countdown_preserves_spokenform_segment_boundary():
+    source = "Initiate in 3-2-1."
+    replacements = _spokenform_replacements_for_run(source, "en")
+
+    countdown = [item for item in replacements if item.rule == "sequence.countdown"]
+
+    assert len(countdown) == 1
+    replacement = countdown[0]
+    assert source[replacement.start : replacement.end] == "3-2-1"
+    assert replacement.text == "three - two - one"
+    assert replacement.kind == "structured"
+
+
+def test_english_countdown_segment_boundary_becomes_kokoro_em_dash():
+    source = "Initiate in 3-2-1."
+
+    result = phonemize_to_result(
+        source,
+        lang="en-us",
+        return_phonemes=True,
+        return_ids=True,
+    )
+
+    assert result.clean_text == source
+    assert "three—two—one" in result.extended_text
+    assert result.extended_text.count("—") == 2
+    assert result.phonemes.count("—") == 2
+    assert result.phonemes.endswith(".")
+    assert result.token_ids
+    assert not result.warnings
+    assert all(
+        0 <= token.char_start <= token.char_end <= len(source)
+        for token in result.tokens
+    )
+
+
+@pytest.mark.parametrize(
+    ("source", "expected_fragment"),
+    [
+        ("mother-in-law", "mother-in-law"),
+        ("final 3-2", "final three to two"),
+        ("score 3-2-1", "score three to two to one"),
+        ("3-2", "three-two"),
+        ("33-38", "thirty three to thirty eight"),
+    ],
+)
+def test_non_countdown_hyphens_do_not_gain_kokoro_pause_dashes(
+    source, expected_fragment
+):
+    result = phonemize_to_result(source, lang="en-us", return_ids=False)
+
+    assert expected_fragment in result.extended_text
+    assert "—" not in result.extended_text
+    if source == "mother-in-law":
+        assert "-" in result.extended_text
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "Initiate in 3-2-1.",
+        "Initiate in 3 - 2 - 1.",
+        "Initiate in 3–2–1.",
+        "Initiate in 3 – 2 – 1.",
+    ],
+)
+def test_countdown_separator_variants_keep_two_model_em_dashes(source):
+    result = phonemize_to_result(source, lang="en-us", return_ids=False)
+
+    assert result.extended_text.count("—") == 2
+
+
+def test_english_direct_normalizer_preserves_countdown_em_dashes():
+    normalized = EnglishNormalizer()("Initiate in 3-2-1.")
+
+    assert normalized.count("—") == 2
+    assert "three" in normalized
+    assert "two" in normalized
+    assert "one" in normalized
 
 
 def test_migrated_pipeline_passes_original_symbols_to_spokenform(monkeypatch):

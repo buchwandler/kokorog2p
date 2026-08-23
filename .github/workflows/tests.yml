@@ -75,6 +75,33 @@ jobs:
             exit 2
             ;;
         esac
+  lower-bound:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: Setup Python
+      uses: actions/setup-python@master
+      with:
+        python-version: "3.13"
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update -o Acquire::Retries=3
+        sudo apt-get install -y espeak-ng
+    - name: Install exact dependency floor
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install \
+          "abbr2words==0.2.9" \
+          "spokenform==0.3.1"
+        python -m pip install -e ".[all,dev]"
+        python -m spacy download en_core_md
+        python -m spacy download en_core_sm
+        python -m nltk.downloader cmudict
+    - name: Run lower-bound migration tests
+      run: |
+        python -m pytest -q \
+          tests/test_dependency_contract.py \
+          tests/test_spokenform_migration.py
   integration:
     if: github.event_name != 'push'
     runs-on: ubuntu-latest

@@ -66,6 +66,10 @@ leaves protected or unsupported; accepted Spokenform replacements are never rewr
 downstream. Use `spokenform` for spoken text without phonemes and `abbr2words` for
 registry-only workflows.
 
+For example, the released Spokenform 0.3.1 profile prepares a contextual countdown as
+`three - two - one`; KokoroG2P then maps that generic segment boundary to two model em
+dashes. KokoroG2P does not recognize countdown semantics itself.
+
 ## Installation
 
 ```bash

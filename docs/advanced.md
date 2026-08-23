@@ -21,6 +21,24 @@ category list. English phoneme-sensitive number conversion, Spanish dialect beha
 and other documented G2P decisions remain downstream-owned. Use `spokenform` directly
 for reusable spoken text or `abbr2words` directly for registry-only workflows.
 
+Countdown example:
+
+```text
+source:
+  Initiate in 3-2-1.
+
+Spokenform semantic preparation:
+  Initiate in three - two - one.
+
+KokoroG2P model punctuation:
+  Initiate in three — two — one.
+```
+
+An accepted structured replacement may preserve a model-neutral punctuation boundary
+when that boundary carries grouping or cadence. KokoroG2P does not re-recognize the
+semantic category; it only maps that generic boundary to punctuation supported by the
+Kokoro model.
+
 ## Custom G2P Configuration
 
 ### Tri-state spaCy model resolution

@@ -173,7 +173,60 @@ def apply_text_replacements_to_tokens(
             return None
         return lang.lower().replace("_", "-")
 
-    for replacement in sorted(replacements, key=lambda item: (item.start, item.end)):
+    sorted_replacements = sorted(replacements, key=lambda item: (item.start, item.end))
+    coalesced_replacements: list[TextReplacement] = []
+    index = 0
+    while index < len(sorted_replacements):
+        replacement = sorted_replacements[index]
+        overlapping_indices = [
+            token_index
+            for token_index, token in enumerate(modified_tokens)
+            if token.char_start < replacement.end and token.char_end > replacement.start
+        ]
+        if len(overlapping_indices) == 1:
+            token = modified_tokens[overlapping_indices[0]]
+            fragments = [replacement]
+            next_index = index + 1
+            while next_index < len(sorted_replacements):
+                candidate = sorted_replacements[next_index]
+                if (
+                    candidate.start < token.char_start
+                    or candidate.end > token.char_end
+                    or candidate.start < fragments[-1].end
+                    or any(
+                        character.isalnum()
+                        for character in source[fragments[-1].end : candidate.start]
+                    )
+                ):
+                    break
+                fragments.append(candidate)
+                next_index += 1
+            if (
+                len(fragments) > 1
+                and fragments[0].start == token.char_start
+                and fragments[-1].end == token.char_end
+            ):
+                replacement_parts = [fragments[0].text]
+                for previous, current in pairwise(fragments):
+                    replacement_parts.append(source[previous.end : current.start])
+                    replacement_parts.append(current.text)
+                coalesced_replacements.append(
+                    TextReplacement(
+                        start=fragments[0].start,
+                        end=fragments[-1].end,
+                        text="".join(replacement_parts),
+                        kind=fragments[0].kind,
+                        priority=max(fragment.priority for fragment in fragments),
+                        language=fragments[0].language,
+                        stages=fragments[0].stages,
+                    )
+                )
+                index = next_index
+                continue
+        coalesced_replacements.append(replacement)
+        index += 1
+
+    for replacement in coalesced_replacements:
         replacement_start = replacement.start
         replacement_end = replacement.end
         replacement_text = replacement.text

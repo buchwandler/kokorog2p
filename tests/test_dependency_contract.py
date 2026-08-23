@@ -13,7 +13,7 @@ def test_migrated_semantic_dependency_floors() -> None:
     dependencies = data["project"]["dependencies"]
 
     # abbr2words 0.2.9 is the lexical/initialism baseline consumed directly
-    # by kokorog2p and by Spokenform 0.2.6. Spokenform 0.2.6 is the
-    # benchmark-informed semantic adapter baseline for the 0.8.0 release.
+    # by kokorog2p; Spokenform 0.3.1 is the released semantic adapter
+    # baseline for the current migration.
     assert "abbr2words>=0.2.9,<0.3.0" in dependencies
-    assert "spokenform>=0.2.8,<0.3.0" in dependencies
+    assert "spokenform>=0.3.1,<0.4.0" in dependencies
