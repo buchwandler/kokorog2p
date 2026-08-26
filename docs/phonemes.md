@@ -556,11 +556,10 @@ print(espeak)
 
 ## Nabra Arabic profile
 
-Arabic MSA uses the explicit `nabra-82m-v0.1` vocabulary profile. It is derived
-from stock Kokoro 1.0 without mutating that mapping. The profile preserves the
-dedicated symbols `ʕ` and `ħ` at IDs 7 and 8 respectively. These IDs are only
-meaningful when passed to the compatible Nabra model; they are not a stock
-Kokoro 1.0 Arabic contract.
+Arabic MSA uses the explicit `nabra-82m-v0.1` vocabulary profile. It is derived from
+stock Kokoro 1.0 without mutating that mapping. The profile preserves the dedicated
+symbols `ʕ` and `ħ` at IDs 7 and 8 respectively. These IDs are only meaningful when
+passed to the compatible Nabra model; they are not a stock Kokoro 1.0 Arabic contract.
 
 ## References
 

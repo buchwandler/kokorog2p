@@ -105,6 +105,7 @@ def _get_target_model(g2p: Any) -> str:
 def _get_frontend_version(g2p: Any) -> str:
     return str(getattr(g2p, "version", "1.0"))
 
+
 def _preserves_source_punctuation(g2p: Any) -> bool:
     capabilities = getattr(g2p, "capabilities", None)
     if callable(capabilities):
@@ -112,6 +113,7 @@ def _preserves_source_punctuation(g2p: Any) -> bool:
         if isinstance(values, Mapping):
             return bool(values.get("preserve_source_punctuation"))
     return bool(getattr(g2p, "preserve_source_punctuation", False))
+
 
 def _merge_target_model(current: str, candidate: str) -> str:
     if not current or current == candidate:
@@ -121,7 +123,7 @@ def _merge_target_model(current: str, candidate: str) -> str:
     if candidate == "1.0":
         return current
     raise ValueError(
-        "Incompatible target model profiles: " f"{current!r} and {candidate!r}"
+        f"Incompatible target model profiles: {current!r} and {candidate!r}"
     )
 
 

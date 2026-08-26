@@ -594,8 +594,8 @@ result = phonemize(
 ```
 
 Install `kokorog2p[ar]` for the Arabic eSpeak path. The optional
-`kokorog2p[ar-diacritize]` extra enables CAMeL integration, but its MSA data
-must be provisioned separately and is never downloaded automatically. See
+`kokorog2p[ar-diacritize]` extra enables CAMeL integration, but its MSA data must be
+provisioned separately and is never downloaded automatically. See
 [Arabic API](docs/api/arabic.md) for MSA scope, source offsets, and model-ID caveats.
 
 ## License

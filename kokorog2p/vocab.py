@@ -88,6 +88,7 @@ def _load_vocab_reverse_nabra() -> dict[int, str]:
     """Build the reverse Nabra vocabulary independently from stock caches."""
     return {v: k for k, v in _load_vocab_nabra().items()}
 
+
 @lru_cache(maxsize=1)
 def _load_config() -> dict:
     """Load and cache the full Kokoro config."""

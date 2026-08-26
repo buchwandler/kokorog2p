@@ -14,10 +14,11 @@ if TYPE_CHECKING:
     from kokorog2p.token import GToken
 
 
-
 COMMON_COMBINING_MARK_RANGES = r"\u0300-\u036f"
 ARABIC_COMBINING_MARK_RANGES = r"\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed"
 WORD_MARK_RANGES = COMMON_COMBINING_MARK_RANGES + ARABIC_COMBINING_MARK_RANGES
+
+
 def ensure_gtoken_positions(gtokens: list["GToken"], text: str) -> list["GToken"]:
     """Ensure GTokens have char_start/char_end positions.
 
