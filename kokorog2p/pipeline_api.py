@@ -8,7 +8,7 @@ direct token ID output.
 import re
 import threading
 import unicodedata
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from difflib import SequenceMatcher
 from functools import cache
 from typing import TYPE_CHECKING, Any, Literal
@@ -102,10 +102,27 @@ def _get_target_model(g2p: Any) -> str:
     return str(version) if version else "1.0"
 
 
+def _get_frontend_version(g2p: Any) -> str:
+    return str(getattr(g2p, "version", "1.0"))
+
+def _preserves_source_punctuation(g2p: Any) -> bool:
+    capabilities = getattr(g2p, "capabilities", None)
+    if callable(capabilities):
+        values = capabilities()
+        if isinstance(values, Mapping):
+            return bool(values.get("preserve_source_punctuation"))
+    return bool(getattr(g2p, "preserve_source_punctuation", False))
+
 def _merge_target_model(current: str, candidate: str) -> str:
-    if candidate == "1.1" or current == "1.1":
-        return "1.1"
-    return current or candidate
+    if not current or current == candidate:
+        return current or candidate
+    if current == "1.0":
+        return candidate
+    if candidate == "1.0":
+        return current
+    raise ValueError(
+        "Incompatible target model profiles: " f"{current!r} and {candidate!r}"
+    )
 
 
 def _normalize_punctuation_output(text: str) -> str:
@@ -817,17 +834,19 @@ def phonemize_to_result(
     warnings: list[str] = []
     result_clean_text = clean_text
 
+    # Resolve the frontend before normalization so source-sensitive languages
+    # can classify punctuation using the user's original text.
+    if g2p is None:
+        g2p = get_g2p(lang)
+    source_sensitive = _preserves_source_punctuation(g2p)
+
     # The original source is the coordinate authority for migrated runs.  In
     # particular, do not remove or replace semantic punctuation before the
     # run reaches Spokenform; model punctuation belongs after preparation.
     migrated_semantics = _uses_spokenform_semantics(lang)
-    if not migrated_semantics:
+    if not migrated_semantics and not source_sensitive:
         clean_text = normalize_punctuation(clean_text)
         result_clean_text = clean_text
-
-    # Get or create G2P instance
-    if g2p is None:
-        g2p = get_g2p(lang)
 
     g2p_token_spans: list[TokenSpan]
     extended_text: str = ""
@@ -874,6 +893,7 @@ def phonemize_to_result(
         )
         extended_text = normalized_text
         gtokens = _call_g2p_without_abbreviations(g2p, extended_text)
+        warnings.extend(str(warning) for warning in getattr(g2p, "warnings", ()))
         ensure_gtoken_positions(gtokens, extended_text)
         g2p_token_spans = gtokens_to_tokenspans(gtokens, extended_text)
     else:
@@ -1071,6 +1091,8 @@ def _phonemize_token_spans(  # noqa: C901
                     owner_whitespace = furthest_alnum_span.meta.get("whitespace")
                     if owner_whitespace is not None:
                         mapped_whitespace = str(owner_whitespace)
+        if any(span.meta.get("drop") for span in overlap_spans):
+            token.meta["_drop"] = True
         drop_due_to_carry = consumed_by_previous_g2p
         if drop_due_to_carry:
             token.meta["_drop"] = True
@@ -1110,7 +1132,7 @@ def _phonemize_token_spans(  # noqa: C901
             try:
                 g2p_cache[token_lang] = get_g2p(
                     token_lang,
-                    version=target_model,
+                    version=_get_frontend_version(g2p),
                     **(g2p_options or {}),
                 )
             except Exception as e:

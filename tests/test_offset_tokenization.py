@@ -91,6 +91,22 @@ class TestTokenizeWithOffsets:
         tokens = tokenize_with_offsets("   ")
         assert len(tokens) == 0
 
+    def test_vocalized_arabic_words_keep_harakat_attached(self):
+        text = "مَرْحَبًا بِكَ"
+        tokens = tokenize_with_offsets(text, lang="ar")
+        assert [token.text for token in tokens] == ["مَرْحَبًا", "بِكَ"]
+        assert [(token.char_start, token.char_end) for token in tokens] == [
+            (0, 9),
+            (10, 14),
+        ]
+
+    def test_arabic_shadda_and_tanwin_are_word_marks(self):
+        text = "مُحَمَّدٌ"
+        tokens = tokenize_with_offsets(text, lang="ar", keep_punct=False)
+        assert [token.text for token in tokens] == [text]
+        assert tokens[0].char_start == 0
+        assert tokens[0].char_end == len(text)
+
 
 class TestGtokensToTokenspans:
     """Tests for gtokens_to_tokenspans function."""

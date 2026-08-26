@@ -93,9 +93,11 @@ PUNCTUATION_NORMALIZATION: Final[dict[str, str]] = {
     "；": ";",  # fullwidth semicolon
     "：": ":",  # fullwidth colon
     "︰": ":",  # presentation form
+    "؛": ";",  # Arabic semicolon
     # Commas
     "，": ",",  # fullwidth comma
     "、": ",",  # ideographic comma
+    "،": ",",  # Arabic comma
     # Periods
     "．": ".",  # fullwidth period
     "。": ".",  # ideographic period
@@ -103,8 +105,9 @@ PUNCTUATION_NORMALIZATION: Final[dict[str, str]] = {
     # Exclamation and question marks
     "！": "!",  # fullwidth exclamation
     "？": "?",  # fullwidth question mark
+    "؟": "?",  # Arabic question mark
     "¡": "!",  # inverted exclamation (Spanish)
-    "¿": "?",  # inverted question mark (Spanish)
+    "¿": "?",  # inverted question mark
     "⁉": "?",  # exclamation question mark
     "⁈": "!",  # question exclamation mark
     "‼": "!",  # double exclamation

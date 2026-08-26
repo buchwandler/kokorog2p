@@ -36,8 +36,7 @@ Example:
 
 import warnings
 from collections import OrderedDict, namedtuple
-from collections.abc import Callable
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
 from threading import RLock
 from typing import Any, Literal, Optional, Union
 
@@ -159,6 +158,12 @@ _LANGUAGE_ALIASES = {
     "ja": "ja-jp",
     "jpn": "ja-jp",
     "japanese": "ja-jp",
+    "ar": "ar",
+    "ara": "ar",
+    "arabic": "ar",
+    "ar-msa": "ar",
+    "msa": "ar",
+    "ar-sa": "ar",
 }
 
 _FACTORY_KWARGS_BY_LANGUAGE = {
@@ -208,6 +213,15 @@ _FACTORY_KWARGS_BY_LANGUAGE = {
         }
     ),
     "vi": frozenset({"foreign_fallback"}),
+    "ar": frozenset(
+        {
+            "diacritizer",
+            "latin_policy",
+            "citation_policy",
+            "strict_diacritizer",
+            "model_profile",
+        }
+    ),
 }
 
 _SPACY_DEFAULTS_BY_FAMILY = {
@@ -648,6 +662,16 @@ def get_g2p(  # noqa: C901
             version=version,
             **kwargs,
         )
+    elif lang == "ar":
+        from kokorog2p.ar import ArabicG2P
+
+        g2p = ArabicG2P(
+            language=implementation_language,
+            strict=strict,
+            version=version,
+            use_cli=use_cli,
+            **kwargs,
+        )
     elif lang in ("ko", "ko-kr", "kor", "korean"):
         from kokorog2p.ko import KoreanG2P
 
@@ -714,6 +738,7 @@ def phonemize(
     load_gold: bool = True,
     backend: "BackendType" = "kokorog2p",
     g2p: "G2PBase | None" = None,
+    g2p_options: Mapping[str, Any] | None = None,
 ) -> PhonemizeResult:
     """Phonemize text using the unified kokorog2p pipeline.
 
@@ -843,6 +868,7 @@ def phonemize(
             load_silver=load_silver,
             load_gold=load_gold,
             backend=backend,
+            **(dict(g2p_options) if g2p_options else {}),
         )
 
     return phonemize_to_result(
@@ -863,6 +889,7 @@ def phonemize(
             "spacy_model": spacy_model,
             "spacy_model_size": spacy_model_size,
             "backend": backend,
+            **(dict(g2p_options) if g2p_options else {}),
         },
     )
 

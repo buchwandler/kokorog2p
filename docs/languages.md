@@ -889,3 +889,10 @@ This provides basic support for 100+ languages via espeak-ng.
   - {doc}`api/korean`
   - {doc}`api/hebrew`
   - {doc}`api/mixed`
+
+## Arabic (MSA)
+
+Arabic support is native and Nabra-compatible for Modern Standard Arabic (MSA).
+It uses raw Arabic eSpeak IPA and optionally uses CAMeL MLE diacritization for
+unvocalized text. Dialects are not supported by this frontend. See
+{doc}`api/arabic`.

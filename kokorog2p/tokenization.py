@@ -14,6 +14,10 @@ if TYPE_CHECKING:
     from kokorog2p.token import GToken
 
 
+
+COMMON_COMBINING_MARK_RANGES = r"\u0300-\u036f"
+ARABIC_COMBINING_MARK_RANGES = r"\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed"
+WORD_MARK_RANGES = COMMON_COMBINING_MARK_RANGES + ARABIC_COMBINING_MARK_RANGES
 def ensure_gtoken_positions(gtokens: list["GToken"], text: str) -> list["GToken"]:
     """Ensure GTokens have char_start/char_end positions.
 
@@ -130,6 +134,11 @@ def _build_gtoken_meta(token: "GToken") -> dict[str, object]:
         meta["rating"] = token.rating
     if token.tag:
         meta["tag"] = token.tag
+    if token.get("drop"):
+        meta["drop"] = True
+    source_kind = token.get("source_kind")
+    if source_kind:
+        meta["source_kind"] = source_kind
     meta["whitespace"] = token.whitespace
     return meta
 
@@ -186,12 +195,12 @@ def tokenize_with_offsets(
     number = r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)+"
     leading_decimal = r"(?<![\w.])\.\d+"
     grouped_integer = r"\d{1,3}(?:,\d{3})+"
-    word_chars = r"\w\u0300-\u036f"
+    word_chars = r"\w" + WORD_MARK_RANGES
     pattern = re.compile(
         rf"({number}|{leading_decimal}|{grouped_integer}|"
         rf"[{word_chars}]+(?:-[{word_chars}]+)+|"
         rf"[{word_chars}]+(?:['\u2019][{word_chars}]+)+|"
-        rf"[{word_chars}]+|\.{{2,}}|…|[^\w\s\u0300-\u036f]|\s+)"
+        rf"[{word_chars}]+|\.{{2,}}|…|[^\w\s{WORD_MARK_RANGES}]|\s+)"
     )
     tokens: list[TokenSpan] = []
 

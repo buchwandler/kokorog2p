@@ -95,6 +95,7 @@ api/korean
 api/vietnamese
 api/hebrew
 api/mixed
+api/arabic
 api/backends
 api/utils
 ```

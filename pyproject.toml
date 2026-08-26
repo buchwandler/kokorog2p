@@ -58,6 +58,13 @@ espeak = [
     "espeakng-loader>=0.1.0",
     "dlinfo>=1.2.1",
 ]
+ar = [
+    "kokorog2p[espeak]",
+]
+ar-diacritize = [
+    "camel-tools>=1.5,<1.6; python_version < '3.11'",
+    "camel-tools>=1.6; python_version >= '3.11'",
+]
 goruut = [
     "pygoruut>=0.8.0",
 ]
@@ -117,7 +124,7 @@ mixed = [
     "lingua-language-detector>=2.0.0",
 ]
 all = [
-    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,mixed]",
+    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,mixed,ar]",
 ]
 dev = [
     "pytest>=7.0.0",

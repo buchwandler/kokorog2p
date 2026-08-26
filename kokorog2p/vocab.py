@@ -59,6 +59,35 @@ def _load_vocab_reverse_v11_de() -> dict[int, str]:
     return {v: k for k, v in _load_vocab_v11_de().items()}
 
 
+NABRA_MODEL = "nabra-82m-v0.1"
+NABRA_MODEL_ALIASES = frozenset({"nabra", "nabra-82m", NABRA_MODEL})
+_NABRA_RESERVED_IDS = {"ʕ": 7, "ħ": 8}
+
+
+@lru_cache(maxsize=1)
+def _load_vocab_nabra() -> dict[str, int]:
+    """Build the Nabra vocabulary without mutating the stock mapping."""
+    vocab = dict(_load_vocab())
+    reverse = _load_vocab_reverse()
+    for symbol, index in _NABRA_RESERVED_IDS.items():
+        if index >= N_TOKENS:
+            raise ValueError(f"Nabra reserved ID {index} is outside the vocabulary")
+        existing_index = vocab.get(symbol)
+        existing_symbol = reverse.get(index)
+        if existing_index not in (None, index) or existing_symbol not in (None, symbol):
+            raise ValueError(
+                "Cannot construct Nabra vocabulary profile: stock model vocabulary "
+                f"already assigns reserved Arabic ID {index} incompatibly."
+            )
+        vocab[symbol] = index
+    return vocab
+
+
+@lru_cache(maxsize=1)
+def _load_vocab_reverse_nabra() -> dict[int, str]:
+    """Build the reverse Nabra vocabulary independently from stock caches."""
+    return {v: k for k, v in _load_vocab_nabra().items()}
+
 @lru_cache(maxsize=1)
 def _load_config() -> dict:
     """Load and cache the full Kokoro config."""
@@ -81,9 +110,11 @@ def get_vocab(model: str = "1.0") -> dict[str, int]:
     Returns:
         Dictionary mapping tokens to their indices.
     """
+    if model in NABRA_MODEL_ALIASES:
+        return _load_vocab_nabra()
     if model == "1.1" or model == "1.1-zh":
         return _load_vocab_v11_zh()
-    elif model == "1.1-de":
+    if model == "1.1-de":
         return _load_vocab_v11_de()
     return _load_vocab()
 
@@ -97,6 +128,8 @@ def get_vocab_reverse(model: str = "1.0") -> dict[int, str]:
     Returns:
         Dictionary mapping indices to their tokens.
     """
+    if model in NABRA_MODEL_ALIASES:
+        return _load_vocab_reverse_nabra()
     if model == "1.1" or model == "1.1-zh":
         return _load_vocab_reverse_v11_zh()
     elif model == "1.1-de":

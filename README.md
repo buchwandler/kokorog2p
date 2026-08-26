@@ -579,6 +579,25 @@ kokorog2p uses Kokoro's 45-phoneme vocabulary:
 - Primary stress: `ˈ`
 - Secondary stress: `ˌ`
 
+## Arabic MSA
+
+Native Arabic support targets Modern Standard Arabic with the Nabra-compatible
+`nabra-82m-v0.1` profile. Already-vocalized input works without optional CAMeL data:
+
+```python
+from kokorog2p import phonemize
+result = phonemize(
+    "مَرْحَبًا بِكَ؟",
+    language="ar",
+    g2p_options={"diacritizer": "none"},
+)
+```
+
+Install `kokorog2p[ar]` for the Arabic eSpeak path. The optional
+`kokorog2p[ar-diacritize]` extra enables CAMeL integration, but its MSA data
+must be provisioned separately and is never downloaded automatically. See
+[Arabic API](docs/api/arabic.md) for MSA scope, source offsets, and model-ID caveats.
+
 ## License
 
 Apache2 License - see [LICENSE](LICENSE) for details.

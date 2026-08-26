@@ -296,3 +296,23 @@ For better performance:
 2. Enable caching (enabled by default)
 3. Reuse G2P instances instead of creating new ones
 4. Consider using espeak-ng fallback only for truly OOV words
+
+
+### Arabic MSA
+
+Install the native Arabic path with the existing eSpeak extra:
+
+```bash
+pip install "kokorog2p[ar]"
+```
+
+For unvocalized MSA, the optional CAMeL adapter is available separately:
+
+```bash
+pip install "kokorog2p[ar-diacritize]"
+```
+
+Provision `disambig-mle-calima-msa-r13` using CAMeL Tools' documented local
+data workflow. KokoroG2P does not download or provision CAMeL data, and the
+data license is separate from the Apache-2.0 KokoroG2P package. Use
+`diacritizer="none"` for already-vocalized Arabic.

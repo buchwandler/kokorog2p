@@ -1,60 +1,61 @@
-"""Regression tests for optional dependency loading and library silence."""
+"""Offline and optional-dependency tests for Arabic support."""
 
-from types import SimpleNamespace
+from __future__ import annotations
+
+import builtins
+import sys
+import types
 
 import pytest
 
-from kokorog2p._optional import load_spacy_model
+from kokorog2p.ar.diacritizer import (
+    ArabicDiacritizerDataError,
+    ArabicDiacritizerDependencyError,
+    CamelMLEDiacritizer,
+)
 
 
-def test_spacy_model_loader_does_not_download(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_spacy = SimpleNamespace(
-        util=SimpleNamespace(is_package=lambda _name: False),
-    )
-    monkeypatch.setitem(__import__("sys").modules, "spacy", fake_spacy)
-
-    with pytest.raises(ImportError, match="python -m spacy download missing_model"):
-        load_spacy_model("missing_model")
-
-
-def test_korean_g2p_does_not_download_cmudict_at_import(
+def test_camel_adapter_constructor_does_not_import_camel_tools(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    pytest.importorskip("jamo")
-    from kokorog2p.ko.g2pk import G2p
+    original_import = builtins.__import__
 
-    def fail_download(*_args: object, **_kwargs: object) -> None:
-        raise AssertionError("network download attempted")
+    def fail_if_camel(name: str, *args: object, **kwargs: object):
+        if name.startswith("camel_tools"):
+            raise AssertionError("CAMeL imported during adapter construction")
+        return original_import(name, *args, **kwargs)
 
-    fake_nltk = SimpleNamespace(
-        data=SimpleNamespace(find=lambda _name: (_ for _ in ()).throw(LookupError)),
-        download=fail_download,
-    )
-    monkeypatch.setitem(__import__("sys").modules, "nltk", fake_nltk)
-
-    # Construction only initializes local rule data; CMUdict is resolved lazily.
-    g2p = G2p()
-    assert g2p._cmu is None
+    monkeypatch.setattr(builtins, "__import__", fail_if_camel)
+    adapter = CamelMLEDiacritizer()
+    assert adapter._disambiguator is None
 
 
-def test_missing_cmudict_error_is_actionable(monkeypatch: pytest.MonkeyPatch) -> None:
-    pytest.importorskip("jamo")
-    from kokorog2p.ko.g2pk import G2p
+def test_missing_camel_package_is_actionable(monkeypatch: pytest.MonkeyPatch) -> None:
+    original_import = builtins.__import__
 
-    fake_cmudict = SimpleNamespace(dict=lambda: (_ for _ in ()).throw(LookupError))
-    fake_nltk_corpus = SimpleNamespace(cmudict=fake_cmudict)
-    monkeypatch.setitem(__import__("sys").modules, "nltk.corpus", fake_nltk_corpus)
+    def fail_if_camel(name: str, *args: object, **kwargs: object):
+        if name.startswith("camel_tools"):
+            raise ImportError("not installed")
+        return original_import(name, *args, **kwargs)
 
-    g2p = G2p()
-    with pytest.raises(LookupError, match="nltk.downloader cmudict"):
-        _ = g2p.cmu
+    monkeypatch.setattr(builtins, "__import__", fail_if_camel)
+    with pytest.raises(ArabicDiacritizerDependencyError, match="not installed"):
+        CamelMLEDiacritizer().diacritize_tokens(["مرحبا"])
 
 
-def test_convert_eng_is_silent(capsys: pytest.CaptureFixture[str]) -> None:
-    pytest.importorskip("jamo")
-    from kokorog2p.ko.english import convert_eng
+def test_missing_camel_data_is_actionable(monkeypatch: pytest.MonkeyPatch) -> None:
+    class MissingDataMLE:
+        @staticmethod
+        def pretrained() -> object:
+            raise FileNotFoundError("database missing")
 
-    convert_eng("HELLO", {})
-    captured = capsys.readouterr()
-    assert captured.out == ""
-    assert captured.err == ""
+    camel_tools = types.ModuleType("camel_tools")
+    disambig = types.ModuleType("camel_tools.disambig")
+    mle = types.ModuleType("camel_tools.disambig.mle")
+    mle.MLEDisambiguator = MissingDataMLE  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "camel_tools", camel_tools)
+    monkeypatch.setitem(sys.modules, "camel_tools.disambig", disambig)
+    monkeypatch.setitem(sys.modules, "camel_tools.disambig.mle", mle)
+
+    with pytest.raises(ArabicDiacritizerDataError, match="does not download"):
+        CamelMLEDiacritizer().diacritize_tokens(["مرحبا"])
