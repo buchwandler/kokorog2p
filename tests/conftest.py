@@ -155,6 +155,7 @@ def english_g2p_with_medium_spacy():
         spacy_model="en_core_web_md",
     )
 
+
 @pytest.fixture(scope="module")
 def english_g2p_full():
     """Create a fully-featured EnglishG2P."""

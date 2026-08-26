@@ -83,9 +83,7 @@ def select_test_files(
     if match is not None:
         matcher = re.compile(match)
         selected = [
-            path
-            for path in selected
-            if matcher.search(_relative_test_path(path, root))
+            path for path in selected if matcher.search(_relative_test_path(path, root))
         ]
     return selected
 

@@ -25,10 +25,9 @@ def lexicon():
     """Create one shared German lexicon for lookup tests."""
     return GermanLexicon()
 
+
 class TestGermanG2P:
     """Tests for GermanG2P."""
-
-
 
     def test_creation(self, g2p):
         """Test G2P creation."""
@@ -198,7 +197,6 @@ class TestGermanG2P:
 
 class TestGermanLexicon:
     """Tests for GermanLexicon."""
-
 
     def test_creation(self, lexicon):
         """Test lexicon creation."""

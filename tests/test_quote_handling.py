@@ -9,9 +9,10 @@ from kokorog2p.en.g2p import EnglishG2P
 def g2p():
     """Create one shared English G2P instance for quote tests."""
     return EnglishG2P()
+
+
 class TestQuoteHandling:
     """Test quote direction assignment for various cases."""
-
 
     def _get_quote_directions(self, g2p, text):
         """Helper to extract quote characters and their directions from output."""
@@ -116,7 +117,6 @@ class TestQuoteHandling:
 
 class TestQuoteSpacing:
     """Test that quotes don't have extra spaces around them."""
-
 
     def _get_phonemes(self, g2p, text):
         """Helper to get phoneme output as string."""

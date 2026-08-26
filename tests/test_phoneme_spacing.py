@@ -18,9 +18,9 @@ def g2p():
     """Create one shared English G2P instance for spacing tests."""
     return EnglishG2P(use_espeak_fallback=True, use_spacy=False)
 
+
 class TestPhonemeSpacing:
     """Test that phoneme output has correct spacing."""
-
 
     @pytest.fixture(params=["english_g2p", "pipeline"])
     def phonemizer(self, request, g2p):

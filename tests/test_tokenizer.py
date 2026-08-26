@@ -213,7 +213,6 @@ class TestRegexTokenizer:
         assert "don't" in [t.text for t in contractions]
 
 
-
 @pytest.fixture(scope="module")
 def spacy_nlp():
     """Load the small spaCy model once for tokenizer tests."""
@@ -231,11 +230,11 @@ def tokenizer(spacy_nlp):
     return SpacyTokenizer(
         nlp=spacy_nlp, track_positions=True, use_bracket_matching=True
     )
+
+
 @pytest.mark.spacy
 class TestSpacyTokenizer:
     """Test suite for SpacyTokenizer."""
-
-
 
     def test_simple_sentence_with_pos(self, tokenizer):
         """Test that POS tags are assigned."""

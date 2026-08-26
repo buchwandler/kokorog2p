@@ -138,7 +138,6 @@ class KoreanG2P(G2PBase):
             return ipa_phonemes
         return encode_for_model(ipa_phonemes)
 
-
     def __call__(self, text: str) -> list[GToken]:
         """Convert Korean text to tokens with phonemes.
 

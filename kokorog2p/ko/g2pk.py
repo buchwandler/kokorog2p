@@ -115,6 +115,7 @@ class G2p:
             stacklevel=2,
         )
         return None
+
     def idioms(self, string, descriptive=False, verbose=False):
         """Process idioms from IDIOMS list.
         Each tuple in IDIOMS contains (pattern, replacement).

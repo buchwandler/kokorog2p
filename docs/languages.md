@@ -553,17 +553,22 @@ Japanese backend. It is not a Japanese benchmark or performance configuration.
 
 ## Korean (ko)
 
-Korean G2P uses the vendored 5Hyeons `g2pkc` compatibility rules. Morphology is optional and is used only when a supported Korean analyzer is installed.
+Korean G2P uses the vendored 5Hyeons `g2pkc` compatibility rules. Morphology is optional
+and is used only when a supported Korean analyzer is installed.
 
 ### Features
 
-- **g2pkc compatibility baseline**: Korean Standard Pronunciation rules, liaison, assimilation, palatalization, tensification, aspiration, and number context
+- **g2pkc compatibility baseline**: Korean Standard Pronunciation rules, liaison,
+  assimilation, palatalization, tensification, aspiration, and number context
 - **Morphology modes**: `auto`, `required`, or `off`
-- **Output modes**: `model` (default Kokoro 82M v1.0 alphabet), `ipa`, or positional `jamo`
+- **Output modes**: `model` (default Kokoro 82M v1.0 alphabet), `ipa`, or positional
+  `jamo`
 - **Default voice metadata**: `jf_alpha`, the Japanese Kokoro voice requested for Korean
-- **Offline behavior**: pure Hangul does not load CMUdict; Latin input requires the NLTK CMUdict resource
+- **Offline behavior**: pure Hangul does not load CMUdict; Latin input requires the NLTK
+  CMUdict resource
 - **Hanja**: not currently converted; Hanja support is intentionally not claimed
-- **Provenance**: see `kokorog2p/ko/README.md` for the frozen source revision and checksums
+- **Provenance**: see `kokorog2p/ko/README.md` for the frozen source revision and
+  checksums
 
 ### Usage
 
@@ -578,7 +583,10 @@ g2p = KoreanG2P(
  )
 ```
 
-Use `output="ipa"` for the linguistic IPA-like representation, including positional coda markers. Use `output="jamo"` to inspect the g2pkc intermediate form. The model output explicitly maps markers absent from Kokoro 82M v1.0 and rejects other unsupported symbols.
+Use `output="ipa"` for the linguistic IPA-like representation, including positional coda
+markers. Use `output="jamo"` to inspect the g2pkc intermediate form. The model output
+explicitly maps markers absent from Kokoro 82M v1.0 and rejects other unsupported
+symbols.
 
 ### Examples
 
@@ -597,7 +605,8 @@ print(KoreanG2P(output="ipa", morphology="off").phonemize("강"))
  # → kaŋ
 ```
 
-`use_espeak_fallback`, `use_goruut_fallback`, spaCy settings, and dictionary tier flags are retained for common factory compatibility but do not control Korean pronunciation.
+`use_espeak_fallback`, `use_goruut_fallback`, spaCy settings, and dictionary tier flags
+are retained for common factory compatibility but do not control Korean pronunciation.
 
 Hebrew G2P uses phonikud for nikud-based phonemization.
 

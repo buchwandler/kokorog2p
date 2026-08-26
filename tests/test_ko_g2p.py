@@ -8,7 +8,6 @@ from kokorog2p.token import GToken
 pytest.importorskip("jamo")
 
 
-
 @pytest.fixture(scope="module")
 def g2p():
     """Create one shared Korean G2P instance for mutation-free tests."""
@@ -19,10 +18,10 @@ def g2p():
 def g2p_no_dict():
     """Create one shared Korean G2P instance without MeCab dictionary."""
     return KoreanG2P(use_dict=False)
+
+
 class TestKoreanG2P:
     """Tests for KoreanG2P."""
-
-
 
     def test_creation(self, g2p):
         """Test G2P creation."""

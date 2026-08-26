@@ -163,15 +163,15 @@ class TestDashNormalization:
         assert "-" in result or "—" in result
 
 
-
 @pytest.fixture(scope="module")
 def g2p(english_g2p_with_spacy):
     """Share the explicit small-model G2P across normalization tests."""
     return english_g2p_with_spacy
+
+
 @pytest.mark.spacy
 class TestEnglishG2PNormalization:
     """Test that English G2P correctly normalizes during tokenization."""
-
 
     # Apostrophes
     def test_g2p_apostrophe_right_quote(self, g2p):
@@ -253,7 +253,6 @@ class TestComplexNormalization:
         from kokorog2p.punctuation import Punctuation
 
         return Punctuation()
-
 
     def test_normalize_quotes_contractions_ellipsis(self, punct):
         """Complex text with quotes, contractions, and ellipsis."""

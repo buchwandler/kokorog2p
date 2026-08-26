@@ -10,6 +10,8 @@ from kokorog2p.phonemes import IT_VOCAB
 def g2p():
     """Create one shared Italian G2P instance for mutation-free tests."""
     return ItalianG2P()
+
+
 class TestItalianG2P:
     """Test suite for Italian G2P."""
 
@@ -18,7 +20,6 @@ class TestItalianG2P:
         g2p = ItalianG2P(use_spacy=True, spacy_model="it_core_news_md")
         assert g2p.use_spacy is True
         assert g2p.spacy_model == "it_core_news_md"
-
 
     def test_basic_words(self, g2p):
         """Test basic Italian words."""

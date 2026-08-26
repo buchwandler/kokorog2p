@@ -139,7 +139,6 @@ def to_positional_jamo(text: str) -> str:
     return h2j(text)
 
 
-
 def jamo_to_ipa(text: str) -> str:
     """Convert composed or positional Korean Jamo to IPA-like phonemes.
 

@@ -22,6 +22,8 @@ def g2p_no_stress():
 def g2p_no_affricate():
     """Create one shared Portuguese G2P instance without affrication."""
     return PortugueseG2P(mark_stress=True, affricate_ti_di=False)
+
+
 class TestPortugueseG2P:
     """Test Brazilian Portuguese G2P conversion."""
 
@@ -50,7 +52,6 @@ class TestPortugueseG2P:
 
         assert g2p.dialect == expected_dialect
         assert g2p._normalizer("16") == expected_number
-
 
     def test_basic_words(self, g2p):
         """Test basic Portuguese words."""

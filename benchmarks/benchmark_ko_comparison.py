@@ -52,6 +52,7 @@ def load_synthetic_data() -> dict[str, Any]:
     with open(filepath) as f:
         return json.load(f)
 
+
 def create_g2p(config: dict[str, Any]):
     """Create a Korean G2P instance with a meaningful configuration."""
     from kokorog2p.ko import KoreanG2P
@@ -60,6 +61,7 @@ def create_g2p(config: dict[str, Any]):
         morphology=config.get("morphology", "auto"),
         output="model",
     )
+
 
 def benchmark_config(g2p, data: dict[str, Any], config_name: str) -> ConfigBenchmark:
     """Benchmark a single G2P configuration."""

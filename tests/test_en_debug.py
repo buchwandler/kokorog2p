@@ -14,7 +14,6 @@ class TestDebugMode:
         """Create an EnglishG2P instance."""
         return EnglishG2P(use_spacy=False, use_espeak_fallback=True)
 
-
     def test_process_with_debug_returns_processed_text(self, g2p):
         """Test that process_with_debug returns a ProcessedText object."""
         result = g2p.process_with_debug("hello world")

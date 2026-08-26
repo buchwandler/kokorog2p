@@ -574,7 +574,6 @@ class TestMainAPI:
 class TestEnNormalization:
     """Comprehensive tests for normalization handling with spaCy."""
 
-
     def test_en_ellipses(self, g2p_spacy):
         """Test 'don't' is phonemized as a single word, not 'do' + 'n't'."""
         tokens = g2p_spacy("Don't . . . worry.")
@@ -791,7 +790,6 @@ class TestDoubleContractions:
     where spaCy splits them into 3+ tokens (e.g., "I'd've" -> "I" + "'d" + "'ve").
     """
 
-
     def test_couldve_tokenization(self, g2p_spacy):
         """Test 'could've' is treated as a single token."""
         tokens = g2p_spacy("I could've done it")
@@ -954,7 +952,6 @@ class TestContractionRobustness:
     correctly handles contractions with various apostrophe characters and
     prevents spaCy from splitting them incorrectly.
     """
-
 
     def test_dont_with_straight_apostrophe(self, g2p_spacy, phoneme_backend):
         """Test 'don't' with straight apostrophe (U+0027)."""

@@ -120,8 +120,10 @@ Korean morphology is optional. Install the upstream-compatible Korean analyzer w
 pip install "kokorog2p[ko-mecab]"
 ```
 
-The default Korean voice metadata is `jf_alpha`, the Japanese voice requested for Korean synthesis. Pure Hangul does not require CMUdict. Latin input requires the NLTK `cmudict` resource, which is installed separately with `python -m nltk.downloader cmudict`.
-For automatic language detection in mixed-language texts:
+The default Korean voice metadata is `jf_alpha`, the Japanese voice requested for Korean
+synthesis. Pure Hangul does not require CMUdict. Latin input requires the NLTK `cmudict`
+resource, which is installed separately with `python -m nltk.downloader cmudict`. For
+automatic language detection in mixed-language texts:
 
 ```bash
 pip install kokorog2p[mixed]

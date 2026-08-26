@@ -282,6 +282,16 @@ class TestPhonemizeToResult:
         assert len(result.token_ids) > 0
         assert len(result.warnings) == 0
 
+    def test_span_alignment_matches_regex_quote_direction(self):
+        """Keep span output consistent with the no-spaCy G2P tokenizer."""
+        from kokorog2p import get_g2p
+
+        text = "'I can't... or shouldn't,' I replied."
+        g2p = get_g2p("en-us", use_spacy=False)
+        result = phonemize(text, g2p=g2p)
+
+        assert result.phonemes == g2p.phonemize(text)
+
         text = "'I can't... or shouldn't,' I replied."
         result = phonemize(text)
         assert result.phonemes == "“ˈI kˈænt…ɔɹ ʃˈʊdᵊnt,” ˈI ɹᵻplˈId."

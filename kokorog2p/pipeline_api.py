@@ -1250,6 +1250,8 @@ def _build_phoneme_string(tokens: list[TokenSpan], clean_text: str) -> str:
             # No phonemes - might be punctuation or failed phonemization
             # Check if it's punctuation and include as-is
             if token_is_punct:
+                if _is_quote_punctuation(normalized_token_text):
+                    continue
                 if normalized_token_text.strip():
                     parts.append(normalized_token_text)
                 if whitespace:
@@ -1288,7 +1290,7 @@ def _is_punctuation(text: str) -> bool:
 def _is_quote_punctuation(text: str) -> bool:
     if not text:
         return False
-    return any(ch in {'"', "\u201c", "\u201d"} for ch in text.strip())
+    return any(ch in {'"', "\u201c", "\u201d", "'"} for ch in text.strip())
 
 
 def _is_punctuation_token(token: TokenSpan) -> bool:
