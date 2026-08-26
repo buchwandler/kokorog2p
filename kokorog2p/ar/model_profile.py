@@ -66,8 +66,8 @@ __all__ = [
     "clean_espeak_output",
     "encode_output",
     "strip_espeak_articulation_marks",
-    "strip_tie_bars",
     "strip_grouping_delimiters",
     "strip_internal_syllable_dots",
+    "strip_tie_bars",
     "validate_nabra_symbols",
 ]
