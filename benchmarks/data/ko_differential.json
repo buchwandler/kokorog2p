@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "language": "ko",
+  "cases": [
+    {"id": "school", "category": "tensification", "source": "학교", "expected_jamo": "학꾜"},
+    {"id": "rice", "category": "tensification", "source": "국밥", "expected_jamo": "국빱"},
+    {"id": "palatalization", "category": "palatalization", "source": "굳이", "expected_jamo": "구지"},
+    {"id": "liaison", "category": "liaison", "source": "옷이", "expected_jamo": "오시"},
+    {"id": "nasalization", "category": "liquid-nasalization", "source": "신라", "expected_jamo": "실라"},
+    {"id": "counter-time", "category": "counter-time", "source": "12시 12분", "expected_jamo": "열두시 십이분"}
+  ]
+}

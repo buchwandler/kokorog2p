@@ -127,30 +127,37 @@ JAMO_VOWELS_TO_IPA = {
 }
 
 
-def jamo_to_ipa(text: str) -> str:
-    """Convert Korean jamo characters to IPA phonemes.
+def to_positional_jamo(text: str) -> str:
+    """Convert Hangul syllables to positional Unicode Jamo.
 
-    Args:
-        text: Korean text in jamo form (decomposed or composed).
-
-    Returns:
-        IPA phoneme string.
+    Compatibility Jamo input is retained as-is because it does not encode
+    onset and coda roles. Callers that need unambiguous conversion should
+    pass composed Hangul or positional Jamo.
     """
-    from jamo import j2hcj
+    from jamo import h2j
 
-    # Convert to compatibility jamo if needed
-    jamo_text = j2hcj(text)
+    return h2j(text)
+
+
+
+def jamo_to_ipa(text: str) -> str:
+    """Convert composed or positional Korean Jamo to IPA-like phonemes.
+
+    Positional Jamo is required to distinguish onset and coda consonants.
+    In particular, final ㅇ maps to ``ŋ`` and final stops retain their
+    unreleased-stop symbols.
+    """
+    positional = to_positional_jamo(text)
 
     result = []
-    for char in jamo_text:
+    for char in positional:
         if char in JAMO_CONSONANTS_TO_IPA:
             ipa = JAMO_CONSONANTS_TO_IPA[char]
-            if ipa:  # Skip empty strings (silent ㅇ)
+            if ipa:
                 result.append(ipa)
         elif char in JAMO_VOWELS_TO_IPA:
             result.append(JAMO_VOWELS_TO_IPA[char])
         else:
-            # Keep non-jamo characters (punctuation, spaces, etc.)
             result.append(char)
 
     return "".join(result)

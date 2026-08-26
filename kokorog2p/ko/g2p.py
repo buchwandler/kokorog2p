@@ -9,11 +9,14 @@ Copyright 2025 kokorog2p contributors
 Licensed under the Apache License, Version 2.0
 """
 
+from typing import Literal
+
 from kokorog2p.base import G2PBase
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
 
 from .jamo_to_ipa import jamo_to_ipa
+from .model_profile import KOKORO_V1_VOICE, encode_for_model
 
 
 class KoreanG2P(G2PBase):
@@ -42,9 +45,15 @@ class KoreanG2P(G2PBase):
         spacy_model: str = "ko_core_news_sm",
         load_silver: bool = True,
         load_gold: bool = True,
-        use_dict: bool = True,
+        use_dict: bool | None = None,
+        morphology: Literal["auto", "required", "off"] = "auto",
+        morphology_backend: str = "auto",
+        descriptive: bool = False,
         group_vowels: bool = False,
         to_syl: bool = False,
+        output: Literal["model", "jamo", "ipa"] = "model",
+        model_profile: str = "kokoro-1.0",
+        voice: str = KOKORO_V1_VOICE,
         version: str = "1.0",
         **kwargs,
     ) -> None:
@@ -71,6 +80,28 @@ class KoreanG2P(G2PBase):
                 Defaults to False (returns decomposed jamo).
             **kwargs: Additional arguments.
         """
+        if kwargs:
+            names = ", ".join(sorted(kwargs))
+            raise TypeError(f"Unsupported KoreanG2P options: {names}")
+        if morphology not in ("auto", "required", "off"):
+            raise ValueError("morphology must be 'auto', 'required', or 'off'")
+        if morphology_backend not in ("auto", "python-mecab-ko", "mecab-ko"):
+            raise ValueError(
+                "morphology_backend must be 'auto', 'python-mecab-ko', or 'mecab-ko'"
+            )
+        if output not in ("model", "jamo", "ipa"):
+            raise ValueError("output must be 'model', 'jamo', or 'ipa'")
+        if model_profile != "kokoro-1.0":
+            raise ValueError("Only the 'kokoro-1.0' Korean model profile is supported")
+        if use_dict is False:
+            morphology = "off"
+
+        self.morphology = morphology
+        self.morphology_backend = morphology_backend
+        self.descriptive = descriptive
+        self.output = output
+        self.model_profile = model_profile
+        self.voice = voice
         super().__init__(
             language=language,
             use_espeak_fallback=use_espeak_fallback,
@@ -83,7 +114,7 @@ class KoreanG2P(G2PBase):
         self.spacy_model = spacy_model
         self.load_silver = load_silver
         self.load_gold = load_gold
-        self.use_dict = use_dict
+        self.use_dict = morphology != "off" if use_dict is None else use_dict
         self.group_vowels = group_vowels
         self.to_syl = to_syl
         self._g2pk_instance = None
@@ -94,8 +125,19 @@ class KoreanG2P(G2PBase):
         if self._g2pk_instance is None:
             from .g2pk import G2p
 
-            self._g2pk_instance = G2p()
+            self._g2pk_instance = G2p(
+                morphology=self.morphology, morphology_backend=self.morphology_backend
+            )
         return self._g2pk_instance
+
+    def _convert_output(self, hangul_phonemes: str) -> str:
+        if self.output == "jamo":
+            return hangul_phonemes
+        ipa_phonemes = jamo_to_ipa(hangul_phonemes)
+        if self.output == "ipa":
+            return ipa_phonemes
+        return encode_for_model(ipa_phonemes)
+
 
     def __call__(self, text: str) -> list[GToken]:
         """Convert Korean text to tokens with phonemes.
@@ -112,7 +154,7 @@ class KoreanG2P(G2PBase):
         # Convert to phonemes using g2pK (returns Hangul in phonetic form)
         hangul_phonemes = self.g2pk(
             text,
-            descriptive=False,
+            descriptive=self.descriptive,
             verbose=False,
             group_vowels=self.group_vowels,
             to_syl=self.to_syl,
@@ -120,16 +162,16 @@ class KoreanG2P(G2PBase):
         )
 
         # Convert jamo to IPA phonemes
-        ipa_phonemes = jamo_to_ipa(hangul_phonemes) if hangul_phonemes else None
-
+        # Convert to the requested linguistic or model representation
+        phonemes = self._convert_output(hangul_phonemes) if hangul_phonemes else None
         # Create a single token with the phoneme string
         token = GToken(
             text=text,
             tag="KO",
             whitespace="",
-            phonemes=ipa_phonemes if ipa_phonemes else None,
+            phonemes=phonemes,
         )
-        token.rating = "ko" if ipa_phonemes else None
+        token.rating = "ko" if phonemes else None
         tokens = [token]
         ensure_gtoken_positions(tokens, text)
         return tokens
@@ -150,17 +192,17 @@ class KoreanG2P(G2PBase):
         # Use g2pK to convert the word (returns Hangul in phonetic form)
         hangul_phonemes = self.g2pk(
             word,
-            descriptive=False,
+            descriptive=self.descriptive,
             verbose=False,
             group_vowels=self.group_vowels,
             to_syl=self.to_syl,
             use_dict=self.use_dict,
         )
 
-        # Convert jamo to IPA phonemes
-        ipa_phonemes = jamo_to_ipa(hangul_phonemes) if hangul_phonemes else None
+        # Convert to the requested linguistic or model representation
+        phonemes = self._convert_output(hangul_phonemes) if hangul_phonemes else None
 
-        return ipa_phonemes if ipa_phonemes else None
+        return phonemes if phonemes else None
 
     def _phonemize_internal(self, text: str) -> tuple[str, list[GToken] | None]:
         """Internal phonemization logic.
@@ -174,26 +216,37 @@ class KoreanG2P(G2PBase):
         # Convert to phonemes using g2pK (returns Hangul in phonetic form)
         hangul_phonemes = self.g2pk(
             text,
-            descriptive=False,
+            descriptive=self.descriptive,
             verbose=False,
             group_vowels=self.group_vowels,
             to_syl=self.to_syl,
             use_dict=self.use_dict,
         )
 
-        # Convert jamo to IPA phonemes
-        ipa_phonemes = jamo_to_ipa(hangul_phonemes) if hangul_phonemes else ""
+        # Convert to the requested linguistic or model representation
+        phonemes = self._convert_output(hangul_phonemes) if hangul_phonemes else ""
 
         # Create a token
         token = GToken(
             text=text,
             tag="KO",
             whitespace="",
-            phonemes=ipa_phonemes if ipa_phonemes else None,
+            phonemes=phonemes if phonemes else None,
         )
-        token.rating = "ko" if ipa_phonemes else None
+        token.rating = "ko" if phonemes else None
 
-        return ipa_phonemes, [token] if ipa_phonemes else None
+        return phonemes, [token] if phonemes else None
+
+    @property
+    def capabilities(self) -> dict[str, bool]:
+        """Return Korean options that affect pronunciation."""
+        return {
+            "morphology": self.morphology != "off",
+            "descriptive": True,
+            "spacy": False,
+            "silver_lexicon": False,
+            "espeak_fallback": False,
+        }
 
     def get_target_model(self) -> str:
         """Get the target Kokoro model variant for this G2P instance.

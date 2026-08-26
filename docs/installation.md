@@ -106,6 +106,21 @@ by Japanese G2P.
 
 ### Mixed-Language Detection
 
+## Korean support
+
+For Korean G2P with the Kokoro 82M v1.0 model alphabet:
+
+```bash
+pip install "kokorog2p[ko]"
+```
+
+Korean morphology is optional. Install the upstream-compatible Korean analyzer with:
+
+```bash
+pip install "kokorog2p[ko-mecab]"
+```
+
+The default Korean voice metadata is `jf_alpha`, the Japanese voice requested for Korean synthesis. Pure Hangul does not require CMUdict. Latin input requires the NLTK `cmudict` resource, which is installed separately with `python -m nltk.downloader cmudict`.
 For automatic language detection in mixed-language texts:
 
 ```bash

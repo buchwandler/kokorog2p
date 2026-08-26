@@ -74,7 +74,7 @@ def _uses_spokenform_semantics(lang: str | None) -> bool:
         base = spokenform_base_language(normalized)
     except (TypeError, ValueError):
         base = normalized.split("-", 1)[0]
-    return base in _SPOKENFORM_SEMANTIC_LANGUAGES
+    return base in _SPOKENFORM_SEMANTIC_LANGUAGES or base == "ko"
 
 
 def _get_g2p_lock(g2p: Any) -> threading.RLock:
@@ -344,6 +344,20 @@ def _spokenform_replacements_for_run(
     expand_nums: bool = True,
 ) -> _SpokenformRunResult:
     """Adapt spokenform source replacements into kokorog2p's public type."""
+    normalized_language = (_normalize_lang(language) or "").split("-", 1)[0]
+    if (
+        normalized_language == "ko"
+        and normalized_language not in _SPOKENFORM_SEMANTIC_LANGUAGES
+    ):
+        from kokorog2p.ko.semantic import replacements
+
+        return _SpokenformRunResult(
+            replacements(
+                text,
+                source_offset=source_offset,
+                protected_spans=tuple(protected_spans),
+            )
+        )
 
     from dataclasses import replace
 

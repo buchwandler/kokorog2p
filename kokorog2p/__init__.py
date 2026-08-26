@@ -190,6 +190,19 @@ _FACTORY_KWARGS_BY_LANGUAGE = {
         }
     ),
     "he": frozenset({"preserve_punctuation", "preserve_stress", "some_extra_param"}),
+    "ko": frozenset(
+        {
+            "voice",
+            "morphology",
+            "morphology_backend",
+            "descriptive",
+            "use_dict",
+            "group_vowels",
+            "to_syl",
+            "output",
+            "model_profile",
+        }
+    ),
 }
 
 _SPACY_DEFAULTS_BY_FAMILY = {

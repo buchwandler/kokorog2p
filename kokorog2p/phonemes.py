@@ -58,10 +58,10 @@ FR_VOCAB: Final[frozenset[str]] = frozenset("',-abdefijklmnopstuvwyzøœɑɔəɛ
 # - Special vowels: ø (외), ɛ (애/에), ɯ (으), ɰ (의 onset), ʌ (어)
 # - Consonants: h j k l m n p s t w
 # - Special consonant: ʨ (ㅈ/ㅊ affricate)
-# - Modifiers: ʰ (aspiration), ͈ (tenseness)
-# Note: Character-based like Japanese - each character represents one phoneme
-# Note: Without MeCab, ŋ and ̚ are not produced (simplified phonology)
-KO_VOCAB: Final[frozenset[str]] = frozenset("aehijklmnopstuwøɛɯɰʌʨʰ͈")
+# Korean phoneme vocabulary for the Kokoro 82M v1.0 model profile
+# The linguistic IPA-like form may additionally contain ͈ (tenseness) and ̚
+# (unreleased stops); the model encoder explicitly removes those unsupported markers.
+KO_VOCAB: Final[frozenset[str]] = frozenset("aehijklmnopstuwøɛɯɰʌʨʰŋ")
 
 # Chinese (Mandarin) phoneme vocabulary (59 characters)
 # Uses Zhuyin (Bopomofo) notation, NOT IPA

@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """Comprehensive benchmark comparison for Korean G2P configurations.
 
-This script tests Korean G2P with kokorog2p:
-- Default (g2pK without MeCab)
-- With espeak fallback (optional)
+This script tests the vendored g2pkc-compatible Korean G2P with morphology off
+and morphology auto. It does not use espeak as a Korean configuration.
 
 It measures:
-- Accuracy against ground truth
+- Exact phoneme agreement against the checked-in fixture
 - Processing speed (sentences/second)
-- Phoneme coverage
+- Character coverage
 
 Usage:
     python benchmarks/benchmark_ko_comparison.py
@@ -53,16 +52,14 @@ def load_synthetic_data() -> dict[str, Any]:
     with open(filepath) as f:
         return json.load(f)
 
-
 def create_g2p(config: dict[str, Any]):
-    """Create a Korean G2P instance with the given configuration."""
+    """Create a Korean G2P instance with a meaningful configuration."""
     from kokorog2p.ko import KoreanG2P
 
     return KoreanG2P(
-        use_espeak_fallback=config.get("use_espeak", False),
-        use_dict=config.get("use_dict", True),
+        morphology=config.get("morphology", "auto"),
+        output="model",
     )
-
 
 def benchmark_config(g2p, data: dict[str, Any], config_name: str) -> ConfigBenchmark:
     """Benchmark a single G2P configuration."""
@@ -207,14 +204,13 @@ def main():
     print(f"Loaded {len(data['sentences'])} sentences")
 
     # Define configurations to test
+    # Compare morphology choices. Espeak is not a Korean G2P configuration.
     all_configs = {
         "Korean G2P": {
-            "use_dict": True,
-            "use_espeak": False,
+            "morphology": "off",
         },
-        "Korean G2P + Espeak": {
-            "use_dict": True,
-            "use_espeak": True,
+        "Korean G2P (morphology auto)": {
+            "morphology": "auto",
         },
     }
 

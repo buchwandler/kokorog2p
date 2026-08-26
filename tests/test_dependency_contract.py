@@ -28,3 +28,14 @@ def test_japanese_dependency_extras_are_separated() -> None:
     assert "unidic-lite>=1.0.8" in extras["ja-cutlet"]
     assert "unidic>=1.1.0" in extras["ja-cutlet-full"]
     assert "unidic-lite>=1.0.8" not in extras["ja-cutlet-full"]
+
+
+def test_korean_dependency_extras_use_korean_backends() -> None:
+    data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    extras = data["project"]["optional-dependencies"]
+
+    assert "jamo>=0.4.1" in extras["ko"]
+    assert "nltk>=3.8.1" in extras["ko"]
+    assert "mecab-python3" not in extras["ko"]
+    assert "python-mecab-ko>=1.3.7,<2" in extras["ko-mecab"]
+    assert "mecab-python3" not in extras["ko-mecab"]

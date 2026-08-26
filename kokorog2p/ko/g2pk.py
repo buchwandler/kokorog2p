@@ -2,8 +2,8 @@
 https://github.com/kyubyong/g2pK
 """
 
-import os
 import re
+import warnings
 
 from jamo import h2j
 
@@ -27,9 +27,27 @@ from .special import (
 from .utils import annotate, compose, get_rule_id2text, group, parse_table
 
 
+class _MecabKoAdapter:
+    """Adapt mecab-ko's raw Tagger output to the g2pkc ``pos`` API."""
+
+    def __init__(self, tagger):
+        self.tagger = tagger
+
+    def pos(self, text):
+        tokens = []
+        for line in self.tagger.parse(text).splitlines():
+            if not line or line == "EOS" or "\t" not in line:
+                continue
+            surface, features = line.split("\t", 1)
+            tokens.append((surface, features.split(",", 1)[0]))
+        return tokens
+
+
 class G2p:
-    def __init__(self):
-        self.mecab = self.get_mecab()
+    def __init__(self, morphology: str = "auto", morphology_backend: str = "auto"):
+        self.mecab = self.get_mecab(
+            morphology=morphology, morphology_backend=morphology_backend
+        )
         self.table = parse_table()
         self._cmu = None
 
@@ -61,35 +79,42 @@ class G2p:
                 ) from exc
         return self._cmu
 
-    def get_mecab(self):
-        try:
-            if os.name == "nt":
-                import MeCab
-
-                return MeCab.Tagger()
-            elif os.name == "posix":
-                try:
-                    import mecab
-
-                    return mecab.MeCab()
-                except ImportError:
-                    # Try mecab-python3 as fallback
-                    import mecab_python3 as mecab
-
-                    return mecab.MeCab()
-        except ImportError as e:
-            # MeCab not available - will work without POS tagging
-            import warnings
-
-            warnings.warn(
-                f"MeCab not available: {e}. "
-                "Korean G2P will work but without morphological analysis. "
-                "Install mecab-python3 for better results: pip install mecab-python3",
-                UserWarning,
-                stacklevel=2,
-            )
+    def get_mecab(self, morphology="auto", morphology_backend="auto"):
+        if morphology == "off":
             return None
+        if morphology_backend in ("auto", "python-mecab-ko"):
+            try:
+                from mecab import MeCab
 
+                return MeCab()
+            except ImportError as exc:
+                python_mecab_error = exc
+        else:
+            python_mecab_error = None
+
+        if morphology_backend in ("auto", "mecab-ko"):
+            try:
+                from mecab_ko import Tagger
+
+                return _MecabKoAdapter(Tagger())
+            except ImportError as exc:
+                mecab_ko_error = exc
+        else:
+            mecab_ko_error = None
+
+        if morphology == "required":
+            raise ImportError(
+                "Korean morphology requires python-mecab-ko or mecab-ko. "
+                "Install python-mecab-ko with: python -m pip install python-mecab-ko"
+            ) from (python_mecab_error or mecab_ko_error)
+
+        warnings.warn(
+            "Korean morphology is unavailable; using morphology-free G2P. "
+            "Install python-mecab-ko for Korean POS tagging.",
+            UserWarning,
+            stacklevel=2,
+        )
+        return None
     def idioms(self, string, descriptive=False, verbose=False):
         """Process idioms from IDIOMS list.
         Each tuple in IDIOMS contains (pattern, replacement).
@@ -149,7 +174,8 @@ class G2p:
         string = self.idioms(string, descriptive, verbose)
 
         # 2 English to Hangul
-        string = convert_eng(string, self.cmu)
+        if re.search(r"[A-Za-z]", string):
+            string = convert_eng(string, self.cmu)
 
         # 3. annotate
         if use_dict and self.mecab is not None:
