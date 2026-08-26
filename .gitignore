@@ -209,3 +209,9 @@ kokorog2p/_version.py
 benchmarks/ipa-childes-split/
 TASKS.md
 context_kokorog2p.*
+
+# External Swedish rule-development corpus
+benchmarks/data/sv/lexicon.tsv
+
+# Generated Swedish rule benchmark results
+benchmarks/results/sv/

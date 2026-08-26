@@ -895,3 +895,13 @@ This provides basic support for 100+ languages via espeak-ng.
 Arabic support is native and Nabra-compatible for Modern Standard Arabic (MSA). It uses
 raw Arabic eSpeak IPA and optionally uses CAMeL MLE diacritization for unvocalized text.
 Dialects are not supported by this frontend. See {doc}`api/arabic`.
+
+## Swedish (sv-se)
+
+Swedish uses a native deterministic rule-based grapheme-to-phoneme frontend. It has no
+runtime pronunciation lexicon and does not download a model. The external NST-derived
+TSV is accepted only by `benchmarks/benchmark_sv_rules.py` for development benchmarking.
+
+Aliases are `sv`, `sv-se`, `swe`, and `swedish`. Swedish number, date, unit,
+abbreviation, and spoken semantic normalization remain outside this frontend. See
+{doc}`api/swedish`.

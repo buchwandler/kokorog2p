@@ -24,6 +24,7 @@ def strip_tie_bars(text: str) -> str:
     """Remove combining tie bars from eSpeak affricates."""
     return "".join(char for char in text if char not in _TIE_BARS)
 
+
 def strip_internal_syllable_dots(text: str) -> str:
     """Remove dots between adjacent phoneme characters, preserving final dots."""
     return _INTERNAL_DOT_RE.sub("", text)

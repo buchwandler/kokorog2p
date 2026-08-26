@@ -164,6 +164,10 @@ _LANGUAGE_ALIASES = {
     "ar-msa": "ar",
     "msa": "ar",
     "ar-sa": "ar",
+    "sv": "sv-se",
+    "sv-se": "sv-se",
+    "swe": "sv-se",
+    "swedish": "sv-se",
 }
 
 _FACTORY_KWARGS_BY_LANGUAGE = {
@@ -222,6 +226,7 @@ _FACTORY_KWARGS_BY_LANGUAGE = {
             "model_profile",
         }
     ),
+    "sv": frozenset({"dialect", "preserve_stress"}),
 }
 
 _SPACY_DEFAULTS_BY_FAMILY = {
@@ -355,7 +360,7 @@ def _stable_repr(value: Any) -> object:
 
 def get_g2p(  # noqa: C901
     language: str = "en-us",
-    use_espeak_fallback: bool = True,
+    use_espeak_fallback: bool | None = None,
     use_goruut_fallback: bool = False,
     use_cli: bool = False,
     use_spacy: bool | None = None,
@@ -450,6 +455,8 @@ def get_g2p(  # noqa: C901
     # behaviorally equivalent do not create duplicate instances or voices.
     requested_language = language.lower().replace("_", "-")
     lang = _canonical_language(language)
+    if use_espeak_fallback is None:
+        use_espeak_fallback = lang != "sv-se"
     # Validate version parameter
     if version not in ("1.0", "1.1"):
         raise ValueError(
@@ -655,6 +662,18 @@ def get_g2p(  # noqa: C901
 
         g2p = VietnameseG2P(
             language="vi-vn",
+            use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
+            use_cli=use_cli,
+            strict=strict,
+            version=version,
+            **kwargs,
+        )
+    elif lang == "sv-se":
+        from kokorog2p.sv import SwedishG2P
+
+        g2p = SwedishG2P(
+            language=implementation_language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
             use_cli=use_cli,

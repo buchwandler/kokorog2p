@@ -11,9 +11,11 @@ kokorog2p converts text to phonemes optimized for the Kokoro text-to-speech syst
 provides:
 
 - **Multi-language support**: English (US/GB), German, French, Italian, Spanish,
-  Portuguese (Brazilian), Czech, Chinese, Japanese, Korean, Hebrew, Vietnamese
+  Portuguese (Brazilian), Czech, Chinese, Japanese, Korean, Hebrew, Vietnamese, Swedish
 - **Native Vietnamese frontend**: Pure-Python Northern/Hanoi `vi-vn` profile with six
   named tones
+- **Native Swedish frontend**: Pure-Python deterministic rules with no runtime lexicon;
+  external TSV benchmarking is development-only
 - **Mixed-language preprocessing**: Detect languages for per-word language switching
 - **Dictionary-based lookup** with comprehensive lexicons
   - English: 179k+ entries (gold tier), 187k+ silver tier (both loaded by default)
@@ -143,6 +145,14 @@ print(phonemes)
 # Hebrew (requires phonikud package)
 phonemes = phonemize("שָׁלוֹם", language="he").phonemes
 print(phonemes)
+```
+
+- **Swedish** (native deterministic rules)
+
+```python
+from kokorog2p import get_g2p
+g2p_sv = get_g2p("sv")
+print(g2p_sv("Hej världen!"))
 ```
 
 ## Advanced Usage
@@ -506,6 +516,7 @@ print(result.phonemes)
 | Japanese     | `ja`    | pyopenjtalk                       | -              | IPA      | Production |
 | Korean       | `ko`    | g2pK rule-based                   | ✓              | IPA      | Production |
 | Vietnamese   | `vi-vn` | Native rule-based Northern/Hanoi  | -              | IPA-like | Production |
+| Swedish      | `sv-se` | Native rule-based                 | -              | IPA      | Production |
 | Hebrew       | `he`    | phonikud-based (requires nikud)   | -              | IPA      | Production |
 
 **Note:** Both gold and silver dictionaries are loaded by default for English. You can:
