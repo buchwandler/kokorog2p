@@ -163,14 +163,15 @@ class TestDashNormalization:
         assert "-" in result or "—" in result
 
 
+
+@pytest.fixture(scope="module")
+def g2p(english_g2p_with_spacy):
+    """Share the explicit small-model G2P across normalization tests."""
+    return english_g2p_with_spacy
+@pytest.mark.spacy
 class TestEnglishG2PNormalization:
     """Test that English G2P correctly normalizes during tokenization."""
 
-    @pytest.fixture
-    def g2p(self):
-        from kokorog2p.en import EnglishG2P
-
-        return EnglishG2P(language="en-us", use_spacy=True)
 
     # Apostrophes
     def test_g2p_apostrophe_right_quote(self, g2p):
@@ -243,6 +244,7 @@ class TestEnglishG2PNormalization:
         assert "nˈOn" in phonemes
 
 
+@pytest.mark.spacy
 class TestComplexNormalization:
     """Test complex cases with multiple normalizations."""
 
@@ -252,11 +254,6 @@ class TestComplexNormalization:
 
         return Punctuation()
 
-    @pytest.fixture
-    def g2p(self):
-        from kokorog2p.en import EnglishG2P
-
-        return EnglishG2P(language="en-us", use_spacy=True)
 
     def test_normalize_quotes_contractions_ellipsis(self, punct):
         """Complex text with quotes, contractions, and ellipsis."""
@@ -299,12 +296,12 @@ class TestComplexNormalization:
         assert "…" in result
 
 
+@pytest.mark.spacy
 class TestNormalizationConsistency:
     """Ensure punctuation.py and en/g2p.py normalize consistently."""
 
-    def test_punctuation_vs_g2p_apostrophes(self):
+    def test_punctuation_vs_g2p_apostrophes(self, english_g2p_with_spacy):
         """Both modules should normalize apostrophes the same way."""
-        from kokorog2p.en import EnglishG2P
         from kokorog2p.punctuation import normalize_punctuation
 
         test_text = "don't you're we've"
@@ -313,7 +310,7 @@ class TestNormalizationConsistency:
         punct_result = normalize_punctuation(test_text)
 
         # G2P normalizes during tokenization
-        g2p = EnglishG2P(language="en-us", use_spacy=True)
+        g2p = english_g2p_with_spacy
         tokens = g2p(test_text)
         g2p_text = " ".join(t.text for t in tokens)
 

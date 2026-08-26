@@ -213,25 +213,29 @@ class TestRegexTokenizer:
         assert "don't" in [t.text for t in contractions]
 
 
+
+@pytest.fixture(scope="module")
+def spacy_nlp():
+    """Load the small spaCy model once for tokenizer tests."""
+    try:
+        import spacy
+
+        return spacy.load("en_core_web_sm")
+    except (ImportError, OSError):
+        pytest.skip("spaCy not available or model not installed")
+
+
+@pytest.fixture(scope="module")
+def tokenizer(spacy_nlp):
+    """Create the spaCy tokenizer once for tokenizer tests."""
+    return SpacyTokenizer(
+        nlp=spacy_nlp, track_positions=True, use_bracket_matching=True
+    )
+@pytest.mark.spacy
 class TestSpacyTokenizer:
     """Test suite for SpacyTokenizer."""
 
-    @pytest.fixture
-    def spacy_nlp(self):
-        """Load spaCy model if available."""
-        try:
-            import spacy
 
-            return spacy.load("en_core_web_sm")
-        except (ImportError, OSError):
-            pytest.skip("spaCy not available or model not installed")
-
-    @pytest.fixture
-    def tokenizer(self, spacy_nlp):
-        """Create a spaCy tokenizer instance."""
-        return SpacyTokenizer(
-            nlp=spacy_nlp, track_positions=True, use_bracket_matching=True
-        )
 
     def test_simple_sentence_with_pos(self, tokenizer):
         """Test that POS tags are assigned."""

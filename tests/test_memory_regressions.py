@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from tools import run_test_suite
+
 
 def test_pipeline_test_module_does_not_import_spacy() -> None:
     """Collection helpers must not import the heavyweight spaCy package."""
@@ -137,3 +139,41 @@ print(baseline, one, six)
     baseline, one, six = (int(value) for value in result.stdout.split())
     one_delta = max(one - baseline, 1)
     assert six - baseline <= 2.5 * one_delta
+
+
+def test_full_suite_discovers_each_test_module_once(tmp_path: Path) -> None:
+    """The isolated runner enumerates every test module exactly once."""
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    for name in ("test_z.py", "test_a.py", "test_a.txt", "helper.py"):
+        (tests_dir / name).touch()
+
+    discovered = run_test_suite.discover_test_files(tmp_path)
+
+    assert [path.name for path in discovered] == ["test_a.py", "test_z.py"]
+
+
+def test_full_suite_runs_modules_sequentially(monkeypatch, tmp_path: Path) -> None:
+    """The default runner starts the next module only after the prior exits."""
+    test_files = [tmp_path / "tests" / "test_a.py", tmp_path / "tests" / "test_b.py"]
+    calls: list[list[str]] = []
+    active = 0
+    maximum_active = 0
+
+    def fake_run(command: list[str], **kwargs: object) -> object:
+        nonlocal active, maximum_active
+        active += 1
+        maximum_active = max(maximum_active, active)
+        calls.append(command)
+        active -= 1
+        return type("Result", (), {"returncode": 0})()
+
+    monkeypatch.setattr(run_test_suite.subprocess, "run", fake_run)
+
+    assert run_test_suite.run_test_files(test_files, ["-q"], root=tmp_path) == 0
+    assert maximum_active == 1
+    assert [command[-1] for command in calls] == [
+        "tests/test_a.py",
+        "tests/test_b.py",
+    ]
+    assert all("-n" not in command for command in calls)

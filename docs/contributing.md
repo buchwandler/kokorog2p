@@ -31,43 +31,58 @@ We welcome contributions to kokorog2p! This guide will help you get started.
    ```
 
 ## Running Tests
-
-Run all tests:
+Run the complete suite with one fresh Python process per test module:
 
 ```bash
-pytest tests/
+python tools/run_test_suite.py
 ```
 
-Run specific test file:
+The isolated runner discovers every `tests/test_*.py` file in sorted order and runs
+the modules sequentially. It is the canonical full-suite command on developer machines
+and in exhaustive CI. Use `--list` to inspect coverage, `--fail-fast` to stop after the
+first failing module, `--start-at tests/test_en_g2p.py` to resume from a module, and
+`--match "en|normalization"` to select matching modules. Pass pytest options with
+`--pytest-arg=-vv` or additional arguments after the runner options.
+
+Run targeted selections with plain pytest when process isolation is not needed:
 
 ```bash
-pytest tests/test_en_g2p.py
+python -m pytest -q tests/test_en_g2p.py
+python -m pytest -m "not spacy"
+python -m pytest -q tests/test_attr_parser.py tests/test_base.py
 ```
 
-Run with coverage:
+Coverage aggregation across isolated subprocesses is intentionally separate from the
+first version of the runner. Use the existing single-process command when generating
+a local coverage report:
 
 ```bash
-pytest tests/ --cov=kokorog2p --cov-report=html
+python -m pytest tests/ --cov=kokorog2p --cov-report=html
 ```
 
 ### Running on memory-constrained machines
 
-The English and German dictionaries are large, and optional spaCy models add substantial
-native memory. Prefer sequential pytest processes for independent language groups
-instead of `pytest-xdist`; each xdist worker loads another interpreter and may load
-another dictionary or model.
+The English and German dictionaries, optional spaCy models, and native backends can
+use substantial memory. Do not use `pytest-xdist` as the RAM fix. Concurrent workers
+can each load another interpreter, dictionary, or model. The isolated full-suite runner
+uses process exit as the hard memory boundary and keeps only one test module active.
+
+Focused peak RSS diagnostics can be run with the separate measurement tool:
 
 ```bash
-python -m pytest -q tests/test_attr_parser.py tests/test_base.py tests/test_pipeline_api.py
-python -m pytest -q tests/test_en_*.py tests/test_quote_*.py
-python -m pytest -q tests/test_de_g2p.py
+python tools/run_pytest_with_memory.py -q tests/test_en_g2p.py
+python tools/run_pytest_with_memory.py -q tests/test_normalization.py
+python tools/run_pytest_with_memory.py -q tests/test_tokenizer.py
+python tools/run_pytest_with_memory.py -q tests/test_ko_g2p.py
+python tools/run_pytest_with_memory.py --max-rss-mb 1500 -q tests/test_en_g2p.py
 ```
 
-Peak RSS can be observed with `python tools/run_pytest_with_memory.py -q`. For a clean
-collection comparison, set `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`. A bare `Killed` message
-or exit status 137 can indicate an operating-system OOM kill; on Linux, inspect `dmesg`
-or `journalctl -k` after the run and check any container or cgroup memory limit.
-
+The `spacy` marker identifies tests that load real spaCy resources. Use `pytest -m spacy`
+or `pytest -m "not spacy"` to compare resource-heavy and lightweight selections.
+For collection comparisons, set `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`; do not disable plugin
+autoload unconditionally in the canonical suite because explicitly used plugins may be
+needed. A bare `Killed` message or exit status 137 can indicate an operating-system OOM
+kill; on Linux, inspect `dmesg` or `journalctl -k` and check container or cgroup limits.
 ## Code Quality
 
 Format code:

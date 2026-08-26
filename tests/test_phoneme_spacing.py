@@ -13,13 +13,14 @@ from kokorog2p import phonemize
 from kokorog2p.en.g2p import EnglishG2P
 
 
+@pytest.fixture(scope="module")
+def g2p():
+    """Create one shared English G2P instance for spacing tests."""
+    return EnglishG2P(use_espeak_fallback=True, use_spacy=False)
+
 class TestPhonemeSpacing:
     """Test that phoneme output has correct spacing."""
 
-    @pytest.fixture
-    def g2p(self):
-        """Create G2P instance for testing."""
-        return EnglishG2P(use_espeak_fallback=True, use_spacy=False)
 
     @pytest.fixture(params=["english_g2p", "pipeline"])
     def phonemizer(self, request, g2p):

@@ -8,18 +8,27 @@ from kokorog2p.spacy_models import SpacyModelResolution, SpacyModelSize
 from kokorog2p.token import GToken
 
 
+@pytest.fixture(scope="module")
+def g2p():
+    """Create one shared German G2P instance for mutation-free tests."""
+    return GermanG2P()
+
+
+@pytest.fixture(scope="module")
+def g2p_no_lexicon():
+    """Create one shared German G2P instance without lexicon."""
+    return GermanG2P(use_lexicon=False, use_espeak_fallback=False)
+
+
+@pytest.fixture(scope="module")
+def lexicon():
+    """Create one shared German lexicon for lookup tests."""
+    return GermanLexicon()
+
 class TestGermanG2P:
     """Tests for GermanG2P."""
 
-    @pytest.fixture
-    def g2p(self):
-        """Create a German G2P instance."""
-        return GermanG2P()
 
-    @pytest.fixture
-    def g2p_no_lexicon(self):
-        """Create a German G2P instance without lexicon."""
-        return GermanG2P(use_lexicon=False, use_espeak_fallback=False)
 
     def test_creation(self, g2p):
         """Test G2P creation."""
@@ -190,10 +199,6 @@ class TestGermanG2P:
 class TestGermanLexicon:
     """Tests for GermanLexicon."""
 
-    @pytest.fixture
-    def lexicon(self):
-        """Create a German lexicon instance."""
-        return GermanLexicon()
 
     def test_creation(self, lexicon):
         """Test lexicon creation."""

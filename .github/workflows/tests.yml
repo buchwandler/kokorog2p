@@ -1,183 +1,191 @@
 name: Run tests
+
 on:
   push:
   schedule:
     - cron: "17 3 * * 6"
   workflow_dispatch:
+
 jobs:
-  run:
+  compatibility-smoke:
+    name: Smoke (${{ matrix.os }}, Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-        test-group: [core, english, german, romance, asian, backends]
+        include:
+          - {os: ubuntu-latest, python-version: "3.10"}
+          - {os: ubuntu-latest, python-version: "3.11"}
+          - {os: ubuntu-latest, python-version: "3.12"}
+          - {os: ubuntu-latest, python-version: "3.13"}
+          - {os: ubuntu-latest, python-version: "3.14"}
+          - {os: windows-latest, python-version: "3.13"}
+          - {os: macos-latest, python-version: "3.13"}
     steps:
-    - uses: actions/checkout@master
-    - name: Setup Python
-      uses: actions/setup-python@master
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install espeak-ng (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        sudo apt-get update -o Acquire::Retries=3
-        sudo apt-get install -y espeak-ng
-    - name: Install espeak-ng (macOS)
-      if: matrix.os == 'macos-latest'
-      run: |
-        brew install espeak-ng
-    - name: Install espeak-ng (Windows)
-      if: matrix.os == 'windows-latest'
-      run: |
-        choco install espeak-ng --version=1.52.0 --yes --no-progress --retry-count=5 --retry-wait=10
-    - name: Install packages
-      shell: bash
-      run: |
-        python -m pip install -e ".[all,dev]"
-        python -m nltk.downloader cmudict
-        if [ "${{ matrix.test-group }}" = "core" ] || [ "${{ matrix.test-group }}" = "english" ]; then
-          python -m spacy download en_core_web_md
-          python -m spacy download en_core_web_sm
-        fi
-    - name: Run test group
-      shell: bash
-      run: |
-        case "${{ matrix.test-group }}" in
-          core)
-            python -m pytest -q \
-              tests/test_attr_parser.py \
-              tests/test_base.py \
-              tests/test_pipeline_api.py \
-              tests/test_public_api_consistency.py \
-              tests/test_dependency_contract.py \
-              tests/test_spokenform_migration.py \
-              tests/test_abbr2words_source_of_truth.py
-            ;;
-          english)
-            python -m pytest -q -m "not spacy" tests/test_en_*.py tests/test_quote_*.py tests/test_contraction_detection.py tests/test_guarded_abbreviation_merging.py
-            ;;
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install smoke-test dependencies
+        shell: bash
+        run: python -m pip install -e ".[dev]"
+      - name: Run compatibility smoke tests
+        shell: bash
+        run: |
+          python -m pytest -q \
+            tests/test_attr_parser.py \
+            tests/test_base.py \
+            tests/test_dependency_contract.py \
+            tests/test_markers.py \
+            tests/test_pipeline_api.py \
+            tests/test_public_api_consistency.py
 
-          german)
-            python -m pytest -q tests/test_de_g2p.py
-            ;;
-          romance)
-            python -m pytest -q tests/test_fr_g2p.py tests/test_es_g2p.py tests/test_it_g2p.py tests/test_pt_g2p.py
-            ;;
-          asian)
-            python -m pytest -q tests/test_ko_g2p.py tests/test_he_g2p.py tests/test_ja_g2p.py tests/test_multilang.py
-            ;;
-          backends)
-            python -m pytest -q tests/test_espeak_*.py tests/test_goruut_backend.py
-            ;;
-          *)
-            echo "Unknown test group: ${{ matrix.test-group }}" >&2
-            exit 2
-            ;;
-        esac
+  full-suite:
+    name: Exhaustive isolated suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y espeak-ng
+      - name: Install all test dependencies
+        run: |
+          python -m pip install -e ".[all,dev]"
+          python -m nltk.downloader cmudict
+          python -m spacy download en_core_web_sm
+      - name: Assert the isolated runner covers every test module
+        run: python -m pytest -q tests/test_memory_regressions.py
+      - name: Run every test module in a fresh subprocess
+        run: python tools/run_test_suite.py --pytest-arg=-q
+
   lower-bound:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@master
-    - name: Setup Python
-      uses: actions/setup-python@master
-      with:
-        python-version: "3.13"
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update -o Acquire::Retries=3
-        sudo apt-get install -y espeak-ng
-    - name: Install exact dependency floor
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install \
-          "abbr2words==0.2.9" \
-          "spokenform==0.3.1"
-        python -m pip install -e ".[all,dev]"
-        python -m spacy download en_core_web_md
-        python -m spacy download en_core_web_sm
-        python -m nltk.downloader cmudict
-    - name: Run lower-bound migration tests
-      run: |
-        python -m pytest -q \
-          tests/test_dependency_contract.py \
-          tests/test_spokenform_migration.py
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install exact dependency floor
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            "abbr2words==0.2.9" \
+            "spokenform==0.3.1"
+          python -m pip install -e ".[dev]"
+      - name: Run lower-bound migration tests
+        run: |
+          python -m pytest -q \
+            tests/test_dependency_contract.py \
+            tests/test_spokenform_migration.py
+
   integration:
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@master
-    - name: Setup Python
-      uses: actions/setup-python@master
-      with:
-        python-version: "3.13"
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update -o Acquire::Retries=3
-        sudo apt-get install -y espeak-ng
-    - name: Install packages and models
-      run: |
-        python -m pip install -e ".[all,dev]"
-        python -m spacy download en_core_web_md
-        python -m spacy download en_core_web_sm
-        python -m nltk.downloader cmudict
-    - name: Run full integration suite with RSS reporting
-      run: python tools/run_pytest_with_memory.py -q
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y espeak-ng
+      - name: Install packages and routine model
+        run: |
+          python -m pip install -e ".[all,dev]"
+          python -m spacy download en_core_web_sm
+          python -m nltk.downloader cmudict
+      - name: Run isolated integration suite
+        run: python tools/run_test_suite.py --pytest-arg=-q
+
+  model-compatibility:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install English model-test dependencies
+        run: python -m pip install -e ".[en,dev]"
+      - name: Download supported English models
+        run: |
+          python -m spacy download en_core_web_sm
+          python -m spacy download en_core_web_md
+      - name: Run narrow medium-model compatibility checks
+        run: |
+          python -m pytest -q -m spacy \
+            tests/test_en_g2p.py \
+            tests/test_normalization.py \
+            tests/test_tokenizer.py
+
   minimal-install:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@master
-    - name: Setup Python
-      uses: actions/setup-python@master
-      with:
-        python-version: "3.13"
-    - name: Install core package only
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install -e .
-        python -m pip install pytest
-    - name: Run no-model smoke tests
-      run: python -m pytest -q tests/test_minimal_install.py tests/test_span_processing.py
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install core package only
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install pytest
+      - name: Run no-model smoke tests
+        run: python -m pytest -q tests/test_minimal_install.py tests/test_span_processing.py
+
   cross-package:
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@master
-    - name: Setup Python
-      uses: actions/setup-python@master
-      with:
-        python-version: "3.13"
-    - name: Install optional compatibility packages
-      run: |
-        python -m pip install -e .
-        python -m pip install pytest phrasplit==0.3.4 ssmd==0.8.0
-    - name: Run cross-package compatibility tests
-      run: python -m pytest -q tests/test_ssmd_phrasplit_integration.py
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install optional compatibility packages
+        run: |
+          python -m pip install -e .
+          python -m pip install pytest phrasplit==0.3.4 ssmd==0.8.0
+      - name: Run cross-package compatibility tests
+        run: python -m pytest -q tests/test_ssmd_phrasplit_integration.py
+
   japanese-cutlet:
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@master
-    - name: Setup Python
-      uses: actions/setup-python@master
-      with:
-        python-version: "3.13"
-    - name: Install Cutlet backend
-      run: python -m pip install -e ".[ja-cutlet,dev]"
-    - name: Run Japanese Cutlet smoke tests
-      run: python -m pytest -q tests/test_ja_g2p.py -k cutlet
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install Cutlet backend
+        run: python -m pip install -e ".[ja-cutlet,dev]"
+      - name: Run Japanese Cutlet smoke tests
+        run: python -m pytest -q tests/test_ja_g2p.py -k cutlet
+
   japanese-cutlet-full-unidic:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@master
-    - name: Setup Python
-      uses: actions/setup-python@master
-      with:
-        python-version: "3.13"
-    - name: Install full-UniDic backend
-      run: python -m pip install -e ".[ja-cutlet-full,dev]"
-    - name: Download UniDic
-      run: python -m unidic download
-    - name: Run Japanese Cutlet smoke tests
-      run: python -m pytest -q tests/test_ja_g2p.py -k cutlet
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install full-UniDic backend
+        run: python -m pip install -e ".[ja-cutlet-full,dev]"
+      - name: Download UniDic
+        run: python -m unidic download
+      - name: Run Japanese Cutlet smoke tests
+        run: python -m pytest -q tests/test_ja_g2p.py -k cutlet

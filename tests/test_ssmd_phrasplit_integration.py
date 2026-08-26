@@ -161,7 +161,8 @@ def test_installed_phrasplit_and_ssmd_pipeline_uses_clean_text_coordinates():
     import phrasplit
     import ssmd
 
-    assert version("phrasplit") == "0.3.4"
+    phrasplit_version = tuple(int(part) for part in version("phrasplit").split(".")[:3])
+    assert phrasplit_version >= (0, 3, 4)
     try:
         ssmd_version = version("ssmd")
     except PackageNotFoundError:

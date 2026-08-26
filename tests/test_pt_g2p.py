@@ -6,6 +6,22 @@ from kokorog2p.phonemes import PT_BR_VOCAB
 from kokorog2p.pt import PortugueseG2P
 
 
+@pytest.fixture(scope="module")
+def g2p():
+    """Create one shared Portuguese G2P instance for mutation-free tests."""
+    return PortugueseG2P(mark_stress=True, affricate_ti_di=True)
+
+
+@pytest.fixture(scope="module")
+def g2p_no_stress():
+    """Create one shared Portuguese G2P instance without stress markers."""
+    return PortugueseG2P(mark_stress=False, affricate_ti_di=True)
+
+
+@pytest.fixture(scope="module")
+def g2p_no_affricate():
+    """Create one shared Portuguese G2P instance without affrication."""
+    return PortugueseG2P(mark_stress=True, affricate_ti_di=False)
 class TestPortugueseG2P:
     """Test Brazilian Portuguese G2P conversion."""
 
@@ -35,20 +51,6 @@ class TestPortugueseG2P:
         assert g2p.dialect == expected_dialect
         assert g2p._normalizer("16") == expected_number
 
-    @pytest.fixture
-    def g2p(self):
-        """Create a Portuguese G2P instance."""
-        return PortugueseG2P(mark_stress=True, affricate_ti_di=True)
-
-    @pytest.fixture
-    def g2p_no_stress(self):
-        """Create a Portuguese G2P instance without stress markers."""
-        return PortugueseG2P(mark_stress=False, affricate_ti_di=True)
-
-    @pytest.fixture
-    def g2p_no_affricate(self):
-        """Create a Portuguese G2P instance without affrication."""
-        return PortugueseG2P(mark_stress=True, affricate_ti_di=False)
 
     def test_basic_words(self, g2p):
         """Test basic Portuguese words."""

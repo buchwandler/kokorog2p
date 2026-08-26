@@ -6,13 +6,14 @@ from kokorog2p.cs import CzechG2P
 from kokorog2p.token import GToken
 
 
+@pytest.fixture(scope="module")
+def g2p():
+    """Create one shared Czech G2P instance for mutation-free tests."""
+    return CzechG2P()
+
 class TestCzechG2P:
     """Tests for CzechG2P."""
 
-    @pytest.fixture
-    def g2p(self):
-        """Create a Czech G2P instance."""
-        return CzechG2P()
 
     def test_creation(self, g2p):
         """Test G2P creation."""

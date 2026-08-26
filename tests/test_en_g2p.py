@@ -24,6 +24,12 @@ def phoneme_backend(request: pytest.FixtureRequest) -> Literal["g2p", "pipeline"
     return request.param
 
 
+@pytest.fixture(scope="module")
+def g2p_spacy(english_g2p_with_spacy):
+    """Share one explicit small spaCy G2P across English integration tests."""
+    return english_g2p_with_spacy
+
+
 class TestEnglishG2PNoFallback:
     """Tests for EnglishG2P without espeak fallback."""
 
@@ -141,6 +147,11 @@ class TestEnglishG2PWithEspeak:
 @pytest.mark.spacy
 class TestEnglishG2PWithSpacy:
     """Tests for EnglishG2P with spaCy."""
+
+    @pytest.fixture
+    def english_g2p_with_spacy(self, english_g2p_with_medium_spacy):
+        """Use the medium model for POS-sensitive compatibility assertions."""
+        return english_g2p_with_medium_spacy
 
     def test_creation_with_spacy(self, english_g2p_with_spacy):
         """Test G2P creation with spaCy."""
@@ -563,13 +574,6 @@ class TestMainAPI:
 class TestEnNormalization:
     """Comprehensive tests for normalization handling with spaCy."""
 
-    @pytest.fixture(scope="class")
-    def g2p_spacy(self):
-        """Create an EnglishG2P instance with spaCy enabled."""
-        pytest.importorskip("en_core_web_md")
-        from kokorog2p.en import EnglishG2P
-
-        return EnglishG2P(language="en-us", use_spacy=True, use_espeak_fallback=False)
 
     def test_en_ellipses(self, g2p_spacy):
         """Test 'don't' is phonemized as a single word, not 'do' + 'n't'."""
@@ -594,14 +598,6 @@ class TestContractionMerging:
     This addresses the issue where contractions were being incorrectly phonemized
     as separate words instead of using their dictionary entries.
     """
-
-    @pytest.fixture(scope="class")
-    def g2p_spacy(self):
-        """Create an EnglishG2P instance with spaCy enabled."""
-        pytest.importorskip("en_core_web_md")
-        from kokorog2p.en import EnglishG2P
-
-        return EnglishG2P(language="en-us", use_spacy=True, use_espeak_fallback=False)
 
     def test_dont_contraction(self, g2p_spacy):
         """Test 'don't' is phonemized as a single word, not 'do' + 'n't'."""
@@ -795,13 +791,6 @@ class TestDoubleContractions:
     where spaCy splits them into 3+ tokens (e.g., "I'd've" -> "I" + "'d" + "'ve").
     """
 
-    @pytest.fixture(scope="class")
-    def g2p_spacy(self):
-        """Create an EnglishG2P instance with spaCy enabled."""
-        pytest.importorskip("en_core_web_md")
-        from kokorog2p.en import EnglishG2P
-
-        return EnglishG2P(language="en-us", use_spacy=True, use_espeak_fallback=False)
 
     def test_couldve_tokenization(self, g2p_spacy):
         """Test 'could've' is treated as a single token."""
@@ -966,12 +955,6 @@ class TestContractionRobustness:
     prevents spaCy from splitting them incorrectly.
     """
 
-    @pytest.fixture
-    def g2p_spacy(self):
-        """Create an EnglishG2P instance with spaCy enabled."""
-        from kokorog2p.en import EnglishG2P
-
-        return EnglishG2P(language="en-us", use_spacy=True)
 
     def test_dont_with_straight_apostrophe(self, g2p_spacy, phoneme_backend):
         """Test 'don't' with straight apostrophe (U+0027)."""

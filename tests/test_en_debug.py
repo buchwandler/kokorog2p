@@ -14,10 +14,6 @@ class TestDebugMode:
         """Create an EnglishG2P instance."""
         return EnglishG2P(use_spacy=False, use_espeak_fallback=True)
 
-    @pytest.fixture
-    def g2p_spacy(self):
-        """Create an EnglishG2P instance with spaCy."""
-        return EnglishG2P(use_spacy=True, use_espeak_fallback=True)
 
     def test_process_with_debug_returns_processed_text(self, g2p):
         """Test that process_with_debug returns a ProcessedText object."""
@@ -130,9 +126,10 @@ class TestDebugMode:
         # Check that at least one quote has a depth > 0
         assert any(tok.quote_depth > 0 for tok in quote_tokens)
 
-    def test_spacy_pos_tagging_in_debug(self, g2p_spacy):
+    @pytest.mark.spacy
+    def test_spacy_pos_tagging_in_debug(self, english_g2p_with_spacy):
         """Test that POS tags are tracked when using spaCy."""
-        result = g2p_spacy.process_with_debug("hello world")
+        result = english_g2p_with_spacy.process_with_debug("hello world")
 
         # Check that POS tags are present
         assert result.tokens[0].pos_tag is not None

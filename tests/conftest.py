@@ -26,9 +26,8 @@ def _reset_process_state() -> object:
     """Bound global G2P and abbreviation state to one test module."""
     yield
 
-    from kokorog2p import clear_cache, reset_abbreviations
+    from kokorog2p import reset_abbreviations
 
-    clear_cache(deep=True)
     reset_abbreviations()
     gc.collect()
 
@@ -132,6 +131,20 @@ def english_g2p_with_espeak():
 @pytest.fixture(scope="module")
 def english_g2p_with_spacy():
     """Create an EnglishG2P with spaCy."""
+    _require_spacy_model("en_core_web_sm")
+    from kokorog2p.en import EnglishG2P
+
+    return EnglishG2P(
+        language="en-us",
+        use_espeak_fallback=False,
+        use_spacy=True,
+        spacy_model="en_core_web_sm",
+    )
+
+
+@pytest.fixture(scope="module")
+def english_g2p_with_medium_spacy():
+    """Create the medium-model G2P for model compatibility behavior tests."""
     _require_spacy_model("en_core_web_md")
     from kokorog2p.en import EnglishG2P
 
@@ -142,18 +155,18 @@ def english_g2p_with_spacy():
         spacy_model="en_core_web_md",
     )
 
-
 @pytest.fixture(scope="module")
 def english_g2p_full():
     """Create a fully-featured EnglishG2P."""
     pytest.importorskip("espeakng_loader")
-    _require_spacy_model("en_core_web_md")
+    _require_spacy_model("en_core_web_sm")
     from kokorog2p.en import EnglishG2P
 
     return EnglishG2P(
         language="en-us",
         use_espeak_fallback=True,
         use_spacy=True,
+        spacy_model="en_core_web_sm",
     )
 
 
