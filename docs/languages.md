@@ -588,6 +588,26 @@ markers. Use `output="jamo"` to inspect the g2pkc intermediate form. The model o
 explicitly maps markers absent from Kokoro 82M v1.0 and rejects other unsupported
 symbols.
 
+## Vietnamese (vi-vn)
+
+Vietnamese uses a native pure-Python broad Northern/Hanoi frontend. The aliases `vi`,
+`vie`, and `vietnamese` resolve to `vi-vn`. It parses each whitespace-separated syllable
+structurally, extracts six named tones, and renders directly with the Kokoro model
+profile.
+
+```python
+from kokorog2p import phonemize
+
+result = phonemize("Xin chào!", language="vi", return_ids=True)
+print(result.phonemes, result.token_ids)
+```
+
+No Vietnamese-specific extra or `vig2p` runtime dependency is required. Invalid or
+foreign tokens use the existing lazy English fallback by default; pass
+`foreign_fallback="none"` or `"espeak"` to `get_g2p`. Semantic number, date, URL, and
+currency normalization remains outside this phonology module. See {doc}`api/vietnamese`
+and `vi/PROVENANCE` for the model profile, limitations, and clean-room sources.
+
 ### Examples
 
 ```python
@@ -667,6 +687,7 @@ each word to the appropriate G2P engine.
 - Japanese (ja)
 - Chinese (zh)
 - Korean (ko)
+- Vietnamese (vi-vn, vi)
 - Hebrew (he)
 - Czech (cs)
 - Dutch (nl)

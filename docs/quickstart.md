@@ -59,6 +59,10 @@ fr_phonemes = phonemize("Bonjour le monde", language="fr").phonemes
 # Czech
 cs_phonemes = phonemize("Dobrý den", language="cs").phonemes
 
+
+# Vietnamese native frontend
+vi_phonemes = phonemize("Xin chào!", language="vi").phonemes
+print(vi_phonemes)
 # Mixed-language (German with English words)
 from kokorog2p import phonemize
 from kokorog2p.multilang import preprocess_multilang

@@ -11,7 +11,9 @@ kokorog2p converts text to phonemes optimized for the Kokoro text-to-speech syst
 provides:
 
 - **Multi-language support**: English (US/GB), German, French, Italian, Spanish,
-  Portuguese (Brazilian), Czech, Chinese, Japanese, Korean, Hebrew
+  Portuguese (Brazilian), Czech, Chinese, Japanese, Korean, Hebrew, Vietnamese
+- **Native Vietnamese frontend**: Pure-Python Northern/Hanoi `vi-vn` profile with six
+  named tones
 - **Mixed-language preprocessing**: Detect languages for per-word language switching
 - **Dictionary-based lookup** with comprehensive lexicons
   - English: 179k+ entries (gold tier), 187k+ silver tier (both loaded by default)
@@ -134,6 +136,9 @@ print(phonemes)
 # Korean
 phonemes = phonemize("안녕하세요", language="ko").phonemes
 print(phonemes)
+
+
+- **Vietnamese** (native Northern/Hanoi profile)
 
 # Hebrew (requires phonikud package)
 phonemes = phonemize("שָׁלוֹם", language="he").phonemes
@@ -500,6 +505,7 @@ print(result.phonemes)
 | Chinese      | `zh`    | pypinyin + ZHFrontend             | ✓              | Zhuyin   | Production |
 | Japanese     | `ja`    | pyopenjtalk                       | -              | IPA      | Production |
 | Korean       | `ko`    | g2pK rule-based                   | ✓              | IPA      | Production |
+| Vietnamese   | `vi-vn` | Native rule-based Northern/Hanoi  | -              | IPA-like | Production |
 | Hebrew       | `he`    | phonikud-based (requires nikud)   | -              | IPA      | Production |
 
 **Note:** Both gold and silver dictionaries are loaded by default for English. You can:

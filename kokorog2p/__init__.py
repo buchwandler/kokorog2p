@@ -143,6 +143,10 @@ _LANGUAGE_ALIASES = {
     "cs": "cs-cz",
     "ces": "cs-cz",
     "czech": "cs-cz",
+    "vi": "vi-vn",
+    "vi-vn": "vi-vn",
+    "vie": "vi-vn",
+    "vietnamese": "vi-vn",
     "ko": "ko-kr",
     "kor": "ko-kr",
     "korean": "ko-kr",
@@ -203,6 +207,7 @@ _FACTORY_KWARGS_BY_LANGUAGE = {
             "model_profile",
         }
     ),
+    "vi": frozenset({"foreign_fallback"}),
 }
 
 _SPACY_DEFAULTS_BY_FAMILY = {
@@ -334,7 +339,7 @@ def _stable_repr(value: Any) -> object:
     return repr(value)
 
 
-def get_g2p(
+def get_g2p(  # noqa: C901
     language: str = "en-us",
     use_espeak_fallback: bool = True,
     use_goruut_fallback: bool = False,
@@ -628,6 +633,18 @@ def get_g2p(
             **extra_kwargs,
             load_silver=load_silver,
             load_gold=load_gold,
+            version=version,
+            **kwargs,
+        )
+    elif lang == "vi-vn":
+        from kokorog2p.vi import VietnameseG2P
+
+        g2p = VietnameseG2P(
+            language="vi-vn",
+            use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
+            use_cli=use_cli,
+            strict=strict,
             version=version,
             **kwargs,
         )

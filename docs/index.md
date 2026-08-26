@@ -16,7 +16,9 @@ high-quality text-to-phoneme conversion for multiple languages.
 ## Features
 
 - **Multi-language support**: English (US/GB), German, French, Czech, Spanish, Italian,
-  Portuguese, Chinese, Japanese, Korean, Hebrew
+  Portuguese, Chinese, Japanese, Korean, Hebrew, Vietnamese
+- **Native Vietnamese**: Pure-Python Northern/Hanoi profile with NFC/NFD support and six
+  named tones
 - **Mixed-language detection**: Automatic detection and handling of texts mixing
   multiple languages
 - **Dictionary-based lookup** with large gold/silver tier lexicons for select languages
@@ -90,6 +92,7 @@ api/portuguese
 api/chinese
 api/japanese
 api/korean
+api/vietnamese
 api/hebrew
 api/mixed
 api/backends

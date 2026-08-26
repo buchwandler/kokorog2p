@@ -1,0 +1,290 @@
+[
+  {
+    "text": "ba",
+    "dialect": "vi-vn-north",
+    "segments": ["b", "a"],
+    "tone": "ngang",
+    "expected": "ba→",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "bà",
+    "dialect": "vi-vn-north",
+    "segments": ["b", "a"],
+    "tone": "huyen",
+    "expected": "ba↘",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "bả",
+    "dialect": "vi-vn-north",
+    "segments": ["b", "a"],
+    "tone": "hoi",
+    "expected": "ba↘↗",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "bã",
+    "dialect": "vi-vn-north",
+    "segments": ["b", "a"],
+    "tone": "nga",
+    "expected": "baʔ↗",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "bá",
+    "dialect": "vi-vn-north",
+    "segments": ["b", "a"],
+    "tone": "sac",
+    "expected": "ba↗",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "bạ",
+    "dialect": "vi-vn-north",
+    "segments": ["b", "a"],
+    "tone": "nang",
+    "expected": "baʔ↓",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "ăn",
+    "dialect": "vi-vn-north",
+    "segments": ["ɐ", "n"],
+    "tone": "ngang",
+    "expected": "ɐn→",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "âm",
+    "dialect": "vi-vn-north",
+    "segments": ["ɤ", "m"],
+    "tone": "ngang",
+    "expected": "ɤm→",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "tiếng",
+    "dialect": "vi-vn-north",
+    "segments": ["t", "i", "ə", "ŋ"],
+    "tone": "sac",
+    "expected": "tiəŋ↗",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "mưa",
+    "dialect": "vi-vn-north",
+    "segments": ["m", "ɯ", "ə"],
+    "tone": "ngang",
+    "expected": "mɯə→",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "người",
+    "dialect": "vi-vn-north",
+    "segments": ["ŋ", "ɯ", "ə", "j"],
+    "tone": "huyen",
+    "expected": "ŋɯəj↘",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "muốn",
+    "dialect": "vi-vn-north",
+    "segments": ["m", "u", "ə", "n"],
+    "tone": "sac",
+    "expected": "muən↗",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "hoa",
+    "dialect": "vi-vn-north",
+    "segments": ["h", "w", "a"],
+    "tone": "ngang",
+    "expected": "hwa→",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "quê",
+    "dialect": "vi-vn-north",
+    "segments": ["k", "w", "e"],
+    "tone": "ngang",
+    "expected": "kwe→",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "quá",
+    "dialect": "vi-vn-north",
+    "segments": ["k", "w", "a"],
+    "tone": "sac",
+    "expected": "kwa↗",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "nghệ",
+    "dialect": "vi-vn-north",
+    "segments": ["ŋ", "e"],
+    "tone": "nang",
+    "expected": "ŋeʔ↓",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "ghê",
+    "dialect": "vi-vn-north",
+    "segments": ["ɣ", "e"],
+    "tone": "ngang",
+    "expected": "ɣe→",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "cá",
+    "dialect": "vi-vn-north",
+    "segments": ["k", "a"],
+    "tone": "sac",
+    "expected": "ka↗",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "mai",
+    "dialect": "vi-vn-north",
+    "segments": ["m", "a", "j"],
+    "tone": "ngang",
+    "expected": "maj→",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "sao",
+    "dialect": "vi-vn-north",
+    "segments": ["s", "a", "w"],
+    "tone": "ngang",
+    "expected": "saw→",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "cháu",
+    "dialect": "vi-vn-north",
+    "segments": ["ʨ", "a", "w"],
+    "tone": "sac",
+    "expected": "ʨaw↗",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "tôi",
+    "dialect": "vi-vn-north",
+    "segments": ["t", "o", "j"],
+    "tone": "ngang",
+    "expected": "toj→",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "anh",
+    "dialect": "vi-vn-north",
+    "segments": ["a", "ŋ"],
+    "tone": "ngang",
+    "expected": "aŋ→",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "học",
+    "dialect": "vi-vn-north",
+    "segments": ["h", "ɔ", "k"],
+    "tone": "nang",
+    "expected": "hɔkʔ↓",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "một",
+    "dialect": "vi-vn-north",
+    "segments": ["m", "o", "t"],
+    "tone": "nang",
+    "expected": "motʔ↓",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "không",
+    "dialect": "vi-vn-north",
+    "segments": ["x", "o", "ŋ"],
+    "tone": "ngang",
+    "expected": "xoŋ→",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "xanh",
+    "dialect": "vi-vn-north",
+    "segments": ["s", "a", "ŋ"],
+    "tone": "ngang",
+    "expected": "saŋ→",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "đi",
+    "dialect": "vi-vn-north",
+    "segments": ["d", "i"],
+    "tone": "ngang",
+    "expected": "di→",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "già",
+    "dialect": "vi-vn-north",
+    "segments": ["z", "a"],
+    "tone": "huyen",
+    "expected": "za↘",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "tra",
+    "dialect": "vi-vn-north",
+    "segments": ["ʈ", "a"],
+    "tone": "ngang",
+    "expected": "ʈa→",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "chào",
+    "dialect": "vi-vn-north",
+    "segments": ["ʨ", "a", "w"],
+    "tone": "huyen",
+    "expected": "ʨaw↘",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "xin",
+    "dialect": "vi-vn-north",
+    "segments": ["s", "i", "n"],
+    "tone": "ngang",
+    "expected": "sin→",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "Việt",
+    "dialect": "vi-vn-north",
+    "segments": ["v", "i", "ə", "t"],
+    "tone": "nang",
+    "expected": "viətʔ↓",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "nước",
+    "dialect": "vi-vn-north",
+    "segments": ["n", "ɯ", "ə", "k"],
+    "tone": "sac",
+    "expected": "nɯək↗",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "sống",
+    "dialect": "vi-vn-north",
+    "segments": ["s", "o", "ŋ"],
+    "tone": "sac",
+    "expected": "soŋ↗",
+    "source": "independently constructed and reviewed"
+  },
+  {
+    "text": "ngày",
+    "dialect": "vi-vn-north",
+    "segments": ["ŋ", "a", "j"],
+    "tone": "huyen",
+    "expected": "ŋaj↘",
+    "source": "independently constructed and reviewed"
+  }
+]

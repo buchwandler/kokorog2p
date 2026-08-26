@@ -58,6 +58,8 @@ if LINGUA_AVAILABLE:
             "zh-tw": Language.CHINESE,  # type: ignore
             "ko": Language.KOREAN,  # type: ignore
             "ko-kr": Language.KOREAN,  # type: ignore
+            "vi": Language.VIETNAMESE,  # type: ignore
+            "vi-vn": Language.VIETNAMESE,  # type: ignore
             "he": Language.HEBREW,  # type: ignore
             "he-il": Language.HEBREW,  # type: ignore
             "cs": Language.CZECH,  # type: ignore
@@ -82,6 +84,7 @@ if LINGUA_AVAILABLE:
             Language.JAPANESE: "ja",  # type: ignore
             Language.CHINESE: "zh",  # type: ignore
             Language.KOREAN: "ko",  # type: ignore
+            Language.VIETNAMESE: "vi",  # type: ignore
             Language.HEBREW: "he",  # type: ignore
             Language.CZECH: "cs",  # type: ignore
             Language.DUTCH: "nl",  # type: ignore

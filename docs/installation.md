@@ -62,6 +62,17 @@ This includes:
 - espeak-ng fallback
 - Number and currency handling
 
+### Vietnamese
+
+Vietnamese is included in the core pure-Python installation. It uses the `vi-vn`
+Northern/Hanoi profile and does not require a Vietnamese-specific package or model
+download:
+
+```python
+from kokorog2p import phonemize
+print(phonemize("Xin chào!", language="vi").phonemes)
+```
+
 ### Chinese
 
 For Chinese support:
