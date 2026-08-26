@@ -79,17 +79,30 @@ This includes:
 
 ### Japanese
 
-For Japanese support:
+For the recommended OpenJTalk-compatible Japanese backend:
 
 ```bash
-pip install kokorog2p[ja]
+pip install "kokorog2p[ja]"
 ```
 
-This includes:
+This installs only the primary `pyopenjtalk` frontend and the Kokoro mora mapper. The
+legacy Cutlet backend is separate:
 
-- pyopenjtalk for text analysis
-- Cutlet for romanization
-- Mora-based phoneme generation
+```bash
+pip install "kokorog2p[ja-cutlet]"
+```
+
+The Cutlet extra uses `unidic-lite` and is intended for compatibility use. Full UniDic
+is an explicit opt-in and is not downloaded by pip:
+
+```bash
+pip install "kokorog2p[ja-cutlet-full]"
+python -m unidic download
+```
+
+`backend` selects the Japanese frontend and `version` selects the target model
+representation. `use_espeak_fallback` is retained for API compatibility but is not used
+by Japanese G2P.
 
 ### Mixed-Language Detection
 

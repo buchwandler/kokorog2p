@@ -338,6 +338,15 @@ class TestJapaneseG2P:
         assert g2p.use_spacy is False
         assert g2p.spacy_model is None
 
+    def test_backend_validation_and_model_version(self):
+        """Backend selection is separate from the target model version."""
+        from kokorog2p.ja import JapaneseG2P
+
+        assert JapaneseG2P(backend="cutlet").backend == "cutlet"
+        assert JapaneseG2P(version="1.1").get_target_model() == "1.1"
+        with pytest.raises(ValueError, match="Unsupported Japanese backend"):
+            JapaneseG2P(backend="invalid")
+
     def test_custom_spacy_model_option_is_reserved(self):
         """Japanese does not claim a model for its reserved spaCy option."""
         from kokorog2p.ja import JapaneseG2P

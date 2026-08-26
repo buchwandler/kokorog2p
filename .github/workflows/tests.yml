@@ -65,7 +65,7 @@ jobs:
             python -m pytest -q tests/test_fr_g2p.py tests/test_es_g2p.py tests/test_it_g2p.py tests/test_pt_g2p.py
             ;;
           asian)
-            python -m pytest -q tests/test_ko_g2p.py tests/test_he_g2p.py tests/test_multilang.py
+            python -m pytest -q tests/test_ko_g2p.py tests/test_he_g2p.py tests/test_ja_g2p.py tests/test_multilang.py
             ;;
           backends)
             python -m pytest -q tests/test_espeak_*.py tests/test_goruut_backend.py
@@ -153,3 +153,31 @@ jobs:
         python -m pip install pytest phrasplit==0.3.4 ssmd==0.8.0
     - name: Run cross-package compatibility tests
       run: python -m pytest -q tests/test_ssmd_phrasplit_integration.py
+  japanese-cutlet:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: Setup Python
+      uses: actions/setup-python@master
+      with:
+        python-version: "3.13"
+    - name: Install Cutlet backend
+      run: python -m pip install -e ".[ja-cutlet,dev]"
+    - name: Run Japanese Cutlet smoke tests
+      run: python -m pytest -q tests/test_ja_g2p.py -k cutlet
+  japanese-cutlet-full-unidic:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: Setup Python
+      uses: actions/setup-python@master
+      with:
+        python-version: "3.13"
+    - name: Install full-UniDic backend
+      run: python -m pip install -e ".[ja-cutlet-full,dev]"
+    - name: Download UniDic
+      run: python -m unidic download
+    - name: Run Japanese Cutlet smoke tests
+      run: python -m pytest -q tests/test_ja_g2p.py -k cutlet

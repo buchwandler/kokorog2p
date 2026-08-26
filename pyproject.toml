@@ -81,7 +81,15 @@ zh = [
     "ordered-set>=4.1.0",
 ]
 ja = [
-    "pyopenjtalk>=0.3.0",
+    "pyopenjtalk>=0.4.1,<0.5",
+]
+ja-cutlet = [
+    "fugashi>=1.3.0",
+    "jaconv>=0.3.4",
+    "mojimoji>=0.0.13",
+    "unidic-lite>=1.0.8",
+]
+ja-cutlet-full = [
     "fugashi>=1.3.0",
     "jaconv>=0.3.4",
     "mojimoji>=0.0.13",
@@ -98,7 +106,7 @@ mixed = [
     "lingua-language-detector>=2.0.0",
 ]
 all = [
-    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ko,he,mixed]",
+    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,mixed]",
 ]
 dev = [
     "pytest>=7.0.0",

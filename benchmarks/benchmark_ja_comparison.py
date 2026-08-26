@@ -1,38 +1,30 @@
 #!/usr/bin/env python3
-"""Comprehensive benchmark comparison for Japanese G2P configurations.
+"""Compare the supported Japanese G2P backends.
 
-This script tests all possible configurations of kokorog2p for Japanese:
-- pyopenjtalk backend (default)
-- cutlet backend
-- With/without espeak fallback
-
-It measures:
-- Accuracy against ground truth
-- Processing speed (sentences/second)
-- Phoneme coverage
-
-Usage:
-    python benchmarks/benchmark_ja_comparison.py
-    python benchmarks/benchmark_ja_comparison.py --output results.json
-    python benchmarks/benchmark_ja_comparison.py --verbose
-    python benchmarks/benchmark_ja_comparison.py --config "pyopenjtalk"
+This benchmark measures coverage and throughput. It does not call coverage or
+successful conversion "accuracy" because those metrics are not pronunciation
+quality measurements.
 """
 
+from __future__ import annotations
+
 import argparse
+import importlib.metadata
 import json
+import platform
 import sys
 import time
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
 
 @dataclass
 class ConfigBenchmark:
-    """Results from benchmarking a single configuration."""
+    """Results from benchmarking one Japanese backend configuration."""
 
     config_name: str
-    accuracy_percent: float
+    coverage_rate: float
     sentences_per_second: float
     total_time_ms: float
     total_sentences: int
@@ -40,252 +32,181 @@ class ConfigBenchmark:
     successful: int
     failed: int
     unique_phonemes: int
-    errors: list[tuple[int, str, str]] = field(
-        default_factory=list
-    )  # (id, expected, got)
+    dependency_metadata: dict[str, str | None]
+    errors: list[tuple[int, str, str]] = field(default_factory=list)
 
 
 def load_synthetic_data() -> dict[str, Any]:
-    """Load Japanese synthetic benchmark data."""
+    """Load the checked-in Japanese synthetic benchmark dataset."""
     filepath = Path(__file__).parent / "data" / "ja_synthetic.json"
-    if not filepath.exists():
+    if not filepath.is_file():
         raise FileNotFoundError(f"Japanese synthetic data not found: {filepath}")
+    with filepath.open(encoding="utf-8") as file:
+        return json.load(file)
 
-    with open(filepath) as f:
-        return json.load(f)
+
+def _distribution_version(name: str) -> str | None:
+    try:
+        return importlib.metadata.version(name)
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+
+def dependency_metadata(backend: str) -> dict[str, str | None]:
+    """Return package and runtime identity needed to interpret results."""
+    metadata = {
+        "kokorog2p": _distribution_version("kokorog2p"),
+        "python": platform.python_version(),
+        "platform": platform.platform(),
+        "architecture": platform.machine(),
+        "backend": backend,
+        "pyopenjtalk": _distribution_version("pyopenjtalk"),
+        "pyopenjtalk-plus": _distribution_version("pyopenjtalk-plus"),
+    }
+    if backend == "cutlet":
+        metadata.update(
+            {
+                "fugashi": _distribution_version("fugashi"),
+                "unidic": _distribution_version("unidic"),
+                "unidic-lite": _distribution_version("unidic-lite"),
+                "cutlet-implementation": "kokorog2p.vendored.cutlet",
+            }
+        )
+    return metadata
 
 
 def create_g2p(config: dict[str, Any]):
-    """Create a Japanese G2P instance with the given configuration."""
+    """Create a Japanese G2P instance from a backend-only configuration."""
     from kokorog2p.ja import JapaneseG2P
 
-    return JapaneseG2P(
-        use_espeak_fallback=config.get("use_espeak", False),
-        version=config.get("version", "pyopenjtalk"),
-    )
+    return JapaneseG2P(backend=config.get("backend", "pyopenjtalk"))
 
 
-def benchmark_config(g2p, data: dict[str, Any], config_name: str) -> ConfigBenchmark:
-    """Benchmark a single G2P configuration."""
+def benchmark_config(
+    g2p, data: dict[str, Any], config_name: str, backend: str
+) -> ConfigBenchmark:
+    """Measure warm steady-state conversion and dataset coverage."""
     sentences = data["sentences"]
+    if sentences:
+        g2p(sentences[0]["text"])
+
     successful = 0
     failed = 0
     total_words = 0
-    errors = []
-    phonemes_used = set()
-
+    errors: list[tuple[int, str, str]] = []
+    phonemes_used: set[str] = set()
     start_time = time.perf_counter()
 
     for sentence in sentences:
         sentence_id = sentence["id"]
         text = sentence["text"]
         expected_phonemes = sentence["phonemes"]
-        word_count = sentence.get("word_count", len(text.split()))
-
-        # Phonemize
+        total_words += sentence.get("word_count", len(text.split()))
         try:
             tokens = g2p(text)
-        except Exception as e:
-            failed += 1
-            errors.append((sentence_id, expected_phonemes, f"ERROR: {e}"))
-            continue
+            got_phonemes = " ".join(
+                token.phonemes for token in tokens if token.phonemes
+            )
+            phonemes_used.update(char for char in got_phonemes if char != " ")
+        except Exception as exc:
+            got_phonemes = f"ERROR: {exc}"
 
-        # Extract phonemes
-        all_phonemes = []
-        for token in tokens:
-            if token.phonemes:
-                all_phonemes.append(token.phonemes)
-                # Track unique phonemes (each character is a phoneme in Japanese)
-                phonemes_used.update(c for c in token.phonemes if c not in ("", " "))
-
-        got_phonemes = " ".join(all_phonemes)
-        total_words += word_count
-
-        # Compare (normalize whitespace)
-        expected_norm = " ".join(expected_phonemes.split())
-        got_norm = " ".join(got_phonemes.split())
-
-        if expected_norm == got_norm:
+        expected_normalized = " ".join(expected_phonemes.split())
+        got_normalized = " ".join(got_phonemes.split())
+        if "ERROR:" not in got_phonemes and expected_normalized == got_normalized:
             successful += 1
         else:
             failed += 1
             if len(errors) < 20:
                 errors.append((sentence_id, expected_phonemes, got_phonemes))
 
-    end_time = time.perf_counter()
-    total_time_ms = (end_time - start_time) * 1000
-
+    total_time_ms = (time.perf_counter() - start_time) * 1000
+    sentence_count = len(sentences)
     return ConfigBenchmark(
         config_name=config_name,
-        accuracy_percent=(successful / len(sentences) * 100) if sentences else 0,
-        sentences_per_second=len(sentences) / (total_time_ms / 1000)
+        coverage_rate=(successful / sentence_count * 100) if sentence_count else 0,
+        sentences_per_second=(sentence_count / (total_time_ms / 1000))
         if total_time_ms > 0
         else 0,
         total_time_ms=total_time_ms,
-        total_sentences=len(sentences),
+        total_sentences=sentence_count,
         total_words=total_words,
         successful=successful,
         failed=failed,
         unique_phonemes=len(phonemes_used),
+        dependency_metadata=dependency_metadata(backend),
         errors=errors,
     )
 
 
-def print_results(results: list[ConfigBenchmark], verbose: bool = False):
-    """Print benchmark results in a nice table."""
+def print_results(results: list[ConfigBenchmark], verbose: bool = False) -> None:
+    """Print benchmark results without implying pronunciation accuracy."""
     print("\n" + "=" * 80)
-    print("Japanese G2P Configuration Comparison")
+    print("Japanese G2P Backend Comparison")
     print("=" * 80)
     print(
         f"Dataset: {results[0].total_sentences} sentences, "
         f"{results[0].total_words} words"
     )
     print()
-
-    # Table header
-    print(f"{'Configuration':<30} {'Accuracy':>10} {'Speed':>15} {'Phonemes':>10}")
+    print(f"{'Configuration':<24} {'Coverage':>10} {'Speed':>15} {'Phonemes':>10}")
     print("-" * 80)
-
-    # Sort by accuracy, then speed
-    sorted_results = sorted(
-        results, key=lambda x: (-x.accuracy_percent, -x.sentences_per_second)
-    )
-
-    for result in sorted_results:
+    for result in sorted(
+        results, key=lambda item: (-item.coverage_rate, -item.sentences_per_second)
+    ):
         print(
-            f"{result.config_name:<30} "
-            f"{result.accuracy_percent:>9.1f}% "
-            f"{result.sentences_per_second:>10,.0f} sent/s "
-            f"{result.unique_phonemes:>10}"
+            f"{result.config_name:<24} {result.coverage_rate:>9.1f}% "
+            f"{result.sentences_per_second:>10,.0f} sent/s {result.unique_phonemes:>10}"
         )
-
-    # Recommendations
-    print("\n" + "=" * 80)
-    print("Recommendations:")
-    print("=" * 80)
-
-    best_accuracy = max(results, key=lambda x: x.accuracy_percent)
-    best_speed = max(results, key=lambda x: x.sentences_per_second)
-
-    print(
-        f"Best accuracy:  {best_accuracy.config_name} "
-        f"({best_accuracy.accuracy_percent:.1f}%)"
-    )
-    print(
-        f"Fastest:        {best_speed.config_name} "
-        f"({best_speed.sentences_per_second:,.0f} sent/s)"
-    )
-    print()
-
-    # Show errors if verbose
-    if verbose:
-        for result in sorted_results:
-            if result.errors:
-                print(f"\n--- Errors for {result.config_name} ---")
-                for sentence_id, expected, got in result.errors[:5]:
-                    print(f"Sentence #{sentence_id}:")
-                    print(f"  Expected: {expected[:100]}")
-                    print(f"  Got:      {got[:100]}")
-                if len(result.errors) > 5:
-                    print(f"  ... and {len(result.errors) - 5} more errors")
+        if verbose:
+            for sentence_id, expected, got in result.errors[:5]:
+                print(
+                    f"  Sentence #{sentence_id}: "
+                    f"expected={expected[:100]!r} got={got[:100]!r}"
+                )
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Benchmark Japanese G2P configurations"
-    )
-    parser.add_argument("--output", "-o", type=Path, help="Save results to JSON file")
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Show detailed errors"
-    )
-    parser.add_argument(
-        "--config", "-c", type=str, help="Test only specific configuration"
-    )
-
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Benchmark Japanese G2P backends")
+    parser.add_argument("--output", "-o", type=Path, help="Save results to JSON")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Show mismatches")
+    parser.add_argument("--config", "-c", choices=["pyopenjtalk", "cutlet"])
     args = parser.parse_args()
 
-    # Load data
-    print("Loading Japanese synthetic data...")
     data = load_synthetic_data()
-    print(f"Loaded {len(data['sentences'])} sentences")
-
-    # Define configurations to test
-    all_configs = {
-        "pyopenjtalk": {
-            "version": "pyopenjtalk",
-            "use_espeak": False,
-        },
-        "pyopenjtalk + espeak": {
-            "version": "pyopenjtalk",
-            "use_espeak": True,
-        },
-        "cutlet": {
-            "version": "cutlet",
-            "use_espeak": False,
-        },
-        "cutlet + espeak": {
-            "version": "cutlet",
-            "use_espeak": True,
-        },
+    configurations = {
+        "pyopenjtalk": {"backend": "pyopenjtalk"},
+        "cutlet": {"backend": "cutlet"},
     }
-
-    # Filter if specific config requested
     if args.config:
-        if args.config not in all_configs:
-            print(f"Error: Unknown configuration '{args.config}'")
-            print(f"Available: {', '.join(all_configs.keys())}")
-            return 1
-        configs_to_test = {args.config: all_configs[args.config]}
-    else:
-        configs_to_test = all_configs
+        configurations = {args.config: configurations[args.config]}
 
-    # Run benchmarks
     results = []
-    for config_name, config in configs_to_test.items():
-        print(f"\nTesting: {config_name}...")
+    for name, config in configurations.items():
+        print(f"Testing {name}...")
         try:
-            g2p = create_g2p(config)
-            result = benchmark_config(g2p, data, config_name)
-            results.append(result)
-            print(
-                f"  → {result.accuracy_percent:.1f}% accuracy, "
-                f"{result.sentences_per_second:,.0f} sent/s"
-            )
-        except Exception as e:
-            print(f"  → Error: {e}")
+            result = benchmark_config(create_g2p(config), data, name, config["backend"])
+        except Exception as exc:
+            print(f"  Backend unavailable: {exc}")
             continue
+        results.append(result)
 
     if not results:
-        print("\n✗ No configurations completed successfully")
+        print("No backend completed successfully", file=sys.stderr)
         return 1
 
-    # Print results
-    print_results(results, verbose=args.verbose)
-
-    # Save to JSON if requested
+    print_results(results, args.verbose)
     if args.output:
-        output_data = {
-            "dataset": "ja_synthetic.json",
+        payload = {
+            "dataset": "benchmarks/data/ja_synthetic.json",
             "total_sentences": data["metadata"]["total_sentences"],
-            "total_words": sum(s.get("word_count", 0) for s in data["sentences"]),
-            "results": [
-                {
-                    "config_name": r.config_name,
-                    "accuracy_percent": r.accuracy_percent,
-                    "sentences_per_second": r.sentences_per_second,
-                    "total_time_ms": r.total_time_ms,
-                    "successful": r.successful,
-                    "failed": r.failed,
-                    "unique_phonemes": r.unique_phonemes,
-                }
-                for r in results
-            ],
+            "results": [asdict(result) for result in results],
         }
-
-        with open(args.output, "w") as f:
-            json.dump(output_data, f, indent=2)
-        print(f"\n✓ Results saved to: {args.output}")
-
+        args.output.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        print(f"Results saved to {args.output}")
     return 0
 
 

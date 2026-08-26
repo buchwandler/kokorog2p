@@ -9,10 +9,22 @@ Copyright 2024 kokorog2p contributors
 Licensed under the Apache License, Version 2.0
 """
 
+import warnings
+from collections.abc import Mapping
+from typing import Any, Protocol
+
 from kokorog2p.base import G2PBase
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
 
+
+class JapaneseFrontend(Protocol):
+    """OpenJTalk-compatible Japanese frontend."""
+
+    def run_frontend(self, text: str) -> list[Mapping[str, Any]]: ...
+
+
+JA_BACKENDS = frozenset({"pyopenjtalk", "cutlet"})
 # Katakana to phoneme mapping
 M2P = {
     chr(12449): "a",  # ァ
@@ -268,30 +280,40 @@ class JapaneseG2P(G2PBase):
         load_silver: bool = True,
         load_gold: bool = True,
         version: str = "1.0",
+        frontend: JapaneseFrontend | None = None,
         **kwargs,
     ) -> None:
         """Initialize the Japanese G2P.
 
-        Args:
-            language: Language code (e.g., 'ja', 'ja-jp').
-            use_espeak_fallback: Whether to use espeak for unknown words.
-            use_spacy: Reserved for API consistency. Japanese uses
-                pyopenjtalk/cutlet backends for tokenization and phonemization.
-            spacy_model: Reserved for API consistency when use_spacy is enabled.
-            backend: Backend to use ("pyopenjtalk" or "cutlet").
-            unk: Unknown token placeholder.
-            load_silver: If True, load silver tier dictionary if available.
-                Currently Japanese doesn't use dictionary system, so this
-                parameter is reserved for future use and consistency.
-                Defaults to True for consistency.
-            load_gold: If True, load gold tier dictionary if available.
-                Currently Japanese doesn't use dictionary system, so this
-                parameter is reserved for future use and consistency.
-                Defaults to True for consistency.
-            version: Model version ("1.0" for base, "1.1" for multilingual).
-                Default: "1.0".
-            **kwargs: Additional arguments.
+        ``backend`` selects the linguistic frontend and ``version`` selects the
+        target Kokoro model representation. The old ``version=`` backend
+        selector is accepted temporarily with a deprecation warning.
         """
+        if version in JA_BACKENDS:
+            if backend != "pyopenjtalk":
+                raise ValueError(
+                    "Japanese backend was supplied through both backend= "
+                    "and legacy version="
+                )
+            warnings.warn(
+                "Japanese backend selection through version= is deprecated; "
+                "use backend= instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            backend = version
+            version = "1.0"
+
+        if backend not in JA_BACKENDS:
+            raise ValueError(
+                f"Unsupported Japanese backend {backend!r}; "
+                f"expected one of {sorted(JA_BACKENDS)!r}"
+            )
+        if frontend is not None and backend != "pyopenjtalk":
+            raise ValueError(
+                "A custom frontend can only be used with backend='pyopenjtalk'"
+            )
+
         super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
         self.backend = backend
         self.version = version
@@ -301,38 +323,66 @@ class JapaneseG2P(G2PBase):
         self.spacy_model = None
         self.load_silver = load_silver
         self.load_gold = load_gold
+        self._frontend = frontend
         self._pyopenjtalk = None
         self._cutlet = None
 
     @property
     def pyopenjtalk(self):
-        """Lazy import of pyopenjtalk."""
+        """Lazy import of pyopenjtalk with an actionable installation error."""
         if self._pyopenjtalk is None:
-            import pyopenjtalk
+            try:
+                import pyopenjtalk
+            except ImportError as exc:
+                raise ImportError(
+                    "Japanese OpenJTalk support is not installed. "
+                    "Install it with `pip install 'kokorog2p[ja]'`."
+                ) from exc
 
             self._pyopenjtalk = pyopenjtalk
         return self._pyopenjtalk
 
     @property
     def cutlet(self):
-        """Lazy initialization of Cutlet backend."""
+        """Lazy initialization of the optional Cutlet backend."""
         if self._cutlet is None and self.backend == "cutlet":
-            from kokorog2p.ja.cutlet import Cutlet
+            try:
+                from kokorog2p.ja.cutlet import Cutlet
+            except ImportError as exc:
+                raise ImportError(
+                    "Japanese Cutlet support is not installed. "
+                    "Install it with `pip install 'kokorog2p[ja-cutlet]'`."
+                ) from exc
 
             self._cutlet = Cutlet()
         return self._cutlet
 
     @staticmethod
-    def pron2moras(pron: str) -> list[str]:
-        """Convert pronunciation to mora list."""
+    def _pron2moras(pron: str) -> tuple[list[str], list[str]]:
+        """Convert pronunciation to moras and report unsupported symbols."""
         moras = []
+        unsupported = []
         for k in pron:
             if k not in M2P:
+                unsupported.append(k)
                 continue
             if moras and moras[-1] + k in M2P:
                 moras[-1] += k
             else:
                 moras.append(k)
+        return moras, unsupported
+
+    @staticmethod
+    def pron2moras(pron: str) -> list[str]:
+        """Convert pronunciation to mora list.
+
+        Raises:
+            ValueError: If the pronunciation contains an unsupported symbol.
+        """
+        moras, unsupported = JapaneseG2P._pron2moras(pron)
+        if unsupported:
+            symbols = "".join(dict.fromkeys(unsupported))
+            raise ValueError(f"Unsupported Japanese pronunciation symbols: {symbols!r}")
         return moras
 
     def __call__(self, text: str) -> list[GToken]:
@@ -381,18 +431,41 @@ class JapaneseG2P(G2PBase):
         # Use pyopenjtalk
         return self._phonemize_pyopenjtalk(text)
 
+    @staticmethod
+    def _word_moras(word: Mapping[str, Any]) -> list[str]:
+        """Parse and validate the pronunciation and mora metadata of a word."""
+        pron = word["pron"]
+        mora_size = word["mora_size"]
+        if mora_size <= 0:
+            return []
+
+        moras, unsupported = JapaneseG2P._pron2moras(pron)
+        if unsupported:
+            symbols = "".join(dict.fromkeys(unsupported))
+            raise ValueError(
+                f"Unsupported Japanese pronunciation symbols in {pron!r}: {symbols!r}"
+            )
+        valid_size = len(moras) == mora_size or (
+            bool(moras) and moras[0] == "ー" and len(moras) + 1 == mora_size
+        )
+        if not valid_size:
+            raise ValueError(
+                f"Japanese mora count mismatch for {word['string']!r}: "
+                f"frontend={mora_size}, parsed={len(moras)}, "
+                f"pronunciation={pron!r}"
+            )
+        return moras
+
     def _phonemize_pyopenjtalk(self, text: str) -> tuple[str, list[GToken] | None]:
-        """Phonemize using pyopenjtalk."""
+        """Phonemize using an OpenJTalk-compatible frontend."""
         tokens = []
         last_a, _last_p = 0, ""
         acc, mcount = None, 0
 
-        for word in self.pyopenjtalk.run_frontend(text):
+        frontend = self._frontend if self._frontend is not None else self.pyopenjtalk
+        for word in frontend.run_frontend(text):
             pron, mora_size = word["pron"], word["mora_size"]
-            moras = []
-            if mora_size > 0:
-                moras = self.pron2moras(pron)
-
+            moras = self._word_moras(word)
             chain_flag = (
                 mora_size > 0
                 and tokens
@@ -439,10 +512,8 @@ class JapaneseG2P(G2PBase):
                 ):
                     tokens[-1].whitespace = " "
 
-            if (
-                tokens
-                and phonemes is None
-                and surface == "・"
+            if tokens and (
+                (phonemes is None and surface == "・")
                 or (surface and not surface.strip())
             ):
                 tokens[-1].whitespace = " "
@@ -493,6 +564,11 @@ class JapaneseG2P(G2PBase):
             result = result[: -len(tokens[-1].whitespace)]
             pitch_str = pitch_str[: len(result)]
 
+        if len(result) != len(pitch_str):
+            raise RuntimeError(
+                "Japanese phoneme and pitch channels are misaligned: "
+                f"phonemes={len(result)}, pitch={len(pitch_str)}"
+            )
         return result + pitch_str, tokens
 
     def lookup(self, word: str, tag: str | None = None) -> str | None:

@@ -252,10 +252,12 @@ KATAKANA_PHONETIC_EXT = {
 
 # Load Japanese words
 try:
-    with importlib.resources.open_text(ja_data, "ja_words.txt") as f:
-        JA_WORDS = frozenset(line.strip() for line in f)
-except Exception:
-    JA_WORDS = frozenset()
+    _resource = importlib.resources.files(ja_data).joinpath("ja_words.txt")
+    JA_WORDS = frozenset(_resource.read_text(encoding="utf-8").splitlines())
+except FileNotFoundError as exc:
+    raise RuntimeError(
+        "Japanese Cutlet backend data file ja_words.txt is missing"
+    ) from exc
 
 SUTEGANA = frozenset("ゃゅょぁぃぅぇぉ")
 ODORI = frozenset("〃々ゝゞヽ")
@@ -291,7 +293,14 @@ class Cutlet:
     """Japanese romaji/IPA converter using MeCab (via fugashi)."""
 
     def __init__(self) -> None:
-        self.tagger = Tagger()
+        try:
+            self.tagger = Tagger()
+        except Exception as exc:
+            raise RuntimeError(
+                "Japanese Cutlet requires a usable MeCab dictionary. "
+                "Install `kokorog2p[ja-cutlet]` or install the full-UniDic extra "
+                "and run `python -m unidic download`."
+            ) from exc
         self.table = dict(HEPBURN)  # make a copy so we can modify it
         self.exceptions = {}
 

@@ -513,14 +513,17 @@ print(phonemize("你好世界", language="zh"))
 
 ## Japanese (ja)
 
-Japanese G2P uses pyopenjtalk for text analysis and mora-based phoneme generation.
+Japanese G2P uses an OpenJTalk-compatible frontend for linguistic analysis, then maps
+pronunciation moras and accent metadata into the Kokoro Japanese vocabulary.
 
 ### Features
 
-- **pyopenjtalk**: Full Japanese text analysis
-- **Mora-based**: Phonemes aligned with mora structure
-- **Pitch accent**: Automatic pitch accent assignment
-- **Number handling**: Japanese numerals
+- **OpenJTalk frontend**: Morphological analysis, readings, phrase boundaries, and
+  accent data
+- **Mora-based mapping**: Japanese pronunciation is converted to Kokoro phoneme symbols
+- **Aligned pitch channel**: `JapaneseG2P.phonemize()` returns base phonemes followed by
+  an equally long pitch/control channel
+- **Optional Cutlet backend**: A legacy romaji backend is available separately
 
 ### Usage
 
@@ -529,21 +532,24 @@ from kokorog2p.ja import JapaneseG2P
 
 g2p = JapaneseG2P(
     language="ja",
-    version="pyopenjtalk"
+    backend="pyopenjtalk",
+    version="1.0",
 )
+print(g2p.phonemize("こんにちは"))
 ```
 
-### Examples
+`backend` selects the linguistic frontend. `version` selects the target Kokoro model
+representation and is not a backend selector. The legacy `version="pyopenjtalk"` and
+`version="cutlet"` forms are deprecated.
 
-```python
-from kokorog2p import phonemize
+For the legacy backend, install `kokorog2p[ja-cutlet]`. The recommended `ja` extra
+contains only the primary OpenJTalk-compatible backend. Full UniDic is an explicit
+option and requires `python -m unidic download` after installation.
 
-print(phonemize("こんにちは", language="ja"))
-# → koɴɲit͡ɕiha
+### Japanese espeak flag
 
-print(phonemize("世界", language="ja"))
-# → sekai
-```
+`use_espeak_fallback` is retained for common API compatibility but is not used by the
+Japanese backend. It is not a Japanese benchmark or performance configuration.
 
 ## Korean (ko)
 
