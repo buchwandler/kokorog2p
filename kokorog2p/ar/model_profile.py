@@ -10,6 +10,7 @@ TARGET_MODEL = "nabra-82m-v0.1"
 PROFILE_NAME = "NabraMSA"
 
 _ARTICULATION_MARKS = frozenset({"\u032a", "ˤ"})
+_TIE_BARS = frozenset({"͡", "͜"})
 _GROUPING_DELIMITERS = str.maketrans({"[": None, "]": None, "{": None, "}": None})
 _INTERNAL_DOT_RE = re.compile(r"(?<=\S)\.(?=\S)")
 
@@ -18,6 +19,10 @@ def strip_espeak_articulation_marks(text: str) -> str:
     """Remove eSpeak articulation marks not represented by Nabra."""
     return "".join(char for char in text if char not in _ARTICULATION_MARKS)
 
+
+def strip_tie_bars(text: str) -> str:
+    """Remove combining tie bars from eSpeak affricates."""
+    return "".join(char for char in text if char not in _TIE_BARS)
 
 def strip_internal_syllable_dots(text: str) -> str:
     """Remove dots between adjacent phoneme characters, preserving final dots."""
@@ -32,6 +37,7 @@ def strip_grouping_delimiters(text: str) -> str:
 def clean_espeak_output(text: str) -> str:
     """Apply the narrow cleanup policy used by the Nabra Arabic frontend."""
     cleaned = strip_espeak_articulation_marks(text)
+    cleaned = strip_tie_bars(cleaned)
     cleaned = strip_internal_syllable_dots(cleaned)
     cleaned = strip_grouping_delimiters(cleaned)
     return " ".join(cleaned.split())
@@ -60,6 +66,7 @@ __all__ = [
     "clean_espeak_output",
     "encode_output",
     "strip_espeak_articulation_marks",
+    "strip_tie_bars",
     "strip_grouping_delimiters",
     "strip_internal_syllable_dots",
     "validate_nabra_symbols",

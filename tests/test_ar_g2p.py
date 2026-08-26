@@ -40,7 +40,7 @@ class FakeDiacritizer:
 
 
 def test_clean_espeak_output_has_narrow_cleanup_rules() -> None:
-    assert clean_espeak_output("a.b̪ˤ [ʕ] {ħ} .") == "ab ʕ ħ ."
+    assert clean_espeak_output("a.b̪ˤ͡ [ʕ] {ħ} .") == "ab ʕ ħ ."
     assert validate_nabra_symbols("ʕ ħ")[0]
     assert encode_output("ʕħ") == [7, 8]
 

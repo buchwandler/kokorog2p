@@ -364,10 +364,7 @@ def _spokenform_replacements_for_run(
 ) -> _SpokenformRunResult:
     """Adapt spokenform source replacements into kokorog2p's public type."""
     normalized_language = (_normalize_lang(language) or "").split("-", 1)[0]
-    if (
-        normalized_language == "ko"
-        and normalized_language not in _SPOKENFORM_SEMANTIC_LANGUAGES
-    ):
+    if normalized_language == "ko":
         from kokorog2p.ko.semantic import replacements
 
         return _SpokenformRunResult(
