@@ -12,7 +12,7 @@ provides:
 
 - **Multi-language support**: English (US/GB), German, French, Italian, Spanish,
   Portuguese (Brazilian), Czech, Chinese, Japanese, Korean, Hebrew, Vietnamese, Swedish,
-  Thai (optional), Russian (optional)
+  Thai (optional), Russian (optional), Kazakh (optional)
 - **Native Vietnamese frontend**: Pure-Python Northern/Hanoi `vi-vn` profile with six
   named tones
 - **Native Swedish frontend**: Pure-Python deterministic rules with no runtime lexicon;
@@ -21,6 +21,7 @@ provides:
   `wayu-kokoro-thai-v1`; Latin phrases use lazy EnglishG2P
 - **Native Russian frontend**: Optional RUAccent contextual stress, ё restoration,
   source-aligned tokens, and stock Kokoro 1.0 labels
+- **Native Kazakh frontend**: eSpeak-NG `kk` raw IPA profile with Kokoro vocabulary validation
 - **Mixed-language preprocessing**: Detect languages for per-word language switching
 - **Dictionary-based lookup** with comprehensive lexicons
   - English: 179k+ entries (gold tier), 187k+ silver tier (both loaded by default)
@@ -98,6 +99,9 @@ pip install kokorog2p[fr]
 pip install "kokorog2p[th]"
 # Russian support (optional RUAccent and eSpeak)
 pip install "kokorog2p[ru]"
+
+# Kazakh support (eSpeak-NG voice kk)
+pip install "kokorog2p[kk]"
 # With multilang preprocessing support
 pip install kokorog2p[mixed]
 
@@ -606,6 +610,16 @@ when RUAccent is installed, supports explicit combining-acute input, and applies
 reduction and orthoepy transforms against the stock Kokoro 1.0 vocabulary. Install
 `kokorog2p[ru]`; see [Russian API](docs/api/russian.md) and
 [Russian provenance](docs/ru/PROVENANCE.md).
+
+## Kazakh
+
+Kazakh (`kk`) uses eSpeak-NG voice `kk` as its pronunciation engine. The native frontend
+preserves raw non-English IPA semantics, applies only generic Kokoro compatibility transforms,
+and validates output against the stock Kokoro 1.0 vocabulary. Install `kokorog2p[kk]`.
+
+The upstream Kazakh voice is currently marked `testing`, so pronunciation quality follows the
+installed eSpeak-NG release. See [Kazakh API](docs/api/kazakh.md) and
+[Kazakh provenance](docs/kk/PROVENANCE.md).
 
 ## Arabic MSA
 

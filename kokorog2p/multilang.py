@@ -30,6 +30,7 @@ except ImportError:  # pragma: no cover - tested via import guard
 
 WORD_OR_PUNCT_REGEX = re.compile(r"\w+|\s+|[^\w\s]+", re.UNICODE)
 
+_KAZAKH_DISTINCTIVE = re.compile(r"[ӘәҒғҚқҢңӨөҰұҮүҺһІі]")
 # Map kokorog2p language codes to lingua Language enum
 KOKOROG2P_TO_LINGUA: Final[dict[str, Any]] = {}
 LINGUA_TO_KOKOROG2P: Final[dict[Any, str]] = {}
@@ -67,6 +68,7 @@ if LINGUA_AVAILABLE:
             "nl": Language.DUTCH,  # type: ignore
             "pl": Language.POLISH,  # type: ignore
             "ru": Language.RUSSIAN,  # type: ignore
+            "kk": Language.KAZAKH,  # type: ignore
             "ar": Language.ARABIC,  # type: ignore
             "hi": Language.HINDI,  # type: ignore
             "tr": Language.TURKISH,  # type: ignore
@@ -90,6 +92,7 @@ if LINGUA_AVAILABLE:
             Language.DUTCH: "nl",  # type: ignore
             Language.POLISH: "pl",  # type: ignore
             Language.RUSSIAN: "ru",  # type: ignore
+            Language.KAZAKH: "kk",  # type: ignore
             Language.ARABIC: "ar",  # type: ignore
             Language.HINDI: "hi",  # type: ignore
             Language.TURKISH: "tr",  # type: ignore
@@ -142,11 +145,17 @@ def _detect_script_language(token: str, allowed: list[str]) -> str | None:
         )
     if re.search(r"[\u0590-\u05ff]", token):
         return _pick_allowed_language("he", allowed)
+    if _KAZAKH_DISTINCTIVE.search(token):
+        return _pick_allowed_language("kk", allowed)
     if re.search(r"[\u0400-\u04ff]", token):
-        # Cyrillic alone is not universally Russian. Today Russian is the only
-        # native Cyrillic candidate, so require it to be explicitly allowed.
-        return _pick_allowed_language("ru", allowed)
-    return None
+        russian = _pick_allowed_language("ru", allowed)
+        kazakh = _pick_allowed_language("kk", allowed)
+        if russian and not kazakh:
+            return russian
+        if kazakh and not russian:
+            return kazakh
+        # Ambiguous Cyrillic is left to Lingua when both languages are allowed.
+        return None
 
 
 def _validate_languages(

@@ -100,6 +100,7 @@ class EspeakOnlyG2P(G2PBase):
         use_goruut_fallback: bool = False,  # Always False for this class
         strict: bool = True,
         version: str = "1.0",
+        use_cli: bool = False,
         **kwargs,
     ) -> None:
         """Initialize the espeak-only G2P.
@@ -117,6 +118,7 @@ class EspeakOnlyG2P(G2PBase):
             use_espeak_fallback=True,
             use_goruut_fallback=False,
             strict=strict,
+            use_cli=use_cli,
         )
         self.version = version
         self._espeak_backend = None
@@ -147,6 +149,7 @@ class EspeakOnlyG2P(G2PBase):
             self._espeak_backend = EspeakBackend(
                 language=self._espeak_voice,
                 with_stress=True,
+                use_cli=self.use_cli,
             )
             # Validate immediately after initialization
             self._validate_backend()
@@ -165,8 +168,8 @@ class EspeakOnlyG2P(G2PBase):
             raise RuntimeError("Backend not initialized")
 
         try:
-            # Try a simple test
-            test_result = self._espeak_backend.phonemize("test")
+            # Try a simple test using the subclass-selected validation text.
+            test_result = self._phonemize_text(self._validation_text())
             if not test_result:
                 raise RuntimeError(
                     f"Espeak backend returned empty result for test word. "
@@ -179,6 +182,18 @@ class EspeakOnlyG2P(G2PBase):
                 f"voice '{self._espeak_voice}' is available. "
                 f"Error: {e}"
             ) from e
+
+    def _validation_text(self) -> str:
+        """Return text used to verify the configured eSpeak voice."""
+        return "test"
+
+    def _phonemize_word(self, word: str) -> str:
+        """Phonemize one word through the configured backend."""
+        return self.espeak_backend.word_phonemes(word)
+
+    def _phonemize_text(self, text: str) -> str:
+        """Phonemize text through the configured backend."""
+        return self.espeak_backend.phonemize(text)
 
     def __call__(self, text: str) -> list[GToken]:
         """Convert text to tokens with phonemes.
@@ -216,7 +231,7 @@ class EspeakOnlyG2P(G2PBase):
                 continue
 
             try:
-                phonemes = self.espeak_backend.word_phonemes(span.text)
+                phonemes = self._phonemize_word(span.text)
             except Exception as e:
                 if self.strict:
                     if isinstance(e, RuntimeError):
@@ -265,7 +280,7 @@ class EspeakOnlyG2P(G2PBase):
             RuntimeError: If espeak backend fails and strict=True.
         """
         try:
-            return self.espeak_backend.word_phonemes(word)
+            return self._phonemize_word(word)
         except Exception as e:
             if self.strict:
                 if isinstance(e, RuntimeError):
@@ -297,7 +312,7 @@ class EspeakOnlyG2P(G2PBase):
             RuntimeError: If espeak backend fails and strict=True.
         """
         try:
-            return self.espeak_backend.phonemize(text)
+            return self._phonemize_text(text)
         except Exception as e:
             if self.strict:
                 if isinstance(e, RuntimeError):

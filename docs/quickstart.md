@@ -60,6 +60,11 @@ fr_phonemes = phonemize("Bonjour le monde", language="fr").phonemes
 cs_phonemes = phonemize("Dobrý den", language="cs").phonemes
 
 
+# Kazakh eSpeak-NG frontend
+kk_phonemes = phonemize("Сәлем әлем!", language="kk").phonemes
+print(kk_phonemes)
+# Requires: pip install "kokorog2p[kk]"
+
 # Vietnamese native frontend
 vi_phonemes = phonemize("Xin chào!", language="vi").phonemes
 print(vi_phonemes)

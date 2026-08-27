@@ -693,3 +693,19 @@ class TestBackwardsCompatibility:
 
         v = EspeakVoice.from_language("en-us")
         assert v.language == "en-us"
+
+
+def test_espeak_only_explicit_use_cli_and_hooks() -> None:
+    from kokorog2p.espeak_g2p import EspeakOnlyG2P
+
+    class FakeBackend:
+        def word_phonemes(self, word: str) -> str:
+            return f"word:{word}"
+        def phonemize(self, text: str) -> str:
+            return f"text:{text}"
+
+    g2p = EspeakOnlyG2P(language="fr", use_cli=True)
+    g2p._espeak_backend = FakeBackend()
+    assert g2p.use_cli is True
+    assert g2p._phonemize_word("bonjour") == "word:bonjour"
+    assert g2p._phonemize_text("bonjour") == "text:bonjour"

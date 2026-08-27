@@ -176,6 +176,10 @@ _LANGUAGE_ALIASES = {
     "ru-ru": "ru-ru",
     "rus": "ru-ru",
     "russian": "ru-ru",
+    "kk": "kk",
+    "kk-kz": "kk",
+    "kaz": "kk",
+    "kazakh": "kk",
 }
 
 _FACTORY_KWARGS_BY_LANGUAGE = {
@@ -248,6 +252,7 @@ _FACTORY_KWARGS_BY_LANGUAGE = {
             "engine",
         }
     ),
+    "kk": frozenset(),
     "sv": frozenset({"dialect", "preserve_stress"}),
 }
 
@@ -559,17 +564,38 @@ def get_g2p(  # noqa: C901
             language=implementation_language, strict=strict, version=version, **kwargs
         )
     elif backend == "espeak":
-        # Use espeak backend for all languages
-        from kokorog2p.espeak_g2p import EspeakOnlyG2P
+        # Kazakh must use raw IPA even when the generic backend is requested.
+        if lang == "kk":
+            from kokorog2p.kk import KazakhG2P
 
-        g2p = EspeakOnlyG2P(
+            g2p = KazakhG2P(
+                language=implementation_language,
+                strict=strict,
+                version=version,
+                use_cli=use_cli,
+                **kwargs,
+            )
+        else:
+            from kokorog2p.espeak_g2p import EspeakOnlyG2P
+
+            g2p = EspeakOnlyG2P(
+                language=implementation_language,
+                strict=strict,
+                version=version,
+                use_cli=use_cli,
+                **kwargs,
+            )
+
+    elif lang == "kk":
+        from kokorog2p.kk import KazakhG2P
+
+        g2p = KazakhG2P(
             language=implementation_language,
             strict=strict,
             version=version,
             use_cli=use_cli,
             **kwargs,
         )
-
     elif lang.startswith("en"):
         from kokorog2p.en import EnglishG2P
 

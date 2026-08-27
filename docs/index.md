@@ -16,7 +16,7 @@ high-quality text-to-phoneme conversion for multiple languages.
 ## Features
 
 - **Multi-language support**: English (US/GB), German, French, Czech, Spanish, Italian,
-  Portuguese, Chinese, Japanese, Korean, Hebrew, Vietnamese
+  Portuguese, Chinese, Japanese, Korean, Hebrew, Vietnamese, Kazakh
 - **Native Vietnamese**: Pure-Python Northern/Hanoi profile with NFC/NFD support and six
   named tones
 - **Mixed-language detection**: Automatic detection and handling of texts mixing
@@ -65,6 +65,9 @@ pip install kokorog2p[en]
 pip install kokorog2p[espeak]
 
 
+# Kazakh support
+pip install "kokorog2p[kk]"
+
 pip install "kokorog2p[th]"  # Thai support with TLTK and PyThaiNLP
 # Full installation (all languages and backends)
 pip install kokorog2p[all]
@@ -103,6 +106,7 @@ api/russian
 api/hebrew
 api/mixed
 api/thai
+api/kazakh
 api/arabic
 api/backends
 api/utils

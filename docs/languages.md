@@ -77,6 +77,11 @@ kokorog2p supports multiple languages with varying levels of functionality.
      - RUAccent (optional)
      - espeak-ng
      - Contextual stress, ё restoration, reduction, source-aligned tokens
+   * - Kazakh
+     - kk
+     - —
+     - espeak-ng
+     - Raw non-English IPA, Kokoro vocabulary validation
    * - Mixed
      - multilingual
      - Auto-detect
@@ -910,6 +915,15 @@ TSV is accepted only by `benchmarks/benchmark_sv_rules.py` for development bench
 Aliases are `sv`, `sv-se`, `swe`, and `swedish`. Swedish number, date, unit,
 abbreviation, and spoken semantic normalization remain outside this frontend. See
 {doc}`api/swedish`.
+
+## Kazakh (kk)
+
+Kazakh uses eSpeak-NG voice `kk` as its pronunciation engine. The frontend requests raw
+non-English IPA, applies only generic Kokoro compatibility transforms, and validates output
+against the stock Kokoro 1.0 vocabulary. Install `kokorog2p[kk]`.
+
+The upstream Kazakh voice is currently marked `testing`, so output quality follows the
+installed eSpeak-NG release. See {doc}`api/kazakh` and `kk/PROVENANCE`.
 
 ## Thai (th-th)
 

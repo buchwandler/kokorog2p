@@ -77,6 +77,17 @@ custom data directory with `get_g2p("ru", espeak_data="/path/to/espeak-ng-data")
 KokoroG2P does not install or bundle `kokoro-ru` model weights or compiled eSpeak data.
 See [Russian API](api/russian.md).
 
+
+### Kazakh
+
+Kazakh support uses the existing eSpeak-NG integration and the upstream `kk` voice:
+
+```bash
+pip install "kokorog2p[kk]"
+```
+
+The frontend consumes raw non-English IPA, validates stock Kokoro 1.0 labels, and does not
+install Epitran, Misaki, or a Kazakh lexicon. The upstream voice is marked `testing`.
 ### Vietnamese
 
 Vietnamese is included in the core pure-Python installation. It uses the `vi-vn`

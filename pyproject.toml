@@ -58,6 +58,9 @@ espeak = [
     "espeakng-loader>=0.1.0",
     "dlinfo>=1.2.1",
 ]
+kk = [
+    "kokorog2p[espeak]",
+]
 ar = [
     "kokorog2p[espeak]",
 ]
@@ -134,7 +137,7 @@ mixed = [
     "lingua-language-detector>=2.0.0",
 ]
 all = [
-    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,mixed,ar,th,ru]"
+    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,mixed,ar,th,ru,kk]"
 ]
 dev = [
     "pytest>=7.0.0",
