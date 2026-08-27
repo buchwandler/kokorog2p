@@ -919,8 +919,8 @@ abbreviation, and spoken semantic normalization remain outside this frontend. Se
 ## Kazakh (kk)
 
 Kazakh uses eSpeak-NG voice `kk` as its pronunciation engine. The frontend requests raw
-non-English IPA, applies only generic Kokoro compatibility transforms, and validates output
-against the stock Kokoro 1.0 vocabulary. Install `kokorog2p[kk]`.
+non-English IPA, applies only generic Kokoro compatibility transforms, and validates
+output against the stock Kokoro 1.0 vocabulary. Install `kokorog2p[kk]`.
 
 The upstream Kazakh voice is currently marked `testing`, so output quality follows the
 installed eSpeak-NG release. See {doc}`api/kazakh` and `kk/PROVENANCE`.

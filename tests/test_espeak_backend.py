@@ -701,6 +701,7 @@ def test_espeak_only_explicit_use_cli_and_hooks() -> None:
     class FakeBackend:
         def word_phonemes(self, word: str) -> str:
             return f"word:{word}"
+
         def phonemize(self, text: str) -> str:
             return f"text:{text}"
 

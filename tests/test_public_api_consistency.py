@@ -103,6 +103,7 @@ def test_kazakh_public_api_uses_standard_result_shape() -> None:
         def word_phonemes(self, word: str, convert_to_kokoro: bool = True) -> str:
             assert convert_to_kokoro is False
             return "rxeqʁ"
+
         def phonemize(self, text: str, convert_to_kokoro: bool = True) -> str:
             assert convert_to_kokoro is False
             return "rxeqʁ"

@@ -21,7 +21,8 @@ provides:
   `wayu-kokoro-thai-v1`; Latin phrases use lazy EnglishG2P
 - **Native Russian frontend**: Optional RUAccent contextual stress, ё restoration,
   source-aligned tokens, and stock Kokoro 1.0 labels
-- **Native Kazakh frontend**: eSpeak-NG `kk` raw IPA profile with Kokoro vocabulary validation
+- **Native Kazakh frontend**: eSpeak-NG `kk` raw IPA profile with Kokoro vocabulary
+  validation
 - **Mixed-language preprocessing**: Detect languages for per-word language switching
 - **Dictionary-based lookup** with comprehensive lexicons
   - English: 179k+ entries (gold tier), 187k+ silver tier (both loaded by default)
@@ -614,11 +615,12 @@ reduction and orthoepy transforms against the stock Kokoro 1.0 vocabulary. Insta
 ## Kazakh
 
 Kazakh (`kk`) uses eSpeak-NG voice `kk` as its pronunciation engine. The native frontend
-preserves raw non-English IPA semantics, applies only generic Kokoro compatibility transforms,
-and validates output against the stock Kokoro 1.0 vocabulary. Install `kokorog2p[kk]`.
+preserves raw non-English IPA semantics, applies only generic Kokoro compatibility
+transforms, and validates output against the stock Kokoro 1.0 vocabulary. Install
+`kokorog2p[kk]`.
 
-The upstream Kazakh voice is currently marked `testing`, so pronunciation quality follows the
-installed eSpeak-NG release. See [Kazakh API](docs/api/kazakh.md) and
+The upstream Kazakh voice is currently marked `testing`, so pronunciation quality
+follows the installed eSpeak-NG release. See [Kazakh API](docs/api/kazakh.md) and
 [Kazakh provenance](docs/kk/PROVENANCE.md).
 
 ## Arabic MSA

@@ -7,9 +7,10 @@
 - Numbers, decimal input, punctuation, and mixed Latin/Cyrillic text.
 - The eSpeak-NG voice identifier `kk`.
 
-The benchmark records raw eSpeak IPA, normalized Kokoro labels, invalid vocabulary symbols,
-model validity, and transform-rule hit counts. It is diagnostic rather than a quality gold
-standard because upstream eSpeak-NG currently marks the Kazakh voice as `testing`.
+The benchmark records raw eSpeak IPA, normalized Kokoro labels, invalid vocabulary
+symbols, model validity, and transform-rule hit counts. It is diagnostic rather than a
+quality gold standard because upstream eSpeak-NG currently marks the Kazakh voice as
+`testing`.
 
 Run it with:
 
