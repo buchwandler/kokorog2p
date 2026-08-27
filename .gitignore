@@ -215,3 +215,9 @@ benchmarks/data/sv/lexicon.tsv
 
 # Generated Swedish rule benchmark results
 benchmarks/results/sv/
+
+# German lexicon compression experiment: never commit downloaded sources or reports
+experiments/de_lexicon_compression/data/*
+!experiments/de_lexicon_compression/data/.gitkeep
+experiments/de_lexicon_compression/reports/*
+!experiments/de_lexicon_compression/reports/.gitkeep
