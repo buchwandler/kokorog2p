@@ -379,3 +379,9 @@ and numbers are handled through the comprehensive English lexicon
 (`kokorog2p/en/lexicon.txt`), which contains expansions for all common abbreviations and
 number formats. The system is production-ready for handling real-world English text from
 any source.
+
+## External held-out benchmark
+
+For pinned CER measurements against the Crane `en_US` and `de_DE` fixtures, see
+[`CRANE_TEST_DATA.md`](CRANE_TEST_DATA.md). It is separate from these synthetic
+benchmarks and does not modify production lexica.
