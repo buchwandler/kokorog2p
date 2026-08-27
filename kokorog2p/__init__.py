@@ -168,6 +168,10 @@ _LANGUAGE_ALIASES = {
     "sv-se": "sv-se",
     "swe": "sv-se",
     "swedish": "sv-se",
+    "th": "th-th",
+    "th-th": "th-th",
+    "tha": "th-th",
+    "thai": "th-th",
 }
 
 _FACTORY_KWARGS_BY_LANGUAGE = {
@@ -226,6 +230,7 @@ _FACTORY_KWARGS_BY_LANGUAGE = {
             "model_profile",
         }
     ),
+    "th": frozenset({"latin_fallback"}),
     "sv": frozenset({"dialect", "preserve_stress"}),
 }
 
@@ -673,6 +678,18 @@ def get_g2p(  # noqa: C901
         from kokorog2p.sv import SwedishG2P
 
         g2p = SwedishG2P(
+            language=implementation_language,
+            use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
+            use_cli=use_cli,
+            strict=strict,
+            version=version,
+            **kwargs,
+        )
+    elif lang == "th-th":
+        from kokorog2p.th import ThaiG2P
+
+        g2p = ThaiG2P(
             language=implementation_language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,

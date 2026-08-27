@@ -87,6 +87,11 @@ zh = [
     "pypinyin-dict>=0.8.0",
     "ordered-set>=4.1.0",
 ]
+th = [
+    "tltk>=1.10,<2",
+    "pythainlp>=5.3,<6",
+    "kokorog2p[espeak]",
+]
 ja = [
     "pyopenjtalk>=0.4.1,<0.5",
 ]
@@ -124,7 +129,7 @@ mixed = [
     "lingua-language-detector>=2.0.0",
 ]
 all = [
-    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,mixed,ar]",
+    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,mixed,ar,th]"
 ]
 dev = [
     "pytest>=7.0.0",

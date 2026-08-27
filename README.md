@@ -11,11 +11,14 @@ kokorog2p converts text to phonemes optimized for the Kokoro text-to-speech syst
 provides:
 
 - **Multi-language support**: English (US/GB), German, French, Italian, Spanish,
-  Portuguese (Brazilian), Czech, Chinese, Japanese, Korean, Hebrew, Vietnamese, Swedish
+  Portuguese (Brazilian), Czech, Chinese, Japanese, Korean, Hebrew, Vietnamese, Swedish,
+  Thai (optional)
 - **Native Vietnamese frontend**: Pure-Python Northern/Hanoi `vi-vn` profile with six
   named tones
 - **Native Swedish frontend**: Pure-Python deterministic rules with no runtime lexicon;
   external TSV benchmarking is development-only
+- **Native Thai frontend**: Optional TLTK/PyThaiNLP frontend targeting
+  `wayu-kokoro-thai-v1`; Latin phrases use lazy EnglishG2P
 - **Mixed-language preprocessing**: Detect languages for per-word language switching
 - **Dictionary-based lookup** with comprehensive lexicons
   - English: 179k+ entries (gold tier), 187k+ silver tier (both loaded by default)
@@ -89,6 +92,8 @@ pip install kokorog2p[de]
 # With French support
 pip install kokorog2p[fr]
 
+# Thai support (optional TLTK and PyThaiNLP)
+pip install "kokorog2p[th]"
 # With multilang preprocessing support
 pip install kokorog2p[mixed]
 
@@ -608,6 +613,16 @@ Install `kokorog2p[ar]` for the Arabic eSpeak path. The optional
 `kokorog2p[ar-diacritize]` extra enables CAMeL integration, but its MSA data must be
 provisioned separately and is never downloaded automatically. See
 [Arabic API](docs/api/arabic.md) for MSA scope, source offsets, and model-ID caveats.
+
+## Thai
+
+Thai support is an optional native TLTK/PyThaiNLP frontend. It supports the aliases
+`th`, `th-th`, `tha`, and `thai`, preserves Thai combining marks, recovers failed engine
+chunks with diagnostics, and uses lazy EnglishG2P for Latin phrases.
+
+The frontend targets `wayu-kokoro-thai-v1`; low tone `˩` is token ID 7 in that isolated
+vocabulary profile. See [Thai API](docs/api/thai.md) and
+[Thai provenance](docs/th/PROVENANCE.md).
 
 ## License
 

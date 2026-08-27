@@ -905,3 +905,15 @@ TSV is accepted only by `benchmarks/benchmark_sv_rules.py` for development bench
 Aliases are `sv`, `sv-se`, `swe`, and `swedish`. Swedish number, date, unit,
 abbreviation, and spoken semantic normalization remain outside this frontend. See
 {doc}`api/swedish`.
+
+## Thai (th-th)
+
+Thai is an optional native frontend using TLTK and PyThaiNLP, with lazy EnglishG2P
+pronunciation for Latin runs. Install `kokorog2p[th]`; the aliases `th`, `th-th`, `tha`,
+and `thai` share one cached frontend.
+
+Thai output targets `wayu-kokoro-thai-v1`. Its low-tone symbol `˩` uses token ID 7 in an
+isolated profile, so it must not be combined with another incompatible custom model
+profile in one ID stream. Normalization and recovery diagnostics are source-aware, and
+strict mode reports unrecovered lexical material. See {doc}`api/thai` and
+`th/PROVENANCE`.

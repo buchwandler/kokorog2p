@@ -73,6 +73,19 @@ from kokorog2p import phonemize
 print(phonemize("Xin chào!", language="vi").phonemes)
 ```
 
+### Thai
+
+Thai support is optional and installs TLTK plus PyThaiNLP:
+
+```bash
+pip install "kokorog2p[th]"
+```
+
+The native Thai frontend targets `wayu-kokoro-thai-v1`, uses a separate vocabulary
+profile, and lazily creates the existing English frontend for Latin phrases. Core
+installation does not import Thai dependencies. See {doc}`api/thai` for normalization,
+diagnostics, and strict-mode behavior.
+
 ### Chinese
 
 For Chinese support:

@@ -314,6 +314,10 @@ def _get_language_normalizer(lang: str | None) -> Any | None:
         from kokorog2p.cs.normalizer import CzechNormalizer
 
         return CzechNormalizer(track_changes=False, expand_abbreviations=True)
+    if normalized.startswith("th"):
+        from kokorog2p.th import ThaiNormalizer
+
+        return ThaiNormalizer()
 
     return None
 

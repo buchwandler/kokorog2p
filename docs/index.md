@@ -21,6 +21,8 @@ high-quality text-to-phoneme conversion for multiple languages.
   named tones
 - **Mixed-language detection**: Automatic detection and handling of texts mixing
   multiple languages
+- **Native Thai (optional)**: TLTK frontend with Wayu vocabulary targeting, bilingual
+  Latin routing, and diagnostics
 - **Dictionary-based lookup** with large gold/silver tier lexicons for select languages
 - **Rule-based G2P** for Romance and Slavic languages with comprehensive phonological
   rules
@@ -60,6 +62,8 @@ pip install kokorog2p[en]
 # With espeak-ng backend
 pip install kokorog2p[espeak]
 
+
+pip install "kokorog2p[th]"  # Thai support with TLTK and PyThaiNLP
 # Full installation (all languages and backends)
 pip install kokorog2p[all]
 ```
@@ -95,6 +99,7 @@ api/korean
 api/vietnamese
 api/hebrew
 api/mixed
+api/thai
 api/arabic
 api/backends
 api/utils

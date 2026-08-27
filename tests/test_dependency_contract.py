@@ -19,6 +19,18 @@ def test_migrated_semantic_dependency_floors() -> None:
     assert "spokenform>=0.3.1,<0.4.0" in dependencies
 
 
+def test_thai_dependency_extra_is_optional() -> None:
+    data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    extras = data["project"]["optional-dependencies"]
+
+    assert extras["th"] == [
+        "tltk>=1.10,<2",
+        "pythainlp>=5.3,<6",
+        "kokorog2p[espeak]",
+    ]
+    assert "th" in extras["all"][-1]
+
+
 def test_japanese_dependency_extras_are_separated() -> None:
     data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
     extras = data["project"]["optional-dependencies"]
