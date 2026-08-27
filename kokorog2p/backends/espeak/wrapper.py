@@ -132,24 +132,20 @@ class Phonemizer(EspeakPhonemizerBase):
         'həlˈoʊ wˈɜːld'
     """
 
-    # Class-level overrides for library/data paths
+    # Class-level overrides retained for backwards compatibility.
     _custom_library: str | None = None
     _custom_data: str | None = None
 
-    def __init__(self) -> None:
-        """Initialize the phonemizer.
-
-        Raises:
-            RuntimeError: If espeak-ng library cannot be loaded.
-        """
-        super().__init__()  # <-- shared state init here
-
-        # Find library and data paths
+    def __init__(self, data_path: str | Path | None = None) -> None:
+        """Initialize the wrapper with an optional instance data directory."""
+        super().__init__()
         lib_path = self._custom_library or find_espeak_library()
-        data_path = self._custom_data or find_espeak_data()
-
-        # Initialize low-level API
-        self._api = EspeakLibrary(lib_path, data_path)
+        selected_data = data_path
+        if selected_data is None:
+            selected_data = self._custom_data or find_espeak_data()
+        self._api = EspeakLibrary(lib_path, selected_data)
+        if selected_data is not None:
+            self._data_path = Path(selected_data).resolve()
 
     @classmethod
     def set_library_path(cls, path: str | None) -> None:

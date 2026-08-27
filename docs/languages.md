@@ -72,6 +72,11 @@ kokorog2p supports multiple languages with varying levels of functionality.
      - —
      - phonikud
      - Nikud handling, stress
+   * - Russian
+     - ru-ru
+     - RUAccent (optional)
+     - espeak-ng
+     - Contextual stress, ё restoration, reduction, source-aligned tokens
    * - Mixed
      - multilingual
      - Auto-detect

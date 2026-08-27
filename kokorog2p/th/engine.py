@@ -111,17 +111,11 @@ class ThaiEngine:
             result.warnings.append(f"TH_ENGINE_EXCEPTION: {exc}")
 
         result.used_fallback = True
-        syllables = self._segment_units(source, "syllable_tokenize")
-        if isinstance(syllables, tuple):
-            syllables, segmentation_warnings = syllables
-            result.warnings.extend(segmentation_warnings)
-        pieces = syllables
+        pieces, segmentation_warnings = self._segment_units(source, "syllable_tokenize")
+        result.warnings.extend(segmentation_warnings)
         if len(pieces) <= 1 or pieces == [source]:
-            words = self._segment_units(source, "word_tokenize")
-            if isinstance(words, tuple):
-                words, segmentation_warnings = words
-                result.warnings.extend(segmentation_warnings)
-            pieces = words
+            pieces, segmentation_warnings = self._segment_units(source, "word_tokenize")
+            result.warnings.extend(segmentation_warnings)
         recovered: list[str] = []
         for piece in pieces:
             try:

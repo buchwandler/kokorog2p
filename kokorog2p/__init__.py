@@ -172,6 +172,10 @@ _LANGUAGE_ALIASES = {
     "th-th": "th-th",
     "tha": "th-th",
     "thai": "th-th",
+    "ru": "ru-ru",
+    "ru-ru": "ru-ru",
+    "rus": "ru-ru",
+    "russian": "ru-ru",
 }
 
 _FACTORY_KWARGS_BY_LANGUAGE = {
@@ -231,6 +235,19 @@ _FACTORY_KWARGS_BY_LANGUAGE = {
         }
     ),
     "th": frozenset({"latin_fallback"}),
+    "ru": frozenset(
+        {
+            "accentuator",
+            "omograph_model_size",
+            "use_stress_dictionary",
+            "espeak_data",
+            "strict_stress",
+            "reduction",
+            "preserve_stress",
+            "latin_policy",
+            "engine",
+        }
+    ),
     "sv": frozenset({"dialect", "preserve_stress"}),
 }
 
@@ -484,14 +501,20 @@ def get_g2p(  # noqa: C901
     )
 
     # Check cache (include all relevant parameters in cache key)
+    # Injected adapters are stateful and may have address-based reprs. Keep their
+    # identity explicit so different adapters never share a cached frontend.
     kwargs_key = None
     if kwargs:
-        kwargs_key = tuple(
-            sorted(
-                ((key, _stable_repr(value)) for key, value in kwargs.items()),
-                key=lambda item: item[0],
-            )
-        )
+        kwargs_items = []
+        for key, value in kwargs.items():
+            if key in {"accentuator", "engine"} and not isinstance(
+                value, str | int | float | bool | type(None)
+            ):
+                value_key = (type(value).__qualname__, id(value))
+            else:
+                value_key = _stable_repr(value)
+            kwargs_items.append((key, value_key))
+        kwargs_key = tuple(sorted(kwargs_items, key=lambda item: item[0]))
     # An explicit model is irrelevant when spaCy is disabled for spaCy-backed
     # languages. Korean is a reserved API case: it does not load spaCy, but it
     # retains and forwards the configured model name for compatibility.
@@ -702,6 +725,16 @@ def get_g2p(  # noqa: C901
         from kokorog2p.ar import ArabicG2P
 
         g2p = ArabicG2P(
+            language=implementation_language,
+            strict=strict,
+            version=version,
+            use_cli=use_cli,
+            **kwargs,
+        )
+    elif lang == "ru-ru":
+        from kokorog2p.ru import RussianG2P
+
+        g2p = RussianG2P(
             language=implementation_language,
             strict=strict,
             version=version,

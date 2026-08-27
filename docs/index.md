@@ -23,6 +23,8 @@ high-quality text-to-phoneme conversion for multiple languages.
   multiple languages
 - **Native Thai (optional)**: TLTK frontend with Wayu vocabulary targeting, bilingual
   Latin routing, and diagnostics
+- **Native Russian (optional)**: Contextual stress, ё restoration, source-aligned
+  tokens, and Kokoro 1.0 vocabulary transforms
 - **Dictionary-based lookup** with large gold/silver tier lexicons for select languages
 - **Rule-based G2P** for Romance and Slavic languages with comprehensive phonological
   rules
@@ -97,6 +99,7 @@ api/chinese
 api/japanese
 api/korean
 api/vietnamese
+api/russian
 api/hebrew
 api/mixed
 api/thai

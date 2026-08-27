@@ -142,6 +142,10 @@ def _detect_script_language(token: str, allowed: list[str]) -> str | None:
         )
     if re.search(r"[\u0590-\u05ff]", token):
         return _pick_allowed_language("he", allowed)
+    if re.search(r"[\u0400-\u04ff]", token):
+        # Cyrillic alone is not universally Russian. Today Russian is the only
+        # native Cyrillic candidate, so require it to be explicitly allowed.
+        return _pick_allowed_language("ru", allowed)
     return None
 
 

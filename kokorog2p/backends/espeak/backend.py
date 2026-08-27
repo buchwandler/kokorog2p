@@ -7,13 +7,17 @@ Copyright 2024 kokorog2p contributors
 Licensed under the Apache License, Version 2.0
 """
 
+import logging
 import re
+from pathlib import Path
 from typing import cast
 
 from kokorog2p.backends.espeak.cli_wrapper import CliPhonemizer
 from kokorog2p.backends.espeak.phonemizer_base import EspeakPhonemizerBase
 from kokorog2p.backends.espeak.wrapper import Phonemizer
 from kokorog2p.phonemes import from_espeak
+
+logger = logging.getLogger(__name__)
 
 
 class EspeakBackend:
@@ -35,6 +39,7 @@ class EspeakBackend:
         with_stress: bool = True,
         tie: str = "^",
         use_cli: bool = False,
+        data_path: str | Path | None = None,
     ) -> None:
         """Initialize the espeak backend.
 
@@ -43,11 +48,13 @@ class EspeakBackend:
             with_stress: Whether to include stress markers in output.
             tie: Tie character mode. "^" uses tie character for affricates.
             use_cli: If True, force use of CLI phonemizer instead of library.
+            data_path: Optional instance-scoped espeak-ng data directory.
         """
         self.language = language
         self.with_stress = with_stress
         self.tie = tie
         self.use_cli = use_cli
+        self.data_path = Path(data_path) if data_path is not None else None
         self._phonemizer: EspeakPhonemizerBase | None = None
 
     @property
@@ -55,21 +62,25 @@ class EspeakBackend:
         """Get the underlying Phonemizer instance (lazy initialization)."""
         if self._phonemizer is None and not self.use_cli:
             try:
-                self._phonemizer = Phonemizer()
+                self._phonemizer = Phonemizer(data_path=self.data_path)
                 self._phonemizer.set_voice(self.language)
             except Exception:
                 self._phonemizer = CliPhonemizer(
-                    language=self.language, tie_char=self.tie
+                    language=self.language, tie_char=self.tie, data_path=self.data_path
                 )
         elif self._phonemizer is None and self.use_cli:
-            self._phonemizer = CliPhonemizer(language=self.language, tie_char=self.tie)
+            self._phonemizer = CliPhonemizer(
+                language=self.language, tie_char=self.tie, data_path=self.data_path
+            )
         if self._phonemizer is not None and self._phonemizer.voice is None:
             try:
                 self._phonemizer.set_voice(self.language)
             except Exception:
                 if not isinstance(self._phonemizer, CliPhonemizer):
                     self._phonemizer = CliPhonemizer(
-                        language=self.language, tie_char=self.tie
+                        language=self.language,
+                        tie_char=self.tie,
+                        data_path=self.data_path,
                     )
         return cast(EspeakPhonemizerBase, self._phonemizer)
 

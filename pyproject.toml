@@ -92,6 +92,11 @@ th = [
     "pythainlp>=5.3,<6",
     "kokorog2p[espeak]",
 ]
+ru = [
+    "kokorog2p[espeak]",
+    "ruaccent>=1.5.8,<2; python_version < '3.14'",
+    "ruaccent>=1.5.8; python_version >= '3.14'",
+]
 ja = [
     "pyopenjtalk>=0.4.1,<0.5",
 ]
@@ -129,7 +134,7 @@ mixed = [
     "lingua-language-detector>=2.0.0",
 ]
 all = [
-    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,mixed,ar,th]"
+    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,mixed,ar,th,ru]"
 ]
 dev = [
     "pytest>=7.0.0",

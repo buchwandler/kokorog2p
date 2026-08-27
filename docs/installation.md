@@ -62,6 +62,21 @@ This includes:
 - espeak-ng fallback
 - Number and currency handling
 
+### Russian
+
+Russian support is an optional native frontend with lazy contextual stress and an
+eSpeak-ng raw IPA path:
+
+```bash
+pip install "kokorog2p[ru]"
+```
+
+RUAccent model artifacts may be heavyweight and are not loaded during import. Russian
+eSpeak data must pass the runtime combining-acute stress capability probe. Configure a
+custom data directory with `get_g2p("ru", espeak_data="/path/to/espeak-ng-data")`.
+KokoroG2P does not install or bundle `kokoro-ru` model weights or compiled eSpeak data.
+See [Russian API](api/russian.md).
+
 ### Vietnamese
 
 Vietnamese is included in the core pure-Python installation. It uses the `vi-vn`

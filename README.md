@@ -12,13 +12,15 @@ provides:
 
 - **Multi-language support**: English (US/GB), German, French, Italian, Spanish,
   Portuguese (Brazilian), Czech, Chinese, Japanese, Korean, Hebrew, Vietnamese, Swedish,
-  Thai (optional)
+  Thai (optional), Russian (optional)
 - **Native Vietnamese frontend**: Pure-Python Northern/Hanoi `vi-vn` profile with six
   named tones
 - **Native Swedish frontend**: Pure-Python deterministic rules with no runtime lexicon;
   external TSV benchmarking is development-only
 - **Native Thai frontend**: Optional TLTK/PyThaiNLP frontend targeting
   `wayu-kokoro-thai-v1`; Latin phrases use lazy EnglishG2P
+- **Native Russian frontend**: Optional RUAccent contextual stress, ё restoration,
+  source-aligned tokens, and stock Kokoro 1.0 labels
 - **Mixed-language preprocessing**: Detect languages for per-word language switching
 - **Dictionary-based lookup** with comprehensive lexicons
   - English: 179k+ entries (gold tier), 187k+ silver tier (both loaded by default)
@@ -94,6 +96,8 @@ pip install kokorog2p[fr]
 
 # Thai support (optional TLTK and PyThaiNLP)
 pip install "kokorog2p[th]"
+# Russian support (optional RUAccent and eSpeak)
+pip install "kokorog2p[ru]"
 # With multilang preprocessing support
 pip install kokorog2p[mixed]
 
@@ -594,6 +598,14 @@ kokorog2p uses Kokoro's 45-phoneme vocabulary:
 
 - Primary stress: `ˈ`
 - Secondary stress: `ˌ`
+
+## Russian
+
+Russian support is a native, source-aligned frontend. It uses lazy contextual stress
+when RUAccent is installed, supports explicit combining-acute input, and applies Russian
+reduction and orthoepy transforms against the stock Kokoro 1.0 vocabulary. Install
+`kokorog2p[ru]`; see [Russian API](docs/api/russian.md) and
+[Russian provenance](docs/ru/PROVENANCE.md).
 
 ## Arabic MSA
 
