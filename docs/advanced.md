@@ -913,3 +913,8 @@ g2p_dict = get_g2p(
 - See {doc}`api/core` for detailed API reference
 - Check {doc}`languages` for language-specific features
 - Read {doc}`phonemes` to understand the phoneme inventory
+
+
+## Selecting named lexicons
+
+Use `available_lexicons(language)` to inspect registered names and pass `lexicons` to `get_g2p` or `phonemize`. A sequence is an ordered precedence stack, so `("gold", "silver")` retains the compatibility default. The legacy `load_gold` and `load_silver` flags remain supported.

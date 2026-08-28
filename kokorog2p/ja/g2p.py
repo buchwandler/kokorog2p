@@ -10,7 +10,7 @@ Licensed under the Apache License, Version 2.0
 """
 
 import warnings
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any, Protocol
 
 from kokorog2p.base import G2PBase
@@ -279,6 +279,7 @@ class JapaneseG2P(G2PBase):
         unk: str = "",
         load_silver: bool = True,
         load_gold: bool = True,
+        lexicons: Sequence[str] | None = None,
         version: str = "1.0",
         frontend: JapaneseFrontend | None = None,
         **kwargs,
@@ -323,6 +324,13 @@ class JapaneseG2P(G2PBase):
         self.spacy_model = None
         self.load_silver = load_silver
         self.load_gold = load_gold
+        self.lexicons = (
+            ("words",)
+            if lexicons is None and load_gold
+            else ()
+            if lexicons is None
+            else tuple(lexicons)
+        )
         self._frontend = frontend
         self._pyopenjtalk = None
         self._cutlet = None
@@ -354,7 +362,7 @@ class JapaneseG2P(G2PBase):
                     "Install it with `pip install 'kokorog2p[ja-cutlet]'`."
                 ) from exc
 
-            self._cutlet = Cutlet()
+            self._cutlet = Cutlet(self.lexicons)
         return self._cutlet
 
     @staticmethod
@@ -570,6 +578,11 @@ class JapaneseG2P(G2PBase):
                 f"phonemes={len(result)}, pitch={len(pitch_str)}"
             )
         return result + pitch_str, tokens
+
+    def close(self) -> None:
+        if self._cutlet is not None:
+            self._cutlet.close()
+        super().close()
 
     def lookup(self, word: str, tag: str | None = None) -> str | None:
         """Look up a word's phonemes.

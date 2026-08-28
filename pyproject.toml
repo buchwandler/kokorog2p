@@ -8,10 +8,7 @@ include = ["kokorog2p*"]
 
 [tool.setuptools.package-data]
 "kokorog2p.data" = ["*.json"]
-"kokorog2p.en.data" = ["*.json"]
-"kokorog2p.de.data" = ["*.json"]
-"kokorog2p.fr.data" = ["*.json"]
-"kokorog2p.ja.data" = ["*.txt"]
+"kokorog2p.lexicons.data" = ["*.g2lex"]
 "kokorog2p.ko.data" = ["*.csv"]
 
 [project]
@@ -27,6 +24,7 @@ keywords = ["g2p", "grapheme-to-phoneme", "tts", "text-to-speech", "kokoro", "ph
 dependencies = [
     "abbr2words>=0.2.9,<0.3.0",
     "spokenform>=0.3.1,<0.4.0",
+    "g2lex>=0.1.0,<0.2.0",
 ]
 classifiers=[
     'Development Status :: 4 - Beta',

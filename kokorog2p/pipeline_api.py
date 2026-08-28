@@ -780,6 +780,7 @@ def phonemize_to_result(
     overlap: Literal["snap", "strict"] = "snap",
     use_normalizer_rules: bool = True,
     g2p: "G2PBase | None" = None,
+    lexicons: str | Sequence[str] | None = None,
     g2p_options: dict[str, Any] | None = None,
 ) -> PhonemizeResult:
     """Phonemize text with span-based override application.
@@ -840,7 +841,11 @@ def phonemize_to_result(
     # Resolve the frontend before normalization so source-sensitive languages
     # can classify punctuation using the user's original text.
     if g2p is None:
-        g2p = get_g2p(lang)
+        options = dict(g2p_options or {})
+        if lexicons is not None:
+            options["lexicons"] = lexicons
+        g2p = get_g2p(lang, **options)
+        g2p_options = options
     source_sensitive = _preserves_source_punctuation(g2p)
 
     # The original source is the coordinate authority for migrated runs.  In

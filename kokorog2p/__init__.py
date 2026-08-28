@@ -41,6 +41,11 @@ from threading import RLock
 from typing import Any, Literal, Optional, Union
 
 from kokorog2p.base import G2PBase
+from kokorog2p.lexicons.registry import (
+    available_lexicons,
+    get_lexicon_spec,
+    normalize_lexicon_selection,
+)
 from kokorog2p.markers import apply_marker_overrides, parse_delimited
 from kokorog2p.multilang import preprocess_multilang
 from kokorog2p.phonemes import (
@@ -394,6 +399,7 @@ def get_g2p(  # noqa: C901
     backend: BackendType = "kokorog2p",
     load_silver: bool = True,
     load_gold: bool = True,
+    lexicons: str | Sequence[str] | None = None,
     version: str = "1.0",
     phoneme_quotes: str = "curly",
     strict: bool = True,
@@ -482,6 +488,9 @@ def get_g2p(  # noqa: C901
     # behaviorally equivalent do not create duplicate instances or voices.
     requested_language = language.lower().replace("_", "-")
     lang = _canonical_language(language)
+    selected_lexicons = normalize_lexicon_selection(
+        lang, lexicons, load_gold=load_gold, load_silver=load_silver
+    )
     if use_espeak_fallback is None:
         use_espeak_fallback = lang != "sv-se"
     # Validate version parameter
@@ -536,6 +545,7 @@ def get_g2p(  # noqa: C901
         backend,
         load_silver,
         load_gold,
+        selected_lexicons,
         version,
         phoneme_quotes,
         strict,
@@ -608,6 +618,7 @@ def get_g2p(  # noqa: C901
             **extra_kwargs,
             load_silver=load_silver,
             load_gold=load_gold,
+            lexicons=selected_lexicons,
             strict=strict,
             version=version,
             phoneme_quotes=phoneme_quotes,
@@ -634,6 +645,7 @@ def get_g2p(  # noqa: C901
             **extra_kwargs,
             load_silver=load_silver,
             load_gold=load_gold,
+            lexicons=selected_lexicons,
             version=version,
             **kwargs,
         )
@@ -649,6 +661,7 @@ def get_g2p(  # noqa: C901
             **extra_kwargs,
             load_silver=load_silver,
             load_gold=load_gold,
+            lexicons=selected_lexicons,
             version=version,
             **kwargs,
         )
@@ -708,6 +721,7 @@ def get_g2p(  # noqa: C901
             **extra_kwargs,
             load_silver=load_silver,
             load_gold=load_gold,
+            lexicons=selected_lexicons,
             version=version,
             **kwargs,
         )
@@ -831,6 +845,7 @@ def phonemize(
     spacy_model_size: SpacyModelSize | None = None,
     load_silver: bool = True,
     load_gold: bool = True,
+    lexicons: str | Sequence[str] | None = None,
     backend: "BackendType" = "kokorog2p",
     g2p: "G2PBase | None" = None,
     g2p_options: Mapping[str, Any] | None = None,
@@ -962,6 +977,7 @@ def phonemize(
             spacy_model_size=spacy_model_size,
             load_silver=load_silver,
             load_gold=load_gold,
+            lexicons=lexicons,
             backend=backend,
             **(dict(g2p_options) if g2p_options else {}),
         )
@@ -983,6 +999,7 @@ def phonemize(
             "use_spacy": use_spacy,
             "spacy_model": spacy_model,
             "spacy_model_size": spacy_model_size,
+            "lexicons": lexicons,
             "backend": backend,
             **(dict(g2p_options) if g2p_options else {}),
         },
@@ -1107,6 +1124,7 @@ __all__ = [
     "__version__",
     "__version_tuple__",
     "apply_marker_overrides",
+    "available_lexicons",
     "cache_info",
     "check_word_alignment",
     "clear_cache",
@@ -1122,6 +1140,7 @@ __all__ = [
     "get_g2p",
     "get_kokoro_config",
     "get_kokoro_vocab",
+    "get_lexicon_spec",
     "get_vocab",
     "ids_to_phonemes",
     "is_kokoro_punctuation",

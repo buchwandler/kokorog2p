@@ -3,17 +3,14 @@
 Based on misaki French implementation, adapted for kokorog2p.
 """
 
-import importlib.resources
-import json
 import unicodedata
 import warnings
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from functools import lru_cache
 from types import MappingProxyType
 from typing import Any, Final
 
-from kokorog2p.fr import data
+from kokorog2p.lexicons.runtime import SelectedLexicons, open_selected
 
 # =============================================================================
 # Constants
@@ -94,32 +91,15 @@ LexiconMapping = Mapping[str, LexiconValue]
 EMPTY_LEXICON: Final[LexiconMapping] = MappingProxyType({})
 
 
-@lru_cache(maxsize=1)
-def _load_dictionary() -> LexiconMapping:
-    """Load and expand the immutable French gold dictionary once."""
-    files = importlib.resources.files(data)
-    with (files / "fr_gold.json").open("r", encoding="utf-8") as stream:
-        loaded: dict[str, LexiconValue] = json.load(stream)
-
-    for word, pronunciation in tuple(loaded.items()):
-        if len(word) < 2:
-            continue
-        if word == word.lower():
-            loaded.setdefault(word.capitalize(), pronunciation)
-        elif word == word.lower().capitalize():
-            loaded.setdefault(word.lower(), pronunciation)
-
-    return MappingProxyType(loaded)
-
-
 def clear_lexicon_cache() -> None:
-    """Release the cached French dictionary mapping."""
-    _load_dictionary.cache_clear()
+    """Compatibility hook retained for callers of the former JSON cache."""
 
 
 def lexicon_cache_info():
-    """Return cache statistics for the French dictionary resource."""
-    return _load_dictionary.cache_info()
+    """Return compatibility cache statistics for the resource-backed lexicon."""
+    from collections import namedtuple
+
+    return namedtuple("LexiconCacheInfo", "hits misses maxsize currsize")(0, 0, 0, 0)
 
 
 # =============================================================================
@@ -130,34 +110,27 @@ def lexicon_cache_info():
 class FrenchLexicon:
     """Dictionary-based G2P lookup for French with gold dictionary."""
 
-    def __init__(self, load_silver: bool = True, load_gold: bool = True) -> None:
-        """Initialize the French lexicon.
-
-        Args:
-            load_silver: If True, load silver tier dictionary if available.
-                Currently French only has gold dictionary, so this parameter
-                is reserved for future use and consistency with English.
-                Defaults to True for consistency.
-            load_gold: If True, load gold tier dictionary.
-                Defaults to True for maximum quality and coverage.
-                Set to False when ultra-fast initialization is needed.
-        """
-        self.load_silver = load_silver
-        self.load_gold = load_gold
-        self.golds: LexiconMapping = EMPTY_LEXICON
-        self.silvers: LexiconMapping = EMPTY_LEXICON
-
-        # Load gold dictionary if requested
-        if load_gold:
-            self.golds = _load_dictionary()
-
-        # Silver dictionary not yet available for French
-        # When available, load it conditionally:
-        # if load_silver:
-        #     with importlib.resources.open_text(data, "fr_silver.json") as r:
-        #         self.silvers = self._grow_dictionary(json.load(r))
-
-        # Initialize built-in pronunciation fixes (highest priority)
+    def __init__(
+        self,
+        load_silver: bool = True,
+        load_gold: bool = True,
+        lexicons: Sequence[str] | None = None,
+    ) -> None:
+        """Initialize the French lexicon."""
+        del load_silver
+        names = (
+            ("gold",)
+            if lexicons is None and load_gold
+            else ()
+            if lexicons is None
+            else tuple(lexicons)
+        )
+        self._selected: SelectedLexicons = open_selected("fr-fr", names)
+        self.golds: LexiconMapping = self._selected.layer("gold") or EMPTY_LEXICON
+        self.silvers: LexiconMapping = self._selected.layer("silver") or EMPTY_LEXICON
+        self.load_silver = False
+        self.load_gold = "gold" in names
+        self.lexicons = names
         self._init_builtin_fixes()
 
     def _init_builtin_fixes(self) -> None:
@@ -225,8 +198,8 @@ class FrenchLexicon:
         """Check if a word is in the lexicon."""
         word_lower = word.lower()
         return (
-            word in self.golds
-            or word_lower in self.golds
+            word in self._selected
+            or word_lower in self._selected
             or word_lower in self.builtin
             or word in SYMBOLS
         )
@@ -254,17 +227,26 @@ class FrenchLexicon:
             return (self.builtin[word_lower], 4)
 
         # Check gold dictionary
-        ps = self.golds.get(word) or self.golds.get(word_lower)
-
-        if ps is None:
+        hit = self._selected.get_hit(word)
+        if hit is None:
+            hit = self._selected.get_hit(word_lower)
+        if hit is None:
             return (None, None)
-
-        # Handle heteronyms (dict entries)
-        if isinstance(ps, dict) and isinstance(ps, dict):
+        ps = hit.value
+        rating = hit.rating
+        if isinstance(ps, Mapping):
             if tag and tag in ps:
-                return (ps[tag], 4)
-            return (ps.get("DEFAULT", next(iter(ps.values()))), 4)
-        return (ps, 4)
+                ps = ps[tag]
+            elif "DEFAULT" in ps:
+                ps = ps["DEFAULT"]
+            else:
+                ps = next(iter(ps.values()))
+        elif isinstance(ps, tuple):
+            ps = ps[0] if ps else None
+        return (ps if isinstance(ps, str) else None, rating)
+
+    def close(self) -> None:
+        self._selected.close()
 
     def expand_abbreviation(self, text: str) -> str:
         """Compatibility shim for the former local abbreviation registry.

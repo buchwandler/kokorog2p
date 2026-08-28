@@ -169,5 +169,12 @@ def test_cutlet_smoke() -> None:
 
 
 def test_japanese_runtime_resource_exists() -> None:
-    resource = importlib.resources.files("kokorog2p.ja.data").joinpath("ja_words.txt")
+    resource = importlib.resources.files("kokorog2p.lexicons.data").joinpath(
+        "ja_words.g2lex"
+    )
     assert resource.is_file()
+    assert (
+        not importlib.resources.files("kokorog2p.ja.data")
+        .joinpath("ja_words.txt")
+        .is_file()
+    )

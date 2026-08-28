@@ -3,18 +3,14 @@
 Based on misaki by hexgrad, adapted for kokorog2p.
 """
 
-import importlib.resources
-import json
 import re
 import unicodedata
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from functools import lru_cache
 from types import MappingProxyType
 from typing import Any, Final
 
-from kokorog2p.en import data
-from kokorog2p.phonemes import GB_VOCAB, US_VOCAB
+from kokorog2p.lexicons.runtime import LexiconHit, SelectedLexicons, open_selected
 
 # =============================================================================
 # Constants
@@ -119,37 +115,20 @@ class TokenContext:
     future_to: bool = False
 
 
-LexiconValue = str | dict[str, str | None]
+LexiconValue = str | Mapping[str, str | None] | tuple[str, ...]
 LexiconMapping = Mapping[str, LexiconValue]
 EMPTY_LEXICON: Final[LexiconMapping] = MappingProxyType({})
 
 
-@lru_cache(maxsize=4)
-def _load_dictionary(prefix: str, tier: str) -> LexiconMapping:
-    """Load and expand one immutable English dictionary resource."""
-    files = importlib.resources.files(data)
-    with (files / f"{prefix}_{tier}.json").open("r", encoding="utf-8") as stream:
-        loaded: dict[str, LexiconValue] = json.load(stream)
-
-    for word, pronunciation in tuple(loaded.items()):
-        if len(word) < 2:
-            continue
-        if word == word.lower():
-            loaded.setdefault(word.capitalize(), pronunciation)
-        elif word == word.lower().capitalize():
-            loaded.setdefault(word.lower(), pronunciation)
-
-    return MappingProxyType(loaded)
-
-
 def clear_lexicon_cache() -> None:
-    """Release cached English dictionary mappings."""
-    _load_dictionary.cache_clear()
+    """Compatibility hook retained for callers of the former JSON cache."""
 
 
 def lexicon_cache_info():
-    """Return cache statistics for English dictionary resources."""
-    return _load_dictionary.cache_info()
+    """Return compatibility cache statistics for resource-backed lexicons."""
+    from collections import namedtuple
+
+    return namedtuple("LexiconCacheInfo", "hits misses maxsize currsize")(0, 0, 0, 0)
 
 
 # =============================================================================
@@ -237,6 +216,7 @@ class Lexicon:
         skip_is_known: bool = False,
         load_silver: bool = True,
         load_gold: bool = True,
+        lexicons: Sequence[str] | None = None,
     ) -> None:
         """Initialize the lexicon.
 
@@ -255,35 +235,31 @@ class Lexicon:
         self.load_silver = load_silver
         self.load_gold = load_gold
         self.cap_stresses = (0.5, 2)
-        self.golds: LexiconMapping = EMPTY_LEXICON
-        self.silvers: LexiconMapping = EMPTY_LEXICON
+        language = "en-gb" if british else "en-us"
+        names = (
+            ("gold", "silver")
+            if lexicons is None and load_gold and load_silver
+            else ("gold",)
+            if lexicons is None and load_gold
+            else ("silver",)
+            if lexicons is None and load_silver
+            else ()
+            if lexicons is None
+            else tuple(lexicons)
+        )
+        self.lexicons = names
+        self._selected: SelectedLexicons = open_selected(language, names)
+        self.golds: LexiconMapping = self._selected.layer("gold") or EMPTY_LEXICON
+        self.silvers: LexiconMapping = self._selected.layer("silver") or EMPTY_LEXICON
 
-        # Load dictionaries
-        prefix = "gb" if british else "us"
-
-        # Only load gold tier if requested
-        if load_gold:
-            self.golds = _load_dictionary(prefix, "gold")
-
-        # Only load silver tier if requested
-        if load_silver:
-            self.silvers = _load_dictionary(prefix, "silver")
-
-        # Validate vocabulary (only if gold dictionary is loaded)
-        if load_gold:
-            vocab = GB_VOCAB if british else US_VOCAB
-            for word, ps in self.golds.items():
-                if isinstance(ps, str):
-                    assert all(c in vocab for c in ps), (
-                        f"Invalid phoneme in {word}: {ps}"
-                    )
-                else:
-                    assert "DEFAULT" in ps, f"Missing DEFAULT in {word}"
-                    for v in ps.values():
-                        if v is not None:
-                            assert all(c in vocab for c in v), (
-                                f"Invalid phoneme in {word}: {v}"
-                            )
+    def _get_hit(self, word: str) -> LexiconHit | None:
+        for name, mapping, rating in (
+            ("gold", self.golds, 4),
+            ("silver", self.silvers, 3),
+        ):
+            if word in mapping:
+                return LexiconHit(mapping[word], name, rating)
+        return self._selected.get_hit(word)
 
     @staticmethod
     def _grow_dictionary(d: dict[str, Any]) -> dict[str, Any]:
@@ -324,7 +300,7 @@ class Lexicon:
 
     def is_known(self, word: str, tag: str | None = None) -> bool:
         """Check if a word is in the lexicon."""
-        if word in self.golds or word in SYMBOLS or word in self.silvers:
+        if self._get_hit(word) is not None or word in SYMBOLS:
             return True
         elif not word.isalpha() or not all(ord(c) in LEXICON_ORDS for c in word):
             return False
@@ -334,7 +310,11 @@ class Lexicon:
 
     def get_NNP(self, word: str) -> tuple[str | None, int | None]:
         """Get phonemes for a proper noun by spelling."""
-        ps = [self.golds.get(c.upper()) for c in word if c.isalpha()]
+        ps = [
+            hit.value if (hit := self._get_hit(c.upper())) is not None else None
+            for c in word
+            if c.isalpha()
+        ]
         if None in ps:
             return None, None
         ps_str = apply_stress("".join(str(p) for p in ps if isinstance(p, str)), 0)
@@ -362,22 +342,21 @@ class Lexicon:
             Tuple of (phonemes, rating) or (None, None) if not found.
         """
         is_NNP = None
-        if word == word.upper() and word not in self.golds:
+        if word == word.upper() and word not in self._selected:
             word = word.lower()
             is_NNP = tag == "NNP"
 
-        ps: str | None = self.golds.get(word)  # type: ignore
-        rating = 4
-        if ps is None and not is_NNP:
-            ps = self.silvers.get(word)
-            rating = 3
-
-        if isinstance(ps, dict):
-            if ctx and ctx.future_vowel is None and "None" in ps:  # type: ignore[unreachable]
+        hit = self._get_hit(word)
+        ps = hit.value if hit is not None else None
+        rating = hit.rating if hit is not None and hit.rating is not None else 4
+        if isinstance(ps, Mapping):
+            if ctx and ctx.future_vowel is None and "None" in ps:
                 tag = "None"
             elif tag not in ps:
                 tag = self.get_parent_tag(tag)
-            ps = ps.get(tag, ps["DEFAULT"])  # type: ignore
+            ps = ps.get(tag, ps.get("DEFAULT"))
+        elif isinstance(ps, tuple):
+            ps = ps[0] if ps else None
 
         if ps is None or (is_NNP and PRIMARY_STRESS not in (ps or "")):
             ps, rating = self.get_NNP(word)
@@ -385,6 +364,9 @@ class Lexicon:
                 return ps, rating
 
         return apply_stress(ps, stress), rating
+
+    def close(self) -> None:
+        self._selected.close()
 
     def get_special_case(
         self,
@@ -415,8 +397,13 @@ class Lexicon:
                 or word != "am"
                 or (stress and stress > 0)
             ):
-                gold = self.golds.get("am")
-                return (gold if isinstance(gold, str) else None, 4)
+                hit = self._get_hit("am")
+                return (
+                    hit.value
+                    if hit is not None and isinstance(hit.value, str)
+                    else None,
+                    hit.rating if hit is not None else 4,
+                )
             return ("ɐm", 4)
         elif word in ("an", "An", "AN"):
             if word == "AN" and tag is not None and tag.startswith("NN"):
@@ -428,8 +415,13 @@ class Lexicon:
             return ("bˈI", 4)
         elif word in ("to", "To") or (word == "TO" and tag in ("TO", "IN")):
             if ctx is None or ctx.future_vowel is None:
-                gold = self.golds.get("to")
-                return (gold if isinstance(gold, str) else None, 4)
+                hit = self._get_hit("to")
+                return (
+                    hit.value
+                    if hit is not None and isinstance(hit.value, str)
+                    else None,
+                    hit.rating if hit is not None else 4,
+                )
             return ("tʊ" if ctx.future_vowel else "tə", 4)
         elif word in ("in", "In") or (word == "IN" and tag != "NNP"):
             stress_mark = (
@@ -443,8 +435,9 @@ class Lexicon:
         elif tag == "IN" and re.match(r"(?i)vs\.?$", word):
             return self.lookup("versus", None, None, ctx)
         elif word in ("used", "Used", "USED"):
-            used_dict = self.golds.get("used")
-            if isinstance(used_dict, dict):
+            hit = self._get_hit("used")
+            used_dict = hit.value if hit is not None else None
+            if isinstance(used_dict, Mapping):
                 if tag in ("VBD", "JJ") and ctx and ctx.future_to:
                     return (used_dict.get("VBD"), 4)
                 return (used_dict.get("DEFAULT"), 4)

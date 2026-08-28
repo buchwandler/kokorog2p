@@ -59,6 +59,7 @@ class FrenchG2P(G2PBase):
         unk: str = "?",
         load_silver: bool = True,
         load_gold: bool = True,
+        lexicons: tuple[str, ...] | None = None,
         version: str = "1.0",
         **kwargs,
     ) -> None:
@@ -121,7 +122,9 @@ class FrenchG2P(G2PBase):
         )
 
         # Initialize lexicon
-        self.lexicon = FrenchLexicon(load_silver=load_silver, load_gold=load_gold)
+        self.lexicon = FrenchLexicon(
+            load_silver=load_silver, load_gold=load_gold, lexicons=lexicons
+        )
 
         # Initialize fallback (lazy)
         self._fallback: FrenchFallback | FrenchGoruutFallback | None = None
@@ -304,6 +307,10 @@ class FrenchG2P(G2PBase):
         # Keep common punctuation
         puncts = frozenset(";:,.!?-\"'()[]—…")
         return "".join("—" if c == "-" else c for c in text if c in puncts)
+
+    def close(self) -> None:
+        self.lexicon.close()
+        super().close()
 
     def lookup(self, word: str, tag: str | None = None) -> str | None:
         """Look up a word in the dictionary.

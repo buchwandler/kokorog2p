@@ -1,125 +1,74 @@
-"""German lexicon for G2P lookup.
+"""German lexicon for G2P lookup."""
 
-Provides dictionary-based phoneme lookup for German words.
-"""
+from __future__ import annotations
 
-import importlib.resources
-import json
-from collections.abc import Mapping
-from functools import lru_cache
+from collections.abc import Mapping, Sequence
 from types import MappingProxyType
 
-from kokorog2p.de import data
+from kokorog2p.lexicons.runtime import SelectedLexicons, open_selected
 
-
-@lru_cache(maxsize=1)
-def _load_gold_dictionary(load_gold: bool = True) -> Mapping[str, str]:
-    """Load the German gold dictionary.
-
-    Args:
-        load_gold: If True, load the dictionary; if False, return empty dict.
-
-    Returns:
-        Dictionary mapping lowercase words to IPA phonemes.
-    """
-    if not load_gold:
-        return MappingProxyType({})
-    files = importlib.resources.files(data)
-    with (files / "de_gold.json").open("r", encoding="utf-8") as f:
-        return MappingProxyType(json.load(f))
+_EMPTY: Mapping[str, str] = MappingProxyType({})
 
 
 def clear_lexicon_cache() -> None:
-    """Release the cached German dictionary mapping."""
-    _load_gold_dictionary.cache_clear()
+    """Compatibility hook retained for callers of the former JSON cache."""
 
 
 def lexicon_cache_info():
-    """Return cache statistics for the German dictionary resource."""
-    return _load_gold_dictionary.cache_info()
+    """Return compatibility cache statistics for the resource-backed lexicon."""
+    from collections import namedtuple
+
+    return namedtuple("LexiconCacheInfo", "hits misses maxsize currsize")(0, 0, 0, 0)
 
 
 class GermanLexicon:
-    """German pronunciation lexicon.
-
-    Uses a gold dictionary for lookup with optional fallback.
-
-    Example:
-        >>> lexicon = GermanLexicon()
-        >>> lexicon.lookup("Haus")
-        'haʊ̯s'
-    """
+    """German pronunciation lexicon backed by a lazy G2Lex asset."""
 
     def __init__(
         self,
         strip_stress: bool = False,
         load_silver: bool = True,
         load_gold: bool = True,
+        lexicons: Sequence[str] | None = None,
     ) -> None:
-        """Initialize the German lexicon.
-
-        Args:
-            strip_stress: If True, remove stress markers from phonemes.
-            load_silver: If True, load silver tier dictionary if available.
-                Currently German only has gold dictionary, so this parameter
-                is reserved for future use and consistency with English.
-                Defaults to True for consistency.
-            load_gold: If True, load gold tier dictionary.
-                Defaults to True for maximum quality and coverage.
-                Set to False when ultra-fast initialization is needed.
-        """
-        self._gold = _load_gold_dictionary(load_gold=load_gold)
+        """Initialize the German lexicon."""
+        del load_silver
+        names = (
+            ("gold",)
+            if lexicons is None and load_gold
+            else ()
+            if lexicons is None
+            else tuple(lexicons)
+        )
+        self._selected: SelectedLexicons = open_selected("de-de", names)
+        self._gold: Mapping[str, object] = self._selected.layer("gold") or _EMPTY
         self._strip_stress = strip_stress
-        self.load_silver = load_silver
-        self.load_gold = load_gold
-        # Silver dictionary not yet available for German
+        self.load_silver = False
+        self.load_gold = "gold" in names
+        self.lexicons = names
 
     def lookup(self, word: str, tag: str | None = None) -> str | None:
-        """Look up a word in the lexicon.
-
-        Args:
-            word: The word to look up.
-            tag: Optional POS tag (not used for German).
-
-        Returns:
-            IPA phoneme string if found, None otherwise.
-        """
-        word_lower = word.lower()
-        phonemes = self._gold.get(word_lower)
-
-        if phonemes and self._strip_stress:
-            # Remove primary and secondary stress markers
-            phonemes = phonemes.replace("ˈ", "").replace("ˌ", "")
-
+        """Look up a word in the lexicon."""
+        del tag
+        value = self._selected.get_hit(word.lower())
+        phonemes = value.value if value is not None else None
+        if not isinstance(phonemes, str):
+            return None
+        if self._strip_stress:
+            return phonemes.replace("ˈ", "").replace("ˌ", "")
         return phonemes
 
     def __call__(self, word: str, tag: str | None = None) -> str | None:
-        """Look up a word in the lexicon.
-
-        Args:
-            word: The word to look up.
-            tag: Optional POS tag.
-
-        Returns:
-            IPA phoneme string if found, None otherwise.
-        """
         return self.lookup(word, tag)
 
     def is_known(self, word: str) -> bool:
-        """Check if a word is in the lexicon.
-
-        Args:
-            word: The word to check.
-
-        Returns:
-            True if the word is in the lexicon.
-        """
-        return word.lower() in self._gold
+        return word.lower() in self._selected
 
     def __len__(self) -> int:
-        """Return the number of entries in the lexicon."""
         return len(self._gold)
 
+    def close(self) -> None:
+        self._selected.close()
+
     def __repr__(self) -> str:
-        """Return string representation."""
         return f"GermanLexicon(entries={len(self)})"

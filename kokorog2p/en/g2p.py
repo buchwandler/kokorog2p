@@ -39,6 +39,7 @@ class EnglishG2P(G2PBase):
         unk: str = "❓",
         load_silver: bool = True,
         load_gold: bool = True,
+        lexicons: tuple[str, ...] | None = None,
         strict: bool = True,
         version: str = "1.0",
         **kwargs,
@@ -116,7 +117,10 @@ class EnglishG2P(G2PBase):
 
         # Initialize lexicon
         self.lexicon = Lexicon(
-            british=self.is_british, load_silver=load_silver, load_gold=load_gold
+            british=self.is_british,
+            load_silver=load_silver,
+            load_gold=load_gold,
+            lexicons=lexicons,
         )
 
         # Initialize fallback (lazy)
@@ -599,6 +603,10 @@ class EnglishG2P(G2PBase):
         )
 
         return TokenContext(future_vowel=future_vowel, future_to=future_to)
+
+    def close(self) -> None:
+        self.lexicon.close()
+        super().close()
 
     def lookup(self, word: str, tag: str | None = None) -> str | None:
         """Look up a word in the dictionary.

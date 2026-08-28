@@ -1,0 +1,84 @@
+schema_version = 1
+
+[[lexicon]]
+id = "en-us:gold"
+language = "en-us"
+name = "gold"
+kind = "pronunciation"
+source = "lexicons/sources/en/us_gold.json"
+source_format = "kokoro-json"
+asset = "kokorog2p/lexicons/data/en_us_gold.g2lex"
+rating = 4
+case_aliases = true
+phoneme_encoding = "kokoro-v1"
+
+[[lexicon]]
+id = "en-us:silver"
+language = "en-us"
+name = "silver"
+kind = "pronunciation"
+source = "lexicons/sources/en/us_silver.json"
+source_format = "kokoro-json"
+asset = "kokorog2p/lexicons/data/en_us_silver.g2lex"
+rating = 3
+case_aliases = true
+phoneme_encoding = "kokoro-v1"
+
+[[lexicon]]
+id = "en-gb:gold"
+language = "en-gb"
+name = "gold"
+kind = "pronunciation"
+source = "lexicons/sources/en/gb_gold.json"
+source_format = "kokoro-json"
+asset = "kokorog2p/lexicons/data/en_gb_gold.g2lex"
+rating = 4
+case_aliases = true
+phoneme_encoding = "kokoro-v1"
+
+[[lexicon]]
+id = "en-gb:silver"
+language = "en-gb"
+name = "silver"
+kind = "pronunciation"
+source = "lexicons/sources/en/gb_silver.json"
+source_format = "kokoro-json"
+asset = "kokorog2p/lexicons/data/en_gb_silver.g2lex"
+rating = 3
+case_aliases = true
+phoneme_encoding = "kokoro-v1"
+
+[[lexicon]]
+id = "de-de:gold"
+language = "de-de"
+name = "gold"
+kind = "pronunciation"
+source = "lexicons/sources/de/de_gold.json"
+source_format = "kokoro-json"
+asset = "kokorog2p/lexicons/data/de_gold.g2lex"
+rating = 4
+case_aliases = false
+phoneme_encoding = "ipa"
+
+[[lexicon]]
+id = "fr-fr:gold"
+language = "fr-fr"
+name = "gold"
+kind = "pronunciation"
+source = "lexicons/sources/fr/fr_gold.json"
+source_format = "kokoro-json"
+asset = "kokorog2p/lexicons/data/fr_gold.g2lex"
+rating = 4
+case_aliases = true
+phoneme_encoding = "kokoro-v1"
+
+[[lexicon]]
+id = "ja-jp:words"
+language = "ja-jp"
+name = "words"
+kind = "membership"
+source = "lexicons/sources/ja/ja_words.txt"
+source_format = "words"
+asset = "kokorog2p/lexicons/data/ja_words.g2lex"
+case_aliases = false
+phoneme_encoding = "none"

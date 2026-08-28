@@ -70,8 +70,7 @@ The current synthetic fixture is not a substitute for that hand-reviewed set.
 
 ## Resource and installation contract
 
-`kokorog2p/ja/data/ja_words.txt` is a runtime resource for the retained legacy Cutlet
-implementation and is included in built artifacts. The primary installation is:
+`lexicons/sources/ja/ja_words.txt` is the canonical source for the Cutlet membership asset. The generated `.g2lex` asset is included in built artifacts. The primary installation is:
 
 ```bash
 pip install "kokorog2p[ja]"

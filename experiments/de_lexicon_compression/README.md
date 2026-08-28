@@ -66,7 +66,7 @@ unavailable. Full-source results are not inferred from toy data.
 
 ## Boundaries
 
-Do not replace `kokorog2p/de/data/de_gold.json`, modify `kokorog2p/de/lexicon.py` or
+Do not replace `lexicons/sources/de/de_gold.json`, modify `kokorog2p/de/lexicon.py` or
 `kokorog2p/de/g2p.py`, merge independently licensed sources, use approximate matching,
 or make a research representation a production asset without a separate integration
 decision.

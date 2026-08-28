@@ -201,3 +201,26 @@ jobs:
         run: python -m unidic download
       - name: Run Japanese Cutlet smoke tests
         run: python -m pytest -q tests/test_ja_g2p.py -k cutlet
+
+  lexicon-migration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package and development dependencies
+        run: python -m pip install -e ".[dev]"
+      - name: Check deterministic lexicon assets
+        run: python scripts/build_g2lex_assets.py --check
+      - name: Validate lexicon assets
+        run: python scripts/validate_g2lex_assets.py --all
+      - name: Run focused lexicon tests
+        run: |
+          python -m pytest -q \
+            tests/test_lexicon_registry.py \
+            tests/test_g2lex_assets.py \
+            tests/test_lexicon_selection.py \
+            tests/test_g2lex_runtime_lifetime.py \
+            tests/test_legacy_lexicon_parity.py

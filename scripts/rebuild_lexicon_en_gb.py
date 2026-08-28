@@ -9,7 +9,7 @@ from kokorog2p.en.fallback import EspeakFallback
 from scripts.rebuild_lexicon_base import rebuild_lexicon_file
 
 ROOT = Path(__file__).resolve().parents[1]
-LEXICON_PATH = ROOT / "kokorog2p" / "en" / "data" / "gb_gold.json"
+LEXICON_PATH = ROOT / "lexicons" / "sources" / "en" / "gb_gold.json"
 
 
 def main() -> int:

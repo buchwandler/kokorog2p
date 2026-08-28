@@ -200,3 +200,15 @@ g2p("state-of-the-art")   # Multiple hyphens
 - Ellipsis: `...` `. . .` `..` `....` → `…`
 
 - Dashes (when spaced): `-` `--` `–` `―` `‒` `−` → `—`
+
+
+## Named lexicon selection
+
+```python
+from kokorog2p import get_g2p
+
+gold = get_g2p("en-us", lexicons="gold")
+default = get_g2p("en-us", lexicons=("gold", "silver"))
+```
+
+The default selection remains gold before silver. CMUdict is not selectable because raw ARPAbet is not Kokoro phoneme encoding.

@@ -245,7 +245,7 @@ def test_shared_affix_grammar_is_bounded() -> None:
 
 @pytest.mark.slow
 def test_full_builtin_opt_in() -> None:
-    data_path = Path("kokorog2p/de/data/de_gold.json")
+    data_path = Path("lexicons/sources/de/de_gold.json")
     if not data_path.is_file():
         pytest.skip("documented built-in data asset is unavailable")
     from experiments.de_lexicon_entry_reduction.source import load_canonical_source

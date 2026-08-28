@@ -113,6 +113,10 @@ class G2PBase(ABC):
         """
         raise NotImplementedError
 
+    def close(self) -> None:
+        """Release resources owned by this G2P instance."""
+        return
+
     def add_abbreviation(
         self,
         abbreviation: str,

@@ -330,9 +330,13 @@ def test_structured_replacements_are_source_aligned_and_prioritized():
 
 
 def test_german_lexicon_data_is_packaged():
-    data_file = Path(__file__).parents[1] / "kokorog2p" / "de" / "data" / "de_gold.json"
-    assert data_file.is_file()
-    assert resources.files("kokorog2p.de.data").joinpath("de_gold.json").is_file()
+    source_file = (
+        Path(__file__).parents[1] / "lexicons" / "sources" / "de" / "de_gold.json"
+    )
+    assert source_file.is_file()
+    assert (
+        resources.files("kokorog2p.lexicons.data").joinpath("de_gold.g2lex").is_file()
+    )
 
 
 @pytest.mark.parametrize(

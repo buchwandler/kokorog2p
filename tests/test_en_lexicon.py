@@ -6,6 +6,7 @@ This suite includes:
 """
 
 import re
+from collections.abc import Mapping
 
 import pytest
 
@@ -490,7 +491,7 @@ class TestLexiconIntegration:
         assert ps_vbp != ps_vbd  # present must differ from past
 
         entry = us_lexicon.golds.get(word)
-        assert isinstance(entry, dict)
+        assert isinstance(entry, Mapping)
         if "VBP" in entry:
             assert entry["VBP"] == entry["DEFAULT"]
 
@@ -509,7 +510,7 @@ class TestLexiconIntegration:
         assert ps_vbp != ps_vbd  # present must differ from past
 
         entry = gb_lexicon.golds.get(word)
-        assert isinstance(entry, dict)
+        assert isinstance(entry, Mapping)
         if "VBP" in entry:
             assert entry["VBP"] == entry["DEFAULT"]
 

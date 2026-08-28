@@ -355,3 +355,8 @@ Provision `disambig-mle-calima-msa-r13` using CAMeL Tools' documented local data
 workflow. KokoroG2P does not download or provision CAMeL data, and the data license is
 separate from the Apache-2.0 KokoroG2P package. Use `diacritizer="none"` for
 already-vocalized Arabic.
+
+
+## Production lexicon assets
+
+The core package includes compiled G2Lex assets for the English, German, French, and Japanese lexicons. Canonical editable JSON and word-list sources remain in the repository under `lexicons/sources` and are not loaded at runtime.

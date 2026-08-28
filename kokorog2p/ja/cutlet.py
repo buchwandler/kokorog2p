@@ -7,7 +7,6 @@ Copyright 2024 kokorog2p contributors
 Licensed under the Apache License, Version 2.0
 """
 
-import importlib.resources
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -16,8 +15,8 @@ import jaconv
 import mojimoji
 from fugashi import Tagger
 
-from kokorog2p.ja import data as ja_data
 from kokorog2p.ja.num2kana import Convert
+from kokorog2p.lexicons.runtime import SelectedLexicons, open_selected
 
 # Hiragana to IPA mapping
 HEPBURN = {
@@ -250,15 +249,6 @@ KATAKANA_PHONETIC_EXT = {
     "ㇿ": "ロ",
 }
 
-# Load Japanese words
-try:
-    _resource = importlib.resources.files(ja_data).joinpath("ja_words.txt")
-    JA_WORDS = frozenset(_resource.read_text(encoding="utf-8").splitlines())
-except FileNotFoundError as exc:
-    raise RuntimeError(
-        "Japanese Cutlet backend data file ja_words.txt is missing"
-    ) from exc
-
 SUTEGANA = frozenset("ゃゅょぁぃぅぇぉ")
 ODORI = frozenset("〃々ゝゞヽ")
 
@@ -292,7 +282,7 @@ class Token:
 class Cutlet:
     """Japanese romaji/IPA converter using MeCab (via fugashi)."""
 
-    def __init__(self) -> None:
+    def __init__(self, lexicons: tuple[str, ...] = ("words",)) -> None:
         try:
             self.tagger = Tagger()
         except Exception as exc:
@@ -302,7 +292,16 @@ class Cutlet:
                 "and run `python -m unidic download`."
             ) from exc
         self.table = dict(HEPBURN)  # make a copy so we can modify it
+        self.lexicons = tuple(lexicons)
         self.exceptions = {}
+        self._ja_words: SelectedLexicons | None = None
+
+    @property
+    def ja_words(self) -> SelectedLexicons:
+        """Open the packaged membership lexicon on first dictionary use."""
+        if self._ja_words is None:
+            self._ja_words = open_selected("ja-jp", self.lexicons)
+        return self._ja_words
 
     def __call__(self, text: str) -> tuple[str, None]:
         """Build a complete string from input text."""
@@ -323,6 +322,10 @@ class Cutlet:
         ps = re.sub(r"\s+", " ", out.strip()).replace("(", "«").replace(")", "»")
         ps = re.sub(r'(?<![!",.:;?»—…"]) (?=ʔ)|(?<=ʔ) (?!["«"])', "", ps)
         return ps, None
+
+    def close(self) -> None:
+        if self._ja_words is not None:
+            self._ja_words.close()
 
     def _normalize_text(self, text: str) -> str:
         """Given text, normalize variations in Japanese."""
@@ -357,7 +360,7 @@ class Cutlet:
                 (
                     j
                     for j in range(z, i, -1)
-                    if "".join(w.surface for w in words[i:j]) in JA_WORDS
+                    if "".join(w.surface for w in words[i:j]) in self.ja_words
                 ),
                 None,
             )

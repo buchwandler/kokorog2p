@@ -9,7 +9,7 @@ from kokorog2p.de.fallback import GermanEspeakFallback
 from scripts.rebuild_lexicon_base import rebuild_lexicon_file
 
 ROOT = Path(__file__).resolve().parents[1]
-LEXICON_PATH = ROOT / "kokorog2p" / "de" / "data" / "de_gold.json"
+LEXICON_PATH = ROOT / "lexicons" / "sources" / "de" / "de_gold.json"
 
 
 def main() -> int:

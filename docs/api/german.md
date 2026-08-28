@@ -72,3 +72,8 @@ tokens = g2p("Guten Tag, wie geht es Ihnen?")
 for token in tokens:
     print(f"{token.text} -> {token.phonemes}")
 ```
+
+
+## Lexicon storage
+
+German gold data is stored in the canonical source tree and shipped as a verified lazy G2Lex asset. `get_g2p("de", lexicons="gold")` selects it explicitly.

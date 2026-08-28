@@ -662,3 +662,17 @@ kokorog2p consolidates functionality from:
 
 - [misaki](https://github.com/hexgrad/misaki) - G2P engine for Kokoro TTS
 - [phonemizer](https://github.com/bootphon/phonemizer) - espeak-ng wrapper
+
+
+## Named lexicons
+
+Pronunciation and membership sources are kept under `lexicons/sources` and packaged runtime lookups use verified G2Lex assets. List and select language lexicons with:
+
+```python
+from kokorog2p import available_lexicons, get_g2p
+
+available_lexicons("en-us")  # ("gold", "silver")
+g2p = get_g2p("en-us", lexicons=("gold", "silver"))
+```
+
+Maintainers rebuild and validate the committed assets with `python scripts/build_g2lex_assets.py --all` and `python scripts/validate_g2lex_assets.py --all`. CMUdict is not an executable option until a Kokoro-compatible conversion is shipped.

@@ -204,6 +204,7 @@ class GermanG2P(G2PBase):
         strip_stress: bool = True,
         load_silver: bool = True,
         load_gold: bool = True,
+        lexicons: tuple[str, ...] | None = None,
         version: str = "1.0",
         expand_abbreviations: bool = True,
         enable_context_detection: bool = True,
@@ -282,6 +283,7 @@ class GermanG2P(G2PBase):
                     strip_stress=strip_stress,
                     load_silver=load_silver,
                     load_gold=load_gold,
+                    lexicons=lexicons,
                 )
             except ImportError:
                 pass
@@ -693,6 +695,11 @@ class GermanG2P(G2PBase):
         # See kokorog2p/data/kokoro_config.json
         puncts = frozenset(';:,.!?"()')
         return "".join(c for c in text if c in puncts)
+
+    def close(self) -> None:
+        if self._lexicon is not None:
+            self._lexicon.close()
+        super().close()
 
     def lookup(self, word: str, tag: str | None = None) -> str | None:
         """Look up a word in the dictionary.

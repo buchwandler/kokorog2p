@@ -78,3 +78,8 @@ tokens = g2p("Bonjour le monde!")
 for token in tokens:
     print(f"{token.text} -> {token.phonemes}")
 ```
+
+
+## Lexicon storage
+
+French gold data is shipped as a verified lazy G2Lex asset. Built-in corrections retain precedence over the selected lexicon.
