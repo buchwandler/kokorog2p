@@ -41,45 +41,61 @@ def run_matrix(
                 command.extend(("--data-root", str(data_root)))
             _run(command)
             runtime_path = run_dir / "runtime.json"
-            runtime_command = [
-                sys.executable,
-                str(Path(__file__).with_name("benchmark_runtime.py")),
-                "--run",
-                str(run_dir),
-                "--output",
-                str(runtime_path),
-            ]
-            _run(runtime_command)
+            _run(
+                [
+                    sys.executable,
+                    str(Path(__file__).with_name("benchmark_runtime.py")),
+                    "--run",
+                    str(run_dir),
+                    "--output",
+                    str(runtime_path),
+                ]
+            )
             summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
             runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
-            rows.append(
-                {
-                    "source": source,
-                    "mode": mode,
-                    "physical_rows": summary.get("physical_rows", 0),
-                    "unique_words": summary.get("unique_words", 0),
-                    "variants": summary.get("pronunciation_variants", 0),
-                    "source_bytes": summary.get("source_bytes", 0),
-                    "asset_bytes": summary.get("compressed_asset_bytes", 0),
-                    "byte_reduction_pct": (1 - summary.get("compression_ratio", 0))
-                    * 100,
-                    "derived_words_pct": summary.get("entry_reduction_rate", 0) * 100,
-                    "verification_failures": summary.get("verification", {}).get(
-                        "failures", 0
-                    ),
-                    "compress_seconds": summary.get("performance", {}).get(
-                        "compression_seconds", 0
-                    ),
-                    "verify_seconds": summary.get("performance", {}).get(
-                        "verification_seconds", 0
-                    ),
-                    "peak_rss_mib": runtime.get("peak_rss_kib", 0) / 1024,
-                    "cold_load_ms": runtime.get("cold_load_ms", 0),
-                    "lookup_words_per_second": runtime.get("direct", {}).get(
-                        "words_per_second", 0
-                    ),
-                }
-            )
+            layers = summary.get("compression_layers", {})
+            row = {
+                "source": source,
+                "mode": mode,
+                "physical_rows": summary.get("physical_rows", 0),
+                "unique_words": summary.get("unique_words", 0),
+                "variants": summary.get("pronunciation_variants", 0),
+                "source_bytes": summary.get("source_bytes", 0),
+                "canonical_baseline_bytes": summary.get("canonical_baseline_bytes", 0),
+                "asset_bytes": summary.get("compressed_asset_bytes", 0),
+                "derived_words_pct": summary.get("entry_reduction_rate", 0) * 100,
+                "verification_failures": summary.get("verification", {}).get(
+                    "failures", 0
+                ),
+                "compress_seconds": summary.get("performance", {}).get(
+                    "compression_seconds", 0
+                ),
+                "verify_seconds": summary.get("performance", {}).get(
+                    "verification_seconds", 0
+                ),
+                "peak_rss_mib": runtime.get("peak_rss_bytes", 0) / (1024 * 1024),
+                "cold_load_ms": runtime.get("cold_load_ms"),
+                "source_sha256": summary.get("source_sha256"),
+                "python": summary.get("python"),
+                "platform": summary.get("platform"),
+            }
+            for key in (
+                "baseline_plain_bytes",
+                "baseline_gzip_bytes",
+                "baseline_xz_bytes",
+                "baseline_wheel_equivalent_deflate_bytes",
+                "asset_plain_bytes",
+                "asset_gzip_bytes",
+                "asset_xz_bytes",
+                "asset_wheel_equivalent_deflate_bytes",
+                "net_plain_bytes_saved",
+                "net_gzip_bytes_saved",
+                "net_xz_bytes_saved",
+                "net_wheel_equivalent_deflate_bytes_saved",
+                "reduction_vs_wheel_equivalent_deflate_pct",
+            ):
+                row[key] = layers.get(key)
+            rows.append(row)
     fields = list(rows[0]) if rows else []
     write_tsv(output / "summary.tsv", rows, fields)
     write_json(output / "summary.json", {"schema": 1, "rows": rows})
@@ -90,7 +106,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sources", required=True)
     parser.add_argument(
-        "--modes", required=True, help="Comma-separated: exact-two-part,exact-multipart"
+        "--modes",
+        required=True,
+        help=(
+            "Comma-separated stable modes: "
+            "baseline-canonical,exact-two-part,exact-multipart"
+        ),
     )
     parser.add_argument("--data-root", type=Path)
     parser.add_argument("--output", type=Path, required=True)

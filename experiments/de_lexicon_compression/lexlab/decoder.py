@@ -40,6 +40,49 @@ class CompressedLexicon:
     def words(self) -> tuple[str, ...]:
         return tuple(sorted((*self.atoms, *self.exceptions, *self.derived)))
 
+    def verify_report(
+        self, source: ParsedLexicon, *, sample_limit: int = 100
+    ) -> dict[str, object]:
+        """Compare complete lookup semantics and classify every mismatch."""
+        source_words = set(source.words)
+        asset_words = set(self.words)
+        missing = sorted(source_words - asset_words)
+        extra = sorted(asset_words - source_words)
+        pronunciation_mismatches = 0
+        variant_count_mismatches = 0
+        variant_order_mismatches = 0
+        failures: list[dict[str, object]] = []
+        for word in sorted(source_words & asset_words):
+            expected = source.lookup_all(word)
+            actual = self.lookup_all(word)
+            if actual == expected:
+                continue
+            pronunciation_mismatches += 1
+            if len(actual) != len(expected):
+                variant_count_mismatches += 1
+            elif set(actual) == set(expected) and actual != expected:
+                variant_order_mismatches += 1
+            if len(failures) < sample_limit:
+                failures.append({"word": word, "expected": expected, "actual": actual})
+        failures.extend(
+            {"word": word, "expected": source.lookup_all(word), "actual": ()}
+            for word in missing[: max(0, sample_limit - len(failures))]
+        )
+        failures.extend(
+            {"word": word, "expected": (), "actual": self.lookup_all(word)}
+            for word in extra[: max(0, sample_limit - len(failures))]
+        )
+        return {
+            "missing_words": missing,
+            "extra_words": extra,
+            "pronunciation_mismatches": pronunciation_mismatches,
+            "variant_count_mismatches": variant_count_mismatches,
+            "variant_order_mismatches": variant_order_mismatches,
+            "failures": len(missing) + len(extra) + pronunciation_mismatches,
+            "failure_rows": failures,
+            "lossless": not (missing or extra or pronunciation_mismatches),
+        }
+
     def verify_against(self, source: ParsedLexicon) -> tuple[str, ...]:
         failures = []
         for word in source.words:

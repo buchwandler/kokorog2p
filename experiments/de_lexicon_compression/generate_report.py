@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render a human-readable final research report from generated JSON reports."""
+"""Render a human-readable final research report from JSON reports."""
 
 from __future__ import annotations
 
@@ -8,8 +8,10 @@ import json
 from pathlib import Path
 
 
-def _load(path: Path) -> dict:
-    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+def _load(path: Path | None) -> dict:
+    if path is None or not path.is_file():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def generate(
@@ -18,93 +20,94 @@ def generate(
     matrix: Path | None,
     output: Path,
 ) -> None:
-    analysis = _load(source_analysis) if source_analysis else {}
-    quality_data = _load(quality) if quality else {}
-    matrix_data = _load(matrix) if matrix else {}
+    analysis = _load(source_analysis)
+    quality_data = _load(quality)
+    matrix_data = _load(matrix)
     lines = [
         "# German Multi-Lexicon Compression Experiment",
         "",
-        "This report is generated from explicitly pinned experiment outputs. Missing sections mean the corresponding opt-in run was not available.",
+        "This report is generated only from explicitly pinned experiment outputs.",
+        "Unavailable opt-in runs are not inferred from toy data.",
         "",
         "## 1. Executive summary",
         "",
-        "Sources are evaluated independently. A result is called lossless only when the reloaded decoder reproduces every ordered raw pronunciation tuple exactly.",
+        "A run is lookup-semantic lossless only when its complete key set",
+        "and every ordered raw pronunciation tuple match after reload.",
+        "Approximate pronunciation similarity never authorizes deletion.",
         "",
-        "## 2. Source provenance and licenses",
+        "## 2. Provenance and reproducibility",
         "",
     ]
     for source in analysis.get("sources", []):
         lines.append(
-            f"- **{source.get('source', source.get('source_id'))}**: revision `{source.get('revision')}`, SHA256 `{source.get('sha256')}`, license `{source.get('license')}`, status `{source.get('provenance_status')}`."
+            f"- **{source.get('source', source.get('source_id'))}**: "
+            f"revision `{source.get('revision')}`, "
+            f"SHA256 `{source.get('sha256')}`, license "
+            f"`{source.get('license')}`, status "
+            f"`{source.get('provenance_status')}`."
         )
-    lines.extend(["", "## 3. Source sizes and variant statistics", ""])
-    for source in analysis.get("sources", []):
+    for row in matrix_data.get("rows", []):
         lines.append(
-            f"- {source.get('source')}: {source.get('unique_spellings', 0)} unique spellings, {source.get('pronunciation_variants', 0)} variants, {source.get('size_bytes', 0)} bytes."
+            f"- `{row.get('source')}/{row.get('mode')}`: source SHA256 "
+            f"`{row.get('source_sha256')}`, Python `{row.get('python')}`, "
+            f"platform `{row.get('platform')}`."
         )
     lines.extend(
         [
             "",
-            "## 4. Casing/Unicode findings",
+            "## 3. Source and quality findings",
             "",
-            "See `casing_collisions.tsv` and `unicode_stats.tsv`; raw source codepoints are preserved.",
+            "```json",
+            json.dumps(
+                {"analysis": analysis, "quality": quality_data},
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            ),
+            "```",
             "",
-            "## 5. Runtime reachability",
+            "## 4. Comparable storage results",
             "",
-            json.dumps(analysis.get("reachability", {}), sort_keys=True),
+            "The primary distribution metric is net wheel-equivalent",
+            "DEFLATE savings against the canonical runtime baseline.",
             "",
-            "## 6. Pairwise overlap and pronunciation conflicts",
-            "",
+            "| Source | Mode | Installed | Wheel | Net wheel | Failures |",
+            "| --- | --- | ---: | ---: | ---: | ---: |",
         ]
     )
-    for pair in analysis.get("pairs", []):
+    for row in matrix_data.get("rows", []):
+        installed = row.get("asset_plain_bytes", row.get("asset_bytes"))
         lines.append(
-            f"- {pair.get('source_a')} vs {pair.get('source_b')}: exact overlap {pair.get('exact_spelling_intersection', 0)}, raw agreement {pair.get('exact_raw_pronunciation_agreement', 0)}, Kokoro-view agreement {pair.get('kokoro_view_any_variant_agreement', 0)}."
+            f"| {row.get('source')} | {row.get('mode')} | {installed} | "
+            f"{row.get('asset_wheel_equivalent_deflate_bytes')} | "
+            f"{row.get('net_wheel_equivalent_deflate_bytes_saved')} | "
+            f"{row.get('verification_failures')} |"
         )
     lines.extend(
         [
             "",
-            "## 7. Held-out G2P quality",
+            "## 5. Runtime and RAM",
             "",
-            "```json",
-            json.dumps(quality_data, ensure_ascii=False, indent=2, sort_keys=True),
-            "```",
+            "See each run's `runtime.json` for atoms, exceptions, derived, misses,",
+            "mixed workloads, cold load, normalized RSS, and baseline ratios.",
+            "Empty categories must be marked unavailable, not fake words.",
             "",
-            "## 8. Baseline gzip/xz results",
+            "## 6. Decision gates",
             "",
-            "See the source-analysis `baseline.tsv` output.",
+            "- Correctness: missing, extra, pronunciation, and variant-order",
+            "  mismatches are zero.",
+            "- Reproducibility: identical configuration produces",
+            "  identical asset SHA256.",
+            "- Storage: prefer 10% wheel or 20% installed reduction over the baseline.",
+            "- RAM/runtime: report explicit RSS, cold-load, and lookup trade-offs.",
+            "- Quality: every added lexicon shows measurable held-out marginal value.",
             "",
-            "## 9. Exact two-part compression",
+            "## 7. Licensing and production boundary",
             "",
-            "## 10. Exact multipart compression",
-            "",
-            "```json",
-            json.dumps(matrix_data, ensure_ascii=False, indent=2, sort_keys=True),
-            "```",
-            "",
-            "## 11. Failure taxonomy",
-            "",
-            "Failures are diagnostic only; no approximate match authorizes deletion.",
-            "",
-            "## 12. Runtime/RAM cost",
-            "",
-            "See each run's `runtime.json`.",
-            "",
-            "## 13. Cross-source sharing potential",
-            "",
-            "Cross-source sharing is deferred until independent source semantics and licensing are reviewed.",
-            "",
-            "## 14. Recommendation for production architecture",
-            "",
-            "Adopt explicit ordered source selection only if measured held-out quality and reachability justify the additional source and its licensing obligations.",
-            "",
-            "## 15. Recommendation on exact join rules",
-            "",
-            "Do not add linguistic join rules until C3 failures are measured and every rule is independently verified.",
-            "",
-            "## 16. Recommendation on neural follow-up",
-            "",
-            "Use only the exactly factorized residual as a possible later neural-G2P research input; approximation is not compression evidence.",
+            "Sources remain independent and are not merged into a",
+            "redistributable asset.",
+            "Resolve Crane CC-BY-SA-4.0 and gruut/eSpeak obligations before shipping.",
+            "This report does not authorize modifying the production German pipeline.",
             "",
         ]
     )

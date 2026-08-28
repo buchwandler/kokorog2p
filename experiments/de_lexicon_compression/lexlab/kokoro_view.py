@@ -38,11 +38,7 @@ def to_kokoro_view(
     if source_id == "crane_wiktionary":
         value = _replace_longest(unicodedata.normalize("NFC", ipa))
         if vocab is not None:
-            value = "".join(
-                char if char.isspace() else char
-                for char in value
-                if char.isspace() or char in vocab
-            )
+            value = "".join(char for char in value if char.isspace() or char in vocab)
             return " ".join(value.split())
         return " ".join(value.split())
     return ipa

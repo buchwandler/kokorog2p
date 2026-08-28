@@ -118,7 +118,8 @@ def load_source(
     resolved = resolve_source_path(spec, data_root, path)
     if resolved is None or not resolved.is_file():
         raise FileNotFoundError(
-            f"Source {source_id!r} is unavailable; provide --data-root or --path for {spec.filename}"
+            f"Source {source_id!r} is unavailable; "
+            f"provide --data-root or --path for {spec.filename}"
         )
     expected = str(spec.values.get("sha256", ""))
     from .download import sha256_file

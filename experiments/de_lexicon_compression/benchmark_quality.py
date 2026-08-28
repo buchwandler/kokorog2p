@@ -4,15 +4,28 @@
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 from pathlib import Path
 
 try:
+    from .lexlab.cascade import (
+        cross_source_sharing,
+    )
+    from .lexlab.cascade import (
+        score_cascade as score_cascade_values,
+    )
     from .lexlab.kokoro_view import to_kokoro_view
     from .lexlab.metrics import cer
     from .lexlab.reports import write_json
     from .lexlab.sources import load_source
 except ImportError:  # direct script execution
+    from lexlab.cascade import (
+        cross_source_sharing,
+    )
+    from lexlab.cascade import (
+        score_cascade as score_cascade_values,
+    )
     from lexlab.kokoro_view import to_kokoro_view
     from lexlab.metrics import cer
     from lexlab.reports import write_json
@@ -96,7 +109,9 @@ def score_full_pipeline(source, entries, vocab, normalizer):
         )
 
         fallback = create_benchmark_g2p("de_DE")
-    except Exception as exc:  # optional eSpeak/runtime dependencies
+    except (ImportError, OSError, RuntimeError, ValueError) as exc:
+        # Optional eSpeak/runtime dependencies may be unavailable.
+
         return {"available": False, "error": f"{type(exc).__name__}: {exc}"}
     values = []
     expected_values = []
@@ -113,7 +128,7 @@ def score_full_pipeline(source, entries, vocab, normalizer):
             fallback_rows += 1
             try:
                 actual = extract_pronunciation(fallback(entry.word))
-            except Exception:
+            except (OSError, RuntimeError, ValueError):
                 actual = ""
                 errors += 1
         expected_values.append(expected)
@@ -136,6 +151,18 @@ def score_full_pipeline(source, entries, vocab, normalizer):
     }
 
 
+def score_cascade_sources(sources, entries, vocab, normalizer):
+    """Score an ordered cascade while preserving source precedence."""
+    examples = (
+        (
+            entry.word,
+            (normalizer(entry.expected_raw_ipa, language="de_DE", vocab=vocab),),
+        )
+        for entry in entries
+    )
+    return score_cascade_values(sources, examples)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sources", required=True)
@@ -149,17 +176,33 @@ def main() -> int:
     )
     if args.limit is not None:
         entries = entries[: args.limit]
+    source_ids = [value.strip() for value in args.sources.split(",")]
     results = []
-    for source_id in (value.strip() for value in args.sources.split(",")):
+    loaded_sources = []
+    for source_id in source_ids:
         source = load_source(source_id, data_root=args.data_root)
+        loaded_sources.append(source)
         score = score_source(source, entries, vocab, normalizer)
         score["full_pipeline"] = score_full_pipeline(source, entries, vocab, normalizer)
         results.append(score)
+    cascades = [
+        score_cascade_sources(
+            [loaded_sources[index] for index in order],
+            entries,
+            vocab,
+            normalizer,
+        )
+        for order in itertools.permutations(range(len(loaded_sources)))
+    ]
+    for order, score in zip(itertools.permutations(source_ids), cascades, strict=True):
+        score["configuration"] = " -> ".join(order)
     output = {
         "schema": 1,
         "fixture": "crane-local-ai/test-data",
         "revision": "19b6ea610af45d9258a3957c7a22694280bdf145",
         "sources": results,
+        "cascades": cascades,
+        "cross_source_sharing": cross_source_sharing(loaded_sources),
     }
     write_json(args.output, output)
     print(

@@ -30,7 +30,7 @@ def _reachability(source):
 
         normalizer = GermanNormalizer()
         tokenizer = RegexTokenizer(lang="de")
-    except Exception as exc:  # optional runtime dependencies
+    except (ImportError, OSError, RuntimeError, ValueError) as exc:
         return [
             {"source": source.source.source_id, "error": f"{type(exc).__name__}: {exc}"}
         ]
@@ -67,7 +67,7 @@ def _reachability(source):
                     "lookup_key": key,
                 }
             )
-        except Exception as exc:
+        except (ImportError, OSError, RuntimeError, ValueError) as exc:
             rows.append(
                 {
                     "source": source.source.source_id,
@@ -92,7 +92,14 @@ def _canonical_tsv(source) -> bytes:
 
 
 def analyze(
-    source_ids: list[str], data_root: Path | None, output: Path
+    source_ids: list[str],
+    data_root: Path | None,
+    output: Path,
+    *,
+    details: str = "sample",
+    conflict_limit: int = 10_000,
+    reachability: bool = True,
+    summary_only: bool = False,
 ) -> dict[str, object]:
     output.mkdir(parents=True, exist_ok=True)
     loaded = {
@@ -114,17 +121,19 @@ def analyze(
                 "pronunciation_variants": sum(len(v) for v in source.entries.values()),
             }
         )
-        collisions = casing_collisions(source)
-        key_rows.extend(
-            {
-                "source": source_id,
-                "key_type": key_type,
-                "key": key,
-                "spellings": "|".join(words),
-            }
-            for key_type, groups in collisions.items()
-            for key, words in groups.items()
-        )
+        if not summary_only and details != "none":
+            collisions = casing_collisions(source)
+            rows = [
+                {
+                    "source": source_id,
+                    "key_type": key_type,
+                    "key": key,
+                    "spellings": "|".join(words),
+                }
+                for key_type, groups in collisions.items()
+                for key, words in groups.items()
+            ]
+            key_rows.extend(rows if details == "full" else rows[:1000])
         variant_rows.append(
             {
                 "source": source_id,
@@ -150,7 +159,8 @@ def analyze(
                 },
             }
         )
-        reach_rows.extend(_reachability(source))
+        if reachability and not summary_only:
+            reach_rows.extend(_reachability(source))
         started = time.perf_counter()
         canonical = _canonical_tsv(source)
         elapsed = time.perf_counter() - started
@@ -170,11 +180,19 @@ def analyze(
             }
         )
     pairs = all_pair_metrics(loaded)
+    for pair in pairs:
+        pair["conflicts"] = pair.get("conflicts", [])[:conflict_limit]
     write_json(
         output / "summary.json",
         {
             "schema": 1,
             "python": platform.python_version(),
+            "options": {
+                "details": details,
+                "conflict_limit": conflict_limit,
+                "reachability": reachability,
+                "summary_only": summary_only,
+            },
             "sources": source_rows,
             "pairs": pairs,
             "reachability": {
@@ -231,7 +249,8 @@ def analyze(
         {source_id: source_dict(source.source) for source_id, source in loaded.items()},
     )
     (output / "README.md").write_text(
-        "Generated source analysis. Raw source records were not normalized; Kokoro views are analysis-only.\n",
+        "Generated source analysis. Raw source records were not normalized; "
+        "Kokoro views are analysis-only.\n",
         encoding="utf-8",
     )
     return {"sources": source_rows, "pairs": pairs}
@@ -242,9 +261,23 @@ def main() -> int:
     parser.add_argument("--source", required=True, help="Comma-separated source IDs")
     parser.add_argument("--data-root", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--details",
+        choices=("none", "sample", "full"),
+        default="sample",
+    )
+    parser.add_argument("--conflict-limit", type=int, default=10_000)
+    parser.add_argument("--no-reachability-rows", action="store_true")
+    parser.add_argument("--summary-only", action="store_true")
     args = parser.parse_args()
     analyze(
-        [item.strip() for item in args.source.split(",")], args.data_root, args.output
+        [item.strip() for item in args.source.split(",")],
+        args.data_root,
+        args.output,
+        details=args.details,
+        conflict_limit=args.conflict_limit,
+        reachability=not args.no_reachability_rows,
+        summary_only=args.summary_only,
     )
     return 0
 

@@ -9,5 +9,6 @@ def test_analysis_writes_required_reports(tmp_path: Path):
         '[format]\nversion=1\n[sources.toy]\nkind="file"\nformat="tsv_variants"\n',
         encoding="utf-8",
     )
-    # The public CLI is pinned-source oriented; exercise report writer through a tiny parsed source indirectly in smoke tests.
+    # The public CLI is pinned-source oriented; exercise report writing
+    # through a tiny parsed source indirectly in smoke tests.
     assert source_path.is_file()

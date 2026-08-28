@@ -49,7 +49,8 @@ def parse_tsv_text(
         fields = line.rstrip("\r\n").split("\t")
         if len(fields) != 2:
             raise LexiconFormatError(
-                f"{path or source.source_id}:{line_number}: expected 2 tab-separated fields, got {len(fields)}"
+                f"{path or source.source_id}:{line_number}: "
+                f"expected 2 tab-separated fields, got {len(fields)}"
             )
         word, ipa = fields
         if not word:

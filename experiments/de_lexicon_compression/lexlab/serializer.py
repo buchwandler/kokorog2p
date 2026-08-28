@@ -36,6 +36,30 @@ def asset_dict(compressed: CompressedLexicon) -> dict[str, Any]:
     }
 
 
+def canonical_asset_dict(source) -> dict[str, Any]:
+    """Build the representation-equivalent direct lookup baseline."""
+    return {
+        "schema": 1,
+        "kind": "baseline-canonical",
+        "source": _source_dict(source.source),
+        "entries": {
+            word: list(source.lookup_all(word)) for word in sorted(source.words)
+        },
+    }
+
+
+def serialize_canonical(source) -> bytes:
+    return (
+        json.dumps(
+            canonical_asset_dict(source),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n"
+    ).encode("utf-8")
+
+
 def serialize(compressed: CompressedLexicon) -> bytes:
     return (
         json.dumps(
@@ -55,8 +79,12 @@ def write_asset(path: Path, compressed: CompressedLexicon) -> int:
     return len(data)
 
 
-def deserialize(data: bytes) -> CompressedLexicon:
+def deserialize(data: bytes):
     value = json.loads(data.decode("utf-8"))
+    if value.get("schema") == 2:
+        from .compact import deserialize_compact
+
+        return deserialize_compact(data)
     if value.get("schema") != ASSET_SCHEMA:
         raise ValueError(f"unsupported asset schema: {value.get('schema')!r}")
     source = SourceInfo(**value["source"])
