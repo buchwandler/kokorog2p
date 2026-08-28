@@ -44,6 +44,8 @@ def _common(compressed: CompressedLexicon, mode: str) -> dict[str, Any]:
         "source": _source_dict(compressed.source),
         "metadata": dict(compressed.metadata),
     }
+
+
 def verify_lookup(asset, source, *, sample_limit: int = 100) -> dict[str, object]:
     source_words = set(source.words)
     asset_words = set(asset.words)
@@ -68,7 +70,6 @@ def verify_lookup(asset, source, *, sample_limit: int = 100) -> dict[str, object
         "failure_rows": rows,
         "lossless": not (missing or extra or mismatches),
     }
-
 
 
 @dataclass(slots=True)
@@ -205,9 +206,7 @@ class InternedLexicon:
 
 
 def to_interned_asset(compressed: CompressedLexicon) -> InternedLexicon:
-    all_values = {
-        value for values in compressed.atoms.values() for value in values
-    }
+    all_values = {value for values in compressed.atoms.values() for value in values}
     all_values.update(
         value for values in compressed.exceptions.values() for value in values
     )
@@ -282,9 +281,7 @@ def build_macros(values: list[str], *, max_macros: int = 128) -> tuple[str, ...]
                 for index in range(len(value) - length + 1)
             )
     candidates = [
-        (count, len(value), value)
-        for value, count in counts.items()
-        if count > 1
+        (count, len(value), value) for value, count in counts.items() if count > 1
     ]
     candidates.sort(key=lambda item: (-item[0], -item[1], item[2]))
     return tuple(value for _count, _length, value in candidates[:max_macros])

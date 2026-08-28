@@ -36,10 +36,7 @@ def exact_linker_candidates(
                 start = position + 1
                 continue
             values = [atoms[left], atoms[linker], atoms[right]]
-            candidate = tuple(
-                "".join(parts)
-                for parts in product(*values)
-            )
+            candidate = tuple("".join(parts) for parts in product(*values))
             if candidate == expected:
                 found.append((left, linker, right))
                 if len(found) >= max_candidates:
@@ -98,9 +95,7 @@ class FrontCodedLexicon:
         result = [""]
         for component in components:
             result = [
-                prefix + value
-                for prefix in result
-                for value in self.atoms[component]
+                prefix + value for prefix in result for value in self.atoms[component]
             ]
         return tuple(result)
 

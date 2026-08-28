@@ -68,6 +68,5 @@ def test_cascade_precedence_conflict_and_sharing():
     assert result["incremental_hits_by_source"] == {"first": 1, "second": 1}
     assert result["conflict_wins_by_source"] == {"first": 1}
     assert (
-        cross_source_sharing([first, second])["identical_spelling_shared_variant"]
-        == 0
+        cross_source_sharing([first, second])["identical_spelling_shared_variant"] == 0
     )

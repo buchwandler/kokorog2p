@@ -221,3 +221,7 @@ experiments/de_lexicon_compression/data/*
 !experiments/de_lexicon_compression/data/.gitkeep
 experiments/de_lexicon_compression/reports/*
 !experiments/de_lexicon_compression/reports/.gitkeep
+
+# German lexicon entry-reduction experiment: never commit generated reports
+experiments/de_lexicon_entry_reduction/reports/*
+!experiments/de_lexicon_entry_reduction/reports/.gitkeep

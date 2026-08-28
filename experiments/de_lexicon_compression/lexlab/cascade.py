@@ -131,9 +131,7 @@ def cross_source_sharing(sources: Sequence) -> dict[str, object]:
             )
             left_ipa = {value for word in left.words for value in left.lookup_all(word)}
             right_ipa = {
-                value
-                for word in right.words
-                for value in right.lookup_all(word)
+                value for word in right.words for value in right.lookup_all(word)
             }
             ipa_overlap = len(left_ipa & right_ipa)
             shared_atoms = sum(
