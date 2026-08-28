@@ -1,0 +1,2072 @@
+ .gitignore                         |   6 +
+ README.md                          |  13 +-
+ benchmarks/SWEDISH_RULES.md        |  20 +
+ benchmarks/benchmark_sv_rules.py   | 841 +++++++++++++++++++++++++++++++++++++
+ benchmarks/sv/README.md            |  27 ++
+ docs/api/swedish.md                |  25 ++
+ docs/languages.md                  |  10 +
+ docs/sv/PROVENANCE.md              |  20 +
+ kokorog2p/__init__.py              |  21 +-
+ kokorog2p/ar/model_profile.py      |   1 +
+ kokorog2p/sv/__init__.py           |  21 +
+ kokorog2p/sv/g2p.py                | 143 +++++++
+ kokorog2p/sv/phonology.py          | 136 ++++++
+ kokorog2p/sv/rules.py              | 398 ++++++++++++++++++
+ tests/test_sv_benchmark_helpers.py |  77 ++++
+ tests/test_sv_g2p.py               |  54 +++
+ tests/test_sv_rules.py             |  75 ++++
+ 17 files changed, 1886 insertions(+), 2 deletions(-)
+
+diff --git a/.gitignore b/.gitignore
+index 8eb69ed..8b709ec 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -209,3 +209,9 @@ kokorog2p/_version.py
+ benchmarks/ipa-childes-split/
+ TASKS.md
+ context_kokorog2p.*
++
++# External Swedish rule-development corpus
++benchmarks/data/sv/lexicon.tsv
++
++# Generated Swedish rule benchmark results
++benchmarks/results/sv/
+diff --git a/README.md b/README.md
+index 8646029..3621f88 100644
+--- a/README.md
++++ b/README.md
+@@ -11,9 +11,11 @@ kokorog2p converts text to phonemes optimized for the Kokoro text-to-speech syst
+ provides:
+
+ - **Multi-language support**: English (US/GB), German, French, Italian, Spanish,
+-  Portuguese (Brazilian), Czech, Chinese, Japanese, Korean, Hebrew, Vietnamese
++  Portuguese (Brazilian), Czech, Chinese, Japanese, Korean, Hebrew, Vietnamese, Swedish
+ - **Native Vietnamese frontend**: Pure-Python Northern/Hanoi `vi-vn` profile with six
+   named tones
++- **Native Swedish frontend**: Pure-Python deterministic rules with no runtime lexicon;
++  external TSV benchmarking is development-only
+ - **Mixed-language preprocessing**: Detect languages for per-word language switching
+ - **Dictionary-based lookup** with comprehensive lexicons
+   - English: 179k+ entries (gold tier), 187k+ silver tier (both loaded by default)
+@@ -145,6 +147,14 @@ phonemes = phonemize("שָׁלוֹם", language="he").phonemes
+ print(phonemes)
+ ```
+
++- **Swedish** (native deterministic rules)
++
++```python
++from kokorog2p import get_g2p
++g2p_sv = get_g2p("sv")
++print(g2p_sv("Hej världen!"))
++```
++
+ ## Advanced Usage
+
+ ```python
+@@ -506,6 +516,7 @@ print(result.phonemes)
+ | Japanese     | `ja`    | pyopenjtalk                       | -              | IPA      | Production |
+ | Korean       | `ko`    | g2pK rule-based                   | ✓              | IPA      | Production |
+ | Vietnamese   | `vi-vn` | Native rule-based Northern/Hanoi  | -              | IPA-like | Production |
++| Swedish      | `sv-se` | Native rule-based                 | -              | IPA      | Production |
+ | Hebrew       | `he`    | phonikud-based (requires nikud)   | -              | IPA      | Production |
+
+ **Note:** Both gold and silver dictionaries are loaded by default for English. You can:
+diff --git a/benchmarks/SWEDISH_RULES.md b/benchmarks/SWEDISH_RULES.md
+new file mode 100644
+index 0000000..cdd2a35
+--- /dev/null
++++ b/benchmarks/SWEDISH_RULES.md
+@@ -0,0 +1,20 @@
++# Swedish rule history
++
++The benchmark corpus is external development data. No measured result is claimed until a
++local corpus run records the source hash and split.
++
++| rules           | source SHA256 |   split | exact | stressless | PER |
++| --------------- | ------------- | ------: | ----: | ---------: | --: |
++| v0.1 seed rules | not run       | not run |   n/a |        n/a | n/a |
++
++## v0.1
++
++Rules added: normalization, longest-match SJ and TJ classes, hard and soft G/K/SK, seed
++vowel quantity and quality, first-syllable stress, and standard retroflexion. The
++benchmark harness is ready for an explicit local `lexicon.tsv`, but the corpus is not
++part of this repository.
++
++Known unsolved classes include lexical vowel quality, loanword spelling, compound
++stress, alternate pronunciations, and reference rows that may be erroneous. Future
++changes must report train, development, and regression results and must state a general
++linguistic rationale.
+diff --git a/benchmarks/benchmark_sv_rules.py b/benchmarks/benchmark_sv_rules.py
+new file mode 100644
+index 0000000..34df6c2
+--- /dev/null
++++ b/benchmarks/benchmark_sv_rules.py
+@@ -0,0 +1,841 @@
++#!/usr/bin/env python3
++"""Benchmark the Swedish clean-room rules against an explicitly supplied TSV.
++
++This module is deliberately independent of runtime package data.  The TSV is
++read as a stream and is never imported by ``kokorog2p``.
++"""
++
++from __future__ import annotations
++
++import argparse
++import csv
++import hashlib
++import json
++import random
++import sys
++import time
++from collections import Counter, defaultdict
++from collections.abc import Iterable, Iterator, Sequence
++from dataclasses import dataclass
++from pathlib import Path
++
++from kokorog2p.sv.rules import SwedishRuleResult, phonemize_word_raw
++
++EXPECTED_SHA256 = "65eb3aae9c737f6d04c22a44b2ab836d1ec01f682b1cdee07bb2209852355296"
++FAILURE_HEADER = (
++    "line",
++    "word",
++    "expected",
++    "actual",
++    "exact",
++    "stressless_equal",
++    "quantityless_equal",
++    "edit_distance",
++    "reference_phone_count",
++    "actual_phone_count",
++    "feature_tags",
++    "rule_ids",
++)
++
++
++@dataclass(frozen=True)
++class ReferenceCase:
++    line_number: int
++    word: str
++    phones: tuple[str, ...]
++
++    @property
++    def expected(self) -> tuple[str, ...]:
++        return self.phones
++
++
++@dataclass(frozen=True)
++class CaseComparison:
++    case: ReferenceCase
++    actual: tuple[str, ...]
++    result: SwedishRuleResult
++    exact: bool
++    stressless_equal: bool
++    quantityless_equal: bool
++    edit_distance: int
++    substitutions: int
++    insertions: int
++    deletions: int
++
++
++def iter_reference_cases(path: Path) -> Iterator[ReferenceCase]:
++    """Stream ``word<TAB>space-separated IPA`` rows from *path*."""
++    with path.open("r", encoding="utf-8", newline="") as handle:
++        for line_number, raw in enumerate(handle, 1):
++            raw = raw.rstrip("\r\n")
++            if not raw:
++                continue
++            try:
++                word, ipa = raw.split("\t", 1)
++            except ValueError as exc:
++                raise ValueError(
++                    f"{path}:{line_number}: expected word<TAB>ipa"
++                ) from exc
++            phones = tuple(phone for phone in ipa.split(" ") if phone)
++            if not word or not phones:
++                raise ValueError(f"{path}:{line_number}: empty word or pronunciation")
++            yield ReferenceCase(line_number, word, phones)
++
++
++def sha256_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
++    digest = hashlib.sha256()
++    with path.open("rb") as handle:
++        while chunk := handle.read(chunk_size):
++            digest.update(chunk)
++    return digest.hexdigest()
++
++
++def stable_split(word: str) -> str:
++    bucket = (
++        int.from_bytes(hashlib.sha256(word.encode("utf-8")).digest()[:4], "big") % 100
++    )
++    if bucket < 80:
++        return "train"
++    if bucket < 90:
++        return "dev"
++    return "test"
++
++
++def split_for_word(word: str) -> str:
++    """Public alias for the deterministic train/dev/test assignment."""
++    return stable_split(word)
++
++
++def without_stress(phones: Sequence[str]) -> tuple[str, ...]:
++    return tuple(phone.replace("ˈ", "").replace("ˌ", "") for phone in phones)
++
++
++def without_quantity(phones: Sequence[str]) -> tuple[str, ...]:
++    return tuple(
++        phone.replace("ˈ", "").replace("ˌ", "").replace("ː", "") for phone in phones
++    )
++
++
++def levenshtein_counts(
++    expected: Sequence[str], actual: Sequence[str]
++) -> tuple[int, int, int, int]:
++    """Return edit distance and substitution, insertion, deletion counts."""
++    rows = len(expected) + 1
++    cols = len(actual) + 1
++    distance = [[0] * cols for _ in range(rows)]
++    operations: list[list[str]] = [[""] * cols for _ in range(rows)]
++    for row in range(1, rows):
++        distance[row][0] = row
++        operations[row][0] = "deletion"
++    for col in range(1, cols):
++        distance[0][col] = col
++        operations[0][col] = "insertion"
++    for row in range(1, rows):
++        for col in range(1, cols):
++            if expected[row - 1] == actual[col - 1]:
++                distance[row][col] = distance[row - 1][col - 1]
++                operations[row][col] = "equal"
++                continue
++            choices = (
++                (distance[row - 1][col - 1] + 1, "substitution"),
++                (distance[row][col - 1] + 1, "insertion"),
++                (distance[row - 1][col] + 1, "deletion"),
++            )
++            distance[row][col], operations[row][col] = min(
++                choices, key=lambda item: item[0]
++            )
++    substitutions = insertions = deletions = 0
++    row, col = len(expected), len(actual)
++    while row or col:
++        operation = operations[row][col]
++        if operation == "substitution":
++            substitutions += 1
++            row -= 1
++            col -= 1
++        elif operation == "insertion":
++            insertions += 1
++            col -= 1
++        elif operation == "deletion":
++            deletions += 1
++            row -= 1
++        else:
++            row -= 1
++            col -= 1
++    return distance[-1][-1], substitutions, insertions, deletions
++
++
++def levenshtein_distance(expected: Sequence[str], actual: Sequence[str]) -> int:
++    return levenshtein_counts(expected, actual)[0]
++
++
++def compare_case(
++    case: ReferenceCase, result: SwedishRuleResult | None = None
++) -> CaseComparison:
++    result = result or phonemize_word_raw(case.word)
++    actual = result.phones
++    distance, substitutions, insertions, deletions = levenshtein_counts(
++        case.phones, actual
++    )
++    return CaseComparison(
++        case=case,
++        actual=actual,
++        result=result,
++        exact=case.phones == actual,
++        stressless_equal=without_stress(case.phones) == without_stress(actual),
++        quantityless_equal=without_quantity(case.phones) == without_quantity(actual),
++        edit_distance=distance,
++        substitutions=substitutions,
++        insertions=insertions,
++        deletions=deletions,
++    )
++
++
++def feature_tags(word: str, rule_ids: Sequence[str] = ()) -> tuple[str, ...]:  # noqa: C901
++    lower = word.casefold()
++    tags: list[str] = []
++
++    def add(tag: str) -> None:
++        if tag not in tags:
++            tags.append(tag)
++
++    soft = set("eiyäöé")
++    for spelling, tag in (
++        ("sj", "contains_sj"),
++        ("skj", "contains_skj"),
++        ("stj", "contains_stj"),
++        ("sch", "contains_sch"),
++        ("tj", "contains_tj"),
++        ("kj", "contains_kj"),
++        ("dj", "contains_dj"),
++        ("gj", "contains_gj"),
++        ("hj", "contains_hj"),
++        ("lj", "contains_lj"),
++        ("ng", "contains_ng"),
++        ("x", "contains_x"),
++        ("c", "contains_c"),
++        ("w", "contains_w"),
++    ):
++        if spelling in lower:
++            add(tag)
++    if "sk" in lower:
++        add(
++            "soft_sk"
++            if lower[lower.index("sk") + 2 : lower.index("sk") + 3] in soft
++            else "hard_sk"
++        )
++    for index, char in enumerate(lower[:-1]):
++        if char == "g":
++            add("soft_g" if lower[index + 1] in soft else "hard_g")
++        if char == "k":
++            add("soft_k" if lower[index + 1] in soft else "hard_k")
++    if any(lower[index] == lower[index + 1] for index in range(len(lower) - 1)):
++        add("double_consonant")
++    if len(lower) >= 12:
++        add("word_len_13_plus" if len(lower) >= 13 else "word_len_9_12")
++    if len(lower) <= 4:
++        add("word_len_1_4")
++    elif len(lower) <= 8:
++        add("word_len_5_8")
++    for suffix, tag in (
++        ("tion", "suffix_tion"),
++        ("sion", "suffix_sion"),
++        ("itet", "suffix_itet"),
++        ("era", "suffix_era"),
++        ("ering", "suffix_ering"),
++        ("ism", "suffix_ism"),
++        ("ist", "suffix_ist"),
++    ):
++        if lower.endswith(suffix):
++            add(tag)
++    for target, tag in (
++        ("t", "r_before_t"),
++        ("d", "r_before_d"),
++        ("n", "r_before_n"),
++        ("s", "r_before_s"),
++        ("l", "r_before_l"),
++    ):
++        if f"r{target}" in lower:
++            add(tag)
++    if "é" in lower:
++        add("contains_é")
++    for vowel in ["a", "e", "i", "o", "u", "å", "ä", "ö"]:
++        if vowel in lower:
++            add(f"contains_{vowel}")
++    for rule_id in rule_ids:
++        add(f"rule:{rule_id}")
++    return tuple(tags)
++
++
++def _write_tsv(
++    path: Path, header: Sequence[str], rows: Iterable[Sequence[object]]
++) -> None:
++    path.parent.mkdir(parents=True, exist_ok=True)
++    with path.open("w", encoding="utf-8", newline="") as handle:
++        writer = csv.writer(handle, delimiter="\t", lineterminator="\n")
++        writer.writerow(header)
++        writer.writerows(rows)
++
++
++def _format_ipa(phones: Sequence[str]) -> str:
++    return "".join(phones)
++
++
++def _case_row(comparison: CaseComparison, traced: bool) -> tuple[object, ...]:
++    result = comparison.result
++    return (
++        comparison.case.line_number,
++        comparison.case.word,
++        _format_ipa(comparison.case.phones),
++        _format_ipa(comparison.actual),
++        int(comparison.exact),
++        int(comparison.stressless_equal),
++        int(comparison.quantityless_equal),
++        comparison.edit_distance,
++        len(comparison.case.phones),
++        len(comparison.actual),
++        ",".join(feature_tags(comparison.case.word)),
++        ",".join(result.rule_ids) if traced else "",
++    )
++
++
++def _read_baseline(path: Path) -> tuple[dict[str, tuple[str, ...]], dict[str, object]]:
++    directory = path if path.is_dir() else path.parent
++    actuals: dict[str, tuple[str, ...]] = {}
++    failures = directory / "failures.tsv"
++    if failures.exists():
++        with failures.open("r", encoding="utf-8", newline="") as handle:
++            for row in csv.DictReader(handle, delimiter="\t"):
++                actuals[row["word"]] = tuple(row["actual"])
++    summary_path = path if path.is_file() else directory / "summary.json"
++    summary: dict[str, object] = {}
++    if summary_path.exists():
++        summary = json.loads(summary_path.read_text(encoding="utf-8"))
++    return actuals, summary
++
++
++def _inspect_format(path: Path, limit: int) -> None:
++    tokens = Counter()
++    stress = Counter()
++    lengths = []
++    samples: list[str] = []
++    duplicates: Counter[str] = Counter()
++    non_swedish: Counter[str] = Counter()
++    for case in iter_reference_cases(path):
++        duplicates[case.word] += 1
++        tokens.update(case.phones)
++        lengths.append(len(case.phones))
++        if "ˈ" in "".join(case.phones):
++            stress["contains_primary_stress"] += 1
++        if "ˌ" in "".join(case.phones):
++            stress["contains_secondary_stress"] += 1
++        if any(
++            char not in "abcdefghijklmnopqrstuvwxyzåäöé-"
++            for char in case.word.casefold()
++        ):
++            non_swedish[case.word] += 1
++        if len(samples) < 10:
++            samples.append(f"{case.line_number}: {case.word}\t{' '.join(case.phones)}")
++        if sum(duplicates.values()) >= limit:
++            break
++    print("most common token forms:")
++    for token, count in tokens.most_common(20):
++        print(f"  {token}\t{count}")
++    combining_marks = sum(
++        count
++        for token, count in tokens.items()
++        if any(ord(char) >= 0x300 for char in token)
++    )
++    length_marked = sum(count for token, count in tokens.items() if "ː" in token)
++    duplicate_rows = sum(count - 1 for count in duplicates.values() if count > 1)
++    print(f"tokens containing combining marks: {combining_marks}")
++    print(f"tokens containing ː: {length_marked}")
++    print(f"stress token placement: {dict(stress)}")
++    print(f"maximum phones/word: {max(lengths, default=0)}")
++    print(f"duplicate word rows: {duplicate_rows}")
++    print(f"non-Swedish or unexpected words: {len(non_swedish)}")
++    print("sample lines:")
++    print("\n".join(samples))
++
++
++def _group_rows(comparisons: Sequence[CaseComparison]) -> list[tuple[object, ...]]:
++    grouped: dict[str, list[CaseComparison]] = defaultdict(list)
++    for comparison in comparisons:
++        tags = feature_tags(comparison.case.word)
++        for tag in tags:
++            if not tag.startswith("rule:"):
++                grouped[tag].append(comparison)
++    rows = []
++    for tag, cases in grouped.items():
++        exact = sum(case.exact for case in cases)
++        samples = [case.case.word for case in cases if not case.exact][:3]
++        rows.append(
++            (
++                tag,
++                len(cases),
++                exact,
++                len(cases) - exact,
++                100 * exact / len(cases),
++                100 * sum(case.stressless_equal for case in cases) / len(cases),
++                100 * sum(case.quantityless_equal for case in cases) / len(cases),
++                sum(case.edit_distance for case in cases) / len(cases),
++                *samples,
++            )
++        )
++    return sorted(rows, key=lambda row: (-row[3], -row[1], str(row[0])))
++
++
++def _confusion_rows(comparisons: Sequence[CaseComparison]) -> list[tuple[object, ...]]:
++    confusion: Counter[tuple[str, str]] = Counter()
++    for comparison in comparisons:
++        expected, actual = comparison.case.phones, comparison.actual
++        row, col = len(expected), len(actual)
++        distance = [[0] * (col + 1) for _ in range(row + 1)]
++        for i in range(row + 1):
++            distance[i][0] = i
++        for j in range(col + 1):
++            distance[0][j] = j
++        for i in range(1, row + 1):
++            for j in range(1, col + 1):
++                distance[i][j] = min(
++                    distance[i - 1][j - 1] + (expected[i - 1] != actual[j - 1]),
++                    distance[i][j - 1] + 1,
++                    distance[i - 1][j] + 1,
++                )
++        i, j = row, col
++        while i or j:
++            if (
++                i
++                and j
++                and distance[i][j]
++                == distance[i - 1][j - 1] + (expected[i - 1] != actual[j - 1])
++            ):
++                if expected[i - 1] != actual[j - 1]:
++                    confusion[(expected[i - 1], actual[j - 1])] += 1
++                i -= 1
++                j -= 1
++            elif j and distance[i][j] == distance[i][j - 1] + 1:
++                j -= 1
++            else:
++                i -= 1
++    return [
++        (expected, actual, count)
++        for (expected, actual), count in confusion.most_common()
++    ]
++
++
++def _regression_rows(
++    comparisons: Sequence[CaseComparison], baseline_actuals: dict[str, tuple[str, ...]]
++) -> tuple[list[tuple[object, ...]], list[tuple[object, ...]]]:
++    improvements: list[tuple[object, ...]] = []
++    regressions: list[tuple[object, ...]] = []
++    for comparison in comparisons:
++        old = baseline_actuals.get(comparison.case.word)
++        if old is None:
++            continue
++        old_distance = levenshtein_distance(comparison.case.phones, old)
++        new_distance = comparison.edit_distance
++        row = (
++            comparison.case.word,
++            _format_ipa(old),
++            _format_ipa(comparison.actual),
++            _format_ipa(comparison.case.phones),
++            old_distance,
++            new_distance,
++            new_distance - old_distance,
++        )
++        if new_distance < old_distance:
++            improvements.append(row)
++        elif new_distance > old_distance:
++            regressions.append(row)
++    return improvements, regressions
++
++
++def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--lexicon", type=Path)
++    parser.add_argument("--output", type=Path)
++    parser.add_argument(
++        "--split", choices=("train", "dev", "test", "all"), default="all"
++    )
++    parser.add_argument("--sample", type=int)
++    parser.add_argument("--seed", type=int, default=0)
++    parser.add_argument("--limit", type=int)
++    parser.add_argument("--pattern")
++    parser.add_argument("--prefix")
++    parser.add_argument("--suffix")
++    parser.add_argument("--only-failures", action="store_true")
++    parser.add_argument("--trace-failures", action="store_true")
++    parser.add_argument("--baseline", type=Path)
++    parser.add_argument("--fail-on-regression", type=float)
++    parser.add_argument("--verify-sha256", action="store_true")
++    parser.add_argument("--expected-sha256", default=EXPECTED_SHA256)
++    parser.add_argument("--progress-every", type=int, default=0)
++    parser.add_argument("--no-stress-metric", action="store_true")
++    parser.add_argument("--max-examples-per-group", type=int, default=3)
++    parser.add_argument("--inspect-format", type=int, metavar="N")
++    return parser.parse_args(argv)
++
++
++def _resolve_lexicon(argument: Path | None) -> Path:
++    if argument is not None:
++        return argument
++    import os
++
++    value = os.environ.get("KOKOROG2P_SV_LEXICON")
++    if value:
++        return Path(value)
++    raise ValueError("Provide --lexicon PATH or KOKOROG2P_SV_LEXICON")
++
++
++def run_benchmark(args: argparse.Namespace) -> int:
++    path = _resolve_lexicon(args.lexicon)
++    if not path.is_file():
++        raise ValueError(f"Lexicon does not exist: {path}")
++    if args.verify_sha256:
++        actual_sha = sha256_file(path)
++        if actual_sha != args.expected_sha256:
++            message = (
++                f"SHA256 mismatch for {path}: expected {args.expected_sha256}, "
++                f"got {actual_sha}"
++            )
++            raise ValueError(message)
++    else:
++        actual_sha = sha256_file(path)
++    if args.inspect_format is not None:
++        _inspect_format(path, args.inspect_format)
++        return 0
++
++    output = args.output or Path("benchmarks/results/sv") / time.strftime(
++        "run-%Y%m%d-%H%M%S"
++    )
++    output.mkdir(parents=True, exist_ok=True)
++    selected: list[ReferenceCase] = []
++    for case in iter_reference_cases(path):
++        if args.split != "all" and stable_split(case.word) != args.split:
++            continue
++        if args.pattern and args.pattern not in case.word:
++            continue
++        if args.prefix and not case.word.startswith(args.prefix):
++            continue
++        if args.suffix and not case.word.endswith(args.suffix):
++            continue
++        selected.append(case)
++        if args.limit is not None and len(selected) >= args.limit:
++            break
++    if args.sample is not None and len(selected) > args.sample:
++        random.Random(args.seed).shuffle(selected)
++        selected = selected[: args.sample]
++
++    start = time.perf_counter()
++    comparisons: list[CaseComparison] = []
++    passed = failed = 0
++    distance_total = substitutions = insertions = deletions = 0
++    split_counts = Counter()
++    for index, case in enumerate(selected, 1):
++        comparison = compare_case(case)
++        if args.only_failures and comparison.exact:
++            continue
++        if not comparison.exact and args.trace_failures:
++            comparison = compare_case(case, phonemize_word_raw(case.word, trace=True))
++        comparisons.append(comparison)
++        passed += comparison.exact
++        failed += not comparison.exact
++        distance_total += comparison.edit_distance
++        substitutions += comparison.substitutions
++        insertions += comparison.insertions
++        deletions += comparison.deletions
++        split_counts[stable_split(case.word)] += 1
++        if args.progress_every and index % args.progress_every == 0:
++            print(f"processed {index} rows", file=sys.stderr)
++    elapsed = time.perf_counter() - start
++
++    failures = [comparison for comparison in comparisons if not comparison.exact]
++    _write_tsv(
++        output / "failures.tsv",
++        FAILURE_HEADER,
++        (_case_row(case, args.trace_failures) for case in failures),
++    )
++    _write_tsv(
++        output / "groups.tsv",
++        (
++            "feature",
++            "cases",
++            "exact",
++            "failed",
++            "exact_percent",
++            "stressless_percent",
++            "quantityless_percent",
++            "mean_edit_distance",
++            "sample_failure_1",
++            "sample_failure_2",
++            "sample_failure_3",
++        ),
++        _group_rows(comparisons),
++    )
++    _write_tsv(
++        output / "confusions.tsv",
++        ("expected", "actual", "count"),
++        _confusion_rows(comparisons),
++    )
++    _write_tsv(
++        output / "rule_coverage.tsv",
++        ("rule_id", "description", "fired", "passed", "failed", "failure_rate"),
++        _coverage_rows(comparisons),
++    )
++    _write_tsv(
++        output / "stress_failures.tsv",
++        (
++            "word",
++            "expected",
++            "actual",
++            "expected_primary_position",
++            "actual_primary_position",
++            "features",
++        ),
++        _stress_rows(comparisons),
++    )
++    _write_tsv(
++        output / "quantity_failures.tsv",
++        ("word", "expected", "actual", "features"),
++        _quantity_rows(comparisons),
++    )
++    _write_tsv(
++        output / "prefixes.tsv",
++        (
++            "affix",
++            "length",
++            "cases",
++            "failures",
++            "failure_rate",
++            "mean_edit_distance",
++            "sample_words",
++        ),
++        _affix_rows(comparisons, prefix=True),
++    )
++    _write_tsv(
++        output / "suffixes.tsv",
++        (
++            "affix",
++            "length",
++            "cases",
++            "failures",
++            "failure_rate",
++            "mean_edit_distance",
++            "sample_words",
++        ),
++        _affix_rows(comparisons, prefix=False),
++    )
++    _write_tsv(
++        output / "ngrams.tsv",
++        ("ngram", "cases", "failures", "failure_rate", "enrichment"),
++        _ngram_rows(comparisons),
++    )
++
++    baseline_actuals: dict[str, tuple[str, ...]] = {}
++    baseline_summary: dict[str, object] = {}
++    if args.baseline:
++        baseline_actuals, baseline_summary = _read_baseline(args.baseline)
++    improvements, regressions = _regression_rows(comparisons, baseline_actuals)
++    regression_header = (
++        "word",
++        "old_actual",
++        "new_actual",
++        "expected",
++        "old_distance",
++        "new_distance",
++        "delta",
++    )
++    _write_tsv(output / "improvements.tsv", regression_header, improvements)
++    _write_tsv(output / "regressions.tsv", regression_header, regressions)
++
++    case_count = len(comparisons)
++    metrics = {
++        "cases": case_count,
++        "exact": passed,
++        "exact_percent": 100 * passed / case_count if case_count else 0.0,
++        "stressless": sum(case.stressless_equal for case in comparisons),
++        "stressless_percent": 100
++        * sum(case.stressless_equal for case in comparisons)
++        / case_count
++        if case_count
++        else 0.0,
++        "quantityless": sum(case.quantityless_equal for case in comparisons),
++        "quantityless_percent": 100
++        * sum(case.quantityless_equal for case in comparisons)
++        / case_count
++        if case_count
++        else 0.0,
++        "phone_error_rate": distance_total
++        / sum(len(case.case.phones) for case in comparisons)
++        if comparisons
++        else 0.0,
++        "substitutions": substitutions,
++        "insertions": insertions,
++        "deletions": deletions,
++    }
++    summary = {
++        "schema": 1,
++        "lexicon": {
++            "path": str(path),
++            "sha256": actual_sha,
++            "rows_seen": len(selected),
++        },
++        "rules": {"engine_version": "sv-rules-v0.1"},
++        "split": args.split,
++        "split_counts": dict(split_counts),
++        "metrics": metrics,
++        "timing": {
++            "seconds": elapsed,
++            "words_per_second": len(selected) / elapsed if elapsed else 0.0,
++        },
++        "baseline": baseline_summary,
++        "regressions": {
++            "improvements": len(improvements),
++            "regressions": len(regressions),
++        },
++    }
++    (output / "summary.json").write_text(
++        json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
++    )
++    print(json.dumps(summary, ensure_ascii=False, indent=2))
++    if args.fail_on_regression is not None and baseline_summary:
++        old_metrics = baseline_summary.get("metrics", {})
++        old_exact = float(old_metrics.get("exact_percent", 0.0))
++        if old_exact - metrics["exact_percent"] > args.fail_on_regression * 100:
++            return 1
++    return 0
++
++
++def _coverage_rows(comparisons: Sequence[CaseComparison]) -> list[tuple[object, ...]]:
++    fired: dict[str, list[bool]] = defaultdict(list)
++    for comparison in comparisons:
++        for rule_id in comparison.result.rule_ids:
++            fired[rule_id].append(comparison.exact)
++    return [
++        (
++            rule,
++            rule,
++            len(values),
++            sum(values),
++            len(values) - sum(values),
++            (len(values) - sum(values)) / len(values),
++        )
++        for rule, values in sorted(fired.items())
++    ]
++
++
++def _stress_rows(comparisons: Sequence[CaseComparison]) -> list[tuple[object, ...]]:
++    rows = []
++    for comparison in comparisons:
++        if not (comparison.stressless_equal and not comparison.exact):
++            continue
++        expected_position = next(
++            (
++                index
++                for index, phone in enumerate(comparison.case.phones)
++                if "ˈ" in phone
++            ),
++            -1,
++        )
++        actual_position = next(
++            (index for index, phone in enumerate(comparison.actual) if "ˈ" in phone), -1
++        )
++        rows.append(
++            (
++                comparison.case.word,
++                _format_ipa(comparison.case.phones),
++                _format_ipa(comparison.actual),
++                expected_position,
++                actual_position,
++                ",".join(feature_tags(comparison.case.word)),
++            )
++        )
++    return rows
++
++
++def _quantity_rows(comparisons: Sequence[CaseComparison]) -> list[tuple[object, ...]]:
++    return [
++        (
++            case.case.word,
++            _format_ipa(case.case.phones),
++            _format_ipa(case.actual),
++            ",".join(feature_tags(case.case.word)),
++        )
++        for case in comparisons
++        if case.quantityless_equal and not case.stressless_equal
++    ]
++
++
++def _affix_rows(
++    comparisons: Sequence[CaseComparison], *, prefix: bool
++) -> list[tuple[object, ...]]:
++    grouped: dict[str, list[CaseComparison]] = defaultdict(list)
++    for comparison in comparisons:
++        word = comparison.case.word.casefold()
++        for length in range(2, 7):
++            affix = word[:length] if prefix else word[-length:]
++            grouped[affix].append(comparison)
++    rows = []
++    for affix, cases in grouped.items():
++        failures = sum(not case.exact for case in cases)
++        if len(cases) < 2:
++            continue
++        rows.append(
++            (
++                affix,
++                len(affix),
++                len(cases),
++                failures,
++                failures / len(cases),
++                sum(case.edit_distance for case in cases) / len(cases),
++                ",".join(case.case.word for case in cases[:3]),
++            )
++        )
++    return sorted(rows, key=lambda row: (-row[3], -row[2], row[0]))
++
++
++def _ngram_rows(comparisons: Sequence[CaseComparison]) -> list[tuple[object, ...]]:
++    totals: Counter[str] = Counter()
++    failures: Counter[str] = Counter()
++    for comparison in comparisons:
++        word = comparison.case.word.casefold()
++        ngrams = {
++            word[index : index + size]
++            for size in range(1, 5)
++            for index in range(len(word) - size + 1)
++        }
++        totals.update(ngrams)
++        if not comparison.exact:
++            failures.update(ngrams)
++    rows = []
++    overall = (
++        sum(not comparison.exact for comparison in comparisons) / len(comparisons)
++        if comparisons
++        else 0.0
++    )
++    for ngram, cases in totals.items():
++        if cases < 2:
++            continue
++        failure_rate = failures[ngram] / cases
++        rows.append(
++            (
++                ngram,
++                cases,
++                failures[ngram],
++                failure_rate,
++                failure_rate / overall if overall else 0.0,
++            )
++        )
++    return sorted(rows, key=lambda row: (-row[4], -row[1], row[0]))
++
++
++def main(argv: Sequence[str] | None = None) -> int:
++    try:
++        return run_benchmark(_parse_args(argv))
++    except (OSError, ValueError, csv.Error) as exc:
++        print(f"benchmark_sv_rules.py: error: {exc}", file=sys.stderr)
++        return 2
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/benchmarks/sv/README.md b/benchmarks/sv/README.md
+new file mode 100644
+index 0000000..3c18077
+--- /dev/null
++++ b/benchmarks/sv/README.md
+@@ -0,0 +1,27 @@
++# Swedish rule benchmark
++
++`benchmark_sv_rules.py` evaluates the native Swedish rule engine against a local,
++external reference TSV. The corpus is development data only and is never loaded by
++`kokorog2p` at runtime.
++
++## Usage
++
++```bash
++python benchmarks/benchmark_sv_rules.py \
++  --lexicon /path/to/lexicon.tsv \
++  --inspect-format 5000
++
++python benchmarks/benchmark_sv_rules.py \
++  --lexicon /path/to/lexicon.tsv \
++  --split dev \
++  --trace-failures \
++  --output benchmarks/results/sv/dev
++```
++
++`--lexicon` may be replaced by `KOKOROG2P_SV_LEXICON`. The tool does not search implicit
++home-directory paths and does not download the file. Use `--verify-sha256` to verify the
++reviewed source hash.
++
++Results include exact, stressless, quantity-insensitive, and phone error metrics, plus
++TSV reports for failures, feature groups, confusions, rule coverage, stress, quantity,
++affixes, n-grams, and baseline regressions.
+diff --git a/docs/api/swedish.md b/docs/api/swedish.md
+new file mode 100644
+index 0000000..7053971
+--- /dev/null
++++ b/docs/api/swedish.md
+@@ -0,0 +1,25 @@
++# Swedish G2P
++
++Swedish is implemented as a native deterministic rule-based frontend.
++
++```python
++from kokorog2p import get_g2p, phonemize
++from kokorog2p.sv import phonemize_word_raw
++
++g2p = get_g2p("sv")
++print(phonemize("Hej världen!", language="sv").phonemes)
++print(phonemize_word_raw("sjuk").ipa)
++```
++
++The aliases `sv`, `sv-se`, `swe`, and `swedish` select the same native implementation.
++Runtime phonemization contains no Swedish pronunciation dictionary, network access, or
++neural model. eSpeak and Goruut are disabled by default and can be requested explicitly
++as fallback options.
++
++`phonemize_word_raw()` returns Swedish reference-style IPA. `SwedishG2P` then uses an
++explicit adapter for phones not present in the selected Kokoro vocabulary. The external
++benchmark compares only the raw result, not adapted Kokoro output.
++
++This is a grapheme-to-pronunciation frontend. Swedish numbers, dates, units,
++abbreviations, and spoken semantic normalization remain outside this module. Lexical and
++loanword irregularities are expected limitations of a pure rule system.
+diff --git a/docs/languages.md b/docs/languages.md
+index e82227b..33af30a 100644
+--- a/docs/languages.md
++++ b/docs/languages.md
+@@ -895,3 +895,13 @@ This provides basic support for 100+ languages via espeak-ng.
+ Arabic support is native and Nabra-compatible for Modern Standard Arabic (MSA). It uses
+ raw Arabic eSpeak IPA and optionally uses CAMeL MLE diacritization for unvocalized text.
+ Dialects are not supported by this frontend. See {doc}`api/arabic`.
++
++## Swedish (sv-se)
++
++Swedish uses a native deterministic rule-based grapheme-to-phoneme frontend. It has no
++runtime pronunciation lexicon and does not download a model. The external NST-derived
++TSV is accepted only by `benchmarks/benchmark_sv_rules.py` for development benchmarking.
++
++Aliases are `sv`, `sv-se`, `swe`, and `swedish`. Swedish number, date, unit,
++abbreviation, and spoken semantic normalization remain outside this frontend. See
++{doc}`api/swedish`.
+diff --git a/docs/sv/PROVENANCE.md b/docs/sv/PROVENANCE.md
+new file mode 100644
+index 0000000..ab0fce3
+--- /dev/null
++++ b/docs/sv/PROVENANCE.md
+@@ -0,0 +1,20 @@
++# Swedish provenance
++
++## Runtime implementation
++
++The Swedish frontend is a new clean-room Python rule implementation in `kokorog2p`. No
++source code is copied from the upstream neural G2P. No upstream lexicon is bundled with
++or loaded by the runtime package.
++
++## Benchmark reference
++
++Development benchmarking may use:
++
++- `Joakim/kokoro-sv-g2p/g2p/lexicon.tsv`
++- <https://huggingface.co/Joakim/kokoro-sv-g2p/blob/main/g2p/lexicon.tsv>
++- Reviewed SHA256: `65eb3aae9c737f6d04c22a44b2ab836d1ec01f682b1cdee07bb2209852355296`
++
++The TSV is an external NST-derived pronunciation reference. It must be provided
++explicitly to the benchmark and is not runtime data. The source is a benchmark oracle,
++not an infallible claim that every row is correct. Underlying Språkbanken/NST provenance
++should be confirmed separately before adding more specific attribution.
+diff --git a/kokorog2p/__init__.py b/kokorog2p/__init__.py
+index 50e0ba1..6d8d893 100644
+--- a/kokorog2p/__init__.py
++++ b/kokorog2p/__init__.py
+@@ -164,6 +164,10 @@ _LANGUAGE_ALIASES = {
+     "ar-msa": "ar",
+     "msa": "ar",
+     "ar-sa": "ar",
++    "sv": "sv-se",
++    "sv-se": "sv-se",
++    "swe": "sv-se",
++    "swedish": "sv-se",
+ }
+
+ _FACTORY_KWARGS_BY_LANGUAGE = {
+@@ -222,6 +226,7 @@ _FACTORY_KWARGS_BY_LANGUAGE = {
+             "model_profile",
+         }
+     ),
++    "sv": frozenset({"dialect", "preserve_stress"}),
+ }
+
+ _SPACY_DEFAULTS_BY_FAMILY = {
+@@ -355,7 +360,7 @@ def _stable_repr(value: Any) -> object:
+
+ def get_g2p(  # noqa: C901
+     language: str = "en-us",
+-    use_espeak_fallback: bool = True,
++    use_espeak_fallback: bool | None = None,
+     use_goruut_fallback: bool = False,
+     use_cli: bool = False,
+     use_spacy: bool | None = None,
+@@ -450,6 +455,8 @@ def get_g2p(  # noqa: C901
+     # behaviorally equivalent do not create duplicate instances or voices.
+     requested_language = language.lower().replace("_", "-")
+     lang = _canonical_language(language)
++    if use_espeak_fallback is None:
++        use_espeak_fallback = lang != "sv-se"
+     # Validate version parameter
+     if version not in ("1.0", "1.1"):
+         raise ValueError(
+@@ -662,6 +669,18 @@ def get_g2p(  # noqa: C901
+             version=version,
+             **kwargs,
+         )
++    elif lang == "sv-se":
++        from kokorog2p.sv import SwedishG2P
++
++        g2p = SwedishG2P(
++            language=implementation_language,
++            use_espeak_fallback=use_espeak_fallback,
++            use_goruut_fallback=use_goruut_fallback,
++            use_cli=use_cli,
++            strict=strict,
++            version=version,
++            **kwargs,
++        )
+     elif lang == "ar":
+         from kokorog2p.ar import ArabicG2P
+
+diff --git a/kokorog2p/ar/model_profile.py b/kokorog2p/ar/model_profile.py
+index 2625ff2..07a0fc7 100644
+--- a/kokorog2p/ar/model_profile.py
++++ b/kokorog2p/ar/model_profile.py
+@@ -24,6 +24,7 @@ def strip_tie_bars(text: str) -> str:
+     """Remove combining tie bars from eSpeak affricates."""
+     return "".join(char for char in text if char not in _TIE_BARS)
+
++
+ def strip_internal_syllable_dots(text: str) -> str:
+     """Remove dots between adjacent phoneme characters, preserving final dots."""
+     return _INTERNAL_DOT_RE.sub("", text)
+diff --git a/kokorog2p/sv/__init__.py b/kokorog2p/sv/__init__.py
+new file mode 100644
+index 0000000..e8a6f4b
+--- /dev/null
++++ b/kokorog2p/sv/__init__.py
+@@ -0,0 +1,21 @@
++"""Native Swedish rule-based G2P frontend."""
++
++from .g2p import SwedishG2P
++from .rules import (
++    RuleTrace,
++    Syllable,
++    SwedishRuleEngine,
++    SwedishRuleResult,
++    phonemize_word_raw,
++    to_kokoro,
++)
++
++__all__ = [
++    "RuleTrace",
++    "SwedishG2P",
++    "SwedishRuleEngine",
++    "SwedishRuleResult",
++    "Syllable",
++    "phonemize_word_raw",
++    "to_kokoro",
++]
+diff --git a/kokorog2p/sv/g2p.py b/kokorog2p/sv/g2p.py
+new file mode 100644
+index 0000000..29b197f
+--- /dev/null
++++ b/kokorog2p/sv/g2p.py
+@@ -0,0 +1,143 @@
++"""Public Swedish G2P integration for kokorog2p."""
++
++from __future__ import annotations
++
++from typing import Any
++
++from kokorog2p.base import G2PBase
++from kokorog2p.punctuation import normalize_punctuation
++from kokorog2p.token import GToken
++from kokorog2p.tokenization import ensure_gtoken_positions, tokenize_with_offsets
++
++from .rules import SwedishRuleEngine, SwedishRuleResult, to_kokoro
++
++
++class SwedishG2P(G2PBase):
++    """Native deterministic Swedish grapheme-to-phoneme converter."""
++
++    aliases = frozenset(("sv", "sv-se", "swe", "swedish"))
++
++    def __init__(
++        self,
++        language: str = "sv-se",
++        *,
++        use_espeak_fallback: bool = False,
++        use_goruut_fallback: bool = False,
++        strict: bool = False,
++        version: str = "1.0",
++        dialect: str = "standard",
++        preserve_stress: bool = True,
++        use_cli: bool = False,
++        **kwargs: Any,
++    ) -> None:
++        if kwargs:
++            names = ", ".join(sorted(kwargs))
++            raise TypeError(f"Unsupported SwedishG2P options: {names}")
++        normalized_language = language.lower().replace("_", "-")
++        if normalized_language not in self.aliases:
++            raise ValueError(f"Unsupported Swedish language code: {language!r}")
++        if version != "1.0":
++            raise ValueError(f"Unsupported Swedish model version: {version!r}")
++        if dialect != "standard":
++            raise ValueError(f"Unsupported Swedish dialect: {dialect!r}")
++        super().__init__(
++            language="sv-se",
++            use_espeak_fallback=use_espeak_fallback,
++            use_goruut_fallback=use_goruut_fallback,
++            use_cli=use_cli,
++            strict=strict,
++        )
++        self.version = version
++        self.dialect = dialect
++        self.preserve_stress = preserve_stress
++        self._rules = SwedishRuleEngine()
++
++    def phonemize_word_raw(
++        self, word: str, *, trace: bool = False
++    ) -> SwedishRuleResult:
++        return self._rules.phonemize_word_raw(word, trace=trace)
++
++    def _word_to_phonemes(self, word: str) -> str | None:
++        result = self.phonemize_word_raw(word)
++        if result.unknown_characters:
++            return self._fallback_or_unknown(word)
++        try:
++            rendered = to_kokoro(result.ipa, model=self.version)
++        except ValueError:
++            return self._fallback_or_unknown(word)
++        if not self.preserve_stress:
++            rendered = rendered.replace("ˈ", "").replace("ˌ", "")
++        return rendered or None
++
++    def _fallback_or_unknown(self, word: str) -> str | None:
++        if self.use_espeak_fallback:
++            from kokorog2p.espeak_g2p import EspeakOnlyG2P
++
++            return EspeakOnlyG2P(
++                language="sv", strict=self.strict, use_cli=self.use_cli
++            ).lookup(word)
++        if self.use_goruut_fallback:
++            from kokorog2p.goruut_g2p import GoruutOnlyG2P
++
++            return GoruutOnlyG2P(language="sv", strict=self.strict).lookup(word)
++        if self.strict:
++            raise ValueError(f"Swedish rule engine cannot phonemize {word!r}")
++        return None
++
++    def __call__(self, text: str) -> list[GToken]:
++        if not text or not text.strip():
++            return []
++        spans = tokenize_with_offsets(text, lang="sv-se", keep_punct=True)
++        tokens: list[GToken] = []
++        for index, span in enumerate(spans):
++            next_start = (
++                spans[index + 1].char_start if index + 1 < len(spans) else len(text)
++            )
++            whitespace = text[span.char_end : next_start]
++            if not span.text or not any(char.isalnum() for char in span.text):
++                punctuation = normalize_punctuation(span.text)
++                token = GToken(
++                    text=span.text,
++                    tag="PUNCT",
++                    whitespace=whitespace,
++                    phonemes=punctuation or None,
++                    rating="4",
++                )
++            else:
++                phonemes = self._word_to_phonemes(span.text)
++                token = GToken(
++                    text=span.text,
++                    tag="X",
++                    whitespace=whitespace,
++                    phonemes=phonemes,
++                    rating="3" if phonemes else "0",
++                )
++                raw = self.phonemize_word_raw(span.text, trace=True)
++                token.set("raw_ipa", raw.ipa)
++                token.set("rule_ids", raw.rule_ids)
++                token.set("feature_tags", raw.feature_tags)
++            token.set("char_start", span.char_start)
++            token.set("char_end", span.char_end)
++            tokens.append(token)
++        ensure_gtoken_positions(tokens, text)
++        return tokens
++
++    def lookup(self, word: str, tag: str | None = None) -> str | None:
++        """Return the rule-derived Kokoro pronunciation for a word."""
++        return self._word_to_phonemes(word)
++
++    def get_target_model(self) -> str:
++        return self.version
++
++    def capabilities(self) -> dict[str, object]:
++        return {
++            "language": "sv-se",
++            "native": True,
++            "dialect": self.dialect,
++            "version": self.version,
++            "rule_based": True,
++            "runtime_lexicon": False,
++        }
++
++    def __repr__(self) -> str:
++        return f"SwedishG2P(language={self.language!r}, version={self.version!r})"
+diff --git a/kokorog2p/sv/phonology.py b/kokorog2p/sv/phonology.py
+new file mode 100644
+index 0000000..23ba55c
+--- /dev/null
++++ b/kokorog2p/sv/phonology.py
+@@ -0,0 +1,136 @@
++"""Declarative phonology facts for the Swedish rule-based frontend.
++
++The constants in this module describe the clean-room runtime rule system.  No
++benchmark files or other external resources are imported here.
++"""
++
++from __future__ import annotations
++
++from typing import Final
++
++HARD_VOWELS: Final[frozenset[str]] = frozenset("aouå")
++SOFT_VOWELS: Final[frozenset[str]] = frozenset("eiyäöé")
++VOWELS: Final[frozenset[str]] = HARD_VOWELS | SOFT_VOWELS
++ACCEPTED_LETTERS: Final[frozenset[str]] = frozenset("abcdefghijklmnopqrstuvwxyzåäöé")
++
++LONG_VOWELS: Final[dict[str, str]] = {
++    "a": "ɑː",
++    "e": "eː",
++    "é": "eː",
++    "i": "iː",
++    "o": "uː",
++    "u": "ʉː",
++    "y": "yː",
++    "å": "oː",
++    "ä": "ɛː",
++    "ö": "øː",
++}
++
++SHORT_VOWELS: Final[dict[str, str]] = {
++    "a": "a",
++    "e": "ɛ",
++    "i": "ɪ",
++    "o": "ɔ",
++    "u": "ɵ",
++    "y": "ʏ",
++    "å": "ɔ",
++    "ä": "ɛ",
++    "ö": "œ",
++}
++
++SIMPLE_CONSONANTS: Final[dict[str, str]] = {
++    "b": "b",
++    "d": "d",
++    "f": "f",
++    "h": "h",
++    "j": "j",
++    "l": "l",
++    "m": "m",
++    "n": "n",
++    "p": "p",
++    "r": "r",
++    "s": "s",
++    "t": "t",
++    "v": "v",
++}
++
++RETROFLEX_MAP: Final[dict[tuple[str, str], str]] = {
++    ("r", "t"): "ʈ",
++    ("r", "d"): "ɖ",
++    ("r", "n"): "ɳ",
++    ("r", "s"): "ʂ",
++    ("r", "l"): "ɭ",
++}
++
++# Longest first.  The rule engine handles context-sensitive entries separately.
++LONGEST_GRAPHEMES: Final[tuple[tuple[str, str, str], ...]] = (
++    ("skj", "ɧ", "SV-C-001-SKJ"),
++    ("stj", "ɧ", "SV-C-002-STJ"),
++    ("sch", "ɧ", "SV-C-004-SCH"),
++    ("sj", "ɧ", "SV-C-003-SJ"),
++    ("tj", "ɕ", "SV-C-010-TJ"),
++    ("kj", "ɕ", "SV-C-011-KJ"),
++    ("dj", "j", "SV-C-020-DJ"),
++    ("gj", "j", "SV-C-021-GJ"),
++    ("hj", "j", "SV-C-022-HJ"),
++    ("lj", "j", "SV-C-023-LJ"),
++    ("ng", "ŋ", "SV-C-030-NG"),
++    ("sk", "", "SV-C-120-SK"),
++    ("ck", "k", "SV-G-001-CK"),
++    ("qu", "kv", "SV-G-002-QU"),
++    ("qv", "kv", "SV-G-003-QV"),
++)
++
++STRESS_NEUTRAL_SUFFIXES: Final[tuple[str, ...]] = (
++    "ande",
++    "ende",
++    "ade",
++    "ande",
++    "en",
++    "et",
++    "er",
++    "ar",
++    "or",
++    "na",
++)
++
++FEATURE_SUFFIXES: Final[tuple[tuple[str, str], ...]] = (
++    ("tion", "suffix_tion"),
++    ("sion", "suffix_sion"),
++    ("itet", "suffix_itet"),
++    ("era", "suffix_era"),
++    ("ering", "suffix_ering"),
++    ("ism", "suffix_ism"),
++    ("ist", "suffix_ist"),
++)
++
++# These are source-level IPA tokens, not individual Unicode characters.
++SWEDISH_KOKORO_REMAP: Final[dict[str, str]] = {
++    "ɧ": "ʃ",
++    "ɕ": "ʃ",
++    "ʈ": "t",
++    "ɖ": "d",
++    "ɳ": "n",
++    "ʂ": "ʃ",
++    "ɭ": "l",
++    "ʉː": "u",
++    "ɵ": "ə",
++    "ʏ": "ɪ",
++    "œ": "ɔ",
++    "øː": "ɔ",
++    "ɑː": "ɑ",
++    "eː": "ɛ",
++    "iː": "i",
++    "uː": "u",
++    "yː": "y",
++    "oː": "ɔ",
++    "ɛː": "ɛ",
++    "a": "ɑ",
++    "e": "ɛ",
++    "o": "ɔ",
++    "r": "ɹ",
++}
++
++KOKORO_SUPPORTED_PHONES: Final[frozenset[str]] = frozenset(
++    "AIWYbdfhijklmnpstuvwzðŋɑɔəɛɜɡɪɹʃʊʌʒʤʧˈˌθᵊ"
++)
+diff --git a/kokorog2p/sv/rules.py b/kokorog2p/sv/rules.py
+new file mode 100644
+index 0000000..13425e6
+--- /dev/null
++++ b/kokorog2p/sv/rules.py
+@@ -0,0 +1,398 @@
++"""Readable, deterministic Swedish grapheme-to-phoneme rules."""
++
++from __future__ import annotations
++
++import unicodedata
++from dataclasses import dataclass, field
++
++from .phonology import (
++    ACCEPTED_LETTERS,
++    FEATURE_SUFFIXES,
++    KOKORO_SUPPORTED_PHONES,
++    LONG_VOWELS,
++    LONGEST_GRAPHEMES,
++    RETROFLEX_MAP,
++    SHORT_VOWELS,
++    SOFT_VOWELS,
++    STRESS_NEUTRAL_SUFFIXES,
++    SWEDISH_KOKORO_REMAP,
++    VOWELS,
++)
++
++
++@dataclass
++class RuleTrace:
++    """Optional list of stable rule identifiers fired by one word."""
++
++    fired: list[str] = field(default_factory=list)
++
++    def add(self, rule_id: str) -> None:
++        if rule_id not in self.fired:
++            self.fired.append(rule_id)
++
++
++@dataclass(frozen=True)
++class Syllable:
++    """Small internal syllable representation used by quantity and stress rules."""
++
++    onset: tuple[str, ...]
++    nucleus: str
++    coda: tuple[str, ...]
++    start: int
++    end: int
++    stressed: bool = False
++    secondary_stress: bool = False
++
++
++@dataclass(frozen=True)
++class SwedishRuleResult:
++    word: str
++    phones: tuple[str, ...]
++    stress_syllable: int | None = None
++    rule_ids: tuple[str, ...] = ()
++    feature_tags: tuple[str, ...] = ()
++    unknown_characters: tuple[str, ...] = ()
++
++    @property
++    def ipa(self) -> str:
++        return "".join(self.phones)
++
++
++@dataclass(frozen=True)
++class _Segment:
++    spelling: str
++    start: int
++    end: int
++
++
++class SwedishRuleEngine:
++    """Pure rule-based Swedish frontend producing reference-style IPA tokens."""
++
++    version = "sv-rules-v0.1"
++
++    def phonemize_word_raw(
++        self, word: str, *, trace: bool = False
++    ) -> SwedishRuleResult:
++        normalized = unicodedata.normalize("NFC", word).casefold()
++        tracer = RuleTrace() if trace else None
++        if normalized != word:
++            _mark(tracer, "SV-N-001-NFC")
++            _mark(tracer, "SV-N-002-CASEFOLD")
++
++        unknown = tuple(
++            sorted(
++                {
++                    char
++                    for char in normalized
++                    if char.isalpha() and char not in ACCEPTED_LETTERS
++                }
++            )
++        )
++        if unknown:
++            _mark(tracer, "SV-N-003-UNKNOWN")
++
++        segments = self._segment(normalized, tracer)
++        features = self._features(normalized, tracer)
++        stress_syllable, stressed_segment = self._assign_stress(
++            normalized, segments, tracer
++        )
++        phones = self._convert(
++            normalized,
++            segments,
++            stressed_segment,
++            stress_syllable,
++            tracer,
++        )
++        phones = self._apply_retroflexion(phones, tracer)
++        if unknown:
++            phones.extend("?")
++        return SwedishRuleResult(
++            word=normalized,
++            phones=tuple(phones),
++            stress_syllable=stress_syllable,
++            rule_ids=tuple(tracer.fired) if tracer else (),
++            feature_tags=tuple(features),
++            unknown_characters=unknown,
++        )
++
++    def phonemize_word(self, word: str, *, trace: bool = False) -> SwedishRuleResult:
++        """Alias retaining an explicit raw-result API for callers and benchmarks."""
++        return self.phonemize_word_raw(word, trace=trace)
++
++    def _segment(self, word: str, trace: RuleTrace | None) -> list[_Segment]:
++        segments: list[_Segment] = []
++        position = 0
++        while position < len(word):
++            matched = False
++            for spelling, _phone, rule_id in LONGEST_GRAPHEMES:
++                if word.startswith(spelling, position):
++                    segments.append(
++                        _Segment(spelling, position, position + len(spelling))
++                    )
++                    _mark(trace, rule_id)
++                    position += len(spelling)
++                    matched = True
++                    break
++            if not matched:
++                segments.append(_Segment(word[position], position, position + 1))
++                position += 1
++        return segments
++
++    def _features(self, word: str, trace: RuleTrace | None) -> list[str]:
++        features: list[str] = []
++        for spelling, tag in FEATURE_SUFFIXES:
++            if word.endswith(spelling):
++                features.append(tag)
++                _mark(trace, f"SV-S-FEATURE-{tag.upper()}")
++        if "c" in word:
++            features.append("contains_c")
++        if "x" in word:
++            features.append("contains_x")
++        if "w" in word:
++            features.append("contains_w")
++        if any(word[index] == word[index + 1] for index in range(len(word) - 1)):
++            features.append("double_consonant")
++        if len(word) >= 12:
++            features.append("word_length_9_plus")
++        for first, second, tag in (
++            ("sk", "", "contains_sk"),
++            ("sj", "", "contains_sj"),
++            ("skj", "", "contains_skj"),
++            ("stj", "", "contains_stj"),
++            ("sch", "", "contains_sch"),
++            ("tj", "", "contains_tj"),
++            ("kj", "", "contains_kj"),
++            ("ng", "", "contains_ng"),
++        ):
++            if first + second in word and tag not in features:
++                features.append(tag)
++        for source, tag in (
++            ("t", "r_before_t"),
++            ("d", "r_before_d"),
++            ("n", "r_before_n"),
++            ("s", "r_before_s"),
++            ("l", "r_before_l"),
++        ):
++            if f"r{source}" in word:
++                features.append(tag)
++        if word.endswith(("t", "d", "n", "s", "l")) and "r" in word:
++            _mark(trace, "SV-P-RETROFLEX-CANDIDATE")
++        for vowel in VOWELS:
++            if vowel in word:
++                features.append(f"contains_{vowel}")
++        return features
++
++    def _assign_stress(
++        self,
++        word: str,
++        segments: list[_Segment],
++        trace: RuleTrace | None,
++    ) -> tuple[int | None, int | None]:
++        vowel_segments = [
++            index
++            for index, segment in enumerate(segments)
++            if segment.spelling in VOWELS
++        ]
++        if not vowel_segments:
++            return None, None
++        stressed_segment = vowel_segments[0]
++        if "é" in word:
++            stressed_segment = next(
++                index for index in vowel_segments if segments[index].spelling == "é"
++            )
++            _mark(trace, "SV-S-001-EXPLICIT-E-ACUTE")
++        elif word.endswith(("tion", "sion")):
++            stressed_segment = vowel_segments[-1]
++            _mark(trace, "SV-S-100-SUFFIX-STRESS")
++        elif word.endswith(STRESS_NEUTRAL_SUFFIXES):
++            _mark(trace, "SV-S-020-INFLECTIONAL-END")
++        else:
++            _mark(trace, "SV-S-010-FIRST-SYLLABLE")
++        stress_syllable = vowel_segments.index(stressed_segment)
++        return stress_syllable, stressed_segment
++
++    def _convert(
++        self,
++        word: str,
++        segments: list[_Segment],
++        stressed_segment: int | None,
++        stress_syllable: int | None,
++        trace: RuleTrace | None,
++    ) -> list[str]:
++        phones: list[str] = []
++        vowel_number = 0
++        for index, segment in enumerate(segments):
++            spelling = segment.spelling
++            next_letter = word[segment.end] if segment.end < len(word) else ""
++            if spelling in VOWELS:
++                if index == stressed_segment:
++                    phones.append("ˈ")
++                long = self._is_long_vowel(
++                    word, segment, index == stressed_segment, trace
++                )
++                phone = LONG_VOWELS[spelling] if long else SHORT_VOWELS[spelling]
++                _mark(trace, f"SV-V-{'LONG' if long else 'SHORT'}-{spelling}")
++                phones.append(phone)
++                vowel_number += 1
++                continue
++            if spelling == "sk":
++                if next_letter in SOFT_VOWELS:
++                    phones.append("ɧ")
++                    _mark(trace, "SV-C-120-SOFT-SK")
++                else:
++                    phones.extend(("s", "k"))
++                    _mark(trace, "SV-C-121-HARD-SK")
++                continue
++            if spelling == "g":
++                if next_letter in SOFT_VOWELS:
++                    phones.append("j")
++                    _mark(trace, "SV-C-100-SOFT-G")
++                else:
++                    phones.append("ɡ")
++                    _mark(trace, "SV-C-101-HARD-G")
++                continue
++            if spelling == "k":
++                if next_letter in SOFT_VOWELS:
++                    phones.append("ɕ")
++                    _mark(trace, "SV-C-110-SOFT-K")
++                else:
++                    phones.append("k")
++                    _mark(trace, "SV-C-111-HARD-K")
++                continue
++            if spelling == "c":
++                phones.append("s" if next_letter in SOFT_VOWELS else "k")
++                _mark(
++                    trace,
++                    "SV-C-130-SOFT-C"
++                    if next_letter in SOFT_VOWELS
++                    else "SV-C-131-HARD-C",
++                )
++                continue
++            if spelling == "x":
++                phones.extend(("k", "s"))
++                _mark(trace, "SV-C-140-X")
++                continue
++            if spelling == "w":
++                phones.append("v")
++                _mark(trace, "SV-C-141-W")
++                continue
++            if spelling == "z":
++                phones.append("s")
++                _mark(trace, "SV-C-142-Z")
++                continue
++            if spelling == "q":
++                phones.append("k")
++                _mark(trace, "SV-C-143-Q")
++                continue
++            if spelling in {"sj", "skj", "stj", "sch"}:
++                phones.append("ɧ")
++                continue
++            if spelling in {"tj", "kj"}:
++                phones.append("ɕ")
++                continue
++            if spelling in {"dj", "gj", "hj", "lj"}:
++                phones.append("j")
++                continue
++            if spelling == "ng":
++                phones.append("ŋ")
++                continue
++            if spelling in ("ck", "qu", "qv"):
++                phones.extend("k" if spelling == "ck" else ("k", "v"))
++                continue
++            phones.append(self._simple_consonant(spelling))
++        return phones
++
++    def _is_long_vowel(
++        self,
++        word: str,
++        segment: _Segment,
++        stressed: bool,
++        trace: RuleTrace | None,
++    ) -> bool:
++        if not stressed:
++            _mark(trace, "SV-V-001-UNSTRESSED")
++            return False
++        following = word[segment.end :]
++        if len(following) == 0:
++            _mark(trace, "SV-V-030-OPEN")
++            return True
++        next_vowel = next(
++            (index for index, char in enumerate(following) if char in VOWELS), None
++        )
++        consonants = following if next_vowel is None else following[:next_vowel]
++        if len(consonants) >= 2 or (
++            consonants and consonants[0] == consonants[1]
++            if len(consonants) > 1
++            else False
++        ):
++            _mark(trace, "SV-V-020-CLUSTER-SHORT")
++            return False
++        if len(consonants) == 1 and next_vowel is None:
++            _mark(trace, "SV-V-040-FINAL-SINGLE-C-LONG")
++            return True
++        _mark(trace, "SV-V-030-OPEN")
++        return True
++
++    @staticmethod
++    def _simple_consonant(spelling: str) -> str:
++        from .phonology import SIMPLE_CONSONANTS
++
++        return SIMPLE_CONSONANTS.get(spelling, spelling)
++
++    def _apply_retroflexion(
++        self, phones: list[str], trace: RuleTrace | None
++    ) -> list[str]:
++        result: list[str] = []
++        index = 0
++        while index < len(phones):
++            if (
++                index + 1 < len(phones)
++                and (phones[index], phones[index + 1]) in RETROFLEX_MAP
++            ):
++                pair = (phones[index], phones[index + 1])
++                result.append(RETROFLEX_MAP[pair])
++                _mark(trace, f"SV-P-RETROFLEX-{pair[0].upper()}{pair[1].upper()}")
++                index += 2
++            else:
++                result.append(phones[index])
++                index += 1
++        return result
++
++
++def _mark(trace: RuleTrace | None, rule_id: str) -> None:
++    if trace is not None:
++        trace.add(rule_id)
++
++
++_DEFAULT_ENGINE = SwedishRuleEngine()
++
++
++def phonemize_word_raw(word: str, *, trace: bool = False) -> SwedishRuleResult:
++    return _DEFAULT_ENGINE.phonemize_word_raw(word, trace=trace)
++
++
++def to_kokoro(ipa: str, *, model: str = "1.0") -> str:
++    """Adapt raw Swedish IPA to the explicit supported Kokoro inventory."""
++    if model != "1.0":
++        raise ValueError(f"Unsupported Swedish Kokoro model: {model!r}")
++    result = ipa
++    for source, target in sorted(
++        SWEDISH_KOKORO_REMAP.items(), key=lambda item: -len(item[0])
++    ):
++        result = result.replace(source, target)
++    result = result.replace("r", "ɹ")
++    unsupported = sorted(set(result) - KOKORO_SUPPORTED_PHONES)
++    if unsupported:
++        symbols = "".join(unsupported)
++        raise ValueError(f"Swedish IPA contains unsupported Kokoro phones: {symbols}")
++    return result
++
++
++__all__ = [
++    "RuleTrace",
++    "SwedishRuleEngine",
++    "SwedishRuleResult",
++    "Syllable",
++    "phonemize_word_raw",
++    "to_kokoro",
++]
+diff --git a/tests/test_sv_benchmark_helpers.py b/tests/test_sv_benchmark_helpers.py
+new file mode 100644
+index 0000000..d1bd8bf
+--- /dev/null
++++ b/tests/test_sv_benchmark_helpers.py
+@@ -0,0 +1,77 @@
++import importlib.util
++import sys
++from pathlib import Path
++
++import pytest
++
++from kokorog2p.sv import phonemize_word_raw
++
++_MODULE_PATH = Path(__file__).parents[1] / "benchmarks" / "benchmark_sv_rules.py"
++_SPEC = importlib.util.spec_from_file_location("benchmark_sv_rules", _MODULE_PATH)
++assert _SPEC and _SPEC.loader
++benchmark = importlib.util.module_from_spec(_SPEC)
++sys.modules["benchmark_sv_rules"] = benchmark
++_SPEC.loader.exec_module(benchmark)
++
++
++def test_reference_parser_streams_space_separated_phones(tmp_path: Path) -> None:
++    path = tmp_path / "lexicon.tsv"
++    path.write_text("foo\tf uː\n\nbar\tb ɑː r\n", encoding="utf-8")
++    cases = list(benchmark.iter_reference_cases(path))
++    assert [(case.line_number, case.word, case.phones) for case in cases] == [
++        (1, "foo", ("f", "uː")),
++        (3, "bar", ("b", "ɑː", "r")),
++    ]
++
++
++def test_reference_parser_reports_malformed_rows(tmp_path: Path) -> None:
++    path = tmp_path / "bad.tsv"
++    path.write_text("missing-tab\n", encoding="utf-8")
++    with pytest.raises(ValueError, match="expected word<TAB>ipa"):
++        list(benchmark.iter_reference_cases(path))
++
++
++def test_metrics_and_levenshtein_alignment() -> None:
++    assert benchmark.without_stress(("ˈ", "aː")) == ("", "aː")
++    assert benchmark.without_quantity(("ˈ", "aː")) == ("", "a")
++    assert benchmark.levenshtein_counts(("a", "b"), ("a", "c", "d")) == (2, 1, 1, 0)
++    assert benchmark.levenshtein_distance(("a",), ("a",)) == 0
++
++
++def test_split_is_stable_and_distributed() -> None:
++    assert benchmark.stable_split("hej") == benchmark.split_for_word("hej")
++    assert {benchmark.split_for_word(str(index)) for index in range(100)} == {
++        "train",
++        "dev",
++        "test",
++    }
++
++
++def test_benchmark_writes_reports_without_real_corpus(tmp_path: Path) -> None:
++    rows = []
++    for word in ("hej", "sjuk", "tak"):
++        result = phonemize_word_raw(word)
++        rows.append(f"{word}\t{' '.join(result.phones)}")
++    lexicon = tmp_path / "lexicon.tsv"
++    lexicon.write_text("\n".join(rows) + "\n", encoding="utf-8")
++    output = tmp_path / "result"
++    exit_code = benchmark.main(
++        ["--lexicon", str(lexicon), "--output", str(output), "--trace-failures"]
++    )
++    assert exit_code == 0
++    for name in (
++        "summary.json",
++        "failures.tsv",
++        "groups.tsv",
++        "confusions.tsv",
++        "rule_coverage.tsv",
++        "stress_failures.tsv",
++        "quantity_failures.tsv",
++        "prefixes.tsv",
++        "suffixes.tsv",
++        "ngrams.tsv",
++        "regressions.tsv",
++        "improvements.tsv",
++    ):
++        assert (output / name).exists(), name
++    assert benchmark.main(["--lexicon", str(lexicon), "--inspect-format", "2"]) == 0
+diff --git a/tests/test_sv_g2p.py b/tests/test_sv_g2p.py
+new file mode 100644
+index 0000000..d53eace
+--- /dev/null
++++ b/tests/test_sv_g2p.py
+@@ -0,0 +1,54 @@
++from kokorog2p import get_g2p, phonemize
++from kokorog2p.sv import SwedishG2P
++
++
++def test_public_swedish_g2p_tokenizes_words_and_punctuation() -> None:
++    g2p = SwedishG2P()
++    tokens = g2p("Hej, sjuk!")
++    assert [token.text for token in tokens] == ["Hej", ",", "sjuk", "!"]
++    assert tokens[0].phonemes
++    assert tokens[1].phonemes == ","
++    assert tokens[0].get("raw_ipa")
++    assert tokens[0].get("rule_ids")
++    assert tokens[0].get("char_start") == 0
++    assert tokens[0].get("char_end") == 3
++    assert tokens[0].rating == "3"
++    assert tokens[1].rating == "4"
++
++
++def test_lookup_uses_rules_not_a_dictionary() -> None:
++    g2p = SwedishG2P()
++    assert g2p.lookup("hej") == g2p("hej")[0].phonemes
++    assert g2p.capabilities()["runtime_lexicon"] is False
++
++
++def test_factory_aliases_are_native_and_cached() -> None:
++    instances = [
++        get_g2p(alias, use_spacy=False, strict=True)
++        for alias in ("sv", "sv-se", "swe", "swedish")
++    ]
++    assert all(isinstance(instance, SwedishG2P) for instance in instances)
++    assert len({id(instance) for instance in instances}) == 1
++    assert instances[0].use_espeak_fallback is False
++    assert instances[0].use_goruut_fallback is False
++
++
++def test_top_level_phonemize_supports_swedish() -> None:
++    result = phonemize(
++        "Hej!",
++        language="sv",
++        use_spacy=False,
++        return_ids=False,
++    )
++    assert result.phonemes
++    assert result.tokens[0].text == "Hej"
++
++
++def test_unknown_word_is_nonfatal_by_default_and_strict_when_requested() -> None:
++    assert SwedishG2P()("hello ☃")[0].phonemes
++    try:
++        SwedishG2P(strict=True).lookup("hello☃")
++    except ValueError as exc:
++        assert "Swedish" in str(exc)
++    else:
++        raise AssertionError("strict Swedish rules must reject unsupported letters")
+diff --git a/tests/test_sv_rules.py b/tests/test_sv_rules.py
+new file mode 100644
+index 0000000..88c4742
+--- /dev/null
++++ b/tests/test_sv_rules.py
+@@ -0,0 +1,75 @@
++from kokorog2p.sv import SwedishRuleEngine, phonemize_word_raw, to_kokoro
++
++
++def test_normalization_is_case_insensitive_and_nfc_based() -> None:
++    assert phonemize_word_raw("HEJ").ipa == phonemize_word_raw("hej").ipa
++    assert phonemize_word_raw("Å").word == "å"
++
++
++def test_swedish_letters_have_raw_ipa() -> None:
++    for letter in "åäöé":
++        result = phonemize_word_raw(letter)
++        assert result.word == letter
++        assert result.phones
++
++
++def test_longest_match_graphemes_and_trace() -> None:
++    result = phonemize_word_raw("skjuta", trace=True)
++    assert result.phones[0] == "ɧ"
++    assert "SV-C-001-SKJ" in result.rule_ids
++
++    result = phonemize_word_raw("tjugo", trace=True)
++    assert result.phones[0] == "ɕ"
++    assert "SV-C-010-TJ" in result.rule_ids
++
++
++def test_soft_and_hard_consonant_branches() -> None:
++    soft_g = phonemize_word_raw("ge", trace=True)
++    hard_g = phonemize_word_raw("ga", trace=True)
++    soft_k = phonemize_word_raw("ke", trace=True)
++    hard_k = phonemize_word_raw("ka", trace=True)
++    soft_sk = phonemize_word_raw("ske", trace=True)
++    hard_sk = phonemize_word_raw("ska", trace=True)
++    assert "SV-C-100-SOFT-G" in soft_g.rule_ids
++    assert "SV-C-101-HARD-G" in hard_g.rule_ids
++    assert "SV-C-110-SOFT-K" in soft_k.rule_ids
++    assert "SV-C-111-HARD-K" in hard_k.rule_ids
++    assert "SV-C-120-SOFT-SK" in soft_sk.rule_ids
++    assert "SV-C-121-HARD-SK" in hard_sk.rule_ids
++
++
++def test_quantity_and_stress_are_explicit_phases() -> None:
++    long_vowel = phonemize_word_raw("tak", trace=True)
++    short_vowel = phonemize_word_raw("tack", trace=True)
++    assert "ː" in long_vowel.ipa
++    assert "ː" not in short_vowel.ipa
++    assert long_vowel.ipa.startswith("tˈ")
++    assert any(rule.startswith("SV-V-") for rule in short_vowel.rule_ids)
++
++
++def test_retroflexion_consumes_r_plus_dental() -> None:
++    for spelling, phone in (
++        ("rt", "ʈ"),
++        ("rd", "ɖ"),
++        ("rn", "ɳ"),
++        ("rs", "ʂ"),
++        ("rl", "ɭ"),
++    ):
++        result = phonemize_word_raw("a" + spelling)
++        assert phone in result.phones
++        assert "r" not in result.phones
++
++
++def test_kokoro_adapter_is_explicit() -> None:
++    assert to_kokoro("ɧʉːr") == "ʃuɹ"
++    try:
++        to_kokoro("☃")
++    except ValueError as exc:
++        assert "unsupported" in str(exc).lower()
++    else:
++        raise AssertionError("unsupported phones must not be silently removed")
++
++
++def test_engine_is_stateless() -> None:
++    engine = SwedishRuleEngine()
++    assert engine.phonemize_word_raw("hej") == engine.phonemize_word_raw("hej")

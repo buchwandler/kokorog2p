@@ -1,0 +1,14 @@
+ benchmarks/benchmark_ja_g2p.py          | 0
+ benchmarks/benchmark_ko_differential.py | 0
+ scripts/compare_ja_frontends.py         | 0
+ 3 files changed, 0 insertions(+), 0 deletions(-)
+
+diff --git a/benchmarks/benchmark_ja_g2p.py b/benchmarks/benchmark_ja_g2p.py
+old mode 100644
+new mode 100755
+diff --git a/benchmarks/benchmark_ko_differential.py b/benchmarks/benchmark_ko_differential.py
+old mode 100644
+new mode 100755
+diff --git a/scripts/compare_ja_frontends.py b/scripts/compare_ja_frontends.py
+old mode 100644
+new mode 100755

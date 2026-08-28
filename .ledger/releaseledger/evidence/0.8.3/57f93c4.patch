@@ -1,0 +1,73 @@
+ kokorog2p/ar/model_profile.py | 7 +++++++
+ kokorog2p/pipeline_api.py     | 5 +----
+ tests/test_ar_g2p.py          | 2 +-
+ 3 files changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/kokorog2p/ar/model_profile.py b/kokorog2p/ar/model_profile.py
+index bccd15e..d8cc8f3 100644
+--- a/kokorog2p/ar/model_profile.py
++++ b/kokorog2p/ar/model_profile.py
+@@ -10,6 +10,7 @@ TARGET_MODEL = "nabra-82m-v0.1"
+ PROFILE_NAME = "NabraMSA"
+
+ _ARTICULATION_MARKS = frozenset({"\u032a", "ˤ"})
++_TIE_BARS = frozenset({"͡", "͜"})
+ _GROUPING_DELIMITERS = str.maketrans({"[": None, "]": None, "{": None, "}": None})
+ _INTERNAL_DOT_RE = re.compile(r"(?<=\S)\.(?=\S)")
+
+@@ -19,6 +20,10 @@ def strip_espeak_articulation_marks(text: str) -> str:
+     return "".join(char for char in text if char not in _ARTICULATION_MARKS)
+
+
++def strip_tie_bars(text: str) -> str:
++    """Remove combining tie bars from eSpeak affricates."""
++    return "".join(char for char in text if char not in _TIE_BARS)
++
+ def strip_internal_syllable_dots(text: str) -> str:
+     """Remove dots between adjacent phoneme characters, preserving final dots."""
+     return _INTERNAL_DOT_RE.sub("", text)
+@@ -32,6 +37,7 @@ def strip_grouping_delimiters(text: str) -> str:
+ def clean_espeak_output(text: str) -> str:
+     """Apply the narrow cleanup policy used by the Nabra Arabic frontend."""
+     cleaned = strip_espeak_articulation_marks(text)
++    cleaned = strip_tie_bars(cleaned)
+     cleaned = strip_internal_syllable_dots(cleaned)
+     cleaned = strip_grouping_delimiters(cleaned)
+     return " ".join(cleaned.split())
+@@ -60,6 +66,7 @@ __all__ = [
+     "clean_espeak_output",
+     "encode_output",
+     "strip_espeak_articulation_marks",
++    "strip_tie_bars",
+     "strip_grouping_delimiters",
+     "strip_internal_syllable_dots",
+     "validate_nabra_symbols",
+diff --git a/kokorog2p/pipeline_api.py b/kokorog2p/pipeline_api.py
+index 69122eb..c106cb5 100644
+--- a/kokorog2p/pipeline_api.py
++++ b/kokorog2p/pipeline_api.py
+@@ -364,10 +364,7 @@ def _spokenform_replacements_for_run(
+ ) -> _SpokenformRunResult:
+     """Adapt spokenform source replacements into kokorog2p's public type."""
+     normalized_language = (_normalize_lang(language) or "").split("-", 1)[0]
+-    if (
+-        normalized_language == "ko"
+-        and normalized_language not in _SPOKENFORM_SEMANTIC_LANGUAGES
+-    ):
++    if normalized_language == "ko":
+         from kokorog2p.ko.semantic import replacements
+
+         return _SpokenformRunResult(
+diff --git a/tests/test_ar_g2p.py b/tests/test_ar_g2p.py
+index 82ce910..221fd93 100644
+--- a/tests/test_ar_g2p.py
++++ b/tests/test_ar_g2p.py
+@@ -40,7 +40,7 @@ class FakeDiacritizer:
+
+
+ def test_clean_espeak_output_has_narrow_cleanup_rules() -> None:
+-    assert clean_espeak_output("a.b̪ˤ [ʕ] {ħ} .") == "ab ʕ ħ ."
++    assert clean_espeak_output("a.b̪ˤ͡ [ʕ] {ħ} .") == "ab ʕ ħ ."
+     assert validate_nabra_symbols("ʕ ħ")[0]
+     assert encode_output("ʕħ") == [7, 8]
+

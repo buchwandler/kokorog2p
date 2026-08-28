@@ -1,0 +1,4278 @@
+ .gitignore                                         |   4 +
+ .../de_lexicon_compression/lexlab/cascade.py       |   4 +-
+ .../de_lexicon_compression/lexlab/compact.py       |  11 +-
+ experiments/de_lexicon_compression/lexlab/p4.py    |   9 +-
+ .../de_lexicon_compression/tests/test_v2_review.py |   3 +-
+ experiments/de_lexicon_entry_reduction/README.md   |  84 +++++
+ experiments/de_lexicon_entry_reduction/__init__.py |   5 +
+ .../de_lexicon_entry_reduction/analyze_failures.py |  77 +++++
+ .../de_lexicon_entry_reduction/benchmark_memory.py | 150 ++++++++
+ .../de_lexicon_entry_reduction/generate_report.py  |  31 ++
+ .../lexreduce/__init__.py                          |  71 ++++
+ .../lexreduce/affixes.py                           |  97 ++++++
+ .../de_lexicon_entry_reduction/lexreduce/audit.py  |  71 ++++
+ .../lexreduce/boundary_rules.py                    | 107 ++++++
+ .../lexreduce/builder.py                           | 160 +++++++++
+ .../lexreduce/composer.py                          | 272 +++++++++++++++
+ .../lexreduce/diagnostics.py                       | 381 +++++++++++++++++++++
+ .../lexreduce/linkers.py                           |  95 +++++
+ .../lexreduce/literals.py                          |   5 +
+ .../lexreduce/membership.py                        | 156 +++++++++
+ .../lexreduce/optimizer.py                         | 148 ++++++++
+ .../lexreduce/prefix_index.py                      | 100 ++++++
+ .../lexreduce/reports.py                           | 128 +++++++
+ .../lexreduce/resolver.py                          | 119 +++++++
+ .../de_lexicon_entry_reduction/lexreduce/rules.py  | 260 ++++++++++++++
+ .../lexreduce/segmentation.py                      |  64 ++++
+ .../lexreduce/selector.py                          | 246 +++++++++++++
+ .../lexreduce/serializer.py                        | 180 ++++++++++
+ experiments/de_lexicon_entry_reduction/model.py    | 126 +++++++
+ experiments/de_lexicon_entry_reduction/run.py      | 279 +++++++++++++++
+ .../de_lexicon_entry_reduction/run_matrix.py       | 129 +++++++
+ experiments/de_lexicon_entry_reduction/source.py   |  19 +
+ .../de_lexicon_entry_reduction/tests/__init__.py   |   0
+ .../tests/test_entry_reduction.py                  | 256 ++++++++++++++
+ experiments/de_lexicon_entry_reduction/verify.py   | 139 ++++++++
+ 35 files changed, 3967 insertions(+), 19 deletions(-)
+
+diff --git a/.gitignore b/.gitignore
+index cef40ad..4f6c17d 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -221,3 +221,7 @@ experiments/de_lexicon_compression/data/*
+ !experiments/de_lexicon_compression/data/.gitkeep
+ experiments/de_lexicon_compression/reports/*
+ !experiments/de_lexicon_compression/reports/.gitkeep
++
++# German lexicon entry-reduction experiment: never commit generated reports
++experiments/de_lexicon_entry_reduction/reports/*
++!experiments/de_lexicon_entry_reduction/reports/.gitkeep
+diff --git a/experiments/de_lexicon_compression/lexlab/cascade.py b/experiments/de_lexicon_compression/lexlab/cascade.py
+index cd6120b..7b6be5c 100644
+--- a/experiments/de_lexicon_compression/lexlab/cascade.py
++++ b/experiments/de_lexicon_compression/lexlab/cascade.py
+@@ -131,9 +131,7 @@ def cross_source_sharing(sources: Sequence) -> dict[str, object]:
+             )
+             left_ipa = {value for word in left.words for value in left.lookup_all(word)}
+             right_ipa = {
+-                value
+-                for word in right.words
+-                for value in right.lookup_all(word)
++                value for word in right.words for value in right.lookup_all(word)
+             }
+             ipa_overlap = len(left_ipa & right_ipa)
+             shared_atoms = sum(
+diff --git a/experiments/de_lexicon_compression/lexlab/compact.py b/experiments/de_lexicon_compression/lexlab/compact.py
+index 58dde3c..b4f363e 100644
+--- a/experiments/de_lexicon_compression/lexlab/compact.py
++++ b/experiments/de_lexicon_compression/lexlab/compact.py
+@@ -44,6 +44,8 @@ def _common(compressed: CompressedLexicon, mode: str) -> dict[str, Any]:
+         "source": _source_dict(compressed.source),
+         "metadata": dict(compressed.metadata),
+     }
++
++
+ def verify_lookup(asset, source, *, sample_limit: int = 100) -> dict[str, object]:
+     source_words = set(source.words)
+     asset_words = set(asset.words)
+@@ -70,7 +72,6 @@ def verify_lookup(asset, source, *, sample_limit: int = 100) -> dict[str, object
+     }
+
+
+-
+ @dataclass(slots=True)
+ class IdCompressedLexicon:
+     source: SourceInfo
+@@ -205,9 +206,7 @@ class InternedLexicon:
+
+
+ def to_interned_asset(compressed: CompressedLexicon) -> InternedLexicon:
+-    all_values = {
+-        value for values in compressed.atoms.values() for value in values
+-    }
++    all_values = {value for values in compressed.atoms.values() for value in values}
+     all_values.update(
+         value for values in compressed.exceptions.values() for value in values
+     )
+@@ -282,9 +281,7 @@ def build_macros(values: list[str], *, max_macros: int = 128) -> tuple[str, ...]
+                 for index in range(len(value) - length + 1)
+             )
+     candidates = [
+-        (count, len(value), value)
+-        for value, count in counts.items()
+-        if count > 1
++        (count, len(value), value) for value, count in counts.items() if count > 1
+     ]
+     candidates.sort(key=lambda item: (-item[0], -item[1], item[2]))
+     return tuple(value for _count, _length, value in candidates[:max_macros])
+diff --git a/experiments/de_lexicon_compression/lexlab/p4.py b/experiments/de_lexicon_compression/lexlab/p4.py
+index c92b40c..0603ce0 100644
+--- a/experiments/de_lexicon_compression/lexlab/p4.py
++++ b/experiments/de_lexicon_compression/lexlab/p4.py
+@@ -36,10 +36,7 @@ def exact_linker_candidates(
+                 start = position + 1
+                 continue
+             values = [atoms[left], atoms[linker], atoms[right]]
+-            candidate = tuple(
+-                "".join(parts)
+-                for parts in product(*values)
+-            )
++            candidate = tuple("".join(parts) for parts in product(*values))
+             if candidate == expected:
+                 found.append((left, linker, right))
+                 if len(found) >= max_candidates:
+@@ -98,9 +95,7 @@ class FrontCodedLexicon:
+         result = [""]
+         for component in components:
+             result = [
+-                prefix + value
+-                for prefix in result
+-                for value in self.atoms[component]
++                prefix + value for prefix in result for value in self.atoms[component]
+             ]
+         return tuple(result)
+
+diff --git a/experiments/de_lexicon_compression/tests/test_v2_review.py b/experiments/de_lexicon_compression/tests/test_v2_review.py
+index 6475e2e..778479c 100644
+--- a/experiments/de_lexicon_compression/tests/test_v2_review.py
++++ b/experiments/de_lexicon_compression/tests/test_v2_review.py
+@@ -68,6 +68,5 @@ def test_cascade_precedence_conflict_and_sharing():
+     assert result["incremental_hits_by_source"] == {"first": 1, "second": 1}
+     assert result["conflict_wins_by_source"] == {"first": 1}
+     assert (
+-        cross_source_sharing([first, second])["identical_spelling_shared_variant"]
+-        == 0
++        cross_source_sharing([first, second])["identical_spelling_shared_variant"] == 0
+     )
+diff --git a/experiments/de_lexicon_entry_reduction/README.md b/experiments/de_lexicon_entry_reduction/README.md
+new file mode 100644
+index 0000000..82f8547
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/README.md
+@@ -0,0 +1,84 @@
++# German resident lexicon entry reduction
++
++This directory contains the isolated V1 and V2 research experiment for replacing
++resident German pronunciation literals with a smaller reusable basis and deterministic
++runtime composition.
++
++## Contract
++
++- The builder may use canonical IPA offline to decide whether omission is exact.
++- Runtime lookup uses only the queried spelling, literal entries, shared indexes,
++  membership, and compact global rules.
++- Exact membership, pronunciation tuples, variant count, and variant order are
++  preserved.
++- Generated words do not have serialized recipes, split maps, IDs, or exception tables.
++- Production German files and task-0039 artifacts are not modified.
++- The pinned baseline contains 738,427 words. The primary V2 target is at most 400,000
++  literals.
++
++## V1 reproduction
++
++```bash
++python experiments/de_lexicon_entry_reduction/run.py \
++  --source builtin --mode implicit-compound --optimizer greedy \
++  --output experiments/de_lexicon_entry_reduction/reports/v1-reproduction
++```
++
++The frozen V1 result is 586,889 literals, 151,538 generated words, zero recipes, and
++exact reload verification for all 738,427 words.
++
++## V2 stages
++
++The opt-in flags are independently switchable:
++
++```bash
++python experiments/de_lexicon_entry_reduction/run.py \
++  --source builtin --mode implicit-compound --optimizer greedy \
++  --selector v2 --boundary-rules v2 --linkers german \
++  --recursive-components --max-components 6 --max-states 100000 \
++  --output experiments/de_lexicon_entry_reduction/reports/v2-best
++```
++
++Available mechanisms are the compact rule selector, measured boundary rules, German
++linkers, recursive proper-substring resolution, utility basis promotion, an integer
++segmentation scorer, and a bounded shared affix grammar. Each mechanism is oracle-free
++at runtime and is admitted only through an exact rebuild and reload check.
++
++Run the staged matrix with:
++
++```bash
++python experiments/de_lexicon_entry_reduction/run_matrix.py \
++  --source builtin --v2-stages \
++  --output experiments/de_lexicon_entry_reduction/reports/matrix
++```
++
++The ordinary matrix mode remains available for bounded V1 comparisons.
++
++## Offline diagnostics
++
++Diagnostics may read expected IPA. They are never loaded by the candidate runtime.
++
++```bash
++python experiments/de_lexicon_entry_reduction/analyze_failures.py \
++  --source builtin \
++  --run experiments/de_lexicon_entry_reduction/reports/v1-reproduction \
++  --top-k-segmentations 16 --boundary-window 3 \
++  --output experiments/de_lexicon_entry_reduction/reports/v2-diagnostics
++```
++
++The output contains retained-word groups, alternate-rule counts, top-K segmentation
++counts, boundary edit families, and linker opportunity metrics.
++
++## Verification and benchmarks
++
++```bash
++python experiments/de_lexicon_entry_reduction/verify.py \
++  --source builtin --run experiments/de_lexicon_entry_reduction/reports/v2-best
++python experiments/de_lexicon_entry_reduction/benchmark_memory.py \
++  --source builtin --run experiments/de_lexicon_entry_reduction/reports/v2-best
++python -m pytest -q experiments/de_lexicon_entry_reduction/tests
++```
++
++Full built-in matrix and memory work is intentionally opt-in because it requires
++substantial RAM and CPU time. A target failure is reported numerically rather than
++redefined.
+diff --git a/experiments/de_lexicon_entry_reduction/__init__.py b/experiments/de_lexicon_entry_reduction/__init__.py
+new file mode 100644
+index 0000000..e02bd03
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/__init__.py
+@@ -0,0 +1,5 @@
++"""Implicit resident-entry reduction experiment for the German lexicon."""
++
++from .model import ImplicitLexicon, LiteralLexicon
++
++__all__ = ["ImplicitLexicon", "LiteralLexicon"]
+diff --git a/experiments/de_lexicon_entry_reduction/analyze_failures.py b/experiments/de_lexicon_entry_reduction/analyze_failures.py
+new file mode 100644
+index 0000000..994d09c
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/analyze_failures.py
+@@ -0,0 +1,77 @@
++#!/usr/bin/env python3
++"""Run offline V1 failure forensics; expected IPA never enters runtime assets."""
++
++from __future__ import annotations
++
++import argparse
++import ast
++import csv
++from pathlib import Path
++
++try:
++    from .lexreduce.diagnostics import analyze_failures, write_diagnostics
++    from .lexreduce.serializer import load_asset
++    from .source import load_canonical_source
++except ImportError:
++    import sys
++
++    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
++    from experiments.de_lexicon_entry_reduction.lexreduce.diagnostics import (
++        analyze_failures,
++        write_diagnostics,
++    )
++    from experiments.de_lexicon_entry_reduction.lexreduce.serializer import load_asset
++    from experiments.de_lexicon_entry_reduction.source import load_canonical_source
++
++
++def _parse_value(value: str) -> object:
++    if not value:
++        return None
++    try:
++        return ast.literal_eval(value)
++    except (SyntaxError, ValueError):
++        return value
++
++
++def read_failures(path: Path) -> list[dict[str, object]]:
++    with path.open(encoding="utf-8", newline="") as handle:
++        rows = []
++        for row in csv.DictReader(handle, delimiter="\t"):
++            rows.append({key: _parse_value(value) for key, value in row.items()})
++        return rows
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--source", default="builtin")
++    parser.add_argument("--run", type=Path, required=True)
++    parser.add_argument("--top-k-segmentations", type=int, default=16)
++    parser.add_argument("--boundary-window", type=int, default=3)
++    parser.add_argument("--output", type=Path, required=True)
++    parser.add_argument("--data-root", type=Path)
++    parser.add_argument("--path", type=Path)
++    args = parser.parse_args()
++
++    source = load_canonical_source(
++        args.source, data_root=args.data_root, path=args.path
++    )
++    asset = load_asset(args.run / "candidate.asset")
++    failure_path = args.run / "literal_failures.tsv"
++    failures = read_failures(failure_path) if failure_path.is_file() else []
++    result = analyze_failures(
++        source,
++        asset,
++        failures=failures,
++        top_k=args.top_k_segmentations,
++        boundary_window=args.boundary_window,
++    )
++    write_diagnostics(args.output, result)
++    print(
++        f"analysed {result['baseline_word_count']} words; "
++        f"{result['pronunciation_mismatch_count']} pronunciation mismatches"
++    )
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/experiments/de_lexicon_entry_reduction/benchmark_memory.py b/experiments/de_lexicon_entry_reduction/benchmark_memory.py
+new file mode 100644
+index 0000000..1923da0
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/benchmark_memory.py
+@@ -0,0 +1,150 @@
++#!/usr/bin/env python3
++"""Measure fresh-process load cost for baseline and candidate assets."""
++
++from __future__ import annotations
++
++import argparse
++import json
++import platform
++import resource
++import subprocess
++import sys
++import time
++from pathlib import Path
++
++if __package__ is None:
++    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
++
++
++def rss_bytes() -> int:
++    value = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
++    return int(value if platform.system() == "Darwin" else value * 1024)
++
++
++def _worker(
++    kind: str, run: Path, source: str, data_root: Path | None, path: Path | None
++) -> None:
++    before = rss_bytes()
++    started = time.perf_counter()
++    if kind == "candidate":
++        from .lexreduce.serializer import load_asset
++
++        load_asset(run / "candidate.asset")
++    else:
++        from experiments.de_lexicon_compression.lexlab.sources import load_source
++
++        load_source(source, data_root=data_root, path=path).runtime_unique()
++    elapsed = (time.perf_counter() - started) * 1000
++    print(
++        json.dumps({"rss_delta_bytes": rss_bytes() - before, "cold_load_ms": elapsed})
++    )
++
++
++def benchmark(
++    run: Path,
++    *,
++    source: str = "builtin",
++    data_root: Path | None = None,
++    path: Path | None = None,
++) -> dict[str, object]:
++    values: dict[str, object] = {}
++    for kind in ("baseline", "candidate"):
++        command = [
++            sys.executable,
++            "-m",
++            "experiments.de_lexicon_entry_reduction.benchmark_memory",
++            "--worker",
++            kind,
++            "--run",
++            str(run),
++            "--source",
++            source,
++        ]
++        if data_root:
++            command.extend(("--data-root", str(data_root)))
++        if path:
++            command.extend(("--path", str(path)))
++        completed = subprocess.run(command, check=True, capture_output=True, text=True)
++        values[kind] = json.loads(completed.stdout)
++    baseline = values["baseline"]
++    candidate = values["candidate"]
++    assert isinstance(baseline, dict) and isinstance(candidate, dict)
++    baseline_rss = int(baseline["rss_delta_bytes"])
++    candidate_rss = int(candidate["rss_delta_bytes"])
++    result = {
++        "baseline_rss_delta_bytes": baseline_rss,
++        "candidate_rss_delta_bytes": candidate_rss,
++        "rss_saved_bytes": baseline_rss - candidate_rss,
++        "rss_reduction_rate": (baseline_rss - candidate_rss) / baseline_rss
++        if baseline_rss
++        else 0.0,
++        "baseline_cold_load_ms": baseline["cold_load_ms"],
++        "candidate_cold_load_ms": candidate["cold_load_ms"],
++        "literal_lookup_words_per_second": None,
++        "generated_lookup_words_per_second": None,
++        "miss_lookup_words_per_second": None,
++        "generated_lookup_p50_ms": None,
++        "generated_lookup_p95_ms": None,
++        "generated_lookup_p99_ms": None,
++    }
++    result.update(_lookup_metrics(run))
++    return result
++
++
++def _lookup_metrics(run: Path) -> dict[str, object]:
++    from experiments.de_lexicon_entry_reduction.lexreduce.serializer import load_asset
++    from experiments.de_lexicon_entry_reduction.verify import adversarial_misses
++
++    candidate = load_asset(run / "candidate.asset")
++    all_words = candidate.membership.iter_words()
++    literal_words = set(candidate.literals)
++    generated = tuple(word for word in all_words if word not in literal_words)
++    misses = adversarial_misses(all_words)
++    metrics: dict[str, object] = {}
++    for name, words in (
++        ("literal", tuple(candidate.literals)),
++        ("generated", generated),
++        ("miss", misses),
++    ):
++        sample = words[:1000]
++        started = time.perf_counter()
++        durations: list[float] = []
++        for word in sample:
++            lookup_started = time.perf_counter_ns()
++            candidate.lookup_all(word)
++            durations.append((time.perf_counter_ns() - lookup_started) / 1_000_000)
++        elapsed = time.perf_counter() - started
++        metrics[f"{name}_lookup_words_per_second"] = (
++            len(sample) / elapsed if elapsed else 0.0
++        )
++        if name == "generated" and durations:
++            ordered = sorted(durations)
++            metrics["generated_lookup_p50_ms"] = ordered[len(ordered) * 50 // 100]
++            metrics["generated_lookup_p95_ms"] = ordered[len(ordered) * 95 // 100]
++            metrics["generated_lookup_p99_ms"] = ordered[len(ordered) * 99 // 100]
++    return metrics
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--run", type=Path, required=True)
++    parser.add_argument("--source", default="builtin")
++    parser.add_argument("--data-root", type=Path)
++    parser.add_argument("--path", type=Path)
++    parser.add_argument("--output", type=Path)
++    parser.add_argument("--worker", choices=("baseline", "candidate"))
++    args = parser.parse_args()
++    if args.worker:
++        _worker(args.worker, args.run, args.source, args.data_root, args.path)
++        return 0
++    result = benchmark(
++        args.run, source=args.source, data_root=args.data_root, path=args.path
++    )
++    destination = args.output or args.run / "runtime.json"
++    destination.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
++    print(json.dumps(result, indent=2))
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/experiments/de_lexicon_entry_reduction/generate_report.py b/experiments/de_lexicon_entry_reduction/generate_report.py
+new file mode 100644
+index 0000000..e93ed5e
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/generate_report.py
+@@ -0,0 +1,31 @@
++#!/usr/bin/env python3
++"""Render a Markdown report from a run summary."""
++
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++try:
++    from .lexreduce.reports import report_markdown
++except ImportError:  # direct script execution
++    import sys
++
++    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
++    from experiments.de_lexicon_entry_reduction.lexreduce.reports import report_markdown
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("summary", type=Path)
++    parser.add_argument("--output", type=Path)
++    args = parser.parse_args()
++    summary = json.loads(args.summary.read_text(encoding="utf-8"))
++    output = args.output or args.summary.with_name("report.md")
++    output.write_text(report_markdown(summary), encoding="utf-8")
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/experiments/de_lexicon_entry_reduction/lexreduce/__init__.py b/experiments/de_lexicon_entry_reduction/lexreduce/__init__.py
+new file mode 100644
+index 0000000..54e91ab
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/lexreduce/__init__.py
+@@ -0,0 +1,71 @@
++"""Runtime and builder primitives for implicit lexicon entries."""
++
++from .composer import (
++    DerivationResult,
++    ImplicitComposer,
++    SearchLimitError,
++    best_segmentation,
++    top_k_segmentations,
++    best_two_part_segmentation,
++)
++from .selector import (
++    Candidate,
++    CompositionFeatures,
++    RuleSelector,
++    extract_features,
++    train_selector,
++)
++from .linkers import Linker, LinkerCandidate, LinkerTable, german_linker_table
++from .resolver import ComponentResolver, ResolveContext
++from .segmentation import SegmentationScorer
++from .affixes import Affix, AffixCandidate, AffixTable, german_affix_table
++from .audit import audit_runtime_representation
++from .builder import BuildResult, build_implicit_lexicon
++from .membership import MembershipIndex
++from .optimizer import OptimizationResult, optimize_basis
++from .literals import LiteralLexicon
++from .prefix_index import LiteralPrefixIndex, MutableLiteralPrefixIndex
++from .rules import (
++    CompoundStressDemotionRule,
++    ConcatenationRule,
++    RuleSet,
++    default_rules,
++)
++
++__all__ = [
++    "Affix",
++    "AffixCandidate",
++    "AffixTable",
++    "BuildResult",
++    "Candidate",
++    "ComponentResolver",
++    "CompositionFeatures",
++    "CompoundStressDemotionRule",
++    "ConcatenationRule",
++    "DerivationResult",
++    "ImplicitComposer",
++    "Linker",
++    "LinkerCandidate",
++    "LinkerTable",
++    "LiteralLexicon",
++    "LiteralPrefixIndex",
++    "MembershipIndex",
++    "MutableLiteralPrefixIndex",
++    "OptimizationResult",
++    "ResolveContext",
++    "RuleSelector",
++    "RuleSet",
++    "SearchLimitError",
++    "SegmentationScorer",
++    "audit_runtime_representation",
++    "best_segmentation",
++    "best_two_part_segmentation",
++    "build_implicit_lexicon",
++    "default_rules",
++    "extract_features",
++    "german_affix_table",
++    "german_linker_table",
++    "optimize_basis",
++    "top_k_segmentations",
++    "train_selector",
++]
+diff --git a/experiments/de_lexicon_entry_reduction/lexreduce/affixes.py b/experiments/de_lexicon_entry_reduction/lexreduce/affixes.py
+new file mode 100644
+index 0000000..ac20045
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/lexreduce/affixes.py
+@@ -0,0 +1,97 @@
++"""Bounded shared affix/morpheme grammar for optional V2 experiments."""
++
++from __future__ import annotations
++
++from collections.abc import Mapping
++from dataclasses import dataclass
++from typing import Any
++
++
++@dataclass(frozen=True, slots=True)
++class Affix:
++    spelling: str
++    position: str
++    pronunciation: tuple[str, ...] = ("",)
++
++    def as_dict(self) -> dict[str, Any]:
++        return {
++            "spelling": self.spelling,
++            "position": self.position,
++            "pronunciation": list(self.pronunciation),
++        }
++
++
++@dataclass(frozen=True, slots=True)
++class AffixCandidate:
++    stem: str
++    prefix: Affix | None = None
++    suffix: Affix | None = None
++
++    @property
++    def components(self) -> tuple[str, ...]:
++        values: list[str] = []
++        if self.prefix:
++            values.append(self.prefix.spelling)
++        values.append(self.stem)
++        if self.suffix:
++            values.append(self.suffix.spelling)
++        return tuple(values)
++
++
++@dataclass(frozen=True, slots=True)
++class AffixTable:
++    affixes: tuple[Affix, ...]
++    max_candidates: int = 64
++
++    def candidates(
++        self, word: str, literals: Mapping[str, object]
++    ) -> tuple[AffixCandidate, ...]:
++        prefixes = tuple(affix for affix in self.affixes if affix.position == "prefix")
++        suffixes = tuple(affix for affix in self.affixes if affix.position == "suffix")
++        found: list[AffixCandidate] = []
++        for affix in prefixes:
++            if (
++                word.startswith(affix.spelling)
++                and word[len(affix.spelling) :] in literals
++            ):
++                found.append(AffixCandidate(word[len(affix.spelling) :], prefix=affix))
++        for affix in suffixes:
++            if (
++                word.endswith(affix.spelling)
++                and word[: -len(affix.spelling)] in literals
++            ):
++                found.append(AffixCandidate(word[: -len(affix.spelling)], suffix=affix))
++        found.sort(key=lambda item: (len(item.components), item.components))
++        return tuple(found[: self.max_candidates])
++
++    def as_dict(self) -> dict[str, Any]:
++        return {
++            "version": "1",
++            "max_candidates": self.max_candidates,
++            "affixes": [affix.as_dict() for affix in self.affixes],
++        }
++
++    @classmethod
++    def from_dict(cls, value: Mapping[str, Any]) -> AffixTable:
++        return cls(
++            tuple(
++                Affix(
++                    str(item["spelling"]),
++                    str(item["position"]),
++                    tuple(item.get("pronunciation", [""])),
++                )
++                for item in value.get("affixes", ())
++            ),
++            int(value.get("max_candidates", 64)),
++        )
++
++
++def german_affix_table(*, max_candidates: int = 64) -> AffixTable:
++    return AffixTable(
++        tuple(Affix(value, "prefix") for value in ("un", "ver", "be", "ge"))
++        + tuple(
++            Affix(value, "suffix")
++            for value in ("lich", "keit", "heit", "ung", "en", "er")
++        ),
++        max_candidates=max_candidates,
++    )
+diff --git a/experiments/de_lexicon_entry_reduction/lexreduce/audit.py b/experiments/de_lexicon_entry_reduction/lexreduce/audit.py
+new file mode 100644
+index 0000000..44de839
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/lexreduce/audit.py
+@@ -0,0 +1,71 @@
++"""Anti-cheating checks for the runtime representation."""
++
++from __future__ import annotations
++
++from dataclasses import fields
++from typing import Any
++
++from ..model import ImplicitLexicon
++
++_FORBIDDEN_NAMES = {
++    "derived",
++    "generated",
++    "generated_words",
++    "recipes",
++    "recipe_by_word",
++    "word_ids",
++    "rule_by_word",
++    "split_by_word",
++    "components_by_word",
++    "selector_by_word",
++    "repair_by_word",
++    "linker_by_word",
++    "generated_ids",
++}
++
++
++def _audit_mapping(value: Any, path: str = "") -> list[str]:
++    findings: list[str] = []
++    if isinstance(value, dict):
++        for key, child in value.items():
++            key_name = str(key).lower()
++            if key_name in _FORBIDDEN_NAMES:
++                findings.append(f"{path}.{key}")
++            findings.extend(_audit_mapping(child, f"{path}.{key}"))
++    elif isinstance(value, (list, tuple)):
++        for index, child in enumerate(value):
++            findings.extend(_audit_mapping(child, f"{path}[{index}]"))
++    return findings
++
++
++def audit_runtime_representation(candidate: ImplicitLexicon) -> dict[str, Any]:
++    """Reject obvious per-generated-word structures and return audit counts."""
++
++    field_names = {field.name for field in fields(candidate)}
++    forbidden_fields = sorted(field_names & _FORBIDDEN_NAMES)
++    if forbidden_fields:
++        raise AssertionError(f"forbidden runtime fields: {forbidden_fields}")
++    metadata_names = set(candidate.metadata)
++    forbidden_metadata = sorted(metadata_names & _FORBIDDEN_NAMES)
++    if forbidden_metadata:
++        raise AssertionError(f"forbidden runtime metadata: {forbidden_metadata}")
++    serialized_findings = _audit_mapping(candidate.composer.rules.as_dict(), "rules")
++    if serialized_findings:
++        raise AssertionError(
++            f"forbidden serialized runtime structures: {serialized_findings}"
++        )
++    selector = candidate.composer.rules.selector
++    if (
++        selector is not None
++        and selector.serialized_bytes > selector.max_serialized_bytes
++    ):
++        raise AssertionError("selector exceeds declared serialized byte limit")
++    if candidate.per_generated_word_recipe_count != 0:
++        raise AssertionError("generated words have runtime recipes")
++    return {
++        "forbidden_fields": [],
++        "forbidden_metadata": [],
++        "literal_word_count": candidate.literal_word_count,
++        "per_generated_word_recipe_count": candidate.per_generated_word_recipe_count,
++        "checked": True,
++    }
+diff --git a/experiments/de_lexicon_entry_reduction/lexreduce/boundary_rules.py b/experiments/de_lexicon_entry_reduction/lexreduce/boundary_rules.py
+new file mode 100644
+index 0000000..fa878d0
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/lexreduce/boundary_rules.py
+@@ -0,0 +1,107 @@
++"""Small shared German boundary transformations admitted by diagnostics."""
++
++from __future__ import annotations
++
++from dataclasses import dataclass, field
++from itertools import product
++from typing import Any
++
++
++@dataclass(slots=True)
++class FinalComponentStressDemotionRule:
++    """Demote only the first primary stress of the final component."""
++
++    rule_id: str = "C2"
++    version: str = "2"
++    stats: Any = field(default_factory=lambda: _stats())
++
++    def applies(
++        self,
++        word: str,
++        components: tuple[str, ...],
++        variants: tuple[tuple[str, ...], ...],
++    ) -> bool:
++        return (
++            len(components) > 1
++            and bool(variants[-1])
++            and any("ˈ" in value for value in variants[-1])
++        )
++
++    def compose(
++        self,
++        word: str,
++        components: tuple[str, ...],
++        variants: tuple[tuple[str, ...], ...],
++    ) -> tuple[str, ...]:
++        transformed = tuple(
++            tuple(value.replace("ˈ", "ˌ", 1) for value in values)
++            if index == len(variants) - 1
++            else values
++            for index, values in enumerate(variants)
++        )
++        return tuple("".join(parts) for parts in product(*transformed))
++
++    def as_dict(self) -> dict[str, Any]:
++        return {
++            "rule_id": self.rule_id,
++            "version": self.version,
++            "usage_count": self.stats.usage_count,
++            "exact_success_count": self.stats.exact_success_count,
++            "mismatch_count": self.stats.mismatch_count,
++        }
++
++
++@dataclass(slots=True)
++class BoundaryStressClassRule:
++    """Demote stressed non-initial components only at a consonant boundary."""
++
++    rule_id: str = "C3"
++    version: str = "2"
++    stats: Any = field(default_factory=lambda: _stats())
++
++    def applies(
++        self,
++        word: str,
++        components: tuple[str, ...],
++        variants: tuple[tuple[str, ...], ...],
++    ) -> bool:
++        if len(components) < 2:
++            return False
++        return any("ˈ" in value for values in variants[1:] for value in values) and all(
++            component[-1:].lower() not in "aeiouyäöü" for component in components[:-1]
++        )
++
++    def compose(
++        self,
++        word: str,
++        components: tuple[str, ...],
++        variants: tuple[tuple[str, ...], ...],
++    ) -> tuple[str, ...]:
++        transformed = tuple(
++            values
++            if index == 0
++            else tuple(value.replace("ˈ", "ˌ", 1) for value in values)
++            for index, values in enumerate(variants)
++        )
++        return tuple("".join(parts) for parts in product(*transformed))
++
++    def as_dict(self) -> dict[str, Any]:
++        return {
++            "rule_id": self.rule_id,
++            "version": self.version,
++            "usage_count": self.stats.usage_count,
++            "exact_success_count": self.stats.exact_success_count,
++            "mismatch_count": self.stats.mismatch_count,
++        }
++
++
++def _stats() -> Any:
++    # Imported lazily to keep this module usable as a rule definition module.
++    from .rules import RuleStats
++
++    return RuleStats()
++
++
++def diagnostic_boundary_rules() -> tuple[object, ...]:
++    """Return the bounded rule library used by the B1 stage."""
++    return (FinalComponentStressDemotionRule(), BoundaryStressClassRule())
+diff --git a/experiments/de_lexicon_entry_reduction/lexreduce/builder.py b/experiments/de_lexicon_entry_reduction/lexreduce/builder.py
+new file mode 100644
+index 0000000..15d3072
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/lexreduce/builder.py
+@@ -0,0 +1,160 @@
++"""Offline construction of an implicit literal basis."""
++
++from __future__ import annotations
++
++from collections.abc import Iterable
++from dataclasses import dataclass, field
++from typing import Any
++
++from experiments.de_lexicon_compression.lexlab.model import ParsedLexicon
++
++from ..model import CandidateMetrics, ImplicitLexicon, LiteralLexicon
++from .affixes import AffixTable
++from .composer import ImplicitComposer, SearchLimitError
++from .linkers import LinkerTable
++from .membership import MembershipIndex
++from .prefix_index import MutableLiteralPrefixIndex
++from .resolver import ComponentResolver, ResolveContext
++from .rules import RuleSet
++
++
++@dataclass(slots=True)
++class BuildResult:
++    asset: ImplicitLexicon
++    metrics: CandidateMetrics
++    failures: list[dict[str, Any]] = field(default_factory=list)
++    membership_enumeration_matches: bool = True
++    search_limit_words: int = 0
++
++
++def build_implicit_lexicon(
++    source: ParsedLexicon,
++    *,
++    composer: ImplicitComposer | None = None,
++    rules: RuleSet | None = None,
++    max_components: int = 4,
++    max_states: int = 100_000,
++    forced_literals: Iterable[str] = (),
++    linkers: LinkerTable | None = None,
++    recursive_components: bool = False,
++    max_recursive_depth: int = 4,
++    segmentation_scorer: Any | None = None,
++    affixes: AffixTable | None = None,
++) -> BuildResult:
++    """Build a candidate, using source IPA only for the offline keep decision."""
++
++    if composer is None:
++        composer = ImplicitComposer(
++            max_components=max_components,
++            max_states=max_states,
++            rules=rules,
++            linkers=linkers,
++            recursive_components=recursive_components,
++            max_recursive_depth=max_recursive_depth,
++            segmentation_scorer=segmentation_scorer,
++            affixes=affixes,
++        )
++    elif rules is not None:
++        composer.rules = rules
++    if linkers is not None:
++        composer.linkers = linkers
++    if recursive_components:
++        composer.recursive_components = True
++        composer.max_recursive_depth = max_recursive_depth
++    if segmentation_scorer is not None:
++        composer.segmentation_scorer = segmentation_scorer
++    if affixes is not None:
++        composer.affixes = affixes
++    forced = set(forced_literals)
++    literals: dict[str, tuple[str, ...]] = {}
++    prefix_index = MutableLiteralPrefixIndex.empty()
++    failures: list[dict[str, Any]] = []
++    generated_count = 0
++    search_limit_words = 0
++
++    membership = MembershipIndex.from_words(source.words)
++    resolver = (
++        ComponentResolver(
++            membership,
++            composer,
++            literals,
++            prefix_index,
++            max_depth=max_recursive_depth,
++            max_states=max_states,
++        )
++        if recursive_components
++        else None
++    )
++    ordered_words = sorted(source.words, key=lambda word: (len(word), word))
++    for word in ordered_words:
++        expected = source.lookup_all(word)
++        result = None
++        if word not in forced:
++            try:
++                result = composer.derive_result(
++                    word,
++                    literals=literals,
++                    prefix_index=prefix_index,
++                    resolver=resolver,
++                    context=ResolveContext() if resolver is not None else None,
++                )
++            except SearchLimitError as exc:
++                search_limit_words += 1
++                failures.append(
++                    {
++                        "word": word,
++                        "reason": "search-limit",
++                        "error": str(exc),
++                        "candidate": None,
++                    }
++                )
++        if result is not None and result.pronunciation == expected:
++            generated_count += 1
++            composer.rules.record_result(result.rule_id, True)
++            continue
++
++        if result is not None:
++            composer.rules.record_result(result.rule_id, False)
++        literals[word] = expected
++        prefix_index.add(word)
++        if word not in forced:
++            failures.append(
++                {
++                    "word": word,
++                    "reason": "pronunciation-mismatch" if result else "no-composition",
++                    "candidate": result.pronunciation if result else None,
++                    "candidate_components": result.components if result else None,
++                    "candidate_rule": result.rule_id if result else None,
++                    "candidate_depth": len(result.components) if result else None,
++                }
++            )
++
++    enumeration_matches = membership.iter_words() == tuple(sorted(source.words))
++    metadata: dict[str, object] = {
++        "schema": 1,
++        "kind": "implicit-entry-reduction",
++        "baseline_word_count": len(source.entries),
++        "generated_word_count": generated_count,
++        "per_generated_word_recipe_count": 0,
++        "target_literal_word_count": 400_000,
++        "composer_version": composer.rules.composer_version,
++        "membership_version": 1,
++        "rule_version": "1",
++        "search_limit_words": search_limit_words,
++        "membership_enumeration_matches": enumeration_matches,
++    }
++    asset = ImplicitLexicon(
++        source=source.source,
++        literals=LiteralLexicon(literals),
++        literal_index=prefix_index.freeze(),
++        membership=membership,
++        composer=composer,
++        metadata=metadata,
++    )
++    return BuildResult(
++        asset,
++        CandidateMetrics(len(source.entries), len(literals), generated_count),
++        failures,
++        enumeration_matches,
++        search_limit_words,
++    )
+diff --git a/experiments/de_lexicon_entry_reduction/lexreduce/composer.py b/experiments/de_lexicon_entry_reduction/lexreduce/composer.py
+new file mode 100644
+index 0000000..ddf0fa2
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/lexreduce/composer.py
+@@ -0,0 +1,272 @@
++"""Bounded deterministic spelling-only composition."""
++
++from __future__ import annotations
++
++from collections.abc import Mapping
++from dataclasses import dataclass
++from typing import Any
++
++from .affixes import AffixTable
++from .linkers import LinkerTable
++from .prefix_index import LiteralPrefixIndex
++from .rules import RuleSet
++
++
++class SearchLimitError(RuntimeError):
++    """The bounded composer exceeded its configured state budget."""
++
++
++@dataclass(frozen=True, slots=True)
++class DerivationResult:
++    components: tuple[str, ...]
++    pronunciation: tuple[str, ...]
++    rule_id: str
++
++    linker: str | None = None
++
++
++def top_k_segmentations(
++    word: str,
++    prefix_index: LiteralPrefixIndex,
++    literals: Mapping[str, tuple[str, ...]],
++    *,
++    k: int = 8,
++    max_components: int = 4,
++    max_states: int = 100_000,
++) -> tuple[tuple[str, ...], ...]:
++    """Enumerate a bounded, deterministic spelling-only segmentation frontier."""
++    if k <= 0 or max_components < 2:
++        return ()
++    states = 0
++    cache: dict[tuple[int, int], tuple[tuple[str, ...], ...]] = {}
++
++    def visit(position: int, component_count: int) -> tuple[tuple[str, ...], ...]:
++        nonlocal states
++        key = (position, component_count)
++        if key in cache:
++            return cache[key]
++        states += 1
++        if states > max_states:
++            raise SearchLimitError(f"search limit {max_states} reached for {word!r}")
++        if position == len(word):
++            result = ((),) if component_count >= 2 else ()
++            cache[key] = result
++            return result
++        if component_count >= max_components:
++            cache[key] = ()
++            return ()
++        candidates: list[tuple[str, ...]] = []
++        for atom in prefix_index.prefixes(word, position, literals):
++            for suffix in visit(position + len(atom), component_count + 1):
++                candidates.append((atom, *suffix))
++        result = tuple(sorted(set(candidates), key=segmentation_rank, reverse=True)[:k])
++        cache[key] = result
++        return result
++
++    return visit(0, 0)
++
++
++def segmentation_rank(
++    components: tuple[str, ...],
++) -> tuple[int, tuple[int, ...], tuple[str, ...]]:
++    """Historical ranking: fewer components, longer-leftmost, lexical tie break."""
++
++    return (-len(components), tuple(map(len, components)), tuple(reversed(components)))
++
++
++def best_segmentation(
++    word: str,
++    prefix_index: LiteralPrefixIndex,
++    literals: Mapping[str, tuple[str, ...]],
++    *,
++    max_components: int = 4,
++    max_states: int = 100_000,
++    scorer: Any | None = None,
++) -> tuple[str, ...] | None:
++    """Find one deterministic best decomposition without inspecting pronunciation."""
++
++    if max_components < 2:
++        return None
++    states = 0
++    cache: dict[tuple[int, int], tuple[str, ...] | None] = {}
++
++    def visit(position: int, component_count: int) -> tuple[str, ...] | None:
++        nonlocal states
++        key = (position, component_count)
++        if key in cache:
++            return cache[key]
++        states += 1
++        if states > max_states:
++            raise SearchLimitError(f"search limit {max_states} reached for {word!r}")
++        if position == len(word):
++            result = () if component_count >= 2 else None
++            cache[key] = result
++            return result
++        if component_count >= max_components:
++            cache[key] = None
++            return None
++        candidates: list[tuple[str, ...]] = []
++        for atom in prefix_index.prefixes(word, position, literals):
++            suffix = visit(position + len(atom), component_count + 1)
++            if suffix is not None:
++                candidates.append((atom, *suffix))
++        result = (
++            max(
++                candidates,
++                key=scorer.key if scorer is not None else segmentation_rank,
++            )
++            if candidates
++            else None
++        )
++        cache[key] = result
++        return result
++
++    return visit(0, 0)
++
++
++def best_two_part_segmentation(
++    word: str,
++    prefix_index: LiteralPrefixIndex,
++    literals: Mapping[str, tuple[str, ...]],
++) -> tuple[str, ...] | None:
++    """Scan split points directly for the common two-component case."""
++
++    candidates = [
++        (word[:split], word[split:])
++        for split in range(1, len(word))
++        if word[:split] in literals and word[split:] in literals
++    ]
++    return max(candidates, key=segmentation_rank) if candidates else None
++
++
++@dataclass(slots=True)
++class ImplicitComposer:
++    """Runtime composer whose derivation inputs contain no baseline oracle."""
++
++    max_components: int = 4
++    max_states: int = 100_000
++    rules: RuleSet = None  # type: ignore[assignment]
++    two_part_fast_path: bool = True
++
++    linkers: LinkerTable | None = None
++    recursive_components: bool = False
++    max_recursive_depth: int = 4
++    segmentation_scorer: Any | None = None
++    affixes: AffixTable | None = None
++
++    def __post_init__(self) -> None:
++        if self.rules is None:
++            self.rules = RuleSet()
++
++    def derive(
++        self,
++        word: str,
++        *,
++        literals: Mapping[str, tuple[str, ...]],
++        prefix_index: LiteralPrefixIndex,
++        resolver: Any | None = None,
++        context: Any | None = None,
++    ) -> tuple[str, ...] | None:
++        result = self.derive_result(
++            word,
++            literals=literals,
++            prefix_index=prefix_index,
++            resolver=resolver,
++            context=context,
++        )
++        return result.pronunciation if result is not None else None
++
++    def derive_result(
++        self,
++        word: str,
++        *,
++        literals: Mapping[str, tuple[str, ...]],
++        prefix_index: LiteralPrefixIndex,
++        resolver: Any | None = None,
++        context: Any | None = None,
++    ) -> DerivationResult | None:
++        if self.two_part_fast_path and self.segmentation_scorer is None:
++            components = best_two_part_segmentation(word, prefix_index, literals)
++        else:
++            components = None
++        if components is None:
++            components = best_segmentation(
++                word,
++                prefix_index,
++                literals,
++                max_components=self.max_components,
++                max_states=self.max_states,
++                scorer=self.segmentation_scorer,
++            )
++        if components is not None:
++            rule_id, pronunciation = self.rules.derive_with_rule(
++                word, components, literals
++            )
++            if rule_id is not None and pronunciation is not None:
++                return DerivationResult(components, pronunciation, rule_id)
++        if self.recursive_components and resolver is not None:
++            if context is None:
++                from .resolver import ResolveContext
++
++                context = ResolveContext()
++            recursive_segments = resolver.segmentations(
++                word,
++                context,
++                max_components=self.max_components,
++                max_states=self.max_states,
++            )
++            for recursive_components in recursive_segments:
++                resolved_literals = dict(literals)
++                complete = True
++                for component in recursive_components:
++                    pronunciation = resolver.resolve(component, context)
++                    if pronunciation is None:
++                        complete = False
++                        break
++                    resolved_literals[component] = pronunciation
++                if not complete:
++                    continue
++                rule_id, pronunciation = self.rules.derive_with_rule(
++                    word, recursive_components, resolved_literals
++                )
++                if rule_id is not None and pronunciation is not None:
++                    return DerivationResult(
++                        recursive_components, pronunciation, rule_id
++                    )
++        if self.affixes is not None:
++            for affix_candidate in self.affixes.candidates(word, literals):
++                temporary_literals = dict(literals)
++                if affix_candidate.prefix:
++                    temporary_literals[affix_candidate.prefix.spelling] = (
++                        affix_candidate.prefix.pronunciation
++                    )
++                if affix_candidate.suffix:
++                    temporary_literals[affix_candidate.suffix.spelling] = (
++                        affix_candidate.suffix.pronunciation
++                    )
++                rule_id, pronunciation = self.rules.derive_with_rule(
++                    word, affix_candidate.components, temporary_literals
++                )
++                if rule_id is not None and pronunciation is not None:
++                    return DerivationResult(
++                        affix_candidate.components, pronunciation, rule_id
++                    )
++        if self.linkers is None:
++            return None
++        for linker_candidate in self.linkers.candidates(word, literals):
++            temporary_literals = dict(literals)
++            temporary_literals[linker_candidate.linker.spelling] = (
++                linker_candidate.linker.pronunciation
++            )
++            linker_components = linker_candidate.components
++            rule_id, pronunciation = self.rules.derive_with_rule(
++                word, linker_components, temporary_literals
++            )
++            if rule_id is not None and pronunciation is not None:
++                return DerivationResult(
++                    linker_components,
++                    pronunciation,
++                    rule_id,
++                    linker_candidate.linker.spelling,
++                )
++        return None
+diff --git a/experiments/de_lexicon_entry_reduction/lexreduce/diagnostics.py b/experiments/de_lexicon_entry_reduction/lexreduce/diagnostics.py
+new file mode 100644
+index 0000000..589ddc2
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/lexreduce/diagnostics.py
+@@ -0,0 +1,381 @@
++"""Offline failure forensics for the V1 and V2 lexicon experiments.
++
++This module intentionally accepts the canonical source and expected pronunciations.
++It is an analysis tool and is never imported by the serialized runtime asset.
++"""
++
++from __future__ import annotations
++
++import csv
++import difflib
++import json
++from collections import Counter, defaultdict
++from collections.abc import Iterable, Mapping
++from pathlib import Path
++from typing import Any
++
++from experiments.de_lexicon_compression.lexlab.model import ParsedLexicon
++
++from ..model import ImplicitLexicon
++from .composer import SearchLimitError, top_k_segmentations
++
++
++def _rule_candidates(
++    asset: ImplicitLexicon,
++    word: str,
++    components: tuple[str, ...],
++    literals: Mapping[str, tuple[str, ...]] | None = None,
++) -> list[dict[str, Any]]:
++    variants = tuple(
++        (literals or asset.literals)[component] for component in components
++    )
++    candidates: list[dict[str, Any]] = []
++    for rule in asset.composer.rules.rules:
++        if rule.applies(word, components, variants):
++            candidates.append(
++                {
++                    "rule_id": rule.rule_id,
++                    "pronunciation": rule.compose(word, components, variants),
++                }
++            )
++    return candidates
++
++
++def _boundary_family(
++    candidate: str,
++    expected: str,
++    components: tuple[str, ...] | None,
++    variants: tuple[tuple[str, ...], ...] | None,
++    window: int,
++) -> dict[str, Any]:
++    matcher = difflib.SequenceMatcher(a=candidate, b=expected, autojunk=False)
++    opcodes = [opcode for opcode in matcher.get_opcodes() if opcode[0] != "equal"]
++    boundaries: list[int] = []
++    if components and variants:
++        offset = 0
++        for values in variants[:-1]:
++            offset += len(values[0]) if values else 0
++            boundaries.append(offset)
++    local = (
++        bool(opcodes)
++        and all(
++            any(abs(max(start, end) - boundary) <= window for boundary in boundaries)
++            for _, start, end, _, _ in opcodes
++        )
++        if boundaries
++        else False
++    )
++    template = (
++        ";".join(
++            f"{tag}:{candidate[i1:i2]!r}->{expected[j1:j2]!r}"
++            for tag, i1, i2, j1, j2 in opcodes
++        )
++        or "equal"
++    )
++    if not local:
++        family = "non-local mismatch"
++    elif "ˈ" in candidate or "ˌ" in candidate or "ˈ" in expected or "ˌ" in expected:
++        if "ˈ" in candidate and "ˌ" in expected:
++            family = "primary stress → secondary stress"
++        elif "ˈ" in expected and "ˈ" not in candidate:
++            family = "insert stress"
++        elif "ˈ" in candidate and "ˈ" not in expected:
++            family = "delete stress"
++        else:
++            family = "other boundary-local replacement"
++    elif len(candidate) != len(expected):
++        family = "other boundary-local replacement"
++    else:
++        family = "local vowel/consonant alternation"
++    return {"family": family, "template": template, "local": local, "opcodes": opcodes}
++
++
++def analyze_failures(
++    source: ParsedLexicon,
++    asset: ImplicitLexicon,
++    *,
++    failures: Iterable[Mapping[str, Any]] = (),
++    top_k: int = 16,
++    boundary_window: int = 3,
++) -> dict[str, Any]:
++    """Classify retained words and compute offline oracle upper bounds."""
++    failures_by_word = {str(item["word"]): item for item in failures}
++    # BuildResult failures are normally supplied by the CLI. The fallback derives
++    # the mutually exclusive classes from the reloaded asset and is still exact.
++    classifications: dict[str, list[str]] = defaultdict(list)
++    for word in asset.literals:
++        item = failures_by_word.get(word)
++        if item is None:
++            classifications["forced-literal"].append(word)
++        else:
++            classifications[str(item.get("reason", "no-composition"))].append(word)
++    for key in (
++        "forced-literal",
++        "search-limit",
++        "no-composition",
++        "pronunciation-mismatch",
++    ):
++        classifications.setdefault(key, [])
++
++    alternate = Counter()
++    topk_counts = Counter()
++    family_counts: Counter[str] = Counter()
++    family_patterns: dict[tuple[str, str], dict[str, Any]] = {}
++    mismatch_details: list[dict[str, Any]] = []
++    segmentation_by_depth: Counter[str] = Counter()
++    selected_by_rule: Counter[str] = Counter()
++    source_words = set(source.words)
++
++    # A report may include builder failure data as a private analysis attachment;
++    # it is never serialized in an asset. Recompute missing failure records here.
++    for word in classifications["pronunciation-mismatch"]:
++        expected = source.lookup_all(word)
++        item = failures_by_word.get(word, {})
++        components_value = item.get("candidate_components")
++        components = tuple(components_value) if components_value else None
++        candidate_value = item.get("candidate")
++        candidate = tuple(candidate_value) if candidate_value else ()
++        if components:
++            candidates = _rule_candidates(asset, word, components)
++            selected_rule = str(item.get("candidate_rule") or "unknown")
++            selected_by_rule[selected_rule] += 1
++            exact_rules = [
++                str(row["rule_id"])
++                for row in candidates
++                if tuple(row["pronunciation"]) == expected
++            ]
++            alternate["selected_rule_exact"] += int(selected_rule in exact_rules)
++            alternate["alternate_existing_rule_exact"] += int(
++                bool(exact_rules) and selected_rule not in exact_rules
++            )
++            alternate["multiple_existing_rules_exact"] += int(len(exact_rules) > 1)
++            alternate["no_existing_rule_exact"] += int(not exact_rules)
++        try:
++            segmentations = top_k_segmentations(
++                word,
++                asset.literal_index,
++                asset.literals,
++                k=top_k,
++                max_components=asset.composer.max_components,
++                max_states=asset.composer.max_states,
++            )
++        except SearchLimitError:
++            segmentations = ()
++        exact_rank: int | None = None
++        for rank, segmentation in enumerate(segmentations, 1):
++            if any(
++                tuple(row["pronunciation"]) == expected
++                for row in _rule_candidates(asset, word, segmentation)
++            ):
++                exact_rank = rank
++                break
++        if exact_rank == 1:
++            topk_counts["exact_on_rank_1"] += 1
++        elif exact_rank is not None:
++            topk_counts["exact_on_rank_2_to_k"] += 1
++        else:
++            topk_counts["not_exact_in_top_k"] += 1
++        if components:
++            segmentation_by_depth[str(len(components))] += 1
++        selected_rule = str(item.get("candidate_rule") or "unknown")
++        selected_by_rule[selected_rule] += 0
++        actual = candidate[0] if candidate else ""
++        expected_first = expected[0] if expected else ""
++        variants = (
++            tuple(asset.literals[component] for component in components)
++            if components
++            else None
++        )
++        boundary = _boundary_family(
++            actual, expected_first, components, variants, boundary_window
++        )
++        family_counts[boundary["family"]] += 1
++        key = (boundary["family"], boundary["template"])
++        pattern = family_patterns.setdefault(
++            key,
++            {
++                "support_count": 0,
++                "exact_count_if_applied": 0,
++                "conflict_count": 0,
++                "word_count": 0,
++                "component_count": len(components or ()),
++                "spelling_left_context": components[0][-3:] if components else "",
++                "spelling_right_context": components[-1][:3] if components else "",
++                "phoneme_left_context": actual[-3:],
++                "phoneme_right_context": expected_first[:3],
++                "edit_template": boundary["template"],
++            },
++        )
++        pattern["support_count"] += 1
++        pattern["word_count"] += 1
++        mismatch_details.append(
++            {
++                "word": word,
++                "selected_segmentation": list(components or ()),
++                "component_count": len(components or ()),
++                "component_spellings": list(components or ()),
++                "selected_rule": selected_rule,
++                "candidate_pronunciation": list(candidate),
++                "expected_pronunciation": list(expected),
++                "stress_signature": [
++                    {
++                        "count": sum(value.count("ˈ") for value in values),
++                        "values": list(values),
++                    }
++                    for values in (variants or ())
++                ],
++                "boundary": boundary,
++                "word_length": len(word),
++                "component_lengths": [len(component) for component in components or ()],
++                "top_k_exact_rank": exact_rank,
++            }
++        )
++
++    oracle_provenance = (
++        "offline-only; expected IPA is used for analysis and " + "never runtime lookup"
++    )
++    linker_summary = linker_diagnostics(source, asset)
++    result: dict[str, Any] = {
++        "oracle_provenance": oracle_provenance,
++        "baseline_word_count": len(source_words),
++        "retained_groups": {
++            key: len(value) for key, value in sorted(classifications.items())
++        },
++        "retained_words": {
++            key: sorted(value) for key, value in sorted(classifications.items())
++        },
++        "pronunciation_mismatch_count": len(classifications["pronunciation-mismatch"]),
++        "alternate_rule_summary": dict(alternate),
++        "linker_summary": linker_summary,
++        "top_k_segmentation_summary": {
++            "k": top_k,
++            **dict(topk_counts),
++            "by_component_depth": dict(segmentation_by_depth),
++            "by_selected_rule": dict(selected_by_rule),
++        },
++        "failure_family_summary": {
++            "boundary_window": boundary_window,
++            "baseline_word_count": len(source_words),
++            "retained_groups": {
++                key: len(value) for key, value in sorted(classifications.items())
++            },
++            "pronunciation_mismatch_count": len(
++                classifications["pronunciation-mismatch"]
++            ),
++            "counts": dict(family_counts),
++            "boundary_local_recoverable_count": sum(
++                count
++                for family, count in family_counts.items()
++                if family != "non-local mismatch"
++            ),
++        },
++        "failure_details": mismatch_details,
++        "boundary_patterns": sorted(
++            family_patterns.values(),
++            key=lambda value: (
++                -int(value["support_count"]),
++                str(value["edit_template"]),
++            ),
++        ),
++    }
++    return result
++
++
++def linker_diagnostics(source: ParsedLexicon, asset: ImplicitLexicon) -> dict[str, Any]:
++    """Measure linker candidate opportunities offline against expected IPA."""
++    table = asset.composer.linkers
++    if table is None:
++        return {
++            "words_newly_segmentable_due_to_linkers": 0,
++            "words_newly_exact_due_to_linkers": 0,
++            "per_linker": {},
++        }
++    counts: dict[str, Counter[str]] = defaultdict(Counter)
++    newly_segmentable = 0
++    newly_exact = 0
++    for word in source.words:
++        if word in asset.literals:
++            continue
++        candidates = table.candidates(word, asset.literals)
++        if not candidates:
++            continue
++        newly_segmentable += 1
++        expected = source.lookup_all(word)
++        exact = False
++        for candidate in candidates:
++            temporary = dict(asset.literals)
++            temporary[candidate.linker.spelling] = candidate.linker.pronunciation
++            rules = _rule_candidates(asset, word, candidate.components, temporary)
++            if any(tuple(row["pronunciation"]) == expected for row in rules):
++                exact = True
++                counts[candidate.linker.spelling]["exact_count"] += 1
++                break
++            counts[candidate.linker.spelling]["mismatch_count"] += 1
++        if exact:
++            newly_exact += 1
++    return {
++        "words_newly_segmentable_due_to_linkers": newly_segmentable,
++        "words_newly_exact_due_to_linkers": newly_exact,
++        "per_linker": {key: dict(value) for key, value in sorted(counts.items())},
++        "linker_rule_bytes": len(json.dumps(table.as_dict(), sort_keys=True).encode()),
++    }
++
++
++def write_diagnostics(directory: Path, result: Mapping[str, Any]) -> None:
++    """Write the stable JSON and TSV diagnostic artifacts."""
++    directory.mkdir(parents=True, exist_ok=True)
++    (directory / "failure_family_summary.json").write_text(
++        json.dumps(result["failure_family_summary"], indent=2, ensure_ascii=False)
++        + "\n",
++        encoding="utf-8",
++    )
++    (directory / "alternate_rule_summary.json").write_text(
++        json.dumps(result["alternate_rule_summary"], indent=2, ensure_ascii=False)
++        + "\n",
++        encoding="utf-8",
++    )
++    (directory / "linker_summary.json").write_text(
++        json.dumps(result["linker_summary"], indent=2, ensure_ascii=False) + "\n",
++        encoding="utf-8",
++    )
++    (directory / "top_k_segmentation_summary.json").write_text(
++        json.dumps(result["top_k_segmentation_summary"], indent=2, ensure_ascii=False)
++        + "\n",
++        encoding="utf-8",
++    )
++    patterns = result["boundary_patterns"][:100]
++    fields = (
++        "support_count",
++        "exact_count_if_applied",
++        "conflict_count",
++        "word_count",
++        "component_count",
++        "spelling_left_context",
++        "spelling_right_context",
++        "phoneme_left_context",
++        "phoneme_right_context",
++        "edit_template",
++    )
++    with (directory / "top_100_boundary_patterns.tsv").open(
++        "w", encoding="utf-8", newline=""
++    ) as handle:
++        writer = csv.DictWriter(handle, fieldnames=fields, delimiter="\t")
++        writer.writeheader()
++        writer.writerows(
++            {field: pattern.get(field, "") for field in fields} for pattern in patterns
++        )
++    detail_fields = (
++        "word",
++        "selected_rule",
++        "selected_segmentation",
++        "candidate_pronunciation",
++        "expected_pronunciation",
++        "top_k_exact_rank",
++    )
++    with (directory / "failure_families.tsv").open(
++        "w", encoding="utf-8", newline=""
++    ) as handle:
++        writer = csv.DictWriter(handle, fieldnames=detail_fields, delimiter="\t")
++        writer.writeheader()
++        for detail in result["failure_details"]:
++            writer.writerow({field: detail.get(field, "") for field in detail_fields})
+diff --git a/experiments/de_lexicon_entry_reduction/lexreduce/linkers.py b/experiments/de_lexicon_entry_reduction/lexreduce/linkers.py
+new file mode 100644
+index 0000000..fe3ce61
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/lexreduce/linkers.py
+@@ -0,0 +1,95 @@
++"""Bounded shared German linker definitions and spelling search."""
++
++from __future__ import annotations
++
++from collections.abc import Mapping
++from dataclasses import dataclass
++from typing import Any
++
++
++@dataclass(frozen=True, slots=True)
++class Linker:
++    spelling: str
++    pronunciation: tuple[str, ...] = ("",)
++    version: str = "1"
++
++    def as_dict(self) -> dict[str, Any]:
++        return {
++            "spelling": self.spelling,
++            "pronunciation": list(self.pronunciation),
++            "version": self.version,
++        }
++
++
++@dataclass(frozen=True, slots=True)
++class LinkerCandidate:
++    left: str
++    linker: Linker
++    right: str
++
++    @property
++    def components(self) -> tuple[str, str, str]:
++        return self.left, self.linker.spelling, self.right
++
++
++@dataclass(frozen=True, slots=True)
++class LinkerTable:
++    """A small global table. It never stores a word-specific linker choice."""
++
++    linkers: tuple[Linker, ...]
++    max_candidates: int = 32
++
++    def candidates(
++        self, word: str, literals: Mapping[str, object]
++    ) -> tuple[LinkerCandidate, ...]:
++        found: list[LinkerCandidate] = []
++        for linker in self.linkers:
++            start = 1
++            while True:
++                position = word.find(linker.spelling, start)
++                if position < 0:
++                    break
++                left, right = word[:position], word[position + len(linker.spelling) :]
++                if left in literals and right in literals and left and right:
++                    found.append(LinkerCandidate(left, linker, right))
++                start = position + 1
++        found.sort(
++            key=lambda item: (
++                -len(item.left),
++                item.left,
++                item.linker.spelling,
++                item.right,
++            )
++        )
++        return tuple(found[: self.max_candidates])
++
++    def as_dict(self) -> dict[str, Any]:
++        return {
++            "version": "1",
++            "max_candidates": self.max_candidates,
++            "linkers": [linker.as_dict() for linker in self.linkers],
++        }
++
++    @classmethod
++    def from_dict(cls, value: Mapping[str, Any]) -> LinkerTable:
++        return cls(
++            tuple(
++                Linker(
++                    str(item["spelling"]),
++                    tuple(str(value) for value in item.get("pronunciation", [""])),
++                    str(item.get("version", "1")),
++                )
++                for item in value.get("linkers", ())
++            ),
++            int(value.get("max_candidates", 32)),
++        )
++
++
++def german_linker_table(*, max_candidates: int = 32) -> LinkerTable:
++    """Return the bounded initial German Fugenelement inventory."""
++    return LinkerTable(
++        tuple(
++            Linker(spelling) for spelling in ("s", "es", "n", "en", "e", "er", "ens")
++        ),
++        max_candidates=max_candidates,
++    )
+diff --git a/experiments/de_lexicon_entry_reduction/lexreduce/literals.py b/experiments/de_lexicon_entry_reduction/lexreduce/literals.py
+new file mode 100644
+index 0000000..d034bf6
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/lexreduce/literals.py
+@@ -0,0 +1,5 @@
++"""Resident literal pronunciation storage."""
++
++from ..model import LiteralLexicon
++
++__all__ = ["LiteralLexicon"]
+diff --git a/experiments/de_lexicon_entry_reduction/lexreduce/membership.py b/experiments/de_lexicon_entry_reduction/lexreduce/membership.py
+new file mode 100644
+index 0000000..42e01f8
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/lexreduce/membership.py
+@@ -0,0 +1,156 @@
++"""Minimal deterministic acyclic finite-state membership automaton."""
++
++from __future__ import annotations
++
++import json
++from dataclasses import dataclass
++from typing import Any
++
++
++@dataclass(slots=True)
++class _BuildNode:
++    terminal: bool = False
++    edges: dict[str, _BuildNode] | None = None
++
++    def __post_init__(self) -> None:
++        if self.edges is None:
++            self.edges = {}
++
++
++@dataclass(frozen=True, slots=True)
++class MembershipIndex:
++    """Compact immutable membership automaton using tuple arrays."""
++
++    terminal_states: tuple[bool, ...]
++    edges: tuple[tuple[tuple[str, int], ...], ...]
++    root: int = 0
++
++    @classmethod
++    def from_words(cls, words: list[str] | tuple[str, ...]) -> MembershipIndex:
++        root = _BuildNode()
++        for word in sorted(words):
++            node = root
++            for character in word:
++                node = node.edges.setdefault(character, _BuildNode())
++            node.terminal = True
++
++        interned: dict[tuple[bool, tuple[tuple[str, int], ...]], int] = {}
++        terminals: list[bool] = []
++        edges: list[tuple[tuple[str, int], ...]] = []
++
++        def intern(node: _BuildNode) -> int:
++            children = tuple(
++                (character, intern(child))
++                for character, child in sorted(node.edges.items())
++            )
++            signature = (node.terminal, children)
++            existing = interned.get(signature)
++            if existing is not None:
++                return existing
++            index = len(terminals)
++            interned[signature] = index
++            terminals.append(node.terminal)
++            edges.append(children)
++            return index
++
++        root_id = intern(root)
++        if root_id != 0:
++            order = _reachable_order(root_id, edges)
++            remap = {old: new for new, old in enumerate(order)}
++            terminals = [terminals[index] for index in order]
++            edges = [
++                tuple((character, remap[target]) for character, target in edges[index])
++                for index in order
++            ]
++            root_id = remap[root_id]
++        return cls(tuple(terminals), tuple(edges), root_id)
++
++    @property
++    def state_count(self) -> int:
++        return len(self.terminal_states)
++
++    @property
++    def edge_count(self) -> int:
++        return sum(len(values) for values in self.edges)
++
++    def contains(self, word: str) -> bool:
++        state = self.root
++        for character in word:
++            next_state = None
++            for edge_character, target in self.edges[state]:
++                if edge_character == character:
++                    next_state = target
++                    break
++            if next_state is None:
++                return False
++            state = next_state
++        return self.terminal_states[state]
++
++    def iter_words(self) -> tuple[str, ...]:
++        """Offline audit helper. Runtime lookup does not need enumeration."""
++
++        words: list[str] = []
++
++        def visit(state: int, prefix: str) -> None:
++            if self.terminal_states[state]:
++                words.append(prefix)
++            for character, target in self.edges[state]:
++                visit(target, prefix + character)
++
++        visit(self.root, "")
++        return tuple(words)
++
++    def as_dict(self) -> dict[str, Any]:
++        return {
++            "version": 1,
++            "root": self.root,
++            "terminal_states": list(self.terminal_states),
++            "edges": [
++                [[character, target] for character, target in state_edges]
++                for state_edges in self.edges
++            ],
++        }
++
++    @classmethod
++    def from_dict(cls, value: dict[str, Any]) -> MembershipIndex:
++        if int(value.get("version", 1)) != 1:
++            raise ValueError(
++                f"unsupported membership version: {value.get('version')!r}"
++            )
++        edges = tuple(
++            tuple((str(character), int(target)) for character, target in state_edges)
++            for state_edges in value["edges"]
++        )
++        terminals = tuple(bool(item) for item in value["terminal_states"])
++        if len(edges) != len(terminals):
++            raise ValueError("membership state arrays have different lengths")
++        return cls(terminals, edges, int(value.get("root", 0)))
++
++    def serialize(self) -> bytes:
++        return (
++            json.dumps(self.as_dict(), sort_keys=True, separators=(",", ":")) + "\n"
++        ).encode()
++
++    @classmethod
++    def deserialize(cls, data: bytes) -> MembershipIndex:
++        return cls.from_dict(json.loads(data.decode("utf-8")))
++
++    @property
++    def serialized_bytes(self) -> int:
++        return len(self.serialize())
++
++
++def _reachable_order(root: int, edges: list[tuple[tuple[str, int], ...]]) -> list[int]:
++    order: list[int] = []
++    seen: set[int] = set()
++
++    def visit(state: int) -> None:
++        if state in seen:
++            return
++        seen.add(state)
++        order.append(state)
++        for _, target in edges[state]:
++            visit(target)
++
++    visit(root)
++    return order
+diff --git a/experiments/de_lexicon_entry_reduction/lexreduce/optimizer.py b/experiments/de_lexicon_entry_reduction/lexreduce/optimizer.py
+new file mode 100644
+index 0000000..91811cc
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/lexreduce/optimizer.py
+@@ -0,0 +1,148 @@
++"""Offline utility-aware literal-basis promotion heuristic."""
++
++from __future__ import annotations
++
++from collections import Counter
++from dataclasses import dataclass
++
++from experiments.de_lexicon_compression.lexlab.model import ParsedLexicon
++
++from .affixes import AffixTable
++from .builder import BuildResult, build_implicit_lexicon
++from .composer import ImplicitComposer
++from .linkers import LinkerTable
++from .rules import RuleSet
++
++
++@dataclass(frozen=True, slots=True)
++class OptimizationPass:
++    pass_number: int
++    promoted_word: str
++    before_literal_count: int
++    after_literal_count: int
++    words_removed_due_to_promotion: int
++    net_literal_reduction: int
++
++
++@dataclass(slots=True)
++class OptimizationResult:
++    build: BuildResult
++    passes: list[OptimizationPass]
++    reached_target: bool
++
++
++def _promotion_candidates(
++    source: ParsedLexicon,
++    result: BuildResult,
++    *,
++    limit: int = 64,
++) -> tuple[str, ...]:
++    """Rank generated baseline substrings using an offline occurrence index."""
++    literal_words = set(result.asset.literals)
++    baseline_words = set(source.words)
++    scores: Counter[str] = Counter()
++    for failure in result.failures:
++        word = str(failure["word"])
++        if failure.get("reason") not in ("pronunciation-mismatch", "no-composition"):
++            continue
++        for start in range(len(word)):
++            for end in range(start + 1, len(word) + 1):
++                candidate = word[start:end]
++                if candidate in baseline_words and candidate not in literal_words:
++                    scores[candidate] += 1
++    return tuple(sorted(scores, key=lambda word: (-scores[word], word))[:limit])
++
++
++def optimize_basis(
++    source: ParsedLexicon,
++    *,
++    composer: ImplicitComposer | None = None,
++    rules: RuleSet | None = None,
++    linkers: LinkerTable | None = None,
++    affixes: AffixTable | None = None,
++    recursive_components: bool = False,
++    max_recursive_depth: int = 4,
++    max_components: int = 4,
++    max_states: int = 100_000,
++    segmentation_scorer: object | None = None,
++    max_passes: int = 4,
++    target_literals: int = 400_000,
++    candidate_limit: int = 64,
++) -> OptimizationResult:
++    """Promote atoms only when a complete exact rebuild lowers literals."""
++    promoted: set[str] = set()
++    current = build_implicit_lexicon(
++        source,
++        composer=composer,
++        rules=rules,
++        linkers=linkers,
++        affixes=affixes,
++        recursive_components=recursive_components,
++        max_recursive_depth=max_recursive_depth,
++        max_components=max_components,
++        max_states=max_states,
++        segmentation_scorer=segmentation_scorer,
++        forced_literals=promoted,
++    )
++    passes: list[OptimizationPass] = []
++    candidates_evaluated = 0
++    full_rebuilds = 1
++    for pass_number in range(1, max_passes + 1):
++        if current.metrics.literal_word_count <= target_literals:
++            break
++        before = current.metrics.literal_word_count
++        selected: tuple[str, BuildResult, int] | None = None
++        for candidate in _promotion_candidates(source, current, limit=candidate_limit):
++            candidates_evaluated += 1
++            if candidate in promoted:
++                continue
++            trial_promoted = promoted | {candidate}
++            trial = build_implicit_lexicon(
++                source,
++                composer=None,
++                rules=rules,
++                linkers=linkers,
++                affixes=affixes,
++                recursive_components=recursive_components,
++                max_recursive_depth=max_recursive_depth,
++                max_components=max_components,
++                max_states=max_states,
++                segmentation_scorer=segmentation_scorer,
++                forced_literals=trial_promoted,
++            )
++            full_rebuilds += 1
++            reduction = before - trial.metrics.literal_word_count
++            if reduction > (selected[2] if selected else 0):
++                selected = (candidate, trial, reduction)
++        if selected is None:
++            break
++        candidate, current, reduction = selected
++        promoted.add(candidate)
++        passes.append(
++            OptimizationPass(
++                pass_number,
++                candidate,
++                before,
++                current.metrics.literal_word_count,
++                max(0, before + 1 - current.metrics.literal_word_count),
++                reduction,
++            )
++        )
++    current.asset.metadata.update(
++        {
++            "optimizer": "utility",
++            "optimization_pass_count": len(passes),
++            "promoted_word_count": len(passes),
++            "words_removed_due_to_promotions": sum(
++                item.words_removed_due_to_promotion for item in passes
++            ),
++            "net_literal_reduction": sum(item.net_literal_reduction for item in passes),
++            "optimizer_candidates_evaluated": candidates_evaluated,
++            "optimizer_full_rebuilds": full_rebuilds,
++        }
++    )
++    return OptimizationResult(
++        current,
++        passes,
++        current.metrics.literal_word_count <= target_literals,
++    )
+diff --git a/experiments/de_lexicon_entry_reduction/lexreduce/prefix_index.py b/experiments/de_lexicon_entry_reduction/lexreduce/prefix_index.py
+new file mode 100644
+index 0000000..7ddf47b
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/lexreduce/prefix_index.py
+@@ -0,0 +1,100 @@
++"""Compact indexes over the retained literal spelling basis."""
++
++from __future__ import annotations
++
++from collections.abc import Iterable, Mapping
++from dataclasses import dataclass
++
++
++@dataclass(slots=True)
++class MutableLiteralPrefixIndex:
++    """Builder index storing only lengths grouped by first character."""
++
++    lengths_by_initial: dict[str, set[int]]
++
++    @classmethod
++    def empty(cls) -> MutableLiteralPrefixIndex:
++        return cls({})
++
++    def add(self, word: str) -> None:
++        if not word:
++            return
++        self.lengths_by_initial.setdefault(word[0], set()).add(len(word))
++
++    def freeze(self) -> LiteralPrefixIndex:
++        return LiteralPrefixIndex.from_lengths(self.lengths_by_initial)
++
++    def prefixes(
++        self,
++        word: str,
++        position: int,
++        literals: Mapping[str, object],
++    ) -> tuple[str, ...]:
++        if position >= len(word):
++            return ()
++        lengths = sorted(self.lengths_by_initial.get(word[position], ()))
++        return tuple(
++            word[position : position + length]
++            for length in lengths
++            if position + length <= len(word)
++            and word[position : position + length] in literals
++        )
++
++
++@dataclass(frozen=True, slots=True)
++class LiteralPrefixIndex:
++    """Immutable prefix-length index backed by tuples, not trie node objects."""
++
++    lengths_by_initial: tuple[tuple[str, tuple[int, ...]], ...]
++
++    @classmethod
++    def from_literals(cls, literals: Mapping[str, object]) -> LiteralPrefixIndex:
++        mutable = MutableLiteralPrefixIndex.empty()
++        for word in literals:
++            mutable.add(word)
++        return mutable.freeze()
++
++    @classmethod
++    def from_lengths(cls, lengths: Mapping[str, Iterable[int]]) -> LiteralPrefixIndex:
++        return cls(
++            tuple(
++                (initial, tuple(sorted(set(values))))
++                for initial, values in sorted(lengths.items())
++            )
++        )
++
++    def _lengths(self, initial: str) -> tuple[int, ...]:
++        for key, values in self.lengths_by_initial:
++            if key == initial:
++                return values
++        return ()
++
++    def prefixes(
++        self,
++        word: str,
++        position: int,
++        literals: Mapping[str, object],
++    ) -> tuple[str, ...]:
++        if position >= len(word):
++            return ()
++        return tuple(
++            word[position : position + length]
++            for length in self._lengths(word[position])
++            if position + length <= len(word)
++            and word[position : position + length] in literals
++        )
++
++    @property
++    def state_count(self) -> int:
++        return sum(len(values) for _, values in self.lengths_by_initial)
++
++    @property
++    def edge_count(self) -> int:
++        return sum(length for _, values in self.lengths_by_initial for length in values)
++
++    def as_dict(self) -> dict[str, list[int]]:
++        return {initial: list(values) for initial, values in self.lengths_by_initial}
++
++    @classmethod
++    def from_dict(cls, value: Mapping[str, Iterable[int]]) -> LiteralPrefixIndex:
++        return cls.from_lengths(value)
+diff --git a/experiments/de_lexicon_entry_reduction/lexreduce/reports.py b/experiments/de_lexicon_entry_reduction/lexreduce/reports.py
+new file mode 100644
+index 0000000..3291f66
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/lexreduce/reports.py
+@@ -0,0 +1,128 @@
++"""Metrics and human-readable reports for candidate runs."""
++
++from __future__ import annotations
++
++import json
++from collections import Counter
++from pathlib import Path
++from typing import Any
++
++from .builder import BuildResult
++from .serializer import runtime_asset_bytes
++
++
++def summary_dict(
++    result: BuildResult,
++    *,
++    verification: dict[str, Any] | None = None,
++    asset_directory: Path | None = None,
++) -> dict[str, Any]:
++    asset = result.asset
++    metrics = result.metrics
++    membership = asset.membership
++    index = asset.literal_index
++    rules = asset.composer.rules
++    failure_counts = Counter(
++        str(item.get("reason", "unknown")) for item in result.failures
++    )
++    linker_bytes = (
++        len(json.dumps(asset.composer.linkers.as_dict(), sort_keys=True).encode())
++        if asset.composer.linkers
++        else 0
++    )
++    affix_bytes = (
++        len(json.dumps(asset.composer.affixes.as_dict(), sort_keys=True).encode())
++        if asset.composer.affixes
++        else 0
++    )
++    summary: dict[str, Any] = {
++        "baseline_word_count": metrics.baseline_word_count,
++        "target_literal_word_count": int(
++            asset.metadata.get("target_literal_word_count", 400_000)
++        ),
++        "literal_word_count": metrics.literal_word_count,
++        "generated_word_count": metrics.generated_word_count,
++        "per_generated_word_recipe_count": metrics.per_generated_word_recipe_count,
++        "entry_reduction_count": metrics.entry_reduction_count,
++        "entry_reduction_rate": metrics.entry_reduction_rate,
++        "target_met": metrics.literal_word_count
++        <= int(asset.metadata.get("target_literal_word_count", 400_000)),
++        "lossless": bool(verification and verification.get("lossless", False)),
++        "verification": verification or {},
++        "source_sha256": asset.source.sha256,
++        "literal_reduction_rate": metrics.entry_reduction_rate,
++        "failure_decomposition": {
++            "no_composition_count": failure_counts["no-composition"],
++            "pronunciation_mismatch_count": failure_counts["pronunciation-mismatch"],
++            "search_limit_count": failure_counts["search-limit"],
++        },
++        "representation": {
++            "membership_states": membership.state_count,
++            "membership_edges": membership.edge_count,
++            "membership_bytes": membership.serialized_bytes,
++            "literal_index_states": index.state_count,
++            "literal_index_edges": index.edge_count,
++            "rule_count": len(rules.rules),
++            "rule_bytes": len(json.dumps(rules.as_dict(), sort_keys=True).encode()),
++            "selector_bytes": (
++                len(json.dumps(rules.selector.as_dict(), sort_keys=True).encode())
++                if rules.selector
++                else 0
++            ),
++            "linker_affix_bytes": linker_bytes + affix_bytes,
++            "linker_bytes": linker_bytes,
++            "affix_bytes": affix_bytes,
++            "runtime_asset_bytes": runtime_asset_bytes(asset_directory)
++            if asset_directory
++            else None,
++        },
++        "search_limit_words": result.search_limit_words,
++        "rule_usage": rules.as_dict()["rules"],
++    }
++    return summary
++
++
++def report_markdown(
++    summary: dict[str, Any], *, runtime: dict[str, Any] | None = None
++) -> str:
++    verification = summary.get("verification", {})
++    memory = runtime or {}
++    yes_no = lambda value: "yes" if value else "no"
++    baseline_rss = memory.get("baseline_rss_delta_bytes", "not measured")
++    candidate_rss = memory.get("candidate_rss_delta_bytes", "not measured")
++    additional_literal_removal = summary.get("additional_literal_removal_vs_v1", 0)
++    return f"""# German resident lexicon reduction result
++
++Baseline literal words: {summary["baseline_word_count"]:,}
++Candidate literal words: {summary["literal_word_count"]:,}
++Implicitly generated baseline words: {summary["generated_word_count"]:,}
++Literal-entry reduction: {summary["entry_reduction_rate"]:.2%}
++Target: <= {summary["target_literal_word_count"]:,}
++Target met: {yes_no(summary["target_met"])}
++Per-generated-word runtime recipes: {summary["per_generated_word_recipe_count"]}
++
++Source SHA-256: {summary.get("source_sha256", "unknown")}
++Additional generated words versus V1: {summary.get("additional_generated_vs_v1", 0):,}
++Additional literal removal versus V1: {additional_literal_removal:,}
++Configuration: {summary.get("configuration", {})}
++
++Lossless verification:
++- words checked: {verification.get("words_checked", 0):,}
++- missing: {verification.get("missing_words", 0):,}
++- extra membership hits: {verification.get("extra_words", 0):,}
++- pronunciation mismatches: {verification.get("pronunciation_mismatches", 0):,}
++- variant-order mismatches: {verification.get("variant_order_mismatches", 0):,}
++- lossless: {yes_no(summary["lossless"])}
++
++Memory:
++- baseline fresh-process RSS delta: {baseline_rss}
++- candidate fresh-process RSS delta: {candidate_rss}
++- RSS saved: {memory.get("rss_saved_bytes", "not measured")}
++"""
++
++
++def write_reports(directory: Path, summary: dict[str, Any]) -> None:
++    (directory / "summary.json").write_text(
++        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
++    )
++    (directory / "report.md").write_text(report_markdown(summary), encoding="utf-8")
+diff --git a/experiments/de_lexicon_entry_reduction/lexreduce/resolver.py b/experiments/de_lexicon_entry_reduction/lexreduce/resolver.py
+new file mode 100644
+index 0000000..53a99d6
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/lexreduce/resolver.py
+@@ -0,0 +1,119 @@
++"""Ephemeral literal-or-recursive constituent resolution for V2."""
++
++from __future__ import annotations
++
++from dataclasses import dataclass, field
++from typing import Any
++
++from .composer import SearchLimitError, segmentation_rank
++
++
++@dataclass(slots=True)
++class ResolveContext:
++    memo: dict[str, tuple[str, ...] | None] = field(default_factory=dict)
++    stack: set[str] = field(default_factory=set)
++    depth: int = 0
++    states: int = 0
++
++
++@dataclass(slots=True)
++class ComponentResolver:
++    """Resolve literals or known words by strict proper-substring recursion."""
++
++    membership: Any
++    composer: Any
++    literals: Any
++    prefix_index: Any
++    max_depth: int = 4
++    max_states: int = 100_000
++    _lengths: dict[str, tuple[int, ...]] = field(init=False, repr=False)
++
++    def __post_init__(self) -> None:
++        lengths: dict[str, set[int]] = {}
++        for word in self.membership.iter_words():
++            if word:
++                lengths.setdefault(word[0], set()).add(len(word))
++        self._lengths = {key: tuple(sorted(value)) for key, value in lengths.items()}
++
++    def resolve(
++        self, word: str, context: ResolveContext | None = None
++    ) -> tuple[str, ...] | None:
++        context = context or ResolveContext()
++        literal = self.literals.get(word)
++        if literal is not None:
++            return literal
++        if not word or not self.membership.contains(word):
++            return None
++        if word in context.memo:
++            return context.memo[word]
++        if word in context.stack or context.depth >= self.max_depth:
++            return None
++        context.states += 1
++        if context.states > self.max_states:
++            raise SearchLimitError(
++                f"recursive search limit {self.max_states} reached for {word!r}"
++            )
++        context.stack.add(word)
++        context.depth += 1
++        try:
++            result = self.composer.derive_result(
++                word,
++                literals=self.literals,
++                prefix_index=self.prefix_index,
++                resolver=self,
++                context=context,
++            )
++        finally:
++            context.depth -= 1
++            context.stack.remove(word)
++        pronunciation = result.pronunciation if result is not None else None
++        context.memo[word] = pronunciation
++        return pronunciation
++
++    def segmentations(
++        self,
++        word: str,
++        context: ResolveContext,
++        *,
++        max_components: int,
++        max_states: int,
++        limit: int = 16,
++    ) -> tuple[tuple[str, ...], ...]:
++        """Find spelling-only segmentations whose constituents resolve recursively."""
++        cache: dict[tuple[int, int], tuple[tuple[str, ...], ...]] = {}
++
++        def visit(position: int, count: int) -> tuple[tuple[str, ...], ...]:
++            key = (position, count)
++            if key in cache:
++                return cache[key]
++            context.states += 1
++            if context.states > min(self.max_states, max_states):
++                raise SearchLimitError(
++                    f"recursive search limit {max_states} reached for {word!r}"
++                )
++            if position == len(word):
++                result = ((),) if count >= 2 else ()
++                cache[key] = result
++                return result
++            if count >= max_components:
++                cache[key] = ()
++                return ()
++            candidates: list[tuple[str, ...]] = []
++            for length in self._lengths.get(word[position], ()):
++                end = position + length
++                if end > len(word) or (end == len(word) and count == 0):
++                    continue
++                atom = word[position:end]
++                if not self.membership.contains(atom):
++                    continue
++                if self.resolve(atom, context) is None:
++                    continue
++                for suffix in visit(end, count + 1):
++                    candidates.append((atom, *suffix))
++            result = tuple(
++                sorted(set(candidates), key=segmentation_rank, reverse=True)[:limit]
++            )
++            cache[key] = result
++            return result
++
++        return visit(0, 0)
+diff --git a/experiments/de_lexicon_entry_reduction/lexreduce/rules.py b/experiments/de_lexicon_entry_reduction/lexreduce/rules.py
+new file mode 100644
+index 0000000..ab6b5d2
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/lexreduce/rules.py
+@@ -0,0 +1,260 @@
++"""Global oracle-free pronunciation composition rules."""
++
++from __future__ import annotations
++
++from collections.abc import Mapping, Sequence
++from dataclasses import dataclass, field
++from itertools import product
++from typing import Any, Protocol
++
++from .selector import Candidate, RuleSelector
++
++
++@dataclass(slots=True)
++class RuleStats:
++    usage_count: int = 0
++    exact_success_count: int = 0
++    mismatch_count: int = 0
++
++
++class CompositionRule(Protocol):
++    rule_id: str
++    version: str
++    stats: RuleStats
++
++    def applies(
++        self,
++        word: str,
++        components: tuple[str, ...],
++        variants: tuple[tuple[str, ...], ...],
++    ) -> bool: ...
++
++    def compose(
++        self,
++        word: str,
++        components: tuple[str, ...],
++        variants: tuple[tuple[str, ...], ...],
++    ) -> tuple[str, ...]: ...
++
++    def as_dict(self) -> dict[str, Any]: ...
++
++
++@dataclass(slots=True)
++class ConcatenationRule:
++    rule_id: str = "C0"
++    version: str = "1"
++    stats: RuleStats = field(default_factory=RuleStats)
++
++    def applies(
++        self,
++        word: str,
++        components: tuple[str, ...],
++        variants: tuple[tuple[str, ...], ...],
++    ) -> bool:
++        return True
++
++    def compose(
++        self,
++        word: str,
++        components: tuple[str, ...],
++        variants: tuple[tuple[str, ...], ...],
++    ) -> tuple[str, ...]:
++        return tuple("".join(parts) for parts in product(*variants))
++
++    def as_dict(self) -> dict[str, Any]:
++        return _rule_dict(self)
++
++
++@dataclass(slots=True)
++class CompoundStressDemotionRule:
++    rule_id: str = "C1"
++    version: str = "1"
++    stats: RuleStats = field(default_factory=RuleStats)
++
++    def applies(
++        self,
++        word: str,
++        components: tuple[str, ...],
++        variants: tuple[tuple[str, ...], ...],
++    ) -> bool:
++        return len(components) > 1 and any(
++            "ˈ" in value for values in variants[1:] for value in values
++        )
++
++    def compose(
++        self,
++        word: str,
++        components: tuple[str, ...],
++        variants: tuple[tuple[str, ...], ...],
++    ) -> tuple[str, ...]:
++        transformed = tuple(
++            values
++            if index == 0
++            else tuple(value.replace("ˈ", "ˌ", 1) for value in values)
++            for index, values in enumerate(variants)
++        )
++        return tuple("".join(parts) for parts in product(*transformed))
++
++    def as_dict(self) -> dict[str, Any]:
++        return _rule_dict(self)
++
++
++def _rule_dict(rule: CompositionRule) -> dict[str, Any]:
++    return {
++        "rule_id": rule.rule_id,
++        "version": rule.version,
++        "usage_count": rule.stats.usage_count,
++        "exact_success_count": rule.stats.exact_success_count,
++        "mismatch_count": rule.stats.mismatch_count,
++    }
++
++
++def rule_from_dict(value: Mapping[str, Any]) -> CompositionRule:
++    rule_id = str(value["rule_id"])
++    if rule_id == "C0":
++        rule: CompositionRule = ConcatenationRule()
++    elif rule_id == "C1":
++        rule = CompoundStressDemotionRule()
++    elif rule_id == "C2":
++        from .boundary_rules import FinalComponentStressDemotionRule
++
++        rule = FinalComponentStressDemotionRule()
++    elif rule_id == "C3":
++        from .boundary_rules import BoundaryStressClassRule
++
++        rule = BoundaryStressClassRule()
++    else:
++        raise ValueError(f"unknown composition rule: {rule_id}")
++    rule.version = str(value.get("version", "1"))
++    rule.stats = RuleStats(
++        int(value.get("usage_count", 0)),
++        int(value.get("exact_success_count", 0)),
++        int(value.get("mismatch_count", 0)),
++    )
++    return rule
++
++
++@dataclass(slots=True)
++class RuleSet:
++    """Ordered global rules shared by the builder and runtime decoder."""
++
++    rules: tuple[CompositionRule, ...] = field(
++        default_factory=lambda: (ConcatenationRule(),)
++    )
++    composer_version: str = "1"
++
++    selector: RuleSelector | None = None
++
++    def propose(
++        self,
++        word: str,
++        components: tuple[str, ...],
++        literals: Mapping[str, tuple[str, ...]],
++    ) -> tuple[Candidate, ...]:
++        variants = tuple(literals[component] for component in components)
++        return tuple(
++            Candidate(rule.rule_id, rule.compose(word, components, variants))
++            for rule in self.rules
++            if rule.applies(word, components, variants)
++        )
++
++    def derive(
++        self,
++        word: str,
++        components: tuple[str, ...],
++        literals: Mapping[str, tuple[str, ...]],
++    ) -> tuple[str, ...] | None:
++        candidates = self.propose(word, components, literals)
++        if not candidates:
++            return None
++        selected = (
++            self.selector.choose(
++                word,
++                components,
++                tuple(literals[component] for component in components),
++                candidates,
++            )
++            if self.selector is not None
++            else candidates[0]
++        )
++        if selected is None:
++            return None
++        for rule in self.rules:
++            if rule.rule_id == selected.rule_id:
++                rule.stats.usage_count += 1
++                break
++        return selected.pronunciation
++
++    def record_result(self, rule_id: str | None, exact: bool) -> None:
++        if rule_id is None:
++            return
++        for rule in self.rules:
++            if rule.rule_id == rule_id:
++                if exact:
++                    rule.stats.exact_success_count += 1
++                else:
++                    rule.stats.mismatch_count += 1
++                return
++
++    def derive_with_rule(
++        self,
++        word: str,
++        components: tuple[str, ...],
++        literals: Mapping[str, tuple[str, ...]],
++    ) -> tuple[str | None, tuple[str, ...] | None]:
++        candidates = self.propose(word, components, literals)
++        if not candidates:
++            return None, None
++        selected = (
++            self.selector.choose(
++                word,
++                components,
++                tuple(literals[component] for component in components),
++                candidates,
++            )
++            if self.selector is not None
++            else candidates[0]
++        )
++        if selected is None:
++            return None, None
++        for rule in self.rules:
++            if rule.rule_id == selected.rule_id:
++                rule.stats.usage_count += 1
++                break
++        return selected.rule_id, selected.pronunciation
++
++    def as_dict(self) -> dict[str, Any]:
++        return {
++            "composer_version": self.composer_version,
++            "rules": [rule.as_dict() for rule in self.rules],
++            "selector": self.selector.as_dict() if self.selector else None,
++        }
++
++    @classmethod
++    def from_dict(cls, value: Mapping[str, Any]) -> RuleSet:
++        return cls(
++            tuple(rule_from_dict(item) for item in value.get("rules", [])),
++            str(value.get("composer_version", "1")),
++            RuleSelector.from_dict(value["selector"])
++            if value.get("selector")
++            else None,
++        )
++
++
++def default_rules(
++    enable_compound_stress: bool = False,
++    *,
++    selector: RuleSelector | None = None,
++    boundary_rules: bool = False,
++) -> RuleSet:
++    rules: Sequence[CompositionRule]
++    if enable_compound_stress:
++        rules = (CompoundStressDemotionRule(),)
++        if boundary_rules:
++            from .boundary_rules import diagnostic_boundary_rules
++
++            rules = (*rules, *diagnostic_boundary_rules())
++        rules = (*rules, ConcatenationRule())
++    else:
++        rules = (ConcatenationRule(),)
++    return RuleSet(tuple(rules), selector=selector)
+diff --git a/experiments/de_lexicon_entry_reduction/lexreduce/segmentation.py b/experiments/de_lexicon_entry_reduction/lexreduce/segmentation.py
+new file mode 100644
+index 0000000..983ff78
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/lexreduce/segmentation.py
+@@ -0,0 +1,64 @@
++"""Compact spelling/constituent segmentation scorer."""
++
++from __future__ import annotations
++
++from collections.abc import Mapping
++from dataclasses import dataclass
++from typing import Any
++
++
++@dataclass(frozen=True, slots=True)
++class SegmentationScorer:
++    """Fixed integer weights over bounded constituent features."""
++
++    weights: tuple[int, ...] = (-100, -12, -4, 2, 1)
++    version: str = "1"
++    feature_names: tuple[str, ...] = (
++        "component_count",
++        "one_character_components",
++        "short_components",
++        "length_variance",
++        "boundary_count",
++    )
++
++    def score(self, components: tuple[str, ...]) -> int:
++        lengths = tuple(len(component) for component in components)
++        one_character = sum(length == 1 for length in lengths)
++        short = sum(length <= 2 for length in lengths)
++        variance = max(lengths) - min(lengths) if lengths else 0
++        values = (
++            len(components),
++            one_character,
++            short,
++            variance,
++            max(0, len(components) - 1),
++        )
++        return sum(
++            weight * value for weight, value in zip(self.weights, values, strict=True)
++        )
++
++    def key(
++        self, components: tuple[str, ...]
++    ) -> tuple[int, tuple[int, tuple[int, ...], tuple[str, ...]]]:
++        from .composer import segmentation_rank
++
++        return self.score(components), segmentation_rank(components)
++
++    def as_dict(self) -> dict[str, Any]:
++        return {
++            "version": self.version,
++            "feature_names": list(self.feature_names),
++            "integer_weights": list(self.weights),
++            "serialized_bytes": len(str(self.weights).encode()),
++        }
++
++    @classmethod
++    def from_dict(cls, value: Mapping[str, Any]) -> SegmentationScorer:
++        return cls(
++            tuple(
++                int(weight)
++                for weight in value.get("integer_weights", (-100, -12, -4, 2, 1))
++            ),
++            str(value.get("version", "1")),
++            tuple(str(name) for name in value.get("feature_names", ())),
++        )
+diff --git a/experiments/de_lexicon_entry_reduction/lexreduce/selector.py b/experiments/de_lexicon_entry_reduction/lexreduce/selector.py
+new file mode 100644
+index 0000000..36d43fb
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/lexreduce/selector.py
+@@ -0,0 +1,246 @@
++"""Compact oracle-free selectors for competing composition candidates."""
++
++from __future__ import annotations
++
++from collections import Counter, defaultdict
++from collections.abc import Iterable, Mapping, Sequence
++from dataclasses import dataclass
++from typing import Any
++
++
++@dataclass(frozen=True, slots=True)
++class Candidate:
++    """A produced pronunciation candidate, with no expected-IPA field."""
++
++    rule_id: str
++    pronunciation: tuple[str, ...]
++
++
++@dataclass(frozen=True, slots=True)
++class CompositionFeatures:
++    component_count: int
++    component_lengths: tuple[int, ...]
++    spelling_left: str
++    spelling_right: str
++    capitalization: str
++    stress_counts: tuple[int, ...]
++    stress_positions: tuple[tuple[int, ...], ...]
++    phoneme_left: str
++    phoneme_right: str
++
++    def as_dict(self) -> dict[str, Any]:
++        return {
++            "component_count": self.component_count,
++            "component_lengths": list(self.component_lengths),
++            "spelling_left": self.spelling_left,
++            "spelling_right": self.spelling_right,
++            "capitalization": self.capitalization,
++            "stress_counts": list(self.stress_counts),
++            "stress_positions": [list(value) for value in self.stress_positions],
++            "phoneme_left": self.phoneme_left,
++            "phoneme_right": self.phoneme_right,
++        }
++
++
++def _grapheme_class(value: str) -> str:
++    if not value:
++        return "empty"
++    if value[0].isupper():
++        return "upper"
++    if value[0].islower():
++        return "lower"
++    if value[0].isdigit():
++        return "digit"
++    return "other"
++
++
++def _phoneme_class(value: str) -> str:
++    if not value:
++        return "empty"
++    symbol = value[-1]
++    if symbol in "aeiouyäöüɑɛɪɔʊə":
++        return "vowel"
++    if symbol in "ˈˌ":
++        return "stress"
++    return "other"
++
++
++def extract_features(
++    word: str,
++    components: tuple[str, ...],
++    variants: tuple[tuple[str, ...], ...],
++) -> CompositionFeatures:
++    """Extract bounded spelling and constituent features, never word identity."""
++    stress_positions = tuple(
++        tuple(index for index, symbol in enumerate(value) if symbol in "ˈˌ")
++        for values in variants
++        for value in (values[0] if values else "",)
++    )
++    stress_counts = tuple(
++        sum(value.count("ˈ") + value.count("ˌ") for value in values)
++        for values in variants
++    )
++    first = components[0] if components else ""
++    last = components[-1] if components else ""
++    first_value = variants[0][0] if variants and variants[0] else ""
++    last_value = variants[-1][0] if variants and variants[-1] else ""
++    if word and word.isupper():
++        capitalization = "upper"
++    elif word and word[:1].isupper():
++        capitalization = "initial-upper"
++    elif word and word.islower():
++        capitalization = "lower"
++    else:
++        capitalization = "mixed"
++    return CompositionFeatures(
++        len(components),
++        tuple(len(value) for value in components),
++        _grapheme_class(first[-1:] if first else ""),
++        _grapheme_class(last[:1] if last else ""),
++        capitalization,
++        stress_counts,
++        stress_positions,
++        _phoneme_class(first_value),
++        _phoneme_class(last_value),
++    )
++
++
++@dataclass(frozen=True, slots=True)
++class SelectorPredicate:
++    feature: str
++    value: str
++    rule_id: str
++    support: int = 0
++
++    def matches(self, features: CompositionFeatures) -> bool:
++        actual = getattr(features, self.feature)
++        return _stable_value(actual) == self.value
++
++    def as_dict(self) -> dict[str, Any]:
++        return {
++            "feature": self.feature,
++            "value": self.value,
++            "rule_id": self.rule_id,
++            "support": self.support,
++        }
++
++
++@dataclass(frozen=True, slots=True)
++class RuleSelector:
++    """A bounded ordered predicate list shared by every generated word."""
++
++    predicates: tuple[SelectorPredicate, ...] = ()
++    default_rule: str = "C0"
++    version: str = "2"
++    max_depth: int = 6
++    max_leaves: int = 64
++    min_support: int = 100
++    max_serialized_bytes: int = 32 * 1024
++
++    def select(
++        self,
++        features: CompositionFeatures,
++        candidates: Sequence[Candidate],
++    ) -> Candidate | None:
++        by_rule = {candidate.rule_id: candidate for candidate in candidates}
++        for predicate in self.predicates:
++            if predicate.matches(features) and predicate.rule_id in by_rule:
++                return by_rule[predicate.rule_id]
++        return by_rule.get(self.default_rule) or (candidates[0] if candidates else None)
++
++    def choose(
++        self,
++        word: str,
++        components: tuple[str, ...],
++        variants: tuple[tuple[str, ...], ...],
++        candidates: Sequence[Candidate],
++    ) -> Candidate | None:
++        return self.select(extract_features(word, components, variants), candidates)
++
++    def as_dict(self) -> dict[str, Any]:
++        return {
++            "version": self.version,
++            "default_rule": self.default_rule,
++            "max_depth": self.max_depth,
++            "max_leaves": self.max_leaves,
++            "min_support": self.min_support,
++            "max_serialized_bytes": self.max_serialized_bytes,
++            "predicates": [predicate.as_dict() for predicate in self.predicates],
++        }
++
++    @classmethod
++    def from_dict(cls, value: Mapping[str, Any]) -> RuleSelector:
++        predicates = tuple(
++            SelectorPredicate(
++                str(item["feature"]),
++                str(item["value"]),
++                str(item["rule_id"]),
++                int(item.get("support", 0)),
++            )
++            for item in value.get("predicates", ())
++        )
++        selector = cls(
++            predicates,
++            str(value.get("default_rule", "C0")),
++            str(value.get("version", "2")),
++            int(value.get("max_depth", 6)),
++            int(value.get("max_leaves", 64)),
++            int(value.get("min_support", 100)),
++            int(value.get("max_serialized_bytes", 32 * 1024)),
++        )
++        if len(selector.predicates) > selector.max_leaves:
++            raise ValueError("selector exceeds maximum leaves")
++        return selector
++
++    @property
++    def serialized_bytes(self) -> int:
++        import json
++
++        return len(
++            json.dumps(self.as_dict(), sort_keys=True, separators=(",", ":")).encode()
++        )
++
++
++def _stable_value(value: object) -> str:
++    if isinstance(value, tuple):
++        return "(" + ",".join(_stable_value(item) for item in value) + ")"
++    return str(value)
++
++
++def train_selector(
++    rows: Iterable[Mapping[str, Any]],
++    *,
++    default_rule: str = "C0",
++    min_support: int = 100,
++    max_leaves: int = 64,
++) -> RuleSelector:
++    """Fit bounded feature predicates from offline labels.
++
++    Rows must provide ``features`` and an offline ``target_rule``. The target is
++    intentionally not part of the returned runtime representation.
++    """
++    values: dict[tuple[str, str], Counter[str]] = defaultdict(Counter)
++    for row in rows:
++        target = str(row["target_rule"])
++        features = row["features"]
++        if isinstance(features, CompositionFeatures):
++            feature_dict = features.as_dict()
++        else:
++            feature_dict = dict(features)
++        for feature, value in sorted(feature_dict.items()):
++            values[(feature, _stable_value(value))][target] += 1
++    predicates: list[SelectorPredicate] = []
++    for (feature, value), counts in sorted(values.items()):
++        target, support = max(counts.items(), key=lambda item: (item[1], item[0]))
++        total = sum(counts.values())
++        if support >= min_support and support == total:
++            predicates.append(SelectorPredicate(feature, value, target, support))
++    predicates.sort(
++        key=lambda item: (-item.support, item.feature, item.value, item.rule_id)
++    )
++    return RuleSelector(
++        tuple(predicates[:max_leaves]),
++        default_rule,
++        min_support=min_support,
++        max_leaves=max_leaves,
++    )
+diff --git a/experiments/de_lexicon_entry_reduction/lexreduce/serializer.py b/experiments/de_lexicon_entry_reduction/lexreduce/serializer.py
+new file mode 100644
+index 0000000..b97abd2
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/lexreduce/serializer.py
+@@ -0,0 +1,180 @@
++"""Auditable, source-independent runtime asset format."""
++
++from __future__ import annotations
++
++import json
++from dataclasses import asdict
++from pathlib import Path
++from typing import Any
++
++from experiments.de_lexicon_compression.lexlab.model import SourceInfo
++
++from ..model import ImplicitLexicon, LiteralLexicon
++from .affixes import AffixTable
++from .composer import ImplicitComposer
++from .linkers import LinkerTable
++from .membership import MembershipIndex
++from .prefix_index import LiteralPrefixIndex
++from .rules import RuleSet
++from .segmentation import SegmentationScorer
++
++ASSET_SCHEMA = 1
++
++
++def _source_dict(source: SourceInfo) -> dict[str, Any]:
++    value = asdict(source)
++    value["path"] = Path(source.path).name if source.path else None
++    return value
++
++
++def manifest_dict(asset: ImplicitLexicon) -> dict[str, Any]:
++    metrics = asset.metrics()
++    return {
++        "schema": ASSET_SCHEMA,
++        "kind": "implicit-entry-reduction",
++        "source": _source_dict(asset.source),
++        "source_id": asset.source.source_id,
++        "source_sha256": asset.source.sha256,
++        "baseline_word_count": metrics.baseline_word_count,
++        "literal_word_count": metrics.literal_word_count,
++        "generated_word_count": metrics.generated_word_count,
++        "per_generated_word_recipe_count": asset.per_generated_word_recipe_count,
++        "target_literal_word_count": int(
++            asset.metadata.get("target_literal_word_count", 400_000)
++        ),
++        "target_met": metrics.literal_word_count
++        <= int(asset.metadata.get("target_literal_word_count", 400_000)),
++        "composer_version": asset.metadata.get("composer_version", "1"),
++        "membership_version": asset.metadata.get("membership_version", 1),
++        "rule_version": asset.metadata.get("rule_version", "1"),
++    }
++
++
++def asset_dict(asset: ImplicitLexicon) -> dict[str, Any]:
++    """Return the single logical representation, with no derived table."""
++
++    return {
++        "manifest": manifest_dict(asset),
++        "metadata": dict(asset.metadata),
++        "literals": {word: list(asset.literals[word]) for word in asset.literals},
++        "literal_index": asset.literal_index.as_dict(),
++        "membership": asset.membership.as_dict(),
++        "rules": asset.composer.rules.as_dict(),
++        "composer": {
++            "max_components": asset.composer.max_components,
++            "max_states": asset.composer.max_states,
++            "two_part_fast_path": asset.composer.two_part_fast_path,
++            "linkers": asset.composer.linkers.as_dict()
++            if asset.composer.linkers
++            else None,
++            "recursive_components": asset.composer.recursive_components,
++            "max_recursive_depth": asset.composer.max_recursive_depth,
++            "segmentation_scorer": asset.composer.segmentation_scorer.as_dict()
++            if asset.composer.segmentation_scorer
++            else None,
++            "affixes": asset.composer.affixes.as_dict()
++            if asset.composer.affixes
++            else None,
++        },
++    }
++
++
++def serialize(asset: ImplicitLexicon) -> bytes:
++    return (
++        json.dumps(
++            asset_dict(asset), ensure_ascii=False, sort_keys=True, separators=(",", ":")
++        )
++        + "\n"
++    ).encode()
++
++
++def save_asset(directory: Path, asset: ImplicitLexicon) -> dict[str, Any]:
++    """Write separate auditable files and return the manifest."""
++
++    directory.mkdir(parents=True, exist_ok=True)
++    manifest = manifest_dict(asset)
++    _write_json(directory / "manifest.json", manifest)
++    _write_json(
++        directory / "literals.json",
++        {word: list(asset.literals[word]) for word in asset.literals},
++    )
++    _write_json(directory / "literal-index.json", asset.literal_index.as_dict())
++    (directory / "membership.dafsa").write_bytes(asset.membership.serialize())
++    _write_json(directory / "rules.json", asset.composer.rules.as_dict())
++    _write_json(
++        directory / "composer.json",
++        {
++            "max_components": asset.composer.max_components,
++            "max_states": asset.composer.max_states,
++            "two_part_fast_path": asset.composer.two_part_fast_path,
++            "linkers": asset.composer.linkers.as_dict()
++            if asset.composer.linkers
++            else None,
++            "recursive_components": asset.composer.recursive_components,
++            "max_recursive_depth": asset.composer.max_recursive_depth,
++            "segmentation_scorer": asset.composer.segmentation_scorer.as_dict()
++            if asset.composer.segmentation_scorer
++            else None,
++            "affixes": asset.composer.affixes.as_dict()
++            if asset.composer.affixes
++            else None,
++            "metadata": asset.metadata,
++        },
++    )
++    return manifest
++
++
++def _write_json(path: Path, value: Any) -> None:
++    path.write_text(
++        json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
++        + "\n",
++        encoding="utf-8",
++    )
++
++
++def load_asset(directory: Path) -> ImplicitLexicon:
++    """Load only runtime files. The canonical source is never opened."""
++
++    manifest = _read_json(directory / "manifest.json")
++    if (
++        manifest.get("schema") != ASSET_SCHEMA
++        or manifest.get("kind") != "implicit-entry-reduction"
++    ):
++        raise ValueError("unsupported implicit-entry-reduction asset")
++    source = SourceInfo(**manifest["source"])
++    literals = LiteralLexicon(_read_json(directory / "literals.json"))
++    index = LiteralPrefixIndex.from_dict(_read_json(directory / "literal-index.json"))
++    membership = MembershipIndex.deserialize(
++        (directory / "membership.dafsa").read_bytes()
++    )
++    rules = RuleSet.from_dict(_read_json(directory / "rules.json"))
++    composer_config = _read_json(directory / "composer.json")
++    composer = ImplicitComposer(
++        int(composer_config.get("max_components", 4)),
++        int(composer_config.get("max_states", 100_000)),
++        rules,
++        bool(composer_config.get("two_part_fast_path", True)),
++        LinkerTable.from_dict(composer_config["linkers"])
++        if composer_config.get("linkers")
++        else None,
++        bool(composer_config.get("recursive_components", False)),
++        int(composer_config.get("max_recursive_depth", 4)),
++        SegmentationScorer.from_dict(composer_config["segmentation_scorer"])
++        if composer_config.get("segmentation_scorer")
++        else None,
++        AffixTable.from_dict(composer_config["affixes"])
++        if composer_config.get("affixes")
++        else None,
++    )
++    metadata = dict(composer_config.get("metadata", {}))
++    metadata.setdefault("baseline_word_count", int(manifest["baseline_word_count"]))
++    metadata.setdefault("per_generated_word_recipe_count", 0)
++    return ImplicitLexicon(source, literals, index, membership, composer, metadata)
++
++
++def _read_json(path: Path) -> Any:
++    return json.loads(path.read_text(encoding="utf-8"))
++
++
++def runtime_asset_bytes(directory: Path) -> int:
++    return sum(path.stat().st_size for path in directory.iterdir() if path.is_file())
+diff --git a/experiments/de_lexicon_entry_reduction/model.py b/experiments/de_lexicon_entry_reduction/model.py
+new file mode 100644
+index 0000000..c646d5a
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/model.py
+@@ -0,0 +1,126 @@
++"""Shared data model for the entry-reduction experiment."""
++
++from __future__ import annotations
++
++from collections.abc import Iterable, Iterator, Mapping
++from dataclasses import dataclass, field
++from typing import Any
++
++from experiments.de_lexicon_compression.lexlab.model import SourceInfo
++
++PronunciationTuple = tuple[str, ...]
++
++
++class LiteralLexicon(Mapping[str, PronunciationTuple]):
++    """Read-only resident pronunciation table for literal words."""
++
++    def __init__(self, values: Mapping[str, Iterable[str]] = ()) -> None:
++        self._values = {
++            word: tuple(pronunciations)
++            for word, pronunciations in sorted(dict(values).items())
++        }
++
++    def __getitem__(self, word: str) -> PronunciationTuple:
++        return self._values[word]
++
++    def __iter__(self) -> Iterator[str]:
++        return iter(self._values)
++
++    def __len__(self) -> int:
++        return len(self._values)
++
++    def get(self, word: str, default: Any = None) -> PronunciationTuple | Any:
++        return self._values.get(word, default)
++
++    @property
++    def words(self) -> tuple[str, ...]:
++        return tuple(self._values)
++
++
++@dataclass(frozen=True, slots=True)
++class CandidateMetrics:
++    baseline_word_count: int
++    literal_word_count: int
++    generated_word_count: int
++    per_generated_word_recipe_count: int = 0
++
++    @property
++    def entry_reduction_count(self) -> int:
++        return self.generated_word_count
++
++    @property
++    def entry_reduction_rate(self) -> float:
++        return (
++            self.generated_word_count / self.baseline_word_count
++            if self.baseline_word_count
++            else 0.0
++        )
++
++
++@dataclass(slots=True)
++class ImplicitLexicon:
++    """Reloadable runtime candidate with no generated-word table."""
++
++    source: SourceInfo
++    literals: LiteralLexicon
++    literal_index: Any
++    membership: Any
++    composer: Any
++    metadata: dict[str, object] = field(default_factory=dict)
++
++    def lookup_all(self, word: str) -> PronunciationTuple:
++        literal = self.literals.get(word)
++        if literal is not None:
++            return literal
++        if not self.membership.contains(word):
++            return ()
++        resolver = None
++        context = None
++        if self.composer.recursive_components:
++            from .lexreduce.resolver import ComponentResolver, ResolveContext
++
++            context = ResolveContext()
++            resolver = ComponentResolver(
++                self.membership,
++                self.composer,
++                self.literals,
++                self.literal_index,
++                max_depth=self.composer.max_recursive_depth,
++                max_states=self.composer.max_states,
++            )
++        generated = self.composer.derive(
++            word,
++            literals=self.literals,
++            prefix_index=self.literal_index,
++            resolver=resolver,
++            context=context,
++        )
++        if generated is None:
++            raise RuntimeError(
++                f"known non-literal word could not be regenerated: {word!r}"
++            )
++        return generated
++
++    def lookup(self, word: str) -> str | None:
++        values = self.lookup_all(word)
++        return values[0] if values else None
++
++    def is_known(self, word: str) -> bool:
++        return self.membership.contains(word)
++
++    @property
++    def per_generated_word_recipe_count(self) -> int:
++        return int(self.metadata.get("per_generated_word_recipe_count", 0))
++
++    @property
++    def literal_word_count(self) -> int:
++        return len(self.literals)
++
++    def metrics(self) -> CandidateMetrics:
++        baseline_count = int(self.metadata["baseline_word_count"])
++        return CandidateMetrics(
++            baseline_count,
++            len(self.literals),
++            baseline_count - len(self.literals),
++            self.per_generated_word_recipe_count,
++        )
+diff --git a/experiments/de_lexicon_entry_reduction/run.py b/experiments/de_lexicon_entry_reduction/run.py
+new file mode 100644
+index 0000000..2a6b8bf
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/run.py
+@@ -0,0 +1,279 @@
++#!/usr/bin/env python3
++"""Build and verify one implicit entry-reduction candidate."""
++
++from __future__ import annotations
++
++import argparse
++import csv
++import json
++from pathlib import Path
++
++try:
++    from .lexreduce.affixes import german_affix_table
++    from .lexreduce.builder import build_implicit_lexicon
++    from .lexreduce.linkers import german_linker_table
++    from .lexreduce.optimizer import optimize_basis
++    from .lexreduce.reports import report_markdown, summary_dict
++    from .lexreduce.rules import default_rules
++    from .lexreduce.segmentation import SegmentationScorer
++    from .lexreduce.selector import extract_features, train_selector
++    from .lexreduce.serializer import load_asset, save_asset
++    from .source import load_canonical_source
++    from .verify import verify_candidate
++except ImportError:  # direct script execution
++    import sys
++
++    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
++    from experiments.de_lexicon_entry_reduction.lexreduce.affixes import (
++        german_affix_table,
++    )
++    from experiments.de_lexicon_entry_reduction.lexreduce.builder import (
++        build_implicit_lexicon,
++    )
++    from experiments.de_lexicon_entry_reduction.lexreduce.linkers import (
++        german_linker_table,
++    )
++    from experiments.de_lexicon_entry_reduction.lexreduce.optimizer import (
++        optimize_basis,
++    )
++    from experiments.de_lexicon_entry_reduction.lexreduce.reports import (
++        report_markdown,
++        summary_dict,
++    )
++    from experiments.de_lexicon_entry_reduction.lexreduce.rules import default_rules
++    from experiments.de_lexicon_entry_reduction.lexreduce.segmentation import (
++        SegmentationScorer,
++    )
++    from experiments.de_lexicon_entry_reduction.lexreduce.selector import (
++        extract_features,
++        train_selector,
++    )
++    from experiments.de_lexicon_entry_reduction.lexreduce.serializer import (
++        load_asset,
++        save_asset,
++    )
++    from experiments.de_lexicon_entry_reduction.source import load_canonical_source
++    from experiments.de_lexicon_entry_reduction.verify import verify_candidate
++
++
++def _train_v2_selector(source, base_build, rules):
++    rows = []
++    for failure in base_build.failures:
++        components_value = failure.get("candidate_components")
++        if not components_value:
++            continue
++        components = tuple(components_value)
++        if any(component not in base_build.asset.literals for component in components):
++            continue
++        variants = tuple(
++            base_build.asset.literals[component] for component in components
++        )
++        expected = source.lookup_all(str(failure["word"]))
++        exact = [
++            rule.rule_id
++            for rule in rules.rules
++            if rule.applies(str(failure["word"]), components, variants)
++            and rule.compose(str(failure["word"]), components, variants) == expected
++        ]
++        target_rule = (
++            "C0" if "C0" in exact else str(failure.get("candidate_rule") or "C1")
++        )
++        rows.append(
++            {
++                "features": extract_features(
++                    str(failure["word"]), components, variants
++                ),
++                "target_rule": target_rule,
++            }
++        )
++    return train_selector(
++        rows,
++        default_rule="C1"
++        if any(rule.rule_id == "C1" for rule in rules.rules)
++        else "C0",
++        min_support=100,
++        max_leaves=64,
++    )
++
++
++def run(
++    source_id: str,
++    mode: str,
++    output: Path,
++    *,
++    data_root: Path | None = None,
++    path: Path | None = None,
++    target_literals: int = 400_000,
++    max_components: int = 4,
++    max_states: int = 100_000,
++    optimizer: str = "greedy",
++    max_passes: int = 4,
++    selector: str = "v1",
++    boundary_rules: str = "v1",
++    linkers: str = "v1",
++    recursive_components: bool = False,
++    max_recursive_depth: int = 4,
++    segmentation_scorer: str = "v1",
++    affixes: str = "v1",
++) -> dict[str, object]:
++    source = load_canonical_source(source_id, data_root=data_root, path=path)
++    compound = mode == "implicit-compound"
++    if boundary_rules not in ("v1", "v2"):
++        raise ValueError(f"unknown boundary rules: {boundary_rules}")
++    if linkers not in ("v1", "german"):
++        raise ValueError(f"unknown linkers: {linkers}")
++    if segmentation_scorer not in ("v1", "v2"):
++        raise ValueError(f"unknown segmentation scorer: {segmentation_scorer}")
++    if affixes not in ("v1", "german"):
++        raise ValueError(f"unknown affixes: {affixes}")
++    use_boundary_rules = boundary_rules == "v2"
++    linker_table = german_linker_table() if linkers == "german" else None
++    scorer = SegmentationScorer() if segmentation_scorer == "v2" else None
++    affix_table = german_affix_table() if affixes == "german" else None
++    rules = default_rules(compound, boundary_rules=use_boundary_rules)
++    if selector == "v2":
++        base_build = build_implicit_lexicon(
++            source,
++            rules=rules,
++            max_components=max_components,
++            max_states=max_states,
++            linkers=linker_table,
++            recursive_components=recursive_components,
++            max_recursive_depth=max_recursive_depth,
++            segmentation_scorer=scorer,
++            affixes=affix_table,
++        )
++        selector_model = _train_v2_selector(source, base_build, rules)
++        rules = default_rules(
++            compound, selector=selector_model, boundary_rules=use_boundary_rules
++        )
++    elif selector != "v1":
++        raise ValueError(f"unknown selector: {selector}")
++    if optimizer == "utility":
++        optimized = optimize_basis(
++            source,
++            rules=rules,
++            linkers=linker_table,
++            recursive_components=recursive_components,
++            max_recursive_depth=max_recursive_depth,
++            max_components=max_components,
++            max_states=max_states,
++            segmentation_scorer=scorer,
++            affixes=affix_table,
++            max_passes=max_passes,
++            target_literals=target_literals,
++        )
++        build = optimized.build
++    else:
++        build = build_implicit_lexicon(
++            source,
++            rules=rules,
++            max_components=max_components,
++            max_states=max_states,
++            linkers=linker_table,
++            recursive_components=recursive_components,
++            max_recursive_depth=max_recursive_depth,
++            segmentation_scorer=scorer,
++            affixes=affix_table,
++        )
++    build.asset.metadata["target_literal_word_count"] = target_literals
++    output.mkdir(parents=True, exist_ok=True)
++    asset_directory = output / "candidate.asset"
++    save_asset(asset_directory, build.asset)
++    reloaded = load_asset(asset_directory)
++    verification = verify_candidate(reloaded, source)
++    summary = summary_dict(
++        build, verification=verification, asset_directory=asset_directory
++    )
++    summary["mode"] = mode
++    summary["optimizer"] = optimizer
++    summary["configuration"] = {
++        "selector": selector,
++        "boundary_rules": boundary_rules,
++        "linkers": linkers,
++        "recursive_components": recursive_components,
++        "max_recursive_depth": max_recursive_depth,
++        "segmentation_scorer": segmentation_scorer,
++        "affixes": affixes,
++        "optimizer": optimizer,
++    }
++    (output / "verification.json").write_text(
++        json.dumps(verification, indent=2) + "\n", encoding="utf-8"
++    )
++    (output / "summary.json").write_text(
++        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
++    )
++    (output / "report.md").write_text(report_markdown(summary), encoding="utf-8")
++    _write_failures(output / "literal_failures.tsv", build.failures)
++    (output / "rules.json").write_text(
++        json.dumps(build.asset.composer.rules.as_dict(), indent=2) + "\n",
++        encoding="utf-8",
++    )
++    print(json.dumps(summary, indent=2))
++    return summary
++
++
++def _write_failures(path: Path, failures: list[dict[str, object]]) -> None:
++    with path.open("w", encoding="utf-8", newline="") as handle:
++        writer = csv.DictWriter(
++            handle,
++            fieldnames=(
++                "word",
++                "reason",
++                "candidate",
++                "candidate_components",
++                "candidate_rule",
++            ),
++            delimiter="\t",
++        )
++        writer.writeheader()
++        for failure in failures:
++            writer.writerow({key: failure.get(key, "") for key in writer.fieldnames})
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--source", default="builtin")
++    parser.add_argument(
++        "--mode", choices=("implicit-concat", "implicit-compound"), required=True
++    )
++    parser.add_argument("--target-literals", type=int, default=400_000)
++    parser.add_argument("--max-components", type=int, default=4)
++    parser.add_argument("--max-states", type=int, default=100_000)
++    parser.add_argument("--optimizer", choices=("greedy", "utility"), default="greedy")
++    parser.add_argument("--selector", choices=("v1", "v2"), default="v1")
++    parser.add_argument("--boundary-rules", choices=("v1", "v2"), default="v1")
++    parser.add_argument("--linkers", choices=("v1", "german"), default="v1")
++    parser.add_argument("--recursive-components", action="store_true")
++    parser.add_argument("--max-recursive-depth", type=int, default=4)
++    parser.add_argument("--segmentation-scorer", choices=("v1", "v2"), default="v1")
++    parser.add_argument("--affixes", choices=("v1", "german"), default="v1")
++    parser.add_argument("--max-passes", type=int, default=4)
++    parser.add_argument("--data-root", type=Path)
++    parser.add_argument("--path", type=Path)
++    parser.add_argument("--output", type=Path, required=True)
++    args = parser.parse_args()
++    run(
++        args.source,
++        args.mode,
++        args.output,
++        data_root=args.data_root,
++        path=args.path,
++        target_literals=args.target_literals,
++        max_components=args.max_components,
++        max_states=args.max_states,
++        optimizer=args.optimizer,
++        max_passes=args.max_passes,
++        selector=args.selector,
++        boundary_rules=args.boundary_rules,
++        linkers=args.linkers,
++        recursive_components=args.recursive_components,
++        max_recursive_depth=args.max_recursive_depth,
++        segmentation_scorer=args.segmentation_scorer,
++        affixes=args.affixes,
++    )
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/experiments/de_lexicon_entry_reduction/run_matrix.py b/experiments/de_lexicon_entry_reduction/run_matrix.py
+new file mode 100644
+index 0000000..0450ea5
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/run_matrix.py
+@@ -0,0 +1,129 @@
++#!/usr/bin/env python3
++"""Run the bounded V1 matrix or the staged V2 experiment matrix."""
++
++from __future__ import annotations
++
++import argparse
++import json
++from itertools import product
++from pathlib import Path
++
++try:
++    from .run import run
++except ImportError:
++    import sys
++
++    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
++    from experiments.de_lexicon_entry_reduction.run import run
++
++
++def _run_v2_stages(args: argparse.Namespace) -> list[dict[str, object]]:
++    stages = (
++        ("V1-R", {"selector": "v1", "boundary_rules": "v1", "linkers": "v1"}),
++        ("S1", {"selector": "v2", "boundary_rules": "v1", "linkers": "v1"}),
++        ("B1", {"selector": "v2", "boundary_rules": "v2", "linkers": "v1"}),
++        ("L1", {"selector": "v2", "boundary_rules": "v2", "linkers": "german"}),
++        (
++            "R1",
++            {
++                "selector": "v2",
++                "boundary_rules": "v2",
++                "linkers": "german",
++                "recursive_components": True,
++            },
++        ),
++        (
++            "O1",
++            {
++                "selector": "v2",
++                "boundary_rules": "v2",
++                "linkers": "german",
++                "recursive_components": True,
++            },
++        ),
++        (
++            "G1",
++            {
++                "selector": "v2",
++                "boundary_rules": "v2",
++                "linkers": "german",
++                "segmentation_scorer": "v2",
++            },
++        ),
++        (
++            "A1",
++            {
++                "selector": "v2",
++                "boundary_rules": "v2",
++                "linkers": "german",
++                "affixes": "german",
++            },
++        ),
++    )
++    rows = []
++    for name, options in stages:
++        destination = args.output / name
++        row = run(
++            args.source,
++            "implicit-compound",
++            destination,
++            data_root=args.data_root,
++            path=args.path,
++            max_components=args.max_components,
++            max_states=args.max_states,
++            optimizer="utility" if name == "O1" else "greedy",
++            **options,
++        )
++        row["stage"] = name
++        rows.append(row)
++    return rows
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--source", default="builtin")
++    parser.add_argument("--output", type=Path, required=True)
++    parser.add_argument("--components", default="2,3,4")
++    parser.add_argument("--rules", default="concat,compound")
++    parser.add_argument("--optimizer", default="greedy,utility")
++    parser.add_argument(
++        "--v2-stages",
++        action="store_true",
++        help="run V1-R through the staged V2 configurations",
++    )
++    parser.add_argument("--max-components", type=int, default=4)
++    parser.add_argument("--max-states", type=int, default=100_000)
++    parser.add_argument("--data-root", type=Path)
++    parser.add_argument("--path", type=Path)
++    args = parser.parse_args()
++    args.output.mkdir(parents=True, exist_ok=True)
++    if args.v2_stages:
++        rows = _run_v2_stages(args)
++    else:
++        rows = []
++        for components, rule, optimizer in product(
++            (int(value) for value in args.components.split(",")),
++            args.rules.split(","),
++            args.optimizer.split(","),
++        ):
++            mode = "implicit-compound" if rule == "compound" else "implicit-concat"
++            destination = args.output / f"{mode}-c{components}-{optimizer}"
++            rows.append(
++                run(
++                    args.source,
++                    mode,
++                    destination,
++                    data_root=args.data_root,
++                    path=args.path,
++                    max_components=components,
++                    optimizer=optimizer,
++                )
++            )
++    (args.output / "matrix.json").write_text(
++        json.dumps(rows, indent=2) + "\n", encoding="utf-8"
++    )
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/experiments/de_lexicon_entry_reduction/source.py b/experiments/de_lexicon_entry_reduction/source.py
+new file mode 100644
+index 0000000..d8b1d79
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/source.py
+@@ -0,0 +1,19 @@
++"""Adapters for canonical experiment sources."""
++
++from __future__ import annotations
++
++from pathlib import Path
++
++from experiments.de_lexicon_compression.lexlab.model import ParsedLexicon
++from experiments.de_lexicon_compression.lexlab.sources import load_source
++
++
++def load_canonical_source(
++    source_id: str = "builtin",
++    *,
++    data_root: Path | None = None,
++    path: Path | None = None,
++) -> ParsedLexicon:
++    """Load a source through the existing canonical parser and semantic model."""
++
++    return load_source(source_id, data_root=data_root, path=path).runtime_unique()
+diff --git a/experiments/de_lexicon_entry_reduction/tests/__init__.py b/experiments/de_lexicon_entry_reduction/tests/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/experiments/de_lexicon_entry_reduction/tests/test_entry_reduction.py b/experiments/de_lexicon_entry_reduction/tests/test_entry_reduction.py
+new file mode 100644
+index 0000000..c81ac29
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/tests/test_entry_reduction.py
+@@ -0,0 +1,256 @@
++from __future__ import annotations
++
++import json
++from pathlib import Path
++
++import pytest
++
++from experiments.de_lexicon_compression.lexlab.model import ParsedLexicon, SourceInfo
++from experiments.de_lexicon_entry_reduction.lexreduce import (
++    ImplicitComposer,
++    LiteralLexicon,
++    LiteralPrefixIndex,
++    MembershipIndex,
++    audit_runtime_representation,
++    best_segmentation,
++    build_implicit_lexicon,
++    default_rules,
++    german_affix_table,
++    german_linker_table,
++    optimize_basis,
++)
++from experiments.de_lexicon_entry_reduction.lexreduce.boundary_rules import (
++    BoundaryStressClassRule,
++    FinalComponentStressDemotionRule,
++)
++from experiments.de_lexicon_entry_reduction.lexreduce.composer import SearchLimitError
++from experiments.de_lexicon_entry_reduction.lexreduce.reports import summary_dict
++from experiments.de_lexicon_entry_reduction.lexreduce.selector import (
++    Candidate,
++    RuleSelector,
++    SelectorPredicate,
++    extract_features,
++    train_selector,
++)
++from experiments.de_lexicon_entry_reduction.lexreduce.serializer import (
++    asset_dict,
++    load_asset,
++    save_asset,
++    serialize,
++)
++from experiments.de_lexicon_entry_reduction.verify import (
++    adversarial_misses,
++    verify_candidate,
++)
++
++
++def make_source(*pairs: tuple[str, str]) -> ParsedLexicon:
++    return ParsedLexicon.from_pairs(SourceInfo("toy"), pairs)
++
++
++def test_motivating_sum_rule_and_unknown_recombination() -> None:
++    source = make_source(("1", "a"), ("2", "b"), ("12", "ab"))
++    result = build_implicit_lexicon(source)
++    candidate = result.asset
++
++    assert result.metrics.baseline_word_count == 3
++    assert result.metrics.literal_word_count == 2
++    assert result.metrics.generated_word_count == 1
++    assert candidate.per_generated_word_recipe_count == 0
++    assert candidate.lookup_all("12") == ("ab",)
++    assert candidate.is_known("12")
++    assert candidate.lookup_all("21") == ()
++    assert not candidate.is_known("21")
++    assert "12" not in candidate.literals
++    assert not hasattr(candidate, "derived")
++
++
++def test_runtime_composer_has_no_oracle_and_keeps_ambiguous_word_literal() -> None:
++    source = make_source(
++        ("A", "a"),
++        ("C", "c"),
++        ("AB", "x"),
++        ("BC", "bc"),
++        ("ABC", "abc"),
++    )
++    result = build_implicit_lexicon(source)
++    assert "ABC" in result.asset.literals
++    assert result.asset.lookup_all("ABC") == ("abc",)
++    assert result.asset.composer.derive(
++        "ABC",
++        literals=result.asset.literals,
++        prefix_index=result.asset.literal_index,
++    ) == ("xc",)
++
++
++def test_variant_order_is_exact() -> None:
++    source = make_source(
++        ("A", "a1"), ("A", "a2"), ("B", "b1"), ("B", "b2"), ("AB", "a1b1")
++    )
++    result = build_implicit_lexicon(source)
++    assert result.asset.lookup_all("AB") == ("a1b1",)
++    assert "AB" in result.asset.literals
++
++    literals = LiteralLexicon({"A": ("a1", "a2"), "B": ("b1", "b2")})
++    composer = ImplicitComposer()
++    assert composer.derive(
++        "AB", literals=literals, prefix_index=LiteralPrefixIndex.from_literals(literals)
++    ) == (
++        "a1b1",
++        "a1b2",
++        "a2b1",
++        "a2b2",
++    )
++
++
++def test_stress_rule_is_shared_and_oracle_free() -> None:
++    source = make_source(
++        ("Haus", "hˈaʊs"),
++        ("tür", "tˈyːɐ"),
++        ("Haustür", "hˈaʊstˌyːɐ"),
++    )
++    concat = build_implicit_lexicon(source, rules=default_rules())
++    compound = build_implicit_lexicon(source, rules=default_rules(True))
++    assert "Haustür" in concat.asset.literals
++    assert "Haustür" not in compound.asset.literals
++    assert compound.asset.lookup_all("Haustür") == ("hˈaʊstˌyːɐ",)
++    assert compound.asset.composer.rules.rules[0].rule_id == "C1"
++
++
++def test_deterministic_segmentation_and_state_limit() -> None:
++    literals = LiteralLexicon({"a": ("a",), "ab": ("ab",), "bc": ("bc",), "c": ("c",)})
++    index = LiteralPrefixIndex.from_literals(literals)
++    assert best_segmentation("abc", index, literals, max_components=3) == ("ab", "c")
++    with pytest.raises(SearchLimitError):
++        best_segmentation("abc", index, literals, max_components=4, max_states=1)
++
++
++def test_membership_exact_and_deterministic() -> None:
++    words = ("Haus", "Haustür", "Tür")
++    membership = MembershipIndex.from_words(words)
++    assert membership.iter_words() == tuple(sorted(words))
++    assert all(membership.contains(word) for word in words)
++    assert not any(membership.contains(word) for word in adversarial_misses(words))
++    assert membership.serialize() == MembershipIndex.from_words(words).serialize()
++
++
++def test_serialization_round_trip_has_no_derived_table(tmp_path: Path) -> None:
++    source = make_source(("1", "a"), ("2", "b"), ("12", "ab"))
++    result = build_implicit_lexicon(source)
++    assert "derived" not in asset_dict(result.asset)
++    save_asset(tmp_path, result.asset)
++    reloaded = load_asset(tmp_path)
++    assert reloaded.lookup_all("12") == ("ab",)
++    assert reloaded.is_known("12")
++    assert not reloaded.is_known("21")
++    assert "derived" not in json.loads((tmp_path / "manifest.json").read_text())
++    assert not (tmp_path / "derived.json").exists()
++    assert serialize(result.asset)
++
++
++def test_deterministic_build_and_runtime_audit() -> None:
++    source = make_source(("1", "a"), ("2", "b"), ("12", "ab"))
++    first = build_implicit_lexicon(source)
++    second = build_implicit_lexicon(source)
++    assert first.metrics == second.metrics
++    assert tuple(first.asset.literals) == tuple(second.asset.literals)
++    assert serialize(first.asset) == serialize(second.asset)
++    audit = audit_runtime_representation(first.asset)
++    assert audit["per_generated_word_recipe_count"] == 0
++
++
++def test_optimizer_and_verification_metrics() -> None:
++    source = make_source(("1", "a"), ("2", "b"), ("12", "ab"))
++    optimized = optimize_basis(source, max_passes=2)
++    verification = verify_candidate(optimized.build.asset, source, miss_words=("21",))
++    summary = summary_dict(optimized.build, verification=verification)
++    assert optimized.build.metrics.literal_word_count == 2
++    assert summary["entry_reduction_count"] == 1
++    assert verification["words_checked"] == 3
++    assert verification["lossless"]
++
++
++def test_selector_chooses_candidates_without_expected_ipa() -> None:
++    variants = (("hˈaʊs",), ("tˈyːɐ",))
++    features = extract_features("Haustür", ("Haus", "tür"), variants)
++    selector = RuleSelector(
++        (SelectorPredicate("component_count", "2", "C0", 100),), "C1"
++    )
++    selected = selector.select(
++        features,
++        (Candidate("C1", ("hˈaʊstˌyːɐ",)), Candidate("C0", ("hˈaʊstˈyːɐ",))),
++    )
++    assert selected is not None and selected.rule_id == "C0"
++    assert "expected" not in selector.as_dict()
++    assert selector.serialized_bytes <= selector.max_serialized_bytes
++
++
++def test_selector_round_trip_and_training_are_deterministic() -> None:
++    variants = (("aˈ",), ("bˈ",))
++    features = extract_features("ab", ("a", "b"), variants)
++    rows = ({"features": features, "target_rule": "C0"} for _ in range(100))
++    first = train_selector(rows, min_support=10)
++    second = train_selector(
++        ({"features": features, "target_rule": "C0"} for _ in range(100)),
++        min_support=10,
++    )
++    assert first.as_dict() == second.as_dict()
++    assert RuleSelector.from_dict(first.as_dict()) == first
++    assert all("ab" not in str(value) for value in first.as_dict().values())
++
++
++def test_boundary_rules_are_shared_and_deterministic() -> None:
++    variants = (("hˈaʊs",), ("tˈyːɐ",))
++    final = FinalComponentStressDemotionRule()
++    assert final.applies("Haustür", ("Haus", "tür"), variants)
++    assert final.compose("Haustür", ("Haus", "tür"), variants) == ("hˈaʊstˌyːɐ",)
++    class_rule = BoundaryStressClassRule()
++    assert class_rule.applies("Haustür", ("Haus", "tür"), variants)
++
++
++def test_linker_is_shared_and_membership_still_gates(tmp_path: Path) -> None:
++    source = make_source(("Arbeit", "a"), ("zeit", "z"), ("Arbeitszeit", "az"))
++    result = build_implicit_lexicon(source, linkers=german_linker_table())
++    assert result.metrics.generated_word_count == 1
++    assert result.asset.lookup_all("Arbeitszeit") == ("az",)
++    assert not result.asset.is_known("Arbeitszeitx")
++    assert result.asset.composer.linkers is not None
++    save_asset(tmp_path, result.asset)
++    assert load_asset(tmp_path).lookup_all("Arbeitszeit") == ("az",)
++    assert not hasattr(result.asset, "derived")
++
++
++def test_recursive_generated_constituents_are_ephemeral(tmp_path: Path) -> None:
++    source = make_source(
++        ("A", "a"), ("B", "b"), ("C", "c"), ("AB", "ab"), ("ABC", "abc")
++    )
++    result = build_implicit_lexicon(source, recursive_components=True, max_components=2)
++    assert result.metrics.literal_word_count == 3
++    assert result.metrics.generated_word_count == 2
++    assert result.asset.lookup_all("AB") == ("ab",)
++    assert result.asset.lookup_all("ABC") == ("abc",)
++    save_asset(tmp_path, result.asset)
++    assert load_asset(tmp_path).lookup_all("ABC") == ("abc",)
++    assert not hasattr(result.asset, "derived")
++    assert result.asset.per_generated_word_recipe_count == 0
++
++
++def test_shared_affix_grammar_is_bounded() -> None:
++    source = make_source(("glück", "g"), ("unglück", "g"))
++    result = build_implicit_lexicon(source, affixes=german_affix_table())
++    assert result.asset.lookup_all("unglück") == ("g",)
++    assert result.metrics.generated_word_count == 1
++    assert not hasattr(result.asset, "derived")
++
++
++@pytest.mark.slow
++def test_full_builtin_opt_in() -> None:
++    data_path = Path("kokorog2p/de/data/de_gold.json")
++    if not data_path.is_file():
++        pytest.skip("documented built-in data asset is unavailable")
++    from experiments.de_lexicon_entry_reduction.source import load_canonical_source
++
++    source = load_canonical_source("builtin")
++    result = build_implicit_lexicon(source, max_components=2)
++    assert result.metrics.baseline_word_count == 738_427
++    assert result.metrics.per_generated_word_recipe_count == 0
+diff --git a/experiments/de_lexicon_entry_reduction/verify.py b/experiments/de_lexicon_entry_reduction/verify.py
+new file mode 100644
+index 0000000..2f44de4
+--- /dev/null
++++ b/experiments/de_lexicon_entry_reduction/verify.py
+@@ -0,0 +1,139 @@
++"""Independent exact verification for a reloaded candidate."""
++
++from __future__ import annotations
++
++import argparse
++import json
++import random
++import sys
++from collections.abc import Iterable
++from pathlib import Path
++
++if __package__ is None:
++    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
++from typing import Any
++
++from experiments.de_lexicon_compression.lexlab.sources import load_source
++
++try:
++    from .lexreduce.audit import audit_runtime_representation
++    from .lexreduce.serializer import load_asset
++except ImportError:  # direct script execution
++    import sys
++
++    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
++    from experiments.de_lexicon_entry_reduction.lexreduce.audit import (
++        audit_runtime_representation,
++    )
++    from experiments.de_lexicon_entry_reduction.lexreduce.serializer import load_asset
++
++
++def adversarial_misses(words: Iterable[str], *, limit: int = 256) -> tuple[str, ...]:
++    """Create deterministic miss variants without returning known words."""
++
++    known = set(words)
++    candidates: list[str] = []
++    ordered = sorted(known)
++    for word in ordered:
++        if len(word) > 1:
++            candidates.append(word[:-1])
++        candidates.append(word + "x")
++        candidates.append(word.swapcase())
++        candidates.append(word + "\u0301")
++        if len(word) > 1:
++            candidates.append(word[1:] + word[:1])
++        if len(candidates) >= limit * 4:
++            break
++    unique = sorted(set(candidates) - known)
++    randomizer = random.Random(0)
++    randomizer.shuffle(unique)
++    return tuple(sorted(unique[:limit]))
++
++
++def verify_candidate(
++    candidate: Any,
++    baseline: Any,
++    *,
++    miss_words: Iterable[str] | None = None,
++) -> dict[str, Any]:
++    words = tuple(baseline.words)
++    missing = 0
++    pronunciation_mismatches = 0
++    variant_count_mismatches = 0
++    variant_order_mismatches = 0
++    invariant_failures = 0
++    for word in words:
++        if not candidate.is_known(word):
++            missing += 1
++            continue
++        expected = baseline.lookup_all(word)
++        try:
++            actual = candidate.lookup_all(word)
++        except (IndexError, KeyError, RuntimeError):
++            invariant_failures += 1
++            continue
++        if len(actual) != len(expected):
++            variant_count_mismatches += 1
++        elif actual != expected:
++            variant_order_mismatches += 1
++        if actual != expected:
++            pronunciation_mismatches += 1
++
++    misses = tuple(miss_words or adversarial_misses(words))
++    false_positives = sum(candidate.is_known(word) for word in misses)
++    audit = audit_runtime_representation(candidate)
++    return {
++        "words_checked": len(words),
++        "variants_checked": sum(len(baseline.lookup_all(word)) for word in words),
++        "missing_words": missing,
++        "extra_words": false_positives,
++        "pronunciation_mismatches": pronunciation_mismatches,
++        "variant_count_mismatches": variant_count_mismatches,
++        "variant_order_mismatches": variant_order_mismatches,
++        "membership_false_negatives": missing,
++        "membership_false_positives": false_positives,
++        "invariant_failures": invariant_failures,
++        "lossless": not any(
++            (
++                missing,
++                false_positives,
++                pronunciation_mismatches,
++                variant_count_mismatches,
++                variant_order_mismatches,
++                invariant_failures,
++            )
++        ),
++        "audit": audit,
++        "miss_words_checked": len(misses),
++    }
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument(
++        "--run",
++        type=Path,
++        required=True,
++        help="run directory containing candidate.asset",
++    )
++    parser.add_argument("--source", default="builtin")
++    parser.add_argument("--data-root", type=Path)
++    parser.add_argument("--path", type=Path)
++    args = parser.parse_args()
++    baseline = load_source(
++        args.source, data_root=args.data_root, path=args.path
++    ).runtime_unique()
++    candidate = load_asset(args.run / "candidate.asset")
++    result = verify_candidate(candidate, baseline)
++    (args.run / "verification.json").write_text(
++        json.dumps(result, indent=2) + "\n", encoding="utf-8"
++    )
++    (args.run / "independent-verification.json").write_text(
++        json.dumps(result, indent=2) + "\n", encoding="utf-8"
++    )
++    print(json.dumps(result, indent=2))
++    return 0 if result["lossless"] else 1
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())

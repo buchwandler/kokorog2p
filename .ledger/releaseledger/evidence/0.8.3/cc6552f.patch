@@ -1,0 +1,1162 @@
+ README.md                            |  16 +++-
+ benchmarks/KAZAKH_DATASET.md         |  28 +++++++
+ benchmarks/benchmark_kk_espeak.py    | 138 +++++++++++++++++++++++++++++++++++
+ docs/api/kazakh.md                   |  31 ++++++++
+ docs/index.md                        |   6 +-
+ docs/installation.md                 |  11 +++
+ docs/kk/PROVENANCE.md                |  15 ++++
+ docs/languages.md                    |  14 ++++
+ docs/quickstart.md                   |   5 ++
+ kokorog2p/__init__.py                |  34 ++++++++-
+ kokorog2p/espeak_g2p.py              |  25 +++++--
+ kokorog2p/kk/__init__.py             |   6 ++
+ kokorog2p/kk/g2p.py                  | 105 ++++++++++++++++++++++++++
+ kokorog2p/kk/model_profile.py        | 100 +++++++++++++++++++++++++
+ kokorog2p/multilang.py               |  17 ++++-
+ pyproject.toml                       |   5 +-
+ tests/test_espeak_backend.py         |  16 ++++
+ tests/test_factory_languages.py      |  24 ++++++
+ tests/test_kk_g2p.py                 | 116 +++++++++++++++++++++++++++++
+ tests/test_kk_model_profile.py       |  41 +++++++++++
+ tests/test_minimal_install.py        |   8 ++
+ tests/test_multilang.py              |  23 ++++++
+ tests/test_public_api_consistency.py |  19 +++++
+ 23 files changed, 787 insertions(+), 16 deletions(-)
+
+diff --git a/README.md b/README.md
+index 6c7321a..4b522ac 100644
+--- a/README.md
++++ b/README.md
+@@ -12,7 +12,7 @@ provides:
+
+ - **Multi-language support**: English (US/GB), German, French, Italian, Spanish,
+   Portuguese (Brazilian), Czech, Chinese, Japanese, Korean, Hebrew, Vietnamese, Swedish,
+-  Thai (optional), Russian (optional)
++  Thai (optional), Russian (optional), Kazakh (optional)
+ - **Native Vietnamese frontend**: Pure-Python Northern/Hanoi `vi-vn` profile with six
+   named tones
+ - **Native Swedish frontend**: Pure-Python deterministic rules with no runtime lexicon;
+@@ -21,6 +21,7 @@ provides:
+   `wayu-kokoro-thai-v1`; Latin phrases use lazy EnglishG2P
+ - **Native Russian frontend**: Optional RUAccent contextual stress, ё restoration,
+   source-aligned tokens, and stock Kokoro 1.0 labels
++- **Native Kazakh frontend**: eSpeak-NG `kk` raw IPA profile with Kokoro vocabulary validation
+ - **Mixed-language preprocessing**: Detect languages for per-word language switching
+ - **Dictionary-based lookup** with comprehensive lexicons
+   - English: 179k+ entries (gold tier), 187k+ silver tier (both loaded by default)
+@@ -98,6 +99,9 @@ pip install kokorog2p[fr]
+ pip install "kokorog2p[th]"
+ # Russian support (optional RUAccent and eSpeak)
+ pip install "kokorog2p[ru]"
++
++# Kazakh support (eSpeak-NG voice kk)
++pip install "kokorog2p[kk]"
+ # With multilang preprocessing support
+ pip install kokorog2p[mixed]
+
+@@ -607,6 +611,16 @@ reduction and orthoepy transforms against the stock Kokoro 1.0 vocabulary. Insta
+ `kokorog2p[ru]`; see [Russian API](docs/api/russian.md) and
+ [Russian provenance](docs/ru/PROVENANCE.md).
+
++## Kazakh
++
++Kazakh (`kk`) uses eSpeak-NG voice `kk` as its pronunciation engine. The native frontend
++preserves raw non-English IPA semantics, applies only generic Kokoro compatibility transforms,
++and validates output against the stock Kokoro 1.0 vocabulary. Install `kokorog2p[kk]`.
++
++The upstream Kazakh voice is currently marked `testing`, so pronunciation quality follows the
++installed eSpeak-NG release. See [Kazakh API](docs/api/kazakh.md) and
++[Kazakh provenance](docs/kk/PROVENANCE.md).
++
+ ## Arabic MSA
+
+ Native Arabic support targets Modern Standard Arabic with the Nabra-compatible
+diff --git a/benchmarks/KAZAKH_DATASET.md b/benchmarks/KAZAKH_DATASET.md
+new file mode 100644
+index 0000000..859ba9e
+--- /dev/null
++++ b/benchmarks/KAZAKH_DATASET.md
+@@ -0,0 +1,28 @@
++# Kazakh benchmark dataset
++
++`benchmark_kk_espeak.py` uses a compact diagnostic corpus covering:
++
++- Kazakh-specific letters in upper and lower case, including multiple word positions.
++- Common words and short sentences.
++- Numbers, decimal input, punctuation, and mixed Latin/Cyrillic text.
++- The eSpeak-NG voice identifier `kk`.
++
++The benchmark records raw eSpeak IPA, normalized Kokoro labels, invalid vocabulary symbols,
++model validity, and transform-rule hit counts. It is diagnostic rather than a quality gold
++standard because upstream eSpeak-NG currently marks the Kazakh voice as `testing`.
++
++Run it with:
++
++```bash
++python benchmarks/benchmark_kk_espeak.py
++python benchmarks/benchmark_kk_espeak.py --json out/kk_espeak.json
++python benchmarks/benchmark_kk_espeak.py --show-failures
++python benchmarks/benchmark_kk_espeak.py --strict
++```
++
++Optional Epitran output is available only as a differential diagnostic and never makes a
++mismatch a test failure:
++
++```bash
++python benchmarks/benchmark_kk_espeak.py --epitran
++```
+diff --git a/benchmarks/benchmark_kk_espeak.py b/benchmarks/benchmark_kk_espeak.py
+new file mode 100644
+index 0000000..325d2a3
+--- /dev/null
++++ b/benchmarks/benchmark_kk_espeak.py
+@@ -0,0 +1,138 @@
++"""Diagnostic benchmark for the Kazakh eSpeak-NG frontend."""
++
++from __future__ import annotations
++
++import argparse
++import json
++import sys
++from collections import Counter
++from pathlib import Path
++from typing import Any
++
++SAMPLES = [
++    "Әә Ғғ Ққ Ңң Өө Ұұ Үү Һһ Іі",
++    "әке ғалым қазақ таң өлең құс үкі",
++    "Сәлем әлем.",
++    "Қазақстан Республикасы.",
++    "Бұл қазақ тіліндегі сөйлеу синтезі.",
++    "Менде 42 кітап бар.",
++    "2026 жылы 3.14 мысал.",
++    "Кокоро және eSpeak-NG.",
++    "Сәлем, world!",
++]
++
++
++def _symbols(text: str) -> list[str]:
++    return sorted(set(text.replace(" ", "")))
++
++
++def _run(*, use_cli: bool, epitran: bool) -> dict[str, Any]:
++    from kokorog2p.backends.espeak import EspeakBackend
++    from kokorog2p.kk.model_profile import (
++        _ESPEAK_TIED_MAP,
++        transform_kazakh_ipa,
++        validate_kazakh_symbols,
++    )
++
++    backend = EspeakBackend(language="kk", use_cli=use_cli)
++    records: list[dict[str, Any]] = []
++    raw_symbols: set[str] = set()
++    normalized_symbols: set[str] = set()
++    invalid_symbols: Counter[str] = Counter()
++    invalid_words: list[str] = []
++    rule_hits: Counter[str] = Counter()
++    epitran_engine: Any | None = None
++
++    if epitran:
++        try:
++            from epitran import Epitran
++
++            epitran_engine = Epitran("kaz-Cyrl")
++        except ImportError:
++            print(
++                "Epitran not installed; continuing without differential output.",
++                file=sys.stderr,
++            )
++
++    for text in SAMPLES:
++        raw = backend.phonemize(text, convert_to_kokoro=False)
++        normalized = transform_kazakh_ipa(raw)
++        invalid = validate_kazakh_symbols(normalized, strict=False)
++        raw_symbols.update(_symbols(raw))
++        normalized_symbols.update(_symbols(normalized))
++        invalid_symbols.update(invalid)
++        if invalid:
++            invalid_words.append(text)
++        for old in _ESPEAK_TIED_MAP:
++            count = raw.count(old)
++            if count:
++                rule_hits[old] += count
++
++        record: dict[str, Any] = {
++            "text": text,
++            "raw_espeak": raw,
++            "normalized": normalized,
++            "invalid_symbols": invalid,
++            "valid_for_model": not invalid,
++        }
++        if epitran_engine is not None:
++            record["epitran"] = epitran_engine.transliterate(text)
++        records.append(record)
++
++    return {
++        "summary": {
++            "total_samples": len(records),
++            "empty_espeak_outputs": sum(not item["raw_espeak"] for item in records),
++            "unique_raw_ipa_symbols": sorted(raw_symbols),
++            "unique_normalized_symbols": sorted(normalized_symbols),
++            "unsupported_kokoro_symbols": sorted(invalid_symbols),
++            "words_with_unsupported_symbols": invalid_words,
++            "transform_rule_hit_counts": dict(rule_hits),
++            "espeak_version": backend.version,
++            "espeak_voice": backend.language,
++            "backend": "cli" if use_cli else "library",
++        },
++        "records": records,
++    }
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument(
++        "--json", type=Path, metavar="PATH", help="write the report as JSON"
++    )
++    parser.add_argument("--show-failures", action="store_true")
++    parser.add_argument(
++        "--strict", action="store_true", help="exit non-zero for invalid output"
++    )
++    parser.add_argument(
++        "--epitran", action="store_true", help="add optional Epitran diagnostics"
++    )
++    parser.add_argument(
++        "--use-cli", action="store_true", help="use the eSpeak CLI backend"
++    )
++    args = parser.parse_args()
++
++    try:
++        report = _run(use_cli=args.use_cli, epitran=args.epitran)
++    except Exception as error:
++        print(f"Kazakh eSpeak-NG benchmark failed: {error}", file=sys.stderr)
++        return 1
++
++    rendered = json.dumps(report, ensure_ascii=False, indent=2)
++    if args.json:
++        args.json.write_text(rendered + "\n", encoding="utf-8")
++    else:
++        print(rendered)
++    if args.show_failures:
++        for record in report["records"]:
++            if not record["valid_for_model"]:
++                print(
++                    f"FAIL {record['text']!r}: {record['invalid_symbols']}",
++                    file=sys.stderr,
++                )
++    return int(args.strict and bool(report["summary"]["unsupported_kokoro_symbols"]))
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/docs/api/kazakh.md b/docs/api/kazakh.md
+new file mode 100644
+index 0000000..edcbe17
+--- /dev/null
++++ b/docs/api/kazakh.md
+@@ -0,0 +1,31 @@
++# Kazakh G2P
++
++Kazakh (`kk`) is a native eSpeak-NG frontend. Install the existing eSpeak integration:
++
++```bash
++pip install "kokorog2p[kk]"
++```
++
++The frontend uses the eSpeak-NG `kk` voice and requests raw non-English IPA. It preserves
++ordinary Kazakh IPA semantics and applies only small generic tied-phoneme compatibility
++transforms before validating output against the stock Kokoro 1.0 vocabulary.
++
++```python
++from kokorog2p import get_g2p, phonemize
++
++# All aliases share one cached instance.
++g2p = get_g2p("kazakh")
++assert g2p is get_g2p("kk")
++
++result = phonemize("Сәлем әлем!", language="kk")
++print(result.phonemes)
++```
++
++`KazakhG2P` preserves punctuation, whitespace, source offsets, and `espeak` ratings on
++successful lexical tokens. `strict=True` reports missing voices, empty output, and symbols
++outside the target vocabulary. `strict=False` keeps the established lenient behavior and
++leaves failed lexical tokens without phonemes.
++
++The upstream eSpeak-NG Kazakh voice is currently marked `testing`, so pronunciation quality
++follows the installed eSpeak-NG release. This package does not copy eSpeak rules, download
++models, or install Epitran or Misaki.
+diff --git a/docs/index.md b/docs/index.md
+index aa8b504..51f9cf1 100644
+--- a/docs/index.md
++++ b/docs/index.md
+@@ -16,7 +16,7 @@ high-quality text-to-phoneme conversion for multiple languages.
+ ## Features
+
+ - **Multi-language support**: English (US/GB), German, French, Czech, Spanish, Italian,
+-  Portuguese, Chinese, Japanese, Korean, Hebrew, Vietnamese
++  Portuguese, Chinese, Japanese, Korean, Hebrew, Vietnamese, Kazakh
+ - **Native Vietnamese**: Pure-Python Northern/Hanoi profile with NFC/NFD support and six
+   named tones
+ - **Mixed-language detection**: Automatic detection and handling of texts mixing
+@@ -65,6 +65,9 @@ pip install kokorog2p[en]
+ pip install kokorog2p[espeak]
+
+
++# Kazakh support
++pip install "kokorog2p[kk]"
++
+ pip install "kokorog2p[th]"  # Thai support with TLTK and PyThaiNLP
+ # Full installation (all languages and backends)
+ pip install kokorog2p[all]
+@@ -103,6 +106,7 @@ api/russian
+ api/hebrew
+ api/mixed
+ api/thai
++api/kazakh
+ api/arabic
+ api/backends
+ api/utils
+diff --git a/docs/installation.md b/docs/installation.md
+index f0eed22..2c5a4ac 100644
+--- a/docs/installation.md
++++ b/docs/installation.md
+@@ -77,6 +77,17 @@ custom data directory with `get_g2p("ru", espeak_data="/path/to/espeak-ng-data")
+ KokoroG2P does not install or bundle `kokoro-ru` model weights or compiled eSpeak data.
+ See [Russian API](api/russian.md).
+
++
++### Kazakh
++
++Kazakh support uses the existing eSpeak-NG integration and the upstream `kk` voice:
++
++```bash
++pip install "kokorog2p[kk]"
++```
++
++The frontend consumes raw non-English IPA, validates stock Kokoro 1.0 labels, and does not
++install Epitran, Misaki, or a Kazakh lexicon. The upstream voice is marked `testing`.
+ ### Vietnamese
+
+ Vietnamese is included in the core pure-Python installation. It uses the `vi-vn`
+diff --git a/docs/kk/PROVENANCE.md b/docs/kk/PROVENANCE.md
+new file mode 100644
+index 0000000..69d7aaa
+--- /dev/null
++++ b/docs/kk/PROVENANCE.md
+@@ -0,0 +1,15 @@
++# Kazakh provenance
++
++- kokorog2p does not copy eSpeak-NG Kazakh spelling rules into Python.
++- eSpeak-NG is invoked as the external runtime pronunciation engine with voice `kk`.
++- The upstream Kazakh language declaration, spelling rules, and letter/number list were
++  inspected to establish supported scope.
++- Misaki's generic eSpeak architecture informed the raw-IPA compatibility design, but Misaki
++  is not a runtime dependency.
++- Epitran was researched as an optional differential benchmark reference only.
++- The Kazakh Kokoro fine-tune model card was used as interoperability evidence that a
++  Kokoro-derived model already uses eSpeak-NG for `kk`.
++
++The upstream eSpeak-NG Kazakh voice currently reports status `testing`. The benchmark is
++therefore diagnostic and avoids treating one eSpeak release's exact IPA output as a permanent
++gold standard.
+diff --git a/docs/languages.md b/docs/languages.md
+index e8edfd0..4612d0c 100644
+--- a/docs/languages.md
++++ b/docs/languages.md
+@@ -77,6 +77,11 @@ kokorog2p supports multiple languages with varying levels of functionality.
+      - RUAccent (optional)
+      - espeak-ng
+      - Contextual stress, ё restoration, reduction, source-aligned tokens
++   * - Kazakh
++     - kk
++     - —
++     - espeak-ng
++     - Raw non-English IPA, Kokoro vocabulary validation
+    * - Mixed
+      - multilingual
+      - Auto-detect
+@@ -911,6 +916,15 @@ Aliases are `sv`, `sv-se`, `swe`, and `swedish`. Swedish number, date, unit,
+ abbreviation, and spoken semantic normalization remain outside this frontend. See
+ {doc}`api/swedish`.
+
++## Kazakh (kk)
++
++Kazakh uses eSpeak-NG voice `kk` as its pronunciation engine. The frontend requests raw
++non-English IPA, applies only generic Kokoro compatibility transforms, and validates output
++against the stock Kokoro 1.0 vocabulary. Install `kokorog2p[kk]`.
++
++The upstream Kazakh voice is currently marked `testing`, so output quality follows the
++installed eSpeak-NG release. See {doc}`api/kazakh` and `kk/PROVENANCE`.
++
+ ## Thai (th-th)
+
+ Thai is an optional native frontend using TLTK and PyThaiNLP, with lazy EnglishG2P
+diff --git a/docs/quickstart.md b/docs/quickstart.md
+index d8c05a7..31a1c38 100644
+--- a/docs/quickstart.md
++++ b/docs/quickstart.md
+@@ -60,6 +60,11 @@ fr_phonemes = phonemize("Bonjour le monde", language="fr").phonemes
+ cs_phonemes = phonemize("Dobrý den", language="cs").phonemes
+
+
++# Kazakh eSpeak-NG frontend
++kk_phonemes = phonemize("Сәлем әлем!", language="kk").phonemes
++print(kk_phonemes)
++# Requires: pip install "kokorog2p[kk]"
++
+ # Vietnamese native frontend
+ vi_phonemes = phonemize("Xin chào!", language="vi").phonemes
+ print(vi_phonemes)
+diff --git a/kokorog2p/__init__.py b/kokorog2p/__init__.py
+index 2f8e3e3..e631bdf 100644
+--- a/kokorog2p/__init__.py
++++ b/kokorog2p/__init__.py
+@@ -176,6 +176,10 @@ _LANGUAGE_ALIASES = {
+     "ru-ru": "ru-ru",
+     "rus": "ru-ru",
+     "russian": "ru-ru",
++    "kk": "kk",
++    "kk-kz": "kk",
++    "kaz": "kk",
++    "kazakh": "kk",
+ }
+
+ _FACTORY_KWARGS_BY_LANGUAGE = {
+@@ -248,6 +252,7 @@ _FACTORY_KWARGS_BY_LANGUAGE = {
+             "engine",
+         }
+     ),
++    "kk": frozenset(),
+     "sv": frozenset({"dialect", "preserve_stress"}),
+ }
+
+@@ -559,17 +564,38 @@ def get_g2p(  # noqa: C901
+             language=implementation_language, strict=strict, version=version, **kwargs
+         )
+     elif backend == "espeak":
+-        # Use espeak backend for all languages
+-        from kokorog2p.espeak_g2p import EspeakOnlyG2P
++        # Kazakh must use raw IPA even when the generic backend is requested.
++        if lang == "kk":
++            from kokorog2p.kk import KazakhG2P
++
++            g2p = KazakhG2P(
++                language=implementation_language,
++                strict=strict,
++                version=version,
++                use_cli=use_cli,
++                **kwargs,
++            )
++        else:
++            from kokorog2p.espeak_g2p import EspeakOnlyG2P
++
++            g2p = EspeakOnlyG2P(
++                language=implementation_language,
++                strict=strict,
++                version=version,
++                use_cli=use_cli,
++                **kwargs,
++            )
+
+-        g2p = EspeakOnlyG2P(
++    elif lang == "kk":
++        from kokorog2p.kk import KazakhG2P
++
++        g2p = KazakhG2P(
+             language=implementation_language,
+             strict=strict,
+             version=version,
+             use_cli=use_cli,
+             **kwargs,
+         )
+-
+     elif lang.startswith("en"):
+         from kokorog2p.en import EnglishG2P
+
+diff --git a/kokorog2p/espeak_g2p.py b/kokorog2p/espeak_g2p.py
+index b520218..5c56896 100644
+--- a/kokorog2p/espeak_g2p.py
++++ b/kokorog2p/espeak_g2p.py
+@@ -100,6 +100,7 @@ class EspeakOnlyG2P(G2PBase):
+         use_goruut_fallback: bool = False,  # Always False for this class
+         strict: bool = True,
+         version: str = "1.0",
++        use_cli: bool = False,
+         **kwargs,
+     ) -> None:
+         """Initialize the espeak-only G2P.
+@@ -117,6 +118,7 @@ class EspeakOnlyG2P(G2PBase):
+             use_espeak_fallback=True,
+             use_goruut_fallback=False,
+             strict=strict,
++            use_cli=use_cli,
+         )
+         self.version = version
+         self._espeak_backend = None
+@@ -147,6 +149,7 @@ class EspeakOnlyG2P(G2PBase):
+             self._espeak_backend = EspeakBackend(
+                 language=self._espeak_voice,
+                 with_stress=True,
++                use_cli=self.use_cli,
+             )
+             # Validate immediately after initialization
+             self._validate_backend()
+@@ -165,8 +168,8 @@ class EspeakOnlyG2P(G2PBase):
+             raise RuntimeError("Backend not initialized")
+
+         try:
+-            # Try a simple test
+-            test_result = self._espeak_backend.phonemize("test")
++            # Try a simple test using the subclass-selected validation text.
++            test_result = self._phonemize_text(self._validation_text())
+             if not test_result:
+                 raise RuntimeError(
+                     f"Espeak backend returned empty result for test word. "
+@@ -180,6 +183,18 @@ class EspeakOnlyG2P(G2PBase):
+                 f"Error: {e}"
+             ) from e
+
++    def _validation_text(self) -> str:
++        """Return text used to verify the configured eSpeak voice."""
++        return "test"
++
++    def _phonemize_word(self, word: str) -> str:
++        """Phonemize one word through the configured backend."""
++        return self.espeak_backend.word_phonemes(word)
++
++    def _phonemize_text(self, text: str) -> str:
++        """Phonemize text through the configured backend."""
++        return self.espeak_backend.phonemize(text)
++
+     def __call__(self, text: str) -> list[GToken]:
+         """Convert text to tokens with phonemes.
+
+@@ -216,7 +231,7 @@ class EspeakOnlyG2P(G2PBase):
+                 continue
+
+             try:
+-                phonemes = self.espeak_backend.word_phonemes(span.text)
++                phonemes = self._phonemize_word(span.text)
+             except Exception as e:
+                 if self.strict:
+                     if isinstance(e, RuntimeError):
+@@ -265,7 +280,7 @@ class EspeakOnlyG2P(G2PBase):
+             RuntimeError: If espeak backend fails and strict=True.
+         """
+         try:
+-            return self.espeak_backend.word_phonemes(word)
++            return self._phonemize_word(word)
+         except Exception as e:
+             if self.strict:
+                 if isinstance(e, RuntimeError):
+@@ -297,7 +312,7 @@ class EspeakOnlyG2P(G2PBase):
+             RuntimeError: If espeak backend fails and strict=True.
+         """
+         try:
+-            return self.espeak_backend.phonemize(text)
++            return self._phonemize_text(text)
+         except Exception as e:
+             if self.strict:
+                 if isinstance(e, RuntimeError):
+diff --git a/kokorog2p/kk/__init__.py b/kokorog2p/kk/__init__.py
+new file mode 100644
+index 0000000..9cc65b2
+--- /dev/null
++++ b/kokorog2p/kk/__init__.py
+@@ -0,0 +1,6 @@
++"""Kazakh G2P frontend."""
++
++from .g2p import KazakhG2P
++from .model_profile import KazakhVocabularyError
++
++__all__ = ["KazakhG2P", "KazakhVocabularyError"]
+diff --git a/kokorog2p/kk/g2p.py b/kokorog2p/kk/g2p.py
+new file mode 100644
+index 0000000..88f374c
+--- /dev/null
++++ b/kokorog2p/kk/g2p.py
+@@ -0,0 +1,105 @@
++"""Source-aligned Kazakh G2P backed by the eSpeak-NG kk voice."""
++
++from __future__ import annotations
++
++from typing import Any
++
++from kokorog2p.espeak_g2p import EspeakOnlyG2P
++
++from .model_profile import (
++    TARGET_MODEL,
++    KazakhVocabularyError,
++    transform_kazakh_ipa,
++    validate_kazakh_symbols,
++)
++
++
++class KazakhG2P(EspeakOnlyG2P):
++    """Kazakh frontend that preserves raw non-English eSpeak IPA semantics."""
++
++    aliases = frozenset({"kk", "kk-kz", "kaz", "kazakh"})
++
++    def __init__(
++        self,
++        language: str = "kk",
++        *,
++        strict: bool = True,
++        version: str = TARGET_MODEL,
++        use_cli: bool = False,
++        **kwargs: Any,
++    ) -> None:
++        if kwargs:
++            names = ", ".join(sorted(kwargs))
++            raise TypeError(f"Unsupported KazakhG2P options: {names}")
++        normalized = language.lower().replace("_", "-")
++        if normalized not in self.aliases:
++            raise ValueError(f"Unsupported Kazakh language code: {language!r}")
++        if version != TARGET_MODEL:
++            raise ValueError("KazakhG2P supports frontend version '1.0'.")
++        super().__init__(language="kk", strict=strict, version=version, use_cli=use_cli)
++
++    def _validation_text(self) -> str:
++        return "сәлем"
++
++    def _validate_backend(self) -> None:
++        """Verify that the configured eSpeak-NG installation exposes voice kk."""
++        if self._espeak_backend is None:
++            raise RuntimeError("Backend not initialized")
++        try:
++            raw = self._espeak_backend.phonemize(
++                self._validation_text(), convert_to_kokoro=False
++            )
++        except Exception as error:
++            raise RuntimeError(
++                "Kazakh requires an eSpeak-NG installation/data set that provides "
++                "voice 'kk'. "
++                f"Original error: {error}"
++            ) from error
++        if not raw:
++            raise RuntimeError(
++                "Kazakh requires an eSpeak-NG installation/data set that provides "
++                "voice 'kk'; "
++                "the validation word produced no phonemes."
++            )
++
++    def _normalize_and_validate(self, raw: str, source_token: str) -> str:
++        if not raw:
++            raise RuntimeError(
++                f"eSpeak-NG returned empty output for Kazakh token {source_token!r}."
++            )
++        phonemes = transform_kazakh_ipa(raw)
++        invalid = validate_kazakh_symbols(
++            phonemes,
++            source_token=source_token,
++            raw_ipa=raw,
++            strict=self.strict,
++        )
++        if invalid:
++            raise KazakhVocabularyError(invalid[0], source_token, raw, phonemes)
++        return phonemes
++
++    def _phonemize_word(self, word: str) -> str:
++        raw = self.espeak_backend.word_phonemes(word, convert_to_kokoro=False)
++        return self._normalize_and_validate(raw, word)
++
++    def _phonemize_text(self, text: str) -> str:
++        raw = self.espeak_backend.phonemize(text, convert_to_kokoro=False)
++        return self._normalize_and_validate(raw, text)
++
++    def get_target_model(self) -> str:
++        return TARGET_MODEL
++
++    def capabilities(self) -> dict[str, object]:
++        return {
++            "language": "kk",
++            "native": True,
++            "engine": "espeak-ng",
++            "version": self.version,
++            "target_model": TARGET_MODEL,
++            "runtime_lexicon": False,
++            "source_aligned": True,
++            "raw_ipa": True,
++        }
++
++    def __repr__(self) -> str:
++        return f"KazakhG2P(language={self.language!r}, model={TARGET_MODEL!r})"
+diff --git a/kokorog2p/kk/model_profile.py b/kokorog2p/kk/model_profile.py
+new file mode 100644
+index 0000000..09c2c14
+--- /dev/null
++++ b/kokorog2p/kk/model_profile.py
+@@ -0,0 +1,100 @@
++"""Raw eSpeak-NG to Kokoro compatibility profile for Kazakh."""
++
++from __future__ import annotations
++
++from dataclasses import dataclass
++
++from kokorog2p.vocab import get_vocab, validate_for_kokoro
++
++TARGET_MODEL = "1.0"
++PROFILE_NAME = "KokoroKazakhEspeakV1"
++
++# These are generic eSpeak tie spellings for single Kokoro labels. Ordinary
++# non-English IPA symbols intentionally do not appear in this mapping.
++_ESPEAK_TIED_MAP = {
++    "a^ɪ": "I",
++    "a^ʊ": "W",
++    "d^z": "ʣ",
++    "d^ʒ": "ʤ",
++    "e^ɪ": "A",
++    "o^ʊ": "O",
++    "ə^ʊ": "Q",
++    "s^s": "S",
++    "t^s": "ʦ",
++    "t^ʃ": "ʧ",
++    "ɔ^ɪ": "Y",
++    "a͡ɪ": "I",
++    "a͡ʊ": "W",
++    "d͡z": "ʣ",
++    "d͡ʒ": "ʤ",
++    "e͡ɪ": "A",
++    "o͡ʊ": "O",
++    "ə͡ʊ": "Q",
++    "s͡s": "S",
++    "t͡s": "ʦ",
++    "t͡ʃ": "ʧ",
++    "ɔ͡ɪ": "Y",
++}
++
++
++@dataclass(frozen=True)
++class KazakhVocabularyError(ValueError):
++    """Actionable strict-mode error for a symbol outside Kokoro's vocabulary."""
++
++    invalid_symbol: str
++    source_token: str
++    raw_ipa: str
++    normalized_ipa: str
++
++    def __str__(self) -> str:
++        return (
++            f"Unsupported Kazakh Kokoro symbol {self.invalid_symbol!r} "
++            f"(U+{ord(self.invalid_symbol):04X}) in source token "
++            f"{self.source_token!r}; raw={self.raw_ipa!r}, "
++            f"normalized={self.normalized_ipa!r}"
++        )
++
++
++def normalize_espeak_symbols(raw: str) -> str:
++    """Apply only generic tied-phoneme compatibility replacements."""
++    normalized = raw
++    for old, new in sorted(_ESPEAK_TIED_MAP.items(), key=lambda item: -len(item[0])):
++        normalized = normalized.replace(old, new)
++    return normalized.replace("^", "").replace("͡", "")
++
++
++def transform_kazakh_ipa(raw_ipa: str) -> str:
++    """Normalize raw Kazakh eSpeak IPA for the stock Kokoro model."""
++    return normalize_espeak_symbols(raw_ipa)
++
++
++def validate_kazakh_symbols(
++    ipa: str,
++    *,
++    source_token: str = "",
++    raw_ipa: str = "",
++    strict: bool = True,
++) -> list[str]:
++    """Validate final labels, raising or returning unsupported symbols."""
++    valid, invalid = validate_for_kokoro(ipa, model=TARGET_MODEL)
++    if valid:
++        return []
++    if strict:
++        raise KazakhVocabularyError(invalid[0], source_token, raw_ipa, ipa)
++    return invalid
++
++
++def model_profile_vocab() -> dict[str, int]:
++    """Return an isolated copy of the stock target mapping for diagnostics."""
++    return dict(get_vocab(TARGET_MODEL))
++
++
++__all__ = [
++    "PROFILE_NAME",
++    "TARGET_MODEL",
++    "KazakhVocabularyError",
++    "model_profile_vocab",
++    "normalize_espeak_symbols",
++    "transform_kazakh_ipa",
++    "validate_kazakh_symbols",
++]
+diff --git a/kokorog2p/multilang.py b/kokorog2p/multilang.py
+index 2ccd29d..a3d10f9 100644
+--- a/kokorog2p/multilang.py
++++ b/kokorog2p/multilang.py
+@@ -30,6 +30,7 @@ except ImportError:  # pragma: no cover - tested via import guard
+
+ WORD_OR_PUNCT_REGEX = re.compile(r"\w+|\s+|[^\w\s]+", re.UNICODE)
+
++_KAZAKH_DISTINCTIVE = re.compile(r"[ӘәҒғҚқҢңӨөҰұҮүҺһІі]")
+ # Map kokorog2p language codes to lingua Language enum
+ KOKOROG2P_TO_LINGUA: Final[dict[str, Any]] = {}
+ LINGUA_TO_KOKOROG2P: Final[dict[Any, str]] = {}
+@@ -67,6 +68,7 @@ if LINGUA_AVAILABLE:
+             "nl": Language.DUTCH,  # type: ignore
+             "pl": Language.POLISH,  # type: ignore
+             "ru": Language.RUSSIAN,  # type: ignore
++            "kk": Language.KAZAKH,  # type: ignore
+             "ar": Language.ARABIC,  # type: ignore
+             "hi": Language.HINDI,  # type: ignore
+             "tr": Language.TURKISH,  # type: ignore
+@@ -90,6 +92,7 @@ if LINGUA_AVAILABLE:
+             Language.DUTCH: "nl",  # type: ignore
+             Language.POLISH: "pl",  # type: ignore
+             Language.RUSSIAN: "ru",  # type: ignore
++            Language.KAZAKH: "kk",  # type: ignore
+             Language.ARABIC: "ar",  # type: ignore
+             Language.HINDI: "hi",  # type: ignore
+             Language.TURKISH: "tr",  # type: ignore
+@@ -142,11 +145,17 @@ def _detect_script_language(token: str, allowed: list[str]) -> str | None:
+         )
+     if re.search(r"[\u0590-\u05ff]", token):
+         return _pick_allowed_language("he", allowed)
++    if _KAZAKH_DISTINCTIVE.search(token):
++        return _pick_allowed_language("kk", allowed)
+     if re.search(r"[\u0400-\u04ff]", token):
+-        # Cyrillic alone is not universally Russian. Today Russian is the only
+-        # native Cyrillic candidate, so require it to be explicitly allowed.
+-        return _pick_allowed_language("ru", allowed)
+-    return None
++        russian = _pick_allowed_language("ru", allowed)
++        kazakh = _pick_allowed_language("kk", allowed)
++        if russian and not kazakh:
++            return russian
++        if kazakh and not russian:
++            return kazakh
++        # Ambiguous Cyrillic is left to Lingua when both languages are allowed.
++        return None
+
+
+ def _validate_languages(
+diff --git a/pyproject.toml b/pyproject.toml
+index e974b72..2e5856e 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -58,6 +58,9 @@ espeak = [
+     "espeakng-loader>=0.1.0",
+     "dlinfo>=1.2.1",
+ ]
++kk = [
++    "kokorog2p[espeak]",
++]
+ ar = [
+     "kokorog2p[espeak]",
+ ]
+@@ -134,7 +137,7 @@ mixed = [
+     "lingua-language-detector>=2.0.0",
+ ]
+ all = [
+-    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,mixed,ar,th,ru]"
++    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,mixed,ar,th,ru,kk]"
+ ]
+ dev = [
+     "pytest>=7.0.0",
+diff --git a/tests/test_espeak_backend.py b/tests/test_espeak_backend.py
+index 65ec456..00327db 100644
+--- a/tests/test_espeak_backend.py
++++ b/tests/test_espeak_backend.py
+@@ -693,3 +693,19 @@ class TestBackwardsCompatibility:
+
+         v = EspeakVoice.from_language("en-us")
+         assert v.language == "en-us"
++
++
++def test_espeak_only_explicit_use_cli_and_hooks() -> None:
++    from kokorog2p.espeak_g2p import EspeakOnlyG2P
++
++    class FakeBackend:
++        def word_phonemes(self, word: str) -> str:
++            return f"word:{word}"
++        def phonemize(self, text: str) -> str:
++            return f"text:{text}"
++
++    g2p = EspeakOnlyG2P(language="fr", use_cli=True)
++    g2p._espeak_backend = FakeBackend()
++    assert g2p.use_cli is True
++    assert g2p._phonemize_word("bonjour") == "word:bonjour"
++    assert g2p._phonemize_text("bonjour") == "text:bonjour"
+diff --git a/tests/test_factory_languages.py b/tests/test_factory_languages.py
+index 925c4c0..5951fbd 100644
+--- a/tests/test_factory_languages.py
++++ b/tests/test_factory_languages.py
+@@ -149,3 +149,27 @@ def test_top_level_g2p_options_configure_arabic() -> None:
+     )
+     assert result.phonemes
+     assert result.token_ids
++
++
++def test_kazakh_factory_aliases_share_cached_native_instance() -> None:
++    from kokorog2p import clear_cache
++    from kokorog2p.kk import KazakhG2P
++
++    clear_cache()
++    instances = [get_g2p(alias) for alias in ("kk", "kk-kz", "kaz", "kazakh")]
++    assert all(isinstance(instance, KazakhG2P) for instance in instances)
++    assert len({id(instance) for instance in instances}) == 1
++    assert instances[0].get_target_model() == "1.0"
++
++
++def test_kazakh_explicit_espeak_backend_uses_native_frontend() -> None:
++    from kokorog2p import clear_cache
++    from kokorog2p.kk import KazakhG2P
++
++    clear_cache()
++    assert isinstance(get_g2p("kk", backend="espeak"), KazakhG2P)
++
++
++def test_kazakh_rejects_unsupported_factory_options() -> None:
++    with pytest.raises(TypeError, match="Unsupported get_g2p options"):
++        get_g2p("kk", unsupported=True)
+diff --git a/tests/test_kk_g2p.py b/tests/test_kk_g2p.py
+new file mode 100644
+index 0000000..6b45fe8
+--- /dev/null
++++ b/tests/test_kk_g2p.py
+@@ -0,0 +1,116 @@
++"""Unit tests for the Kazakh eSpeak frontend."""
++
++from dataclasses import dataclass
++
++import pytest
++
++from kokorog2p.kk import KazakhG2P
++from kokorog2p.kk.model_profile import KazakhVocabularyError
++
++
++@dataclass
++class FakeBackend:
++    word_output: str = "rxeqʁ"
++    text_output: str = "rxeqʁ rxeqʁ"
++
++    def __post_init__(self) -> None:
++        self.word_calls: list[tuple[str, bool]] = []
++        self.text_calls: list[tuple[str, bool]] = []
++
++    def word_phonemes(self, word: str, convert_to_kokoro: bool = True) -> str:
++        self.word_calls.append((word, convert_to_kokoro))
++        return self.word_output
++
++    def phonemize(self, text: str, convert_to_kokoro: bool = True) -> str:
++        self.text_calls.append((text, convert_to_kokoro))
++        return self.text_output
++
++
++def make_g2p(backend: FakeBackend, *, strict: bool = True) -> KazakhG2P:
++    g2p = KazakhG2P(strict=strict)
++    g2p._espeak_backend = backend
++    return g2p
++
++
++def test_aliases_and_metadata() -> None:
++    g2p = KazakhG2P(language="kazakh")
++    assert g2p.language == "kk"
++    assert g2p.get_target_model() == "1.0"
++    assert g2p.capabilities()["engine"] == "espeak-ng"
++    assert g2p.capabilities()["raw_ipa"] is True
++
++
++def test_word_processing_requests_raw_ipa() -> None:
++    backend = FakeBackend()
++    g2p = make_g2p(backend)
++
++    assert g2p.lookup("fixture") == "rxeqʁ"
++    assert backend.word_calls == [("fixture", False)]
++
++
++def test_raw_symbols_are_not_english_converted() -> None:
++    assert (
++        make_g2p(FakeBackend(word_output="r x e q ʁ")).lookup("fixture") == "r x e q ʁ"
++    )
++
++
++def test_tokens_preserve_punctuation_whitespace_and_offsets() -> None:
++    g2p = make_g2p(FakeBackend())
++    text = "Сәлем, әлем!"
++    tokens = g2p(text)
++
++    assert [(token.text, token.whitespace) for token in tokens] == [
++        ("Сәлем", ""),
++        (",", " "),
++        ("әлем", ""),
++        ("!", ""),
++    ]
++    assert [(token.get("char_start"), token.get("char_end")) for token in tokens] == [
++        (0, 5),
++        (5, 6),
++        (7, 11),
++        (11, 12),
++    ]
++    assert tokens[0].rating == "espeak"
++    assert tokens[1].phonemes == ","
++
++
++def test_text_processing_uses_raw_ipa() -> None:
++    backend = FakeBackend()
++    assert make_g2p(backend).phonemize("сәлем әлем") == "rxeqʁ rxeqʁ"
++    assert backend.text_calls == [("сәлем әлем", False)]
++
++
++def test_unsupported_output_has_context_in_strict_mode() -> None:
++    g2p = make_g2p(FakeBackend(word_output="r§e"))
++    with pytest.raises(RuntimeError, match="Unsupported Kazakh Kokoro symbol") as error:
++        g2p.lookup("сөз")
++    assert isinstance(error.value.__cause__, KazakhVocabularyError)
++    assert "сөз" in str(error.value.__cause__)
++
++
++def test_lenient_unsupported_word_returns_empty_token_phonemes() -> None:
++    tokens = make_g2p(FakeBackend(word_output="r§e"), strict=False)("сөз")
++    assert tokens[0].phonemes is None
++    assert tokens[0].rating is None
++
++
++def test_empty_output_fails_in_strict_mode() -> None:
++    with pytest.raises(RuntimeError, match="empty output"):
++        make_g2p(FakeBackend(word_output="")).lookup("сөз")
++
++
++def test_use_cli_is_forwarded_to_lazy_backend(monkeypatch: pytest.MonkeyPatch) -> None:
++    seen: dict[str, object] = {}
++
++    class RecordingBackend(FakeBackend):
++        def __init__(self, **kwargs: object) -> None:
++            super().__init__()
++            seen.update(kwargs)
++
++    import kokorog2p.backends.espeak as espeak_package
++
++    monkeypatch.setattr(espeak_package, "EspeakBackend", RecordingBackend)
++    g2p = KazakhG2P(use_cli=True)
++    assert g2p.espeak_backend is not None
++    assert seen == {"language": "kk", "with_stress": True, "use_cli": True}
+diff --git a/tests/test_kk_model_profile.py b/tests/test_kk_model_profile.py
+new file mode 100644
+index 0000000..4754f93
+--- /dev/null
++++ b/tests/test_kk_model_profile.py
+@@ -0,0 +1,41 @@
++"""Unit tests for the Kazakh Kokoro model profile."""
++
++import pytest
++
++from kokorog2p.kk.model_profile import (
++    KazakhVocabularyError,
++    model_profile_vocab,
++    transform_kazakh_ipa,
++    validate_kazakh_symbols,
++)
++
++
++def test_profile_rewrites_generic_tied_phonemes() -> None:
++    assert transform_kazakh_ipa("a^ɪ a^ʊ d^z d^ʒ e^ɪ o^ʊ ə^ʊ s^s t^s t^ʃ ɔ^ɪ") == (
++        "I W ʣ ʤ A O Q S ʦ ʧ Y"
++    )
++    assert transform_kazakh_ipa("t͡ʃ") == "ʧ"
++
++
++def test_profile_preserves_non_english_symbols() -> None:
++    assert transform_kazakh_ipa("rxeqʁ") == "rxeqʁ"
++
++
++def test_profile_validates_against_stock_model() -> None:
++    assert validate_kazakh_symbols("rxeqʁ") == []
++    assert set(model_profile_vocab()) >= set("rxeqʁ")
++
++
++def test_profile_reports_context_for_invalid_symbol() -> None:
++    with pytest.raises(KazakhVocabularyError) as error:
++        validate_kazakh_symbols("r§e", source_token="сөз", raw_ipa="r§e")
++
++    message = str(error.value)
++    assert "§" in message
++    assert "U+00A7" in message
++    assert "сөз" in message
++    assert "r§e" in message
++
++
++def test_profile_lenient_validation_returns_all_invalid_symbols() -> None:
++    assert validate_kazakh_symbols("§¤§", strict=False) == ["§", "¤", "§"]
+diff --git a/tests/test_minimal_install.py b/tests/test_minimal_install.py
+index f981adb..9b37d4f 100644
+--- a/tests/test_minimal_install.py
++++ b/tests/test_minimal_install.py
+@@ -42,3 +42,11 @@ def test_core_explicit_spacy_requirement_is_strict(monkeypatch):
+             load_silver=False,
+             use_espeak_fallback=False,
+         )
++
++
++def test_kazakh_frontend_imports_without_loading_espeak() -> None:
++    from kokorog2p.kk import KazakhG2P
++
++    g2p = get_g2p("kk")
++    assert isinstance(g2p, KazakhG2P)
++    assert g2p._espeak_backend is None
+diff --git a/tests/test_multilang.py b/tests/test_multilang.py
+index d59f7a7..87b2b1f 100644
+--- a/tests/test_multilang.py
++++ b/tests/test_multilang.py
+@@ -443,3 +443,26 @@ class TestJapaneseG2P:
+         g2p = get_g2p("ja", use_spacy=True, spacy_model="ja_core_news_lg")
+         assert isinstance(g2p, JapaneseG2P)
+         assert g2p.spacy_model is None
++
++
++def test_kazakh_distinctive_cyrillic_shortcut() -> None:
++    from kokorog2p.multilang import _detect_script_language
++
++    assert _detect_script_language("Сәлем", ["ru", "kk"]) == "kk"
++    assert _detect_script_language("Қазақстан", ["kk"]) == "kk"
++
++
++def test_generic_cyrillic_is_ambiguous_between_russian_and_kazakh() -> None:
++    from kokorog2p.multilang import _detect_script_language
++
++    assert _detect_script_language("Москва", ["ru", "kk"]) is None
++    assert _detect_script_language("Москва", ["ru"]) == "ru"
++    assert _detect_script_language("сөз", ["kk"]) == "kk"
++
++
++def test_lingua_maps_kazakh_when_available() -> None:
++    multilang = pytest.importorskip("kokorog2p.multilang")
++    if not multilang.LINGUA_AVAILABLE:
++        pytest.skip("lingua-language-detector is not installed")
++    assert multilang.KOKOROG2P_TO_LINGUA["kk"].name == "KAZAKH"
++    assert multilang.LINGUA_TO_KOKOROG2P[multilang.Language.KAZAKH] == "kk"
+diff --git a/tests/test_public_api_consistency.py b/tests/test_public_api_consistency.py
+index 81fbf67..7a159d9 100644
+--- a/tests/test_public_api_consistency.py
++++ b/tests/test_public_api_consistency.py
+@@ -94,3 +94,22 @@ def test_phonemize():
+     result = phonemize(text, alignment="legacy")
+     assert result.clean_text == "Hello…world!"
+     assert "…" in result.phonemes
++
++
++def test_kazakh_public_api_uses_standard_result_shape() -> None:
++    from kokorog2p.kk import KazakhG2P
++
++    class FakeBackend:
++        def word_phonemes(self, word: str, convert_to_kokoro: bool = True) -> str:
++            assert convert_to_kokoro is False
++            return "rxeqʁ"
++        def phonemize(self, text: str, convert_to_kokoro: bool = True) -> str:
++            assert convert_to_kokoro is False
++            return "rxeqʁ"
++
++    g2p = KazakhG2P()
++    g2p._espeak_backend = FakeBackend()
++    result = phonemize("Сәлем!", language="kk", g2p=g2p, return_ids=False)
++    assert isinstance(result, PhonemizeResult)
++    assert result.phonemes == "rxeqʁ!"
++    assert result.tokens

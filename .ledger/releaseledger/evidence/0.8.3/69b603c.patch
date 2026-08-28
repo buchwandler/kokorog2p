@@ -1,0 +1,322 @@
+ .github/workflows/pre-commit.yml |  2 +-
+ README.md                        |  4 ++--
+ benchmarks/ARABIC_DATASET.md     | 20 ++++++++++----------
+ docs/api/arabic.md               | 40 ++++++++++++++++++++--------------------
+ docs/ar/PROVENANCE.md            | 39 ++++++++++++++++++++-------------------
+ docs/installation.md             |  9 ++++-----
+ docs/languages.md                |  7 +++----
+ docs/phonemes.md                 |  9 ++++-----
+ kokorog2p/pipeline_api.py        |  4 +++-
+ kokorog2p/tokenization.py        |  3 ++-
+ kokorog2p/vocab.py               |  1 +
+ 11 files changed, 70 insertions(+), 68 deletions(-)
+
+diff --git a/.github/workflows/pre-commit.yml b/.github/workflows/pre-commit.yml
+index 082e03d..0e24e53 100644
+--- a/.github/workflows/pre-commit.yml
++++ b/.github/workflows/pre-commit.yml
+@@ -22,7 +22,7 @@ jobs:
+       - name: Install Python tools
+         run: |
+           python -m pip install --upgrade pip
+-          python -m pip install "ruff==0.15.17"
++          python -m pip install "ruff==0.16.0"
+
+       - name: Install Node tools
+         run: |
+diff --git a/README.md b/README.md
+index ff8656d..8646029 100644
+--- a/README.md
++++ b/README.md
+@@ -594,8 +594,8 @@ result = phonemize(
+ ```
+
+ Install `kokorog2p[ar]` for the Arabic eSpeak path. The optional
+-`kokorog2p[ar-diacritize]` extra enables CAMeL integration, but its MSA data
+-must be provisioned separately and is never downloaded automatically. See
++`kokorog2p[ar-diacritize]` extra enables CAMeL integration, but its MSA data must be
++provisioned separately and is never downloaded automatically. See
+ [Arabic API](docs/api/arabic.md) for MSA scope, source offsets, and model-ID caveats.
+
+ ## License
+diff --git a/benchmarks/ARABIC_DATASET.md b/benchmarks/ARABIC_DATASET.md
+index cfd8a56..27d83a0 100644
+--- a/benchmarks/ARABIC_DATASET.md
++++ b/benchmarks/ARABIC_DATASET.md
+@@ -1,8 +1,8 @@
+ # Arabic differential dataset
+
+-This is an independently curated smoke dataset for the native Arabic MSA
+-frontend. It is not copied from an external implementation or output corpus.
+-The benchmark reads one input per line when given a separate text file.
++This is an independently curated smoke dataset for the native Arabic MSA frontend. It is
++not copied from an external implementation or output corpus. The benchmark reads one
++input per line when given a separate text file.
+
+ ## Categories
+
+@@ -16,11 +16,11 @@ The benchmark reads one input per line when given a separate text file.
+
+ ## Differential results
+
+-No external oracle run is recorded in this checkout. When a maintainer performs
+-an isolated comparison, record exact match rate, normalized edit distance,
+-unsupported-symbol rate, punctuation mismatch rate, `ʕ`/`ħ` preservation, and
+-suppressed citation/Latin span counts. Categorize remaining differences as
+-backend, diacritizer, cleanup, or source-normalization differences.
++No external oracle run is recorded in this checkout. When a maintainer performs an
++isolated comparison, record exact match rate, normalized edit distance,
++unsupported-symbol rate, punctuation mismatch rate, `ʕ`/`ħ` preservation, and suppressed
++citation/Latin span counts. Categorize remaining differences as backend, diacritizer,
++cleanup, or source-normalization differences.
+
+-The benchmark script accepts precomputed oracle results with
+-`--oracle-results`; it never obtains oracle code or data automatically.
++The benchmark script accepts precomputed oracle results with `--oracle-results`; it
++never obtains oracle code or data automatically.
+diff --git a/docs/api/arabic.md b/docs/api/arabic.md
+index 60a3617..ef8c40e 100644
+--- a/docs/api/arabic.md
++++ b/docs/api/arabic.md
+@@ -1,7 +1,7 @@
+ # Arabic MSA
+
+-KokoroG2P provides a native Arabic frontend for Modern Standard Arabic (MSA).
+-It is not a dialect frontend and does not identify or convert Arabic dialects.
++KokoroG2P provides a native Arabic frontend for Modern Standard Arabic (MSA). It is not
++a dialect frontend and does not identify or convert Arabic dialects.
+
+ ## Construction
+
+@@ -18,25 +18,25 @@ result = phonemize(
+ )
+ ```
+
+-The native frontend uses the existing Arabic eSpeak-ng voice and raw IPA. It
+-then applies a small Nabra cleanup policy and targets `nabra-82m-v0.1`. The
+-Nabra profile reserves IDs 7 and 8 for `ʕ` and `ħ`; those IDs are intended for
+-the Nabra model, not stock Kokoro 1.0.
++The native frontend uses the existing Arabic eSpeak-ng voice and raw IPA. It then
++applies a small Nabra cleanup policy and targets `nabra-82m-v0.1`. The Nabra profile
++reserves IDs 7 and 8 for `ʕ` and `ħ`; those IDs are intended for the Nabra model, not
++stock Kokoro 1.0.
+
+ ## Diacritization
+
+-Already-vocalized text can use `diacritizer="none"` and does not require CAMeL
+-Tools. Unvocalized text can use `diacritizer="auto"` (the default), which uses
+-CAMeL when its local package and data are available and otherwise emits a
+-warning and continues. Use `diacritizer="camel-tools"` with
+-`strict_diacritizer=True` when missing dependencies or data must fail.
++Already-vocalized text can use `diacritizer="none"` and does not require CAMeL Tools.
++Unvocalized text can use `diacritizer="auto"` (the default), which uses CAMeL when its
++local package and data are available and otherwise emits a warning and continues. Use
++`diacritizer="camel-tools"` with `strict_diacritizer=True` when missing dependencies or
++data must fail.
+
+-CAMeL and its MSA data are optional. KokoroG2P never downloads or provisions
+-that data. Install the optional package and provision
+-`disambig-mle-calima-msa-r13` using CAMeL Tools' documented workflow.
++CAMeL and its MSA data are optional. KokoroG2P never downloads or provisions that data.
++Install the optional package and provision `disambig-mle-calima-msa-r13` using CAMeL
++Tools' documented workflow.
+
+-Adapters can be injected when a different local diacritizer is required. Each
+-adapter must return one output token for every input Arabic lexical token.
++Adapters can be injected when a different local diacritizer is required. Each adapter
++must return one output token for every input Arabic lexical token.
+
+ ## Source behavior and offsets
+
+@@ -48,10 +48,10 @@ adapter must return one output token for every input Arabic lexical token.
+ - `،`, `؛`, and `؟` are mapped to `,`, `;`, and `?` after source classification.
+
+ Arabic numbers, dates, currencies, and dialect-specific normalization are not
+-implemented by this frontend. Those belong to the upstream semantic
+-normalization architecture.
++implemented by this frontend. Those belong to the upstream semantic normalization
++architecture.
+
+ ## Generic eSpeak backend
+
+-`get_g2p("ar", backend="espeak")` intentionally returns the generic
+-`EspeakOnlyG2P`. It does not select the Nabra cleanup or vocabulary profile.
++`get_g2p("ar", backend="espeak")` intentionally returns the generic `EspeakOnlyG2P`. It
++does not select the Nabra cleanup or vocabulary profile.
+diff --git a/docs/ar/PROVENANCE.md b/docs/ar/PROVENANCE.md
+index 9c2ad81..05be5dd 100644
+--- a/docs/ar/PROVENANCE.md
++++ b/docs/ar/PROVENANCE.md
+@@ -5,35 +5,36 @@
+ - Model profile: `nabra-82m-v0.1`
+
+ The Arabic frontend is an independent implementation based on the behavior and
+-interoperability requirements in `01_todo.md`, KokoroG2P's public architecture,
+-and public eSpeak-ng and CAMeL Tools APIs. No source from the external Arabic
+-reference was copied, translated, mechanically rewritten, or vendored.
++interoperability requirements in `01_todo.md`, KokoroG2P's public architecture, and
++public eSpeak-ng and CAMeL Tools APIs. No source from the external Arabic reference was
++copied, translated, mechanically rewritten, or vendored.
+
+ ## Behavioral sources
+
+-- Oddadmix reference revision: [raw revision](https://gist.githubusercontent.com/Oddadmix/dc699f7942a9516ce29d4842c7aed756/raw/827b541c892a862f9ef3b44006a6e27b100d1bdd/arabic_g2p.py)
+-- Nabra model card: [oddadmix/Nabra-82M-v0.1](https://huggingface.co/oddadmix/Nabra-82M-v0.1)
++- Oddadmix reference revision:
++  [raw revision](https://gist.githubusercontent.com/Oddadmix/dc699f7942a9516ce29d4842c7aed756/raw/827b541c892a862f9ef3b44006a6e27b100d1bdd/arabic_g2p.py)
++- Nabra model card:
++  [oddadmix/Nabra-82M-v0.1](https://huggingface.co/oddadmix/Nabra-82M-v0.1)
+ - CAMeL Tools API: [documentation](https://camel-tools.readthedocs.io/)
+ - eSpeak-ng behavior: the existing KokoroG2P `EspeakBackend`
+
+-These links are behavioral and API references only. The reference implementation
+-and its output corpus are not package inputs.
++These links are behavioral and API references only. The reference implementation and its
++output corpus are not package inputs.
+
+ ## Data and licensing
+
+-KokoroG2P source is Apache-2.0. CAMeL Tools is an optional external dependency,
+-and its MSA morphology/disambiguation data is a separate external distribution
+-with separate licensing. No CAMeL or CALIMA data, model weights, or external
+-reference artifacts are bundled here. CAMeL data must be provisioned locally by
+-the user through CAMeL Tools' documented workflow; KokoroG2P does not download it.
++KokoroG2P source is Apache-2.0. CAMeL Tools is an optional external dependency, and its
++MSA morphology/disambiguation data is a separate external distribution with separate
++licensing. No CAMeL or CALIMA data, model weights, or external reference artifacts are
++bundled here. CAMeL data must be provisioned locally by the user through CAMeL Tools'
++documented workflow; KokoroG2P does not download it.
+
+ ## Tests and benchmark isolation
+
+-Unit tests use independently authored MSA examples, synthetic cleanup strings,
+-and injected fake adapters. The optional differential benchmark accepts an
+-explicitly supplied oracle environment and never imports or downloads the
+-reference automatically. Only comparison metrics and categorized observations
+-may be recorded in the repository.
++Unit tests use independently authored MSA examples, synthetic cleanup strings, and
++injected fake adapters. The optional differential benchmark accepts an explicitly
++supplied oracle environment and never imports or downloads the reference automatically.
++Only comparison metrics and categorized observations may be recorded in the repository.
+
+-The current checkout contains no external oracle run. Differential results must
+-be recorded only after a maintainer performs that isolated run.
++The current checkout contains no external oracle run. Differential results must be
++recorded only after a maintainer performs that isolated run.
+diff --git a/docs/installation.md b/docs/installation.md
+index bca6a56..44528ad 100644
+--- a/docs/installation.md
++++ b/docs/installation.md
+@@ -297,7 +297,6 @@ For better performance:
+ 3. Reuse G2P instances instead of creating new ones
+ 4. Consider using espeak-ng fallback only for truly OOV words
+
+-
+ ### Arabic MSA
+
+ Install the native Arabic path with the existing eSpeak extra:
+@@ -312,7 +311,7 @@ For unvocalized MSA, the optional CAMeL adapter is available separately:
+ pip install "kokorog2p[ar-diacritize]"
+ ```
+
+-Provision `disambig-mle-calima-msa-r13` using CAMeL Tools' documented local
+-data workflow. KokoroG2P does not download or provision CAMeL data, and the
+-data license is separate from the Apache-2.0 KokoroG2P package. Use
+-`diacritizer="none"` for already-vocalized Arabic.
++Provision `disambig-mle-calima-msa-r13` using CAMeL Tools' documented local data
++workflow. KokoroG2P does not download or provision CAMeL data, and the data license is
++separate from the Apache-2.0 KokoroG2P package. Use `diacritizer="none"` for
++already-vocalized Arabic.
+diff --git a/docs/languages.md b/docs/languages.md
+index 173cbf4..e82227b 100644
+--- a/docs/languages.md
++++ b/docs/languages.md
+@@ -892,7 +892,6 @@ This provides basic support for 100+ languages via espeak-ng.
+
+ ## Arabic (MSA)
+
+-Arabic support is native and Nabra-compatible for Modern Standard Arabic (MSA).
+-It uses raw Arabic eSpeak IPA and optionally uses CAMeL MLE diacritization for
+-unvocalized text. Dialects are not supported by this frontend. See
+-{doc}`api/arabic`.
++Arabic support is native and Nabra-compatible for Modern Standard Arabic (MSA). It uses
++raw Arabic eSpeak IPA and optionally uses CAMeL MLE diacritization for unvocalized text.
++Dialects are not supported by this frontend. See {doc}`api/arabic`.
+diff --git a/docs/phonemes.md b/docs/phonemes.md
+index 7a0b9ca..e0f84c9 100644
+--- a/docs/phonemes.md
++++ b/docs/phonemes.md
+@@ -556,11 +556,10 @@ print(espeak)
+
+ ## Nabra Arabic profile
+
+-Arabic MSA uses the explicit `nabra-82m-v0.1` vocabulary profile. It is derived
+-from stock Kokoro 1.0 without mutating that mapping. The profile preserves the
+-dedicated symbols `ʕ` and `ħ` at IDs 7 and 8 respectively. These IDs are only
+-meaningful when passed to the compatible Nabra model; they are not a stock
+-Kokoro 1.0 Arabic contract.
++Arabic MSA uses the explicit `nabra-82m-v0.1` vocabulary profile. It is derived from
++stock Kokoro 1.0 without mutating that mapping. The profile preserves the dedicated
++symbols `ʕ` and `ħ` at IDs 7 and 8 respectively. These IDs are only meaningful when
++passed to the compatible Nabra model; they are not a stock Kokoro 1.0 Arabic contract.
+
+ ## References
+
+diff --git a/kokorog2p/pipeline_api.py b/kokorog2p/pipeline_api.py
+index 6a25b08..69122eb 100644
+--- a/kokorog2p/pipeline_api.py
++++ b/kokorog2p/pipeline_api.py
+@@ -105,6 +105,7 @@ def _get_target_model(g2p: Any) -> str:
+ def _get_frontend_version(g2p: Any) -> str:
+     return str(getattr(g2p, "version", "1.0"))
+
++
+ def _preserves_source_punctuation(g2p: Any) -> bool:
+     capabilities = getattr(g2p, "capabilities", None)
+     if callable(capabilities):
+@@ -113,6 +114,7 @@ def _preserves_source_punctuation(g2p: Any) -> bool:
+             return bool(values.get("preserve_source_punctuation"))
+     return bool(getattr(g2p, "preserve_source_punctuation", False))
+
++
+ def _merge_target_model(current: str, candidate: str) -> str:
+     if not current or current == candidate:
+         return current or candidate
+@@ -121,7 +123,7 @@ def _merge_target_model(current: str, candidate: str) -> str:
+     if candidate == "1.0":
+         return current
+     raise ValueError(
+-        "Incompatible target model profiles: " f"{current!r} and {candidate!r}"
++        f"Incompatible target model profiles: {current!r} and {candidate!r}"
+     )
+
+
+diff --git a/kokorog2p/tokenization.py b/kokorog2p/tokenization.py
+index a33d701..baf1a3a 100644
+--- a/kokorog2p/tokenization.py
++++ b/kokorog2p/tokenization.py
+@@ -14,10 +14,11 @@ if TYPE_CHECKING:
+     from kokorog2p.token import GToken
+
+
+-
+ COMMON_COMBINING_MARK_RANGES = r"\u0300-\u036f"
+ ARABIC_COMBINING_MARK_RANGES = r"\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed"
+ WORD_MARK_RANGES = COMMON_COMBINING_MARK_RANGES + ARABIC_COMBINING_MARK_RANGES
++
++
+ def ensure_gtoken_positions(gtokens: list["GToken"], text: str) -> list["GToken"]:
+     """Ensure GTokens have char_start/char_end positions.
+
+diff --git a/kokorog2p/vocab.py b/kokorog2p/vocab.py
+index 1911ebc..f186098 100644
+--- a/kokorog2p/vocab.py
++++ b/kokorog2p/vocab.py
+@@ -88,6 +88,7 @@ def _load_vocab_reverse_nabra() -> dict[int, str]:
+     """Build the reverse Nabra vocabulary independently from stock caches."""
+     return {v: k for k, v in _load_vocab_nabra().items()}
+
++
+ @lru_cache(maxsize=1)
+ def _load_config() -> dict:
+     """Load and cache the full Kokoro config."""

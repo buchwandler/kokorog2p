@@ -1,0 +1,1483 @@
+ README.md                                   |  19 ++
+ benchmarks/ARABIC_DATASET.md                |  26 +++
+ benchmarks/benchmark_ar_differential.py     |  71 ++++++++
+ docs/api/arabic.md                          |  57 ++++++
+ docs/ar/PROVENANCE.md                       |  39 ++++
+ docs/index.md                               |   1 +
+ docs/installation.md                        |  20 +++
+ docs/languages.md                           |   7 +
+ docs/phonemes.md                            |   8 +
+ kokorog2p/__init__.py                       |  31 +++-
+ kokorog2p/ar/__init__.py                    |  23 +++
+ kokorog2p/ar/diacritizer.py                 | 103 +++++++++++
+ kokorog2p/ar/g2p.py                         | 267 ++++++++++++++++++++++++++++
+ kokorog2p/ar/model_profile.py               |  66 +++++++
+ kokorog2p/pipeline_api.py                   |  42 +++--
+ kokorog2p/punctuation.py                    |   5 +-
+ kokorog2p/tokenization.py                   |  13 +-
+ kokorog2p/vocab.py                          |  35 +++-
+ pyproject.toml                              |   9 +-
+ tests/test_ar_g2p.py                        | 137 ++++++++++++++
+ tests/test_factory_languages.py             |  30 ++++
+ tests/test_offline_optional_dependencies.py |  85 ++++-----
+ tests/test_offset_tokenization.py           |  16 ++
+ 23 files changed, 1051 insertions(+), 59 deletions(-)
+
+diff --git a/README.md b/README.md
+index dbbf981..ff8656d 100644
+--- a/README.md
++++ b/README.md
+@@ -579,6 +579,25 @@ kokorog2p uses Kokoro's 45-phoneme vocabulary:
+ - Primary stress: `ˈ`
+ - Secondary stress: `ˌ`
+
++## Arabic MSA
++
++Native Arabic support targets Modern Standard Arabic with the Nabra-compatible
++`nabra-82m-v0.1` profile. Already-vocalized input works without optional CAMeL data:
++
++```python
++from kokorog2p import phonemize
++result = phonemize(
++    "مَرْحَبًا بِكَ؟",
++    language="ar",
++    g2p_options={"diacritizer": "none"},
++)
++```
++
++Install `kokorog2p[ar]` for the Arabic eSpeak path. The optional
++`kokorog2p[ar-diacritize]` extra enables CAMeL integration, but its MSA data
++must be provisioned separately and is never downloaded automatically. See
++[Arabic API](docs/api/arabic.md) for MSA scope, source offsets, and model-ID caveats.
++
+ ## License
+
+ Apache2 License - see [LICENSE](LICENSE) for details.
+diff --git a/benchmarks/ARABIC_DATASET.md b/benchmarks/ARABIC_DATASET.md
+new file mode 100644
+index 0000000..cfd8a56
+--- /dev/null
++++ b/benchmarks/ARABIC_DATASET.md
+@@ -0,0 +1,26 @@
++# Arabic differential dataset
++
++This is an independently curated smoke dataset for the native Arabic MSA
++frontend. It is not copied from an external implementation or output corpus.
++The benchmark reads one input per line when given a separate text file.
++
++## Categories
++
++- Vocalized words: `مَرْحَبًا بِكَ`
++- Unvocalized words: `اللغة العربية`
++- Hamza and long vowels: `هَذَا سُؤَالٌ`
++- Shadda and tanwin: `إِنَّ عِلْمًا نَافِعٌ`
++- Punctuation: `كَيْفَ حَالُكَ؟`
++- Source syntax: `قال [12] مَرْحَبًا (بِكَ)`
++- Mixed ASCII Latin: `مَرْحَبًا Hello`
++
++## Differential results
++
++No external oracle run is recorded in this checkout. When a maintainer performs
++an isolated comparison, record exact match rate, normalized edit distance,
++unsupported-symbol rate, punctuation mismatch rate, `ʕ`/`ħ` preservation, and
++suppressed citation/Latin span counts. Categorize remaining differences as
++backend, diacritizer, cleanup, or source-normalization differences.
++
++The benchmark script accepts precomputed oracle results with
++`--oracle-results`; it never obtains oracle code or data automatically.
+diff --git a/benchmarks/benchmark_ar_differential.py b/benchmarks/benchmark_ar_differential.py
+new file mode 100644
+index 0000000..d05b215
+--- /dev/null
++++ b/benchmarks/benchmark_ar_differential.py
+@@ -0,0 +1,71 @@
++"""Optional offline-safe Arabic differential benchmark.
++
++An oracle must be supplied explicitly by a maintainer. This script never imports,
++downloads, or executes an external reference implementation automatically.
++"""
++
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++from kokorog2p import get_g2p
++
++
++def load_inputs(path: Path) -> list[str]:
++    return [
++        line.strip()
++        for line in path.read_text(encoding="utf-8").splitlines()
++        if line.strip()
++    ]
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument(
++        "dataset", type=Path, help="Text file with independently curated MSA inputs"
++    )
++    parser.add_argument("--output", type=Path, help="Write clean-room results as JSON")
++    parser.add_argument(
++        "--oracle-results",
++        type=Path,
++        help=(
++            "Optional precomputed oracle JSON; no oracle code is loaded by this script"
++        ),
++    )
++    args = parser.parse_args()
++
++    inputs = load_inputs(args.dataset)
++    g2p = get_g2p("ar", diacritizer="none")
++    clean_results = [
++        {"input": text, "phonemes": g2p.phonemize(text)} for text in inputs
++    ]
++    report: dict[str, object] = {
++        "inputs": len(inputs),
++        "oracle": "provided-results" if args.oracle_results else "not-run",
++        "clean_room_results": clean_results,
++        "metrics": {},
++        "categories": [],
++    }
++    if args.oracle_results:
++        report["oracle_results"] = json.loads(
++            args.oracle_results.read_text(encoding="utf-8")
++        )
++        report["categories"] = [
++            "eSpeak/backend differences",
++            "diacritizer differences",
++            "cleanup differences",
++            "source-normalization differences",
++        ]
++    if args.output:
++        args.output.write_text(
++            json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
++        )
++    else:
++        print(json.dumps(report, ensure_ascii=False, indent=2))
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/docs/api/arabic.md b/docs/api/arabic.md
+new file mode 100644
+index 0000000..60a3617
+--- /dev/null
++++ b/docs/api/arabic.md
+@@ -0,0 +1,57 @@
++# Arabic MSA
++
++KokoroG2P provides a native Arabic frontend for Modern Standard Arabic (MSA).
++It is not a dialect frontend and does not identify or convert Arabic dialects.
++
++## Construction
++
++```python
++from kokorog2p import get_g2p, phonemize
++
++g2p = get_g2p("ar", diacritizer="none")
++result = phonemize(
++    "مَرْحَبًا بِكَ؟",
++    language="ar",
++    g2p=g2p,
++    return_phonemes=True,
++    return_ids=True,
++)
++```
++
++The native frontend uses the existing Arabic eSpeak-ng voice and raw IPA. It
++then applies a small Nabra cleanup policy and targets `nabra-82m-v0.1`. The
++Nabra profile reserves IDs 7 and 8 for `ʕ` and `ħ`; those IDs are intended for
++the Nabra model, not stock Kokoro 1.0.
++
++## Diacritization
++
++Already-vocalized text can use `diacritizer="none"` and does not require CAMeL
++Tools. Unvocalized text can use `diacritizer="auto"` (the default), which uses
++CAMeL when its local package and data are available and otherwise emits a
++warning and continues. Use `diacritizer="camel-tools"` with
++`strict_diacritizer=True` when missing dependencies or data must fail.
++
++CAMeL and its MSA data are optional. KokoroG2P never downloads or provisions
++that data. Install the optional package and provision
++`disambig-mle-calima-msa-r13` using CAMeL Tools' documented workflow.
++
++Adapters can be injected when a different local diacritizer is required. Each
++adapter must return one output token for every input Arabic lexical token.
++
++## Source behavior and offsets
++
++- Arabic harakat remain attached to their lexical source token.
++- ASCII Latin runs are suppressed by default with `latin_policy="drop"`.
++- Numeric square-bracket citation spans such as `[12]` are suppressed.
++- Real parentheses remain distinct and are not treated as citations.
++- Source token offsets always refer to the original input string.
++- `،`, `؛`, and `؟` are mapped to `,`, `;`, and `?` after source classification.
++
++Arabic numbers, dates, currencies, and dialect-specific normalization are not
++implemented by this frontend. Those belong to the upstream semantic
++normalization architecture.
++
++## Generic eSpeak backend
++
++`get_g2p("ar", backend="espeak")` intentionally returns the generic
++`EspeakOnlyG2P`. It does not select the Nabra cleanup or vocabulary profile.
+diff --git a/docs/ar/PROVENANCE.md b/docs/ar/PROVENANCE.md
+new file mode 100644
+index 0000000..9c2ad81
+--- /dev/null
++++ b/docs/ar/PROVENANCE.md
+@@ -0,0 +1,39 @@
++# Arabic clean-room provenance
++
++- Review date: 2026-08-26
++- Target: Modern Standard Arabic (MSA)
++- Model profile: `nabra-82m-v0.1`
++
++The Arabic frontend is an independent implementation based on the behavior and
++interoperability requirements in `01_todo.md`, KokoroG2P's public architecture,
++and public eSpeak-ng and CAMeL Tools APIs. No source from the external Arabic
++reference was copied, translated, mechanically rewritten, or vendored.
++
++## Behavioral sources
++
++- Oddadmix reference revision: [raw revision](https://gist.githubusercontent.com/Oddadmix/dc699f7942a9516ce29d4842c7aed756/raw/827b541c892a862f9ef3b44006a6e27b100d1bdd/arabic_g2p.py)
++- Nabra model card: [oddadmix/Nabra-82M-v0.1](https://huggingface.co/oddadmix/Nabra-82M-v0.1)
++- CAMeL Tools API: [documentation](https://camel-tools.readthedocs.io/)
++- eSpeak-ng behavior: the existing KokoroG2P `EspeakBackend`
++
++These links are behavioral and API references only. The reference implementation
++and its output corpus are not package inputs.
++
++## Data and licensing
++
++KokoroG2P source is Apache-2.0. CAMeL Tools is an optional external dependency,
++and its MSA morphology/disambiguation data is a separate external distribution
++with separate licensing. No CAMeL or CALIMA data, model weights, or external
++reference artifacts are bundled here. CAMeL data must be provisioned locally by
++the user through CAMeL Tools' documented workflow; KokoroG2P does not download it.
++
++## Tests and benchmark isolation
++
++Unit tests use independently authored MSA examples, synthetic cleanup strings,
++and injected fake adapters. The optional differential benchmark accepts an
++explicitly supplied oracle environment and never imports or downloads the
++reference automatically. Only comparison metrics and categorized observations
++may be recorded in the repository.
++
++The current checkout contains no external oracle run. Differential results must
++be recorded only after a maintainer performs that isolated run.
+diff --git a/docs/index.md b/docs/index.md
+index 2e85182..3a424c8 100644
+--- a/docs/index.md
++++ b/docs/index.md
+@@ -95,6 +95,7 @@ api/korean
+ api/vietnamese
+ api/hebrew
+ api/mixed
++api/arabic
+ api/backends
+ api/utils
+ ```
+diff --git a/docs/installation.md b/docs/installation.md
+index d7be534..bca6a56 100644
+--- a/docs/installation.md
++++ b/docs/installation.md
+@@ -296,3 +296,23 @@ For better performance:
+ 2. Enable caching (enabled by default)
+ 3. Reuse G2P instances instead of creating new ones
+ 4. Consider using espeak-ng fallback only for truly OOV words
++
++
++### Arabic MSA
++
++Install the native Arabic path with the existing eSpeak extra:
++
++```bash
++pip install "kokorog2p[ar]"
++```
++
++For unvocalized MSA, the optional CAMeL adapter is available separately:
++
++```bash
++pip install "kokorog2p[ar-diacritize]"
++```
++
++Provision `disambig-mle-calima-msa-r13` using CAMeL Tools' documented local
++data workflow. KokoroG2P does not download or provision CAMeL data, and the
++data license is separate from the Apache-2.0 KokoroG2P package. Use
++`diacritizer="none"` for already-vocalized Arabic.
+diff --git a/docs/languages.md b/docs/languages.md
+index 7b4efeb..173cbf4 100644
+--- a/docs/languages.md
++++ b/docs/languages.md
+@@ -889,3 +889,10 @@ This provides basic support for 100+ languages via espeak-ng.
+   - {doc}`api/korean`
+   - {doc}`api/hebrew`
+   - {doc}`api/mixed`
++
++## Arabic (MSA)
++
++Arabic support is native and Nabra-compatible for Modern Standard Arabic (MSA).
++It uses raw Arabic eSpeak IPA and optionally uses CAMeL MLE diacritization for
++unvocalized text. Dialects are not supported by this frontend. See
++{doc}`api/arabic`.
+diff --git a/docs/phonemes.md b/docs/phonemes.md
+index f2f53bb..7a0b9ca 100644
+--- a/docs/phonemes.md
++++ b/docs/phonemes.md
+@@ -554,6 +554,14 @@ espeak = to_espeak(kokoro, variant="us")
+ print(espeak)
+ ```
+
++## Nabra Arabic profile
++
++Arabic MSA uses the explicit `nabra-82m-v0.1` vocabulary profile. It is derived
++from stock Kokoro 1.0 without mutating that mapping. The profile preserves the
++dedicated symbols `ʕ` and `ħ` at IDs 7 and 8 respectively. These IDs are only
++meaningful when passed to the compatible Nabra model; they are not a stock
++Kokoro 1.0 Arabic contract.
++
+ ## References
+
+ - [IPA Chart](https://www.internationalphoneticassociation.org/content/ipa-chart) -
+diff --git a/kokorog2p/__init__.py b/kokorog2p/__init__.py
+index b4872e1..50e0ba1 100644
+--- a/kokorog2p/__init__.py
++++ b/kokorog2p/__init__.py
+@@ -36,8 +36,7 @@ Example:
+
+ import warnings
+ from collections import OrderedDict, namedtuple
+-from collections.abc import Callable
+-from collections.abc import Sequence
++from collections.abc import Callable, Mapping, Sequence
+ from threading import RLock
+ from typing import Any, Literal, Optional, Union
+
+@@ -159,6 +158,12 @@ _LANGUAGE_ALIASES = {
+     "ja": "ja-jp",
+     "jpn": "ja-jp",
+     "japanese": "ja-jp",
++    "ar": "ar",
++    "ara": "ar",
++    "arabic": "ar",
++    "ar-msa": "ar",
++    "msa": "ar",
++    "ar-sa": "ar",
+ }
+
+ _FACTORY_KWARGS_BY_LANGUAGE = {
+@@ -208,6 +213,15 @@ _FACTORY_KWARGS_BY_LANGUAGE = {
+         }
+     ),
+     "vi": frozenset({"foreign_fallback"}),
++    "ar": frozenset(
++        {
++            "diacritizer",
++            "latin_policy",
++            "citation_policy",
++            "strict_diacritizer",
++            "model_profile",
++        }
++    ),
+ }
+
+ _SPACY_DEFAULTS_BY_FAMILY = {
+@@ -648,6 +662,16 @@ def get_g2p(  # noqa: C901
+             version=version,
+             **kwargs,
+         )
++    elif lang == "ar":
++        from kokorog2p.ar import ArabicG2P
++
++        g2p = ArabicG2P(
++            language=implementation_language,
++            strict=strict,
++            version=version,
++            use_cli=use_cli,
++            **kwargs,
++        )
+     elif lang in ("ko", "ko-kr", "kor", "korean"):
+         from kokorog2p.ko import KoreanG2P
+
+@@ -714,6 +738,7 @@ def phonemize(
+     load_gold: bool = True,
+     backend: "BackendType" = "kokorog2p",
+     g2p: "G2PBase | None" = None,
++    g2p_options: Mapping[str, Any] | None = None,
+ ) -> PhonemizeResult:
+     """Phonemize text using the unified kokorog2p pipeline.
+
+@@ -843,6 +868,7 @@ def phonemize(
+             load_silver=load_silver,
+             load_gold=load_gold,
+             backend=backend,
++            **(dict(g2p_options) if g2p_options else {}),
+         )
+
+     return phonemize_to_result(
+@@ -863,6 +889,7 @@ def phonemize(
+             "spacy_model": spacy_model,
+             "spacy_model_size": spacy_model_size,
+             "backend": backend,
++            **(dict(g2p_options) if g2p_options else {}),
+         },
+     )
+
+diff --git a/kokorog2p/ar/__init__.py b/kokorog2p/ar/__init__.py
+new file mode 100644
+index 0000000..0ba594f
+--- /dev/null
++++ b/kokorog2p/ar/__init__.py
+@@ -0,0 +1,23 @@
++"""Native Arabic MSA frontend exports."""
++
++from kokorog2p.ar.diacritizer import (
++    ArabicDiacritizer,
++    ArabicDiacritizerDataError,
++    ArabicDiacritizerDependencyError,
++    ArabicDiacritizerError,
++    CamelMLEDiacritizer,
++    DiacritizerMode,
++    NoneDiacritizer,
++)
++from kokorog2p.ar.g2p import ArabicG2P
++
++__all__ = [
++    "ArabicDiacritizer",
++    "ArabicDiacritizerDataError",
++    "ArabicDiacritizerDependencyError",
++    "ArabicDiacritizerError",
++    "ArabicG2P",
++    "CamelMLEDiacritizer",
++    "DiacritizerMode",
++    "NoneDiacritizer",
++]
+diff --git a/kokorog2p/ar/diacritizer.py b/kokorog2p/ar/diacritizer.py
+new file mode 100644
+index 0000000..7f3412f
+--- /dev/null
++++ b/kokorog2p/ar/diacritizer.py
+@@ -0,0 +1,103 @@
++"""Optional Arabic diacritization adapters."""
++
++from __future__ import annotations
++
++from collections.abc import Mapping, Sequence
++from typing import Any, Literal, Protocol
++
++DiacritizerMode = Literal["auto", "none", "camel-tools"]
++
++
++class ArabicDiacritizer(Protocol):
++    """Protocol implemented by Arabic token diacritizers."""
++
++    def diacritize_tokens(self, tokens: Sequence[str]) -> list[str]:
++        """Return one possibly enriched token for every input token."""
++        ...
++
++
++class ArabicDiacritizerError(RuntimeError):
++    """Base error for optional Arabic diacritization failures."""
++
++
++class ArabicDiacritizerDependencyError(ArabicDiacritizerError):
++    """Raised when CAMeL Tools is not installed."""
++
++
++class ArabicDiacritizerDataError(ArabicDiacritizerError):
++    """Raised when CAMeL's pretrained MSA data is unavailable."""
++
++
++class NoneDiacritizer:
++    """Identity adapter for already-diacritized Arabic."""
++
++    def diacritize_tokens(self, tokens: Sequence[str]) -> list[str]:
++        return list(tokens)
++
++
++class CamelMLEDiacritizer:
++    """Lazy CAMeL Tools MSA MLE adapter.
++
++    This adapter only calls CAMeL's local ``pretrained`` loader. It never invokes
++    CAMeL data provisioning or any network/download operation.
++    """
++
++    def __init__(self) -> None:
++        self._disambiguator: Any | None = None
++
++    def _get_disambiguator(self) -> Any:
++        if self._disambiguator is not None:
++            return self._disambiguator
++        try:
++            from camel_tools.disambig.mle import MLEDisambiguator
++        except ImportError as exc:
++            raise ArabicDiacritizerDependencyError(
++                "Arabic diacritizer 'camel-tools' is not installed. "
++                "Install the optional Arabic diacritization dependency or use "
++                "diacritizer='none' for already-diacritized text."
++            ) from exc
++        try:
++            self._disambiguator = MLEDisambiguator.pretrained()
++        except Exception as exc:
++            raise ArabicDiacritizerDataError(
++                "CAMeL MSA MLE data is unavailable. Provision "
++                "disambig-mle-calima-msa-r13 using CAMeL Tools' documented data "
++                "installation workflow. KokoroG2P does not download model data "
++                "automatically."
++            ) from exc
++        return self._disambiguator
++
++    def diacritize_tokens(self, tokens: Sequence[str]) -> list[str]:
++        source_tokens = list(tokens)
++        if not source_tokens:
++            return []
++        disambiguations = self._get_disambiguator().disambiguate(source_tokens)
++        if len(disambiguations) != len(source_tokens):
++            raise ArabicDiacritizerError(
++                "CAMeL MLE diacritizer returned a different number of tokens "
++                f"({len(disambiguations)}) than requested ({len(source_tokens)})."
++            )
++        result: list[str] = []
++        for source, item in zip(source_tokens, disambiguations, strict=True):
++            analyses = getattr(item, "analyses", ())
++            if not analyses:
++                result.append(source)
++                continue
++            first = analyses[0]
++            analysis: Mapping[str, Any] | None = getattr(first, "analysis", None)
++            if analysis is None and isinstance(first, Mapping):
++                analysis = first.get("analysis")
++            diacritized = analysis.get("diac") if analysis else None
++            result.append(str(diacritized) if diacritized else source)
++        return result
++
++
++__all__ = [
++    "ArabicDiacritizer",
++    "ArabicDiacritizerDataError",
++    "ArabicDiacritizerDependencyError",
++    "ArabicDiacritizerError",
++    "CamelMLEDiacritizer",
++    "DiacritizerMode",
++    "NoneDiacritizer",
++]
+diff --git a/kokorog2p/ar/g2p.py b/kokorog2p/ar/g2p.py
+new file mode 100644
+index 0000000..15f034d
+--- /dev/null
++++ b/kokorog2p/ar/g2p.py
+@@ -0,0 +1,267 @@
++"""Native source-aligned Arabic MSA frontend for KokoroG2P."""
++
++from __future__ import annotations
++
++import re
++import unicodedata
++from collections.abc import Sequence
++from typing import Any
++
++from kokorog2p.ar.diacritizer import (
++    ArabicDiacritizer,
++    CamelMLEDiacritizer,
++    DiacritizerMode,
++    NoneDiacritizer,
++)
++from kokorog2p.ar.model_profile import (
++    TARGET_MODEL,
++    clean_espeak_output,
++    validate_nabra_symbols,
++)
++from kokorog2p.base import G2PBase
++from kokorog2p.punctuation import normalize_punctuation
++from kokorog2p.token import GToken
++from kokorog2p.tokenization import ensure_gtoken_positions, tokenize_with_offsets
++
++_ASCII_LATIN_RE = re.compile(r"[A-Za-z]+(?:['’-][A-Za-z]+)*")
++_CITATION_RE = re.compile(r"\[[0-9]+(?:\s*[,;]\s*[0-9]+)*\]")
++
++
++class ArabicG2P(G2PBase):
++    """Source-preserving Arabic MSA frontend targeting Nabra."""
++
++    preserve_source_punctuation = True
++
++    def __init__(
++        self,
++        language: str = "ar",
++        *,
++        version: str = "1.0",
++        model_profile: str = TARGET_MODEL,
++        diacritizer: DiacritizerMode | ArabicDiacritizer = "auto",
++        latin_policy: str = "drop",
++        citation_policy: str = "suppress",
++        strict_diacritizer: bool = False,
++        use_cli: bool = False,
++        strict: bool = True,
++        **_: Any,
++    ) -> None:
++        super().__init__(language=language, use_cli=use_cli, strict=strict)
++        if version not in ("1.0",):
++            raise ValueError("ArabicG2P supports frontend version '1.0'.")
++        if model_profile not in {TARGET_MODEL, "nabra", "nabra-82m"}:
++            raise ValueError(f"Unsupported Arabic model profile: {model_profile!r}")
++        if latin_policy not in {"drop", "keep"}:
++            raise ValueError("latin_policy must be 'drop' or 'keep'.")
++        if citation_policy not in {"suppress", "keep"}:
++            raise ValueError("citation_policy must be 'suppress' or 'keep'.")
++        if isinstance(diacritizer, str) and diacritizer not in {
++            "auto",
++            "none",
++            "camel-tools",
++        }:
++            raise ValueError(
++                "diacritizer must be 'auto', 'none', 'camel-tools', or an adapter."
++            )
++        self.version = version
++        self.model_profile = TARGET_MODEL
++        self.latin_policy = latin_policy
++        self.citation_policy = citation_policy
++        self.strict_diacritizer = strict_diacritizer
++        self._diacritizer_spec = diacritizer
++        self._diacritizer: ArabicDiacritizer | None = None
++        self._espeak_backend: Any | None = None
++        self.warnings: list[str] = []
++
++    def get_target_model(self) -> str:
++        """Return the vocabulary profile required by the target acoustic model."""
++        return self.model_profile
++
++    def capabilities(self) -> dict[str, bool]:
++        """Describe source and model behavior used by the public pipeline."""
++        return {
++            "preserve_source_punctuation": True,
++            "source_sensitive_punctuation": True,
++            "raw_ipa": True,
++        }
++
++    @property
++    def espeak_backend(self) -> Any:
++        if self._espeak_backend is None:
++            from kokorog2p.backends.espeak import EspeakBackend
++
++            self._espeak_backend = EspeakBackend(
++                language="ar",
++                with_stress=True,
++                use_cli=self.use_cli,
++            )
++        return self._espeak_backend
++
++    def _get_diacritizer(self) -> ArabicDiacritizer:
++        if self._diacritizer is not None:
++            return self._diacritizer
++        spec = self._diacritizer_spec
++        if not isinstance(spec, str):
++            self._diacritizer = spec
++        elif spec == "none":
++            self._diacritizer = NoneDiacritizer()
++        elif spec == "camel-tools":
++            self._diacritizer = CamelMLEDiacritizer()
++        else:
++            self._diacritizer = CamelMLEDiacritizer()
++        return self._diacritizer
++
++    def _diacritize(self, tokens: Sequence[str]) -> list[str]:
++        if not tokens:
++            return []
++        try:
++            enriched = self._get_diacritizer().diacritize_tokens(tokens)
++        except Exception:
++            if self._diacritizer_spec == "auto" and not self.strict_diacritizer:
++                self.warnings.append(
++                    "CAMeL MLE diacritizer unavailable; using source Arabic "
++                    "without added diacritics."
++                )
++                return list(tokens)
++            raise
++        if len(enriched) != len(tokens):
++            raise ValueError(
++                "Arabic diacritizer returned a different number of tokens "
++                f"({len(enriched)}) than requested ({len(tokens)})."
++            )
++        return enriched
++
++    @staticmethod
++    def _is_arabic_word(text: str) -> bool:
++        return any("\u0600" <= char <= "\u06ff" for char in text) and any(
++            char.isalnum() for char in text
++        )
++
++    @staticmethod
++    def _is_punctuation(text: str) -> bool:
++        return bool(text) and all(
++            unicodedata.category(char)[0] in {"P", "S"} for char in text
++        )
++
++    def _source_drop_kind(
++        self, text: str, citation_spans: Sequence[tuple[int, int]], start: int, end: int
++    ) -> str | None:
++        if self.citation_policy == "suppress" and any(
++            start >= citation_start and end <= citation_end
++            for citation_start, citation_end in citation_spans
++        ):
++            return "AR_CITATION"
++        if self.latin_policy == "drop" and _ASCII_LATIN_RE.fullmatch(text):
++            return "ASCII_LATIN_DROPPED"
++        return None
++
++    def __call__(self, text: str) -> list[GToken]:
++        if not text:
++            self.warnings = []
++            return []
++        self.warnings = []
++        token_spans = tokenize_with_offsets(text, lang="ar", keep_punct=True)
++        citation_spans = [match.span() for match in _CITATION_RE.finditer(text)]
++        arabic_indices: list[int] = []
++        arabic_words: list[str] = []
++        for index, span in enumerate(token_spans):
++            if self._source_drop_kind(
++                span.text, citation_spans, span.char_start, span.char_end
++            ):
++                continue
++            if self._is_arabic_word(span.text):
++                arabic_indices.append(index)
++                arabic_words.append(span.text)
++        latin_dropped = sum(
++            self.latin_policy == "drop"
++            and _ASCII_LATIN_RE.fullmatch(span.text) is not None
++            for span in token_spans
++        )
++        if latin_dropped:
++            self.warnings.append(
++                f"Arabic frontend skipped {latin_dropped} ASCII-Latin span(s) "
++                "under latin_policy='drop'."
++            )
++        if self.citation_policy == "suppress" and citation_spans:
++            self.warnings.append(
++                f"Arabic frontend skipped {len(citation_spans)} square-bracket "
++                "citation span(s)."
++            )
++        diacritized = self._diacritize(arabic_words)
++        diacritized_by_index = dict(zip(arabic_indices, diacritized, strict=True))
++
++        tokens: list[GToken] = []
++        for index, span in enumerate(token_spans):
++            next_start = (
++                token_spans[index + 1].char_start
++                if index + 1 < len(token_spans)
++                else len(text)
++            )
++            whitespace = text[span.char_end : next_start]
++            drop_kind = self._source_drop_kind(
++                span.text, citation_spans, span.char_start, span.char_end
++            )
++            if drop_kind is not None:
++                token = GToken(text=span.text, tag="DROP", whitespace=whitespace)
++                token.set("drop", True)
++                token.set("source_kind", drop_kind)
++            elif self._is_punctuation(span.text):
++                punctuation = normalize_punctuation(span.text)
++                token = GToken(
++                    text=span.text,
++                    tag="PUNCT",
++                    whitespace=whitespace,
++                    phonemes=punctuation,
++                )
++                token.set("source_kind", "PUNCTUATION")
++            else:
++                source_text = diacritized_by_index.get(index, span.text)
++                phonemes = self._phonemize_word(source_text)
++                token = GToken(
++                    text=span.text,
++                    tag="X",
++                    whitespace=whitespace,
++                    phonemes=phonemes,
++                    rating="espeak" if phonemes else None,
++                )
++                token.set(
++                    "source_kind",
++                    "ARABIC_WORD" if self._is_arabic_word(span.text) else "OTHER",
++                )
++            token.set("char_start", span.char_start)
++            token.set("char_end", span.char_end)
++            tokens.append(token)
++        ensure_gtoken_positions(tokens, text)
++        if self.warnings:
++            self.warnings = list(dict.fromkeys(self.warnings))
++        return tokens
++
++    def _phonemize_word(self, word: str) -> str | None:
++        try:
++            raw = self.espeak_backend.phonemize(
++                word,
++                convert_to_kokoro=False,
++                remove_punctuation=False,
++            )
++        except Exception as exc:
++            if self.strict:
++                raise RuntimeError(
++                    f"ArabicG2P failed to phonemize {word!r}: {exc}"
++                ) from exc
++            self.warnings.append(f"ArabicG2P failed to phonemize {word!r}: {exc}")
++            return None
++        cleaned = clean_espeak_output(raw)
++        valid, invalid = validate_nabra_symbols(cleaned)
++        if not valid:
++            symbols = "".join(sorted(set(invalid)))
++            message = f"Nabra Arabic frontend produced unsupported symbols: {symbols}"
++            if self.strict:
++                raise ValueError(message)
++            self.warnings.append(message)
++        return cleaned or None
++
++    def lookup(self, word: str, tag: str | None = None) -> str | None:
++        return self._phonemize_word(word)
++
++    def __repr__(self) -> str:
++        return f"ArabicG2P(language={self.language!r}, model={self.model_profile!r})"
+diff --git a/kokorog2p/ar/model_profile.py b/kokorog2p/ar/model_profile.py
+new file mode 100644
+index 0000000..bccd15e
+--- /dev/null
++++ b/kokorog2p/ar/model_profile.py
+@@ -0,0 +1,66 @@
++"""Pure cleanup and validation for the Nabra Arabic phoneme profile."""
++
++from __future__ import annotations
++
++import re
++
++from kokorog2p.vocab import phonemes_to_ids, validate_for_kokoro
++
++TARGET_MODEL = "nabra-82m-v0.1"
++PROFILE_NAME = "NabraMSA"
++
++_ARTICULATION_MARKS = frozenset({"\u032a", "ˤ"})
++_GROUPING_DELIMITERS = str.maketrans({"[": None, "]": None, "{": None, "}": None})
++_INTERNAL_DOT_RE = re.compile(r"(?<=\S)\.(?=\S)")
++
++
++def strip_espeak_articulation_marks(text: str) -> str:
++    """Remove eSpeak articulation marks not represented by Nabra."""
++    return "".join(char for char in text if char not in _ARTICULATION_MARKS)
++
++
++def strip_internal_syllable_dots(text: str) -> str:
++    """Remove dots between adjacent phoneme characters, preserving final dots."""
++    return _INTERNAL_DOT_RE.sub("", text)
++
++
++def strip_grouping_delimiters(text: str) -> str:
++    """Remove eSpeak grouping delimiters from a raw phoneme stream."""
++    return text.translate(_GROUPING_DELIMITERS)
++
++
++def clean_espeak_output(text: str) -> str:
++    """Apply the narrow cleanup policy used by the Nabra Arabic frontend."""
++    cleaned = strip_espeak_articulation_marks(text)
++    cleaned = strip_internal_syllable_dots(cleaned)
++    cleaned = strip_grouping_delimiters(cleaned)
++    return " ".join(cleaned.split())
++
++
++def validate_nabra_symbols(text: str) -> tuple[bool, list[str]]:
++    """Return whether *text* is representable by the Nabra vocabulary."""
++    return validate_for_kokoro(text, model=TARGET_MODEL)
++
++
++def encode_output(text: str) -> list[int]:
++    """Encode validated Nabra phonemes, raising for unsupported symbols."""
++    valid, invalid = validate_nabra_symbols(text)
++    if not valid:
++        symbols = "".join(sorted(set(invalid)))
++        raise ValueError(
++            "Nabra Arabic frontend produced phoneme symbols not present in the "
++            f"selected target profile: {symbols}"
++        )
++    return phonemes_to_ids(text, model=TARGET_MODEL)
++
++
++__all__ = [
++    "PROFILE_NAME",
++    "TARGET_MODEL",
++    "clean_espeak_output",
++    "encode_output",
++    "strip_espeak_articulation_marks",
++    "strip_grouping_delimiters",
++    "strip_internal_syllable_dots",
++    "validate_nabra_symbols",
++]
+diff --git a/kokorog2p/pipeline_api.py b/kokorog2p/pipeline_api.py
+index 63071f1..6a25b08 100644
+--- a/kokorog2p/pipeline_api.py
++++ b/kokorog2p/pipeline_api.py
+@@ -8,7 +8,7 @@ direct token ID output.
+ import re
+ import threading
+ import unicodedata
+-from collections.abc import Callable, Sequence
++from collections.abc import Callable, Mapping, Sequence
+ from difflib import SequenceMatcher
+ from functools import cache
+ from typing import TYPE_CHECKING, Any, Literal
+@@ -102,10 +102,27 @@ def _get_target_model(g2p: Any) -> str:
+     return str(version) if version else "1.0"
+
+
++def _get_frontend_version(g2p: Any) -> str:
++    return str(getattr(g2p, "version", "1.0"))
++
++def _preserves_source_punctuation(g2p: Any) -> bool:
++    capabilities = getattr(g2p, "capabilities", None)
++    if callable(capabilities):
++        values = capabilities()
++        if isinstance(values, Mapping):
++            return bool(values.get("preserve_source_punctuation"))
++    return bool(getattr(g2p, "preserve_source_punctuation", False))
++
+ def _merge_target_model(current: str, candidate: str) -> str:
+-    if candidate == "1.1" or current == "1.1":
+-        return "1.1"
+-    return current or candidate
++    if not current or current == candidate:
++        return current or candidate
++    if current == "1.0":
++        return candidate
++    if candidate == "1.0":
++        return current
++    raise ValueError(
++        "Incompatible target model profiles: " f"{current!r} and {candidate!r}"
++    )
+
+
+ def _normalize_punctuation_output(text: str) -> str:
+@@ -817,18 +834,20 @@ def phonemize_to_result(
+     warnings: list[str] = []
+     result_clean_text = clean_text
+
++    # Resolve the frontend before normalization so source-sensitive languages
++    # can classify punctuation using the user's original text.
++    if g2p is None:
++        g2p = get_g2p(lang)
++    source_sensitive = _preserves_source_punctuation(g2p)
++
+     # The original source is the coordinate authority for migrated runs.  In
+     # particular, do not remove or replace semantic punctuation before the
+     # run reaches Spokenform; model punctuation belongs after preparation.
+     migrated_semantics = _uses_spokenform_semantics(lang)
+-    if not migrated_semantics:
++    if not migrated_semantics and not source_sensitive:
+         clean_text = normalize_punctuation(clean_text)
+         result_clean_text = clean_text
+
+-    # Get or create G2P instance
+-    if g2p is None:
+-        g2p = get_g2p(lang)
+-
+     g2p_token_spans: list[TokenSpan]
+     extended_text: str = ""
+
+@@ -874,6 +893,7 @@ def phonemize_to_result(
+         )
+         extended_text = normalized_text
+         gtokens = _call_g2p_without_abbreviations(g2p, extended_text)
++        warnings.extend(str(warning) for warning in getattr(g2p, "warnings", ()))
+         ensure_gtoken_positions(gtokens, extended_text)
+         g2p_token_spans = gtokens_to_tokenspans(gtokens, extended_text)
+     else:
+@@ -1071,6 +1091,8 @@ def _phonemize_token_spans(  # noqa: C901
+                     owner_whitespace = furthest_alnum_span.meta.get("whitespace")
+                     if owner_whitespace is not None:
+                         mapped_whitespace = str(owner_whitespace)
++        if any(span.meta.get("drop") for span in overlap_spans):
++            token.meta["_drop"] = True
+         drop_due_to_carry = consumed_by_previous_g2p
+         if drop_due_to_carry:
+             token.meta["_drop"] = True
+@@ -1110,7 +1132,7 @@ def _phonemize_token_spans(  # noqa: C901
+             try:
+                 g2p_cache[token_lang] = get_g2p(
+                     token_lang,
+-                    version=target_model,
++                    version=_get_frontend_version(g2p),
+                     **(g2p_options or {}),
+                 )
+             except Exception as e:
+diff --git a/kokorog2p/punctuation.py b/kokorog2p/punctuation.py
+index c1f2e74..b833373 100644
+--- a/kokorog2p/punctuation.py
++++ b/kokorog2p/punctuation.py
+@@ -93,9 +93,11 @@ PUNCTUATION_NORMALIZATION: Final[dict[str, str]] = {
+     "；": ";",  # fullwidth semicolon
+     "：": ":",  # fullwidth colon
+     "︰": ":",  # presentation form
++    "؛": ";",  # Arabic semicolon
+     # Commas
+     "，": ",",  # fullwidth comma
+     "、": ",",  # ideographic comma
++    "،": ",",  # Arabic comma
+     # Periods
+     "．": ".",  # fullwidth period
+     "。": ".",  # ideographic period
+@@ -103,8 +105,9 @@ PUNCTUATION_NORMALIZATION: Final[dict[str, str]] = {
+     # Exclamation and question marks
+     "！": "!",  # fullwidth exclamation
+     "？": "?",  # fullwidth question mark
++    "؟": "?",  # Arabic question mark
+     "¡": "!",  # inverted exclamation (Spanish)
+-    "¿": "?",  # inverted question mark (Spanish)
++    "¿": "?",  # inverted question mark
+     "⁉": "?",  # exclamation question mark
+     "⁈": "!",  # question exclamation mark
+     "‼": "!",  # double exclamation
+diff --git a/kokorog2p/tokenization.py b/kokorog2p/tokenization.py
+index 5ed427d..a33d701 100644
+--- a/kokorog2p/tokenization.py
++++ b/kokorog2p/tokenization.py
+@@ -14,6 +14,10 @@ if TYPE_CHECKING:
+     from kokorog2p.token import GToken
+
+
++
++COMMON_COMBINING_MARK_RANGES = r"\u0300-\u036f"
++ARABIC_COMBINING_MARK_RANGES = r"\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed"
++WORD_MARK_RANGES = COMMON_COMBINING_MARK_RANGES + ARABIC_COMBINING_MARK_RANGES
+ def ensure_gtoken_positions(gtokens: list["GToken"], text: str) -> list["GToken"]:
+     """Ensure GTokens have char_start/char_end positions.
+
+@@ -130,6 +134,11 @@ def _build_gtoken_meta(token: "GToken") -> dict[str, object]:
+         meta["rating"] = token.rating
+     if token.tag:
+         meta["tag"] = token.tag
++    if token.get("drop"):
++        meta["drop"] = True
++    source_kind = token.get("source_kind")
++    if source_kind:
++        meta["source_kind"] = source_kind
+     meta["whitespace"] = token.whitespace
+     return meta
+
+@@ -186,12 +195,12 @@ def tokenize_with_offsets(
+     number = r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)+"
+     leading_decimal = r"(?<![\w.])\.\d+"
+     grouped_integer = r"\d{1,3}(?:,\d{3})+"
+-    word_chars = r"\w\u0300-\u036f"
++    word_chars = r"\w" + WORD_MARK_RANGES
+     pattern = re.compile(
+         rf"({number}|{leading_decimal}|{grouped_integer}|"
+         rf"[{word_chars}]+(?:-[{word_chars}]+)+|"
+         rf"[{word_chars}]+(?:['\u2019][{word_chars}]+)+|"
+-        rf"[{word_chars}]+|\.{{2,}}|…|[^\w\s\u0300-\u036f]|\s+)"
++        rf"[{word_chars}]+|\.{{2,}}|…|[^\w\s{WORD_MARK_RANGES}]|\s+)"
+     )
+     tokens: list[TokenSpan] = []
+
+diff --git a/kokorog2p/vocab.py b/kokorog2p/vocab.py
+index 5a3d925..1911ebc 100644
+--- a/kokorog2p/vocab.py
++++ b/kokorog2p/vocab.py
+@@ -59,6 +59,35 @@ def _load_vocab_reverse_v11_de() -> dict[int, str]:
+     return {v: k for k, v in _load_vocab_v11_de().items()}
+
+
++NABRA_MODEL = "nabra-82m-v0.1"
++NABRA_MODEL_ALIASES = frozenset({"nabra", "nabra-82m", NABRA_MODEL})
++_NABRA_RESERVED_IDS = {"ʕ": 7, "ħ": 8}
++
++
++@lru_cache(maxsize=1)
++def _load_vocab_nabra() -> dict[str, int]:
++    """Build the Nabra vocabulary without mutating the stock mapping."""
++    vocab = dict(_load_vocab())
++    reverse = _load_vocab_reverse()
++    for symbol, index in _NABRA_RESERVED_IDS.items():
++        if index >= N_TOKENS:
++            raise ValueError(f"Nabra reserved ID {index} is outside the vocabulary")
++        existing_index = vocab.get(symbol)
++        existing_symbol = reverse.get(index)
++        if existing_index not in (None, index) or existing_symbol not in (None, symbol):
++            raise ValueError(
++                "Cannot construct Nabra vocabulary profile: stock model vocabulary "
++                f"already assigns reserved Arabic ID {index} incompatibly."
++            )
++        vocab[symbol] = index
++    return vocab
++
++
++@lru_cache(maxsize=1)
++def _load_vocab_reverse_nabra() -> dict[int, str]:
++    """Build the reverse Nabra vocabulary independently from stock caches."""
++    return {v: k for k, v in _load_vocab_nabra().items()}
++
+ @lru_cache(maxsize=1)
+ def _load_config() -> dict:
+     """Load and cache the full Kokoro config."""
+@@ -81,9 +110,11 @@ def get_vocab(model: str = "1.0") -> dict[str, int]:
+     Returns:
+         Dictionary mapping tokens to their indices.
+     """
++    if model in NABRA_MODEL_ALIASES:
++        return _load_vocab_nabra()
+     if model == "1.1" or model == "1.1-zh":
+         return _load_vocab_v11_zh()
+-    elif model == "1.1-de":
++    if model == "1.1-de":
+         return _load_vocab_v11_de()
+     return _load_vocab()
+
+@@ -97,6 +128,8 @@ def get_vocab_reverse(model: str = "1.0") -> dict[int, str]:
+     Returns:
+         Dictionary mapping indices to their tokens.
+     """
++    if model in NABRA_MODEL_ALIASES:
++        return _load_vocab_reverse_nabra()
+     if model == "1.1" or model == "1.1-zh":
+         return _load_vocab_reverse_v11_zh()
+     elif model == "1.1-de":
+diff --git a/pyproject.toml b/pyproject.toml
+index 3589945..f14bf72 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -58,6 +58,13 @@ espeak = [
+     "espeakng-loader>=0.1.0",
+     "dlinfo>=1.2.1",
+ ]
++ar = [
++    "kokorog2p[espeak]",
++]
++ar-diacritize = [
++    "camel-tools>=1.5,<1.6; python_version < '3.11'",
++    "camel-tools>=1.6; python_version >= '3.11'",
++]
+ goruut = [
+     "pygoruut>=0.8.0",
+ ]
+@@ -117,7 +124,7 @@ mixed = [
+     "lingua-language-detector>=2.0.0",
+ ]
+ all = [
+-    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,mixed]",
++    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,mixed,ar]",
+ ]
+ dev = [
+     "pytest>=7.0.0",
+diff --git a/tests/test_ar_g2p.py b/tests/test_ar_g2p.py
+new file mode 100644
+index 0000000..82ce910
+--- /dev/null
++++ b/tests/test_ar_g2p.py
+@@ -0,0 +1,137 @@
++"""Tests for the native clean-room Arabic frontend."""
++
++from __future__ import annotations
++
++import pytest
++
++from kokorog2p import phonemize
++from kokorog2p.ar.diacritizer import (
++    ArabicDiacritizerError,
++    NoneDiacritizer,
++)
++from kokorog2p.ar.g2p import ArabicG2P
++from kokorog2p.ar.model_profile import (
++    clean_espeak_output,
++    encode_output,
++    validate_nabra_symbols,
++)
++
++
++class FakeBackend:
++    def __init__(self, output: str = "a.b̪ˤ[ʕ]{ħ}") -> None:
++        self.output = output
++        self.calls: list[tuple[str, bool, bool]] = []
++
++    def phonemize(
++        self, text: str, *, convert_to_kokoro: bool, remove_punctuation: bool
++    ) -> str:
++        self.calls.append((text, convert_to_kokoro, remove_punctuation))
++        return self.output
++
++
++class FakeDiacritizer:
++    def __init__(self, values: list[str]) -> None:
++        self.values = values
++        self.received: list[str] = []
++
++    def diacritize_tokens(self, tokens: list[str]) -> list[str]:
++        self.received = list(tokens)
++        return self.values
++
++
++def test_clean_espeak_output_has_narrow_cleanup_rules() -> None:
++    assert clean_espeak_output("a.b̪ˤ [ʕ] {ħ} .") == "ab ʕ ħ ."
++    assert validate_nabra_symbols("ʕ ħ")[0]
++    assert encode_output("ʕħ") == [7, 8]
++
++
++def test_cleanup_preserves_sentence_final_dot_and_reports_unknown_symbols() -> None:
++    assert clean_espeak_output("a.b.") == "ab."
++    with pytest.raises(ValueError, match="not present"):
++        encode_output("§")
++
++
++def test_none_diacritizer_is_identity() -> None:
++    assert NoneDiacritizer().diacritize_tokens(["مَرْحَبًا"]) == ["مَرْحَبًا"]
++
++
++def test_arabic_g2p_preserves_offsets_and_suppresses_source_spans() -> None:
++    g2p = ArabicG2P(diacritizer="none")
++    backend = FakeBackend()
++    g2p._espeak_backend = backend
++    text = "مَرْحَبًا [12] Hello، بِكَ؟"
++
++    tokens = g2p(text)
++
++    assert [
++        (token.text, token.get("char_start"), token.get("char_end")) for token in tokens
++    ] == [
++        ("مَرْحَبًا", 0, 9),
++        ("[", 10, 11),
++        ("12", 11, 13),
++        (
++            "]",
++            13,
++            14,
++        ),
++        ("Hello", 15, 20),
++        ("،", 20, 21),
++        ("بِكَ", 22, 26),
++        ("؟", 26, 27),
++    ]
++    assert all(token.get("drop") for token in tokens[1:4])
++    assert tokens[4].get("drop") is True
++    assert tokens[0].phonemes == "abʕħ"
++    assert tokens[5].phonemes == ","
++    assert tokens[-1].phonemes == "?"
++    assert backend.calls == [
++        ("مَرْحَبًا", False, False),
++        ("بِكَ", False, False),
++    ]
++    assert any("ASCII-Latin" in warning for warning in g2p.warnings)
++
++
++def test_parentheses_are_not_citations() -> None:
++    g2p = ArabicG2P(diacritizer="none")
++    backend = FakeBackend("a")
++    g2p._espeak_backend = backend
++    tokens = g2p("(12)")
++    assert [token.get("drop") for token in tokens] == [None, None, None]
++    assert [token.phonemes for token in tokens] == ["(", "a", ")"]
++
++
++def test_injected_diacritizer_receives_arabic_words_in_context() -> None:
++    adapter = FakeDiacritizer(["مَرْحَبًا", "بِكَ"])
++    g2p = ArabicG2P(diacritizer=adapter)
++    backend = FakeBackend("a")
++    g2p._espeak_backend = backend
++
++    g2p("مرحبا بك")
++
++    assert adapter.received == ["مرحبا", "بك"]
++    assert [call[0] for call in backend.calls] == ["مَرْحَبًا", "بِكَ"]
++
++
++def test_diacritizer_length_mismatch_is_rejected() -> None:
++    g2p = ArabicG2P(diacritizer=FakeDiacritizer([]))
++    g2p._espeak_backend = FakeBackend("a")
++    with pytest.raises(ValueError, match="different number"):
++        g2p("مرحبا")
++
++
++def test_diacritizer_error_type_is_public() -> None:
++    assert issubclass(ArabicDiacritizerError, RuntimeError)
++
++
++def test_public_pipeline_preserves_parentheses_and_drops_citations() -> None:
++    g2p = ArabicG2P(diacritizer="none")
++    g2p._espeak_backend = FakeBackend("a")
++    result = phonemize(
++        "مرحبا [12] (بك)",
++        language="ar",
++        g2p=g2p,
++        return_ids=False,
++    )
++    assert result.phonemes == "a (a)"
++    assert "[" not in result.phonemes and "]" not in result.phonemes
++    assert any("citation" in warning for warning in result.warnings)
+diff --git a/tests/test_factory_languages.py b/tests/test_factory_languages.py
+index df24358..925c4c0 100644
+--- a/tests/test_factory_languages.py
++++ b/tests/test_factory_languages.py
+@@ -119,3 +119,33 @@ def test_mixed_language_overrides_use_native_factories(
+     assert switched
+     assert all(token.lang == override.attrs["lang"] for token in switched)
+     assert all(token.meta.get("phonemes") for token in switched)
++
++
++def test_arabic_factory_aliases_and_native_profile() -> None:
++    from kokorog2p.ar import ArabicG2P
++
++    instances = [
++        get_g2p(alias, diacritizer="none")
++        for alias in ("ar", "ara", "arabic", "ar-msa", "msa", "ar-sa")
++    ]
++    assert all(isinstance(instance, ArabicG2P) for instance in instances)
++    assert len({id(instance) for instance in instances}) == 1
++    assert instances[0].version == "1.0"
++    assert instances[0].get_target_model() == "nabra-82m-v0.1"
++
++
++def test_arabic_espeak_backend_remains_generic() -> None:
++    from kokorog2p.espeak_g2p import EspeakOnlyG2P
++
++    assert isinstance(get_g2p("ar", backend="espeak"), EspeakOnlyG2P)
++
++
++def test_top_level_g2p_options_configure_arabic() -> None:
++    result = phonemize(
++        "مَرْحَبًا",
++        language="ar",
++        g2p_options={"diacritizer": "none"},
++        return_ids=True,
++    )
++    assert result.phonemes
++    assert result.token_ids
+diff --git a/tests/test_offline_optional_dependencies.py b/tests/test_offline_optional_dependencies.py
+index 9e1df5b..5c05f54 100644
+--- a/tests/test_offline_optional_dependencies.py
++++ b/tests/test_offline_optional_dependencies.py
+@@ -1,60 +1,61 @@
+-"""Regression tests for optional dependency loading and library silence."""
++"""Offline and optional-dependency tests for Arabic support."""
+
+-from types import SimpleNamespace
++from __future__ import annotations
+
+-import pytest
+-
+-from kokorog2p._optional import load_spacy_model
++import builtins
++import sys
++import types
+
++import pytest
+
+-def test_spacy_model_loader_does_not_download(monkeypatch: pytest.MonkeyPatch) -> None:
+-    fake_spacy = SimpleNamespace(
+-        util=SimpleNamespace(is_package=lambda _name: False),
+-    )
+-    monkeypatch.setitem(__import__("sys").modules, "spacy", fake_spacy)
+-
+-    with pytest.raises(ImportError, match="python -m spacy download missing_model"):
+-        load_spacy_model("missing_model")
++from kokorog2p.ar.diacritizer import (
++    ArabicDiacritizerDataError,
++    ArabicDiacritizerDependencyError,
++    CamelMLEDiacritizer,
++)
+
+
+-def test_korean_g2p_does_not_download_cmudict_at_import(
++def test_camel_adapter_constructor_does_not_import_camel_tools(
+     monkeypatch: pytest.MonkeyPatch,
+ ) -> None:
+-    pytest.importorskip("jamo")
+-    from kokorog2p.ko.g2pk import G2p
++    original_import = builtins.__import__
+
+-    def fail_download(*_args: object, **_kwargs: object) -> None:
+-        raise AssertionError("network download attempted")
++    def fail_if_camel(name: str, *args: object, **kwargs: object):
++        if name.startswith("camel_tools"):
++            raise AssertionError("CAMeL imported during adapter construction")
++        return original_import(name, *args, **kwargs)
+
+-    fake_nltk = SimpleNamespace(
+-        data=SimpleNamespace(find=lambda _name: (_ for _ in ()).throw(LookupError)),
+-        download=fail_download,
+-    )
+-    monkeypatch.setitem(__import__("sys").modules, "nltk", fake_nltk)
++    monkeypatch.setattr(builtins, "__import__", fail_if_camel)
++    adapter = CamelMLEDiacritizer()
++    assert adapter._disambiguator is None
+
+-    # Construction only initializes local rule data; CMUdict is resolved lazily.
+-    g2p = G2p()
+-    assert g2p._cmu is None
+
++def test_missing_camel_package_is_actionable(monkeypatch: pytest.MonkeyPatch) -> None:
++    original_import = builtins.__import__
+
+-def test_missing_cmudict_error_is_actionable(monkeypatch: pytest.MonkeyPatch) -> None:
+-    pytest.importorskip("jamo")
+-    from kokorog2p.ko.g2pk import G2p
++    def fail_if_camel(name: str, *args: object, **kwargs: object):
++        if name.startswith("camel_tools"):
++            raise ImportError("not installed")
++        return original_import(name, *args, **kwargs)
+
+-    fake_cmudict = SimpleNamespace(dict=lambda: (_ for _ in ()).throw(LookupError))
+-    fake_nltk_corpus = SimpleNamespace(cmudict=fake_cmudict)
+-    monkeypatch.setitem(__import__("sys").modules, "nltk.corpus", fake_nltk_corpus)
++    monkeypatch.setattr(builtins, "__import__", fail_if_camel)
++    with pytest.raises(ArabicDiacritizerDependencyError, match="not installed"):
++        CamelMLEDiacritizer().diacritize_tokens(["مرحبا"])
+
+-    g2p = G2p()
+-    with pytest.raises(LookupError, match="nltk.downloader cmudict"):
+-        _ = g2p.cmu
+
++def test_missing_camel_data_is_actionable(monkeypatch: pytest.MonkeyPatch) -> None:
++    class MissingDataMLE:
++        @staticmethod
++        def pretrained() -> object:
++            raise FileNotFoundError("database missing")
+
+-def test_convert_eng_is_silent(capsys: pytest.CaptureFixture[str]) -> None:
+-    pytest.importorskip("jamo")
+-    from kokorog2p.ko.english import convert_eng
++    camel_tools = types.ModuleType("camel_tools")
++    disambig = types.ModuleType("camel_tools.disambig")
++    mle = types.ModuleType("camel_tools.disambig.mle")
++    mle.MLEDisambiguator = MissingDataMLE  # type: ignore[attr-defined]
++    monkeypatch.setitem(sys.modules, "camel_tools", camel_tools)
++    monkeypatch.setitem(sys.modules, "camel_tools.disambig", disambig)
++    monkeypatch.setitem(sys.modules, "camel_tools.disambig.mle", mle)
+
+-    convert_eng("HELLO", {})
+-    captured = capsys.readouterr()
+-    assert captured.out == ""
+-    assert captured.err == ""
++    with pytest.raises(ArabicDiacritizerDataError, match="does not download"):
++        CamelMLEDiacritizer().diacritize_tokens(["مرحبا"])
+diff --git a/tests/test_offset_tokenization.py b/tests/test_offset_tokenization.py
+index 033a7b9..6e23c12 100644
+--- a/tests/test_offset_tokenization.py
++++ b/tests/test_offset_tokenization.py
+@@ -91,6 +91,22 @@ class TestTokenizeWithOffsets:
+         tokens = tokenize_with_offsets("   ")
+         assert len(tokens) == 0
+
++    def test_vocalized_arabic_words_keep_harakat_attached(self):
++        text = "مَرْحَبًا بِكَ"
++        tokens = tokenize_with_offsets(text, lang="ar")
++        assert [token.text for token in tokens] == ["مَرْحَبًا", "بِكَ"]
++        assert [(token.char_start, token.char_end) for token in tokens] == [
++            (0, 9),
++            (10, 14),
++        ]
++
++    def test_arabic_shadda_and_tanwin_are_word_marks(self):
++        text = "مُحَمَّدٌ"
++        tokens = tokenize_with_offsets(text, lang="ar", keep_punct=False)
++        assert [token.text for token in tokens] == [text]
++        assert tokens[0].char_start == 0
++        assert tokens[0].char_end == len(text)
++
+
+ class TestGtokensToTokenspans:
+     """Tests for gtokens_to_tokenspans function."""

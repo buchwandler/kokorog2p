@@ -1,0 +1,789 @@
+ benchmarks/KOREAN_DATASET.md          | 32 ++++++++++----------
+ benchmarks/benchmark_ko_comparison.py |  2 ++
+ benchmarks/data/ko_differential.json  | 35 ++++++++++++++++++----
+ docs/api/korean.md                    | 24 +++++++--------
+ docs/contributing.md                  | 33 +++++++++++----------
+ docs/installation.md                  |  6 ++--
+ docs/languages.md                     | 23 +++++++++-----
+ kokorog2p/ko/README.md                | 21 ++++++-------
+ kokorog2p/ko/data/table.csv           | 56 +++++++++++++++++------------------
+ kokorog2p/ko/g2p.py                   |  1 -
+ kokorog2p/ko/g2pk.py                  |  1 +
+ kokorog2p/ko/jamo_to_ipa.py           |  1 -
+ kokorog2p/pipeline_api.py             |  4 ++-
+ tests/conftest.py                     |  1 +
+ tests/test_cs_g2p.py                  |  2 +-
+ tests/test_de_g2p.py                  |  4 +--
+ tests/test_en_debug.py                |  1 -
+ tests/test_en_g2p.py                  |  3 --
+ tests/test_it_g2p.py                  |  3 +-
+ tests/test_ko_g2p.py                  |  5 ++--
+ tests/test_normalization.py           |  5 ++--
+ tests/test_phoneme_spacing.py         |  2 +-
+ tests/test_pipeline_api.py            | 10 +++++++
+ tests/test_pt_g2p.py                  |  3 +-
+ tests/test_quote_handling.py          |  4 +--
+ tests/test_tokenizer.py               |  5 ++--
+ tools/run_test_suite.py               |  4 +--
+ 27 files changed, 168 insertions(+), 123 deletions(-)
+
+diff --git a/benchmarks/KOREAN_DATASET.md b/benchmarks/KOREAN_DATASET.md
+index 3c5a413..d7e2f94 100644
+--- a/benchmarks/KOREAN_DATASET.md
++++ b/benchmarks/KOREAN_DATASET.md
+@@ -1,8 +1,8 @@
+ # Korean benchmark dataset
+
+ `benchmarks/data/ko_synthetic.json` is a checked-in 100-sentence Korean fixture
+-containing hand-crafted and CHILDES-derived examples. The benchmark compares
+-meaningful Korean configurations of the vendored g2pkc-compatible frontend.
++containing hand-crafted and CHILDES-derived examples. The benchmark compares meaningful
++Korean configurations of the vendored g2pkc-compatible frontend.
+
+ ## Run
+
+@@ -13,25 +13,25 @@ python benchmarks/benchmark_ko_comparison.py --config "Korean G2P (morphology au
+ python benchmarks/benchmark_ko_comparison.py --output results.json
+ ```
+
+-The `Korean G2P` configuration runs with morphology off. The auto configuration
+-uses a supported Korean morphology backend when installed and otherwise falls
+-back with an actionable warning. Espeak is not a Korean comparison backend.
++The `Korean G2P` configuration runs with morphology off. The auto configuration uses a
++supported Korean morphology backend when installed and otherwise falls back with an
++actionable warning. Espeak is not a Korean comparison backend.
+
+ ## Metrics
+
+-The script reports exact fixture agreement, sentences per second, total timing,
+-and unique output characters. The fixture is a regression and performance
+-reference, not a native-speaker-reviewed pronunciation gold corpus. Results are
+-environment-dependent and must not be presented as universal accuracy claims.
++The script reports exact fixture agreement, sentences per second, total timing, and
++unique output characters. The fixture is a regression and performance reference, not a
++native-speaker-reviewed pronunciation gold corpus. Results are environment-dependent and
++must not be presented as universal accuracy claims.
+
+-The default output uses the Kokoro 82M v1.0 model alphabet and the `jf_alpha`
+-Japanese voice metadata. Use `output="ipa"` or `output="jamo"` in direct API
+-calls when inspecting linguistic or intermediate representations.
++The default output uses the Kokoro 82M v1.0 model alphabet and the `jf_alpha` Japanese
++voice metadata. Use `output="ipa"` or `output="jamo"` in direct API calls when
++inspecting linguistic or intermediate representations.
+
+ ## Alternative backends
+
+ Optional differential comparisons belong in a separately provisioned benchmark
+-environment. Candidates include the exact g2pkc snapshot, upstream g2pK, KSS
+-with MeCab or Pecab, ko-speech-tools, and mecab-ko. They must report exact
+-agreement by category and intentional divergences from the local compatibility
+-baseline rather than selecting a backend by aggregate string agreement alone.
++environment. Candidates include the exact g2pkc snapshot, upstream g2pK, KSS with MeCab
++or Pecab, ko-speech-tools, and mecab-ko. They must report exact agreement by category
++and intentional divergences from the local compatibility baseline rather than selecting
++a backend by aggregate string agreement alone.
+diff --git a/benchmarks/benchmark_ko_comparison.py b/benchmarks/benchmark_ko_comparison.py
+index 1b76ccc..025b58f 100755
+--- a/benchmarks/benchmark_ko_comparison.py
++++ b/benchmarks/benchmark_ko_comparison.py
+@@ -52,6 +52,7 @@ def load_synthetic_data() -> dict[str, Any]:
+     with open(filepath) as f:
+         return json.load(f)
+
++
+ def create_g2p(config: dict[str, Any]):
+     """Create a Korean G2P instance with a meaningful configuration."""
+     from kokorog2p.ko import KoreanG2P
+@@ -61,6 +62,7 @@ def create_g2p(config: dict[str, Any]):
+         output="model",
+     )
+
++
+ def benchmark_config(g2p, data: dict[str, Any], config_name: str) -> ConfigBenchmark:
+     """Benchmark a single G2P configuration."""
+     sentences = data["sentences"]
+diff --git a/benchmarks/data/ko_differential.json b/benchmarks/data/ko_differential.json
+index ea50e89..182f910 100644
+--- a/benchmarks/data/ko_differential.json
++++ b/benchmarks/data/ko_differential.json
+@@ -2,11 +2,36 @@
+   "schema_version": "1.0",
+   "language": "ko",
+   "cases": [
+-    {"id": "school", "category": "tensification", "source": "학교", "expected_jamo": "학꾜"},
+-    {"id": "rice", "category": "tensification", "source": "국밥", "expected_jamo": "국빱"},
+-    {"id": "palatalization", "category": "palatalization", "source": "굳이", "expected_jamo": "구지"},
++    {
++      "id": "school",
++      "category": "tensification",
++      "source": "학교",
++      "expected_jamo": "학꾜"
++    },
++    {
++      "id": "rice",
++      "category": "tensification",
++      "source": "국밥",
++      "expected_jamo": "국빱"
++    },
++    {
++      "id": "palatalization",
++      "category": "palatalization",
++      "source": "굳이",
++      "expected_jamo": "구지"
++    },
+     {"id": "liaison", "category": "liaison", "source": "옷이", "expected_jamo": "오시"},
+-    {"id": "nasalization", "category": "liquid-nasalization", "source": "신라", "expected_jamo": "실라"},
+-    {"id": "counter-time", "category": "counter-time", "source": "12시 12분", "expected_jamo": "열두시 십이분"}
++    {
++      "id": "nasalization",
++      "category": "liquid-nasalization",
++      "source": "신라",
++      "expected_jamo": "실라"
++    },
++    {
++      "id": "counter-time",
++      "category": "counter-time",
++      "source": "12시 12분",
++      "expected_jamo": "열두시 십이분"
++    }
+   ]
+ }
+diff --git a/docs/api/korean.md b/docs/api/korean.md
+index a250c68..12098a7 100644
+--- a/docs/api/korean.md
++++ b/docs/api/korean.md
+@@ -1,8 +1,8 @@
+ # Korean API
+
+-Korean G2P uses the vendored 5Hyeons `g2pkc` compatibility rules and the
+-Kokoro 82M v1.0 model alphabet by default. The default Korean voice metadata is
+-`jf_alpha`, using the Japanese voice requested for Korean synthesis.
++Korean G2P uses the vendored 5Hyeons `g2pkc` compatibility rules and the Kokoro 82M v1.0
++model alphabet by default. The default Korean voice metadata is `jf_alpha`, using the
++Japanese voice requested for Korean synthesis.
+
+ ## Main Class
+
+@@ -30,16 +30,16 @@ for token in tokens:
+     print(f"{token.text} -> {token.phonemes}")
+ ```
+
+-Use `output="ipa"` to retain the linguistic IPA-like form and positional coda
+-markers, or `output="jamo"` to inspect the g2pkc intermediate representation.
+-The `morphology` setting accepts `auto`, `required`, and `off`. The compatible
+-morphology extra is `kokorog2p[ko-mecab]`, which installs `python-mecab-ko`.
++Use `output="ipa"` to retain the linguistic IPA-like form and positional coda markers,
++or `output="jamo"` to inspect the g2pkc intermediate representation. The `morphology`
++setting accepts `auto`, `required`, and `off`. The compatible morphology extra is
++`kokorog2p[ko-mecab]`, which installs `python-mecab-ko`.
+
+-Pure Hangul input does not load CMUdict. Latin input uses NLTK CMUdict and
+-requires the resource to be installed explicitly.
++Pure Hangul input does not load CMUdict. Latin input uses NLTK CMUdict and requires the
++resource to be installed explicitly.
+
+ ## Implementation
+
+-The Korean backend is based on the 5Hyeons StyleTTS2 `g2pkc` fork of Kyubyong's
+-g2pK. See `kokorog2p/ko/README.md` for source revision, checksums, local
+-adaptations, and licensing provenance.
++The Korean backend is based on the 5Hyeons StyleTTS2 `g2pkc` fork of Kyubyong's g2pK.
++See `kokorog2p/ko/README.md` for source revision, checksums, local adaptations, and
++licensing provenance.
+diff --git a/docs/contributing.md b/docs/contributing.md
+index 84beccb..fbfb4d2 100644
+--- a/docs/contributing.md
++++ b/docs/contributing.md
+@@ -31,15 +31,16 @@ We welcome contributions to kokorog2p! This guide will help you get started.
+    ```
+
+ ## Running Tests
++
+ Run the complete suite with one fresh Python process per test module:
+
+ ```bash
+ python tools/run_test_suite.py
+ ```
+
+-The isolated runner discovers every `tests/test_*.py` file in sorted order and runs
+-the modules sequentially. It is the canonical full-suite command on developer machines
+-and in exhaustive CI. Use `--list` to inspect coverage, `--fail-fast` to stop after the
++The isolated runner discovers every `tests/test_*.py` file in sorted order and runs the
++modules sequentially. It is the canonical full-suite command on developer machines and
++in exhaustive CI. Use `--list` to inspect coverage, `--fail-fast` to stop after the
+ first failing module, `--start-at tests/test_en_g2p.py` to resume from a module, and
+ `--match "en|normalization"` to select matching modules. Pass pytest options with
+ `--pytest-arg=-vv` or additional arguments after the runner options.
+@@ -53,8 +54,8 @@ python -m pytest -q tests/test_attr_parser.py tests/test_base.py
+ ```
+
+ Coverage aggregation across isolated subprocesses is intentionally separate from the
+-first version of the runner. Use the existing single-process command when generating
+-a local coverage report:
++first version of the runner. Use the existing single-process command when generating a
++local coverage report:
+
+ ```bash
+ python -m pytest tests/ --cov=kokorog2p --cov-report=html
+@@ -62,10 +63,10 @@ python -m pytest tests/ --cov=kokorog2p --cov-report=html
+
+ ### Running on memory-constrained machines
+
+-The English and German dictionaries, optional spaCy models, and native backends can
+-use substantial memory. Do not use `pytest-xdist` as the RAM fix. Concurrent workers
+-can each load another interpreter, dictionary, or model. The isolated full-suite runner
+-uses process exit as the hard memory boundary and keeps only one test module active.
++The English and German dictionaries, optional spaCy models, and native backends can use
++substantial memory. Do not use `pytest-xdist` as the RAM fix. Concurrent workers can
++each load another interpreter, dictionary, or model. The isolated full-suite runner uses
++process exit as the hard memory boundary and keeps only one test module active.
+
+ Focused peak RSS diagnostics can be run with the separate measurement tool:
+
+@@ -77,12 +78,14 @@ python tools/run_pytest_with_memory.py -q tests/test_ko_g2p.py
+ python tools/run_pytest_with_memory.py --max-rss-mb 1500 -q tests/test_en_g2p.py
+ ```
+
+-The `spacy` marker identifies tests that load real spaCy resources. Use `pytest -m spacy`
+-or `pytest -m "not spacy"` to compare resource-heavy and lightweight selections.
+-For collection comparisons, set `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`; do not disable plugin
+-autoload unconditionally in the canonical suite because explicitly used plugins may be
+-needed. A bare `Killed` message or exit status 137 can indicate an operating-system OOM
+-kill; on Linux, inspect `dmesg` or `journalctl -k` and check container or cgroup limits.
++The `spacy` marker identifies tests that load real spaCy resources. Use
++`pytest -m spacy` or `pytest -m "not spacy"` to compare resource-heavy and lightweight
++selections. For collection comparisons, set `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`; do not
++disable plugin autoload unconditionally in the canonical suite because explicitly used
++plugins may be needed. A bare `Killed` message or exit status 137 can indicate an
++operating-system OOM kill; on Linux, inspect `dmesg` or `journalctl -k` and check
++container or cgroup limits.
++
+ ## Code Quality
+
+ Format code:
+diff --git a/docs/installation.md b/docs/installation.md
+index 010ca5e..8f43520 100644
+--- a/docs/installation.md
++++ b/docs/installation.md
+@@ -120,8 +120,10 @@ Korean morphology is optional. Install the upstream-compatible Korean analyzer w
+ pip install "kokorog2p[ko-mecab]"
+ ```
+
+-The default Korean voice metadata is `jf_alpha`, the Japanese voice requested for Korean synthesis. Pure Hangul does not require CMUdict. Latin input requires the NLTK `cmudict` resource, which is installed separately with `python -m nltk.downloader cmudict`.
+-For automatic language detection in mixed-language texts:
++The default Korean voice metadata is `jf_alpha`, the Japanese voice requested for Korean
++synthesis. Pure Hangul does not require CMUdict. Latin input requires the NLTK `cmudict`
++resource, which is installed separately with `python -m nltk.downloader cmudict`. For
++automatic language detection in mixed-language texts:
+
+ ```bash
+ pip install kokorog2p[mixed]
+diff --git a/docs/languages.md b/docs/languages.md
+index 661e99e..31182fd 100644
+--- a/docs/languages.md
++++ b/docs/languages.md
+@@ -553,17 +553,22 @@ Japanese backend. It is not a Japanese benchmark or performance configuration.
+
+ ## Korean (ko)
+
+-Korean G2P uses the vendored 5Hyeons `g2pkc` compatibility rules. Morphology is optional and is used only when a supported Korean analyzer is installed.
++Korean G2P uses the vendored 5Hyeons `g2pkc` compatibility rules. Morphology is optional
++and is used only when a supported Korean analyzer is installed.
+
+ ### Features
+
+-- **g2pkc compatibility baseline**: Korean Standard Pronunciation rules, liaison, assimilation, palatalization, tensification, aspiration, and number context
++- **g2pkc compatibility baseline**: Korean Standard Pronunciation rules, liaison,
++  assimilation, palatalization, tensification, aspiration, and number context
+ - **Morphology modes**: `auto`, `required`, or `off`
+-- **Output modes**: `model` (default Kokoro 82M v1.0 alphabet), `ipa`, or positional `jamo`
++- **Output modes**: `model` (default Kokoro 82M v1.0 alphabet), `ipa`, or positional
++  `jamo`
+ - **Default voice metadata**: `jf_alpha`, the Japanese Kokoro voice requested for Korean
+-- **Offline behavior**: pure Hangul does not load CMUdict; Latin input requires the NLTK CMUdict resource
++- **Offline behavior**: pure Hangul does not load CMUdict; Latin input requires the NLTK
++  CMUdict resource
+ - **Hanja**: not currently converted; Hanja support is intentionally not claimed
+-- **Provenance**: see `kokorog2p/ko/README.md` for the frozen source revision and checksums
++- **Provenance**: see `kokorog2p/ko/README.md` for the frozen source revision and
++  checksums
+
+ ### Usage
+
+@@ -578,7 +583,10 @@ g2p = KoreanG2P(
+  )
+ ```
+
+-Use `output="ipa"` for the linguistic IPA-like representation, including positional coda markers. Use `output="jamo"` to inspect the g2pkc intermediate form. The model output explicitly maps markers absent from Kokoro 82M v1.0 and rejects other unsupported symbols.
++Use `output="ipa"` for the linguistic IPA-like representation, including positional coda
++markers. Use `output="jamo"` to inspect the g2pkc intermediate form. The model output
++explicitly maps markers absent from Kokoro 82M v1.0 and rejects other unsupported
++symbols.
+
+ ### Examples
+
+@@ -597,7 +605,8 @@ print(KoreanG2P(output="ipa", morphology="off").phonemize("강"))
+  # → kaŋ
+ ```
+
+-`use_espeak_fallback`, `use_goruut_fallback`, spaCy settings, and dictionary tier flags are retained for common factory compatibility but do not control Korean pronunciation.
++`use_espeak_fallback`, `use_goruut_fallback`, spaCy settings, and dictionary tier flags
++are retained for common factory compatibility but do not control Korean pronunciation.
+
+ Hebrew G2P uses phonikud for nikud-based phonemization.
+
+diff --git a/kokorog2p/ko/README.md b/kokorog2p/ko/README.md
+index 16cd185..d5bcc0d 100644
+--- a/kokorog2p/ko/README.md
++++ b/kokorog2p/ko/README.md
+@@ -1,7 +1,7 @@
+ # Korean G2P provenance
+
+-The Korean pronunciation engine is a local, packaged adaptation of the `g2pkc`
+-variant used by 5Hyeons/StyleTTS2. Its rule lineage originates in
++The Korean pronunciation engine is a local, packaged adaptation of the `g2pkc` variant
++used by 5Hyeons/StyleTTS2. Its rule lineage originates in
+ [Kyubyong/g2pK](https://github.com/Kyubyong/g2pK).
+
+ ## Frozen sources
+@@ -10,16 +10,17 @@ variant used by 5Hyeons/StyleTTS2. Its rule lineage originates in
+ - Branch: `vocos`
+ - Source revision: `a895e5bff1d7a22dff2f2d32dafb7c4c4e0ee4b7`
+ - Data path: `g2pK/g2pkc/table.csv`
+-- `table.csv` SHA-256: `61aca8535fd75f16ca71df59bc5eeab625073edfd50732fda3f12b30ccade31f`
++- `table.csv` SHA-256:
++  `61aca8535fd75f16ca71df59bc5eeab625073edfd50732fda3f12b30ccade31f`
+ - Default Kokoro model tokenizer:
+   <https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/blob/main/tokenizer.json>
+ - Tokenizer SHA-256: `77a02c8e164413299b4b4c403b14f8e0e1c1b727db4d46a09d6327b861060a34`
+
+-The local adaptation converts upstream data modules to Python modules, keeps
+-`link3` out of the executed link pipeline for Kokoro compatibility, avoids
+-runtime downloads, and supports operation without optional morphology or CMUdict
+-resources when the input does not require them.
++The local adaptation converts upstream data modules to Python modules, keeps `link3` out
++of the executed link pipeline for Kokoro compatibility, avoids runtime downloads, and
++supports operation without optional morphology or CMUdict resources when the input does
++not require them.
+
+-The copied rule data retains its upstream Apache-2.0 provenance. This document
+-records source identity and local changes; the repository's license and notice
+-files apply to distribution.
++The copied rule data retains its upstream Apache-2.0 provenance. This document records
++source identity and local changes; the repository's license and notice files apply to
++distribution.
+diff --git a/kokorog2p/ko/data/table.csv b/kokorog2p/ko/data/table.csv
+index b0b3421..cfea256 100644
+--- a/kokorog2p/ko/data/table.csv
++++ b/kokorog2p/ko/data/table.csv
+@@ -1,28 +1,28 @@
+-﻿,ᄒ,ᄀ,ᄁ,ᄂ,ᄃ,ᄄ,ᄅ,ᄆ,ᄇ,ᄈ,ᄉ,ᄊ,ᄌ,ᄍ,ᄎ,ᄏ,ᄐ,ᄑ,(\W|$)
+-ᇂ,ᄒ,ᄏ(12),ᄁ,ᆫᄂ(12),ᄐ(12),ᄄ,ᄅ,ᄆ,ᄇ,ᄈ,ᄊ(12),ᄊ,ᄎ(12),ᄍ,ᄎ,ᄏ,ᄐ,ᄑ,ᆮ\1
+-ᆨ,ᄏ(12),ᆨᄁ(23),,ᆼᄂ(18),ᆨᄄ(23),,ᆼᄅ(19/18),ᆼᄆ(18),ᆨᄈ(23),,ᆨᄊ(23),,ᆨᄍ(23),,,,,,
+-ᆩ,ᄏ,ᆨᄁ(9/23),ᆨᄁ(9),ᆼᄂ(18),ᆨᄄ(9/23),ᆨᄄ(9),ᆼᄂ,ᆼᄆ(18),ᆨᄈ(9/23),ᆨᄈ(9),ᆨᄊ(9/23),ᆨᄊ(9),ᆨᄍ(9/23),ᆨᄍ(9),ᆨᄎ(9),ᆨᄏ(9),ᆨᄐ(9),ᆨᄑ(9),ᆨ\1(9)
+-ᆪ,ᄏ,ᆨᄁ(9/23),ᆨᄁ(10),ᆼᄂ(18),ᆨᄄ(9/23),ᆨᄄ(10),ᆼᄂ,ᆼᄆ(18),ᆨᄈ(9/23),ᆨᄈ(10),ᆨᄊ(9/23),ᆨᄊ(10),ᆨᄍ(9/23),ᆨᄍ(10),ᆨᄎ(10),ᆨᄏ(10),ᆨᄐ(10),ᆨᄑ(10),ᆨ\1(10)
+-ᆫ,,,,,,,ᆯᄅ(20),,,,,,,,,,,,
+-ᆬ,ᆫᄎ(12),ᆫᄀ(10),ᆫᄁ(10),ᆫᄂ(10),ᆫᄃ(10),ᆫᄄ(10),ᆯᄅ(10/20),ᆫᄆ(10),ᆫᄇ(10),ᆫᄈ(10),ᆫᄉ(10),ᆫᄊ(10),ᆫᄌ(10),ᆫᄍ(10),ᆫᄎ(10),ᆫᄏ(10),ᆫᄐ(10),ᆫᄑ(10),ᆫ\1(10)
+-ᆭ,ᆫᄒ,ᆫᄏ(12),ᆫᄁ,ᆫᄂ(12),ᆫᄐ(12),ᆫᄄ,ᆯᄅ,ᆫᄆ,ᆫᄇ,ᆫᄈ,ᆫᄊ(12),ᆫᄊ,ᆫᄎ(12),ᆫᄍ,ᆫᄎ,ᆫᄏ,ᆫᄐ,ᆫᄑ,ᆫ\1
+-ᆮ,ᄐ(12),ᆮᄁ(23),,ᆫᄂ(18),ᆮᄄ(23),,ᆫᄂ,ᆫᄆ(18),ᆮᄈ(23),,ᆮᄊ(23),,ᆮᄍ(23),,,,,,
+-ᆯ,,,,ᆯᄅ(20),,,,,,,,,,,,,,,
+-ᆰ,ᆯᄏ(12),ᆨᄁ(11/23),ᆨᄁ(11),ᆼᄂ(11/18),ᆨᄄ(11/23),ᆨᄄ(11),ᆼᄂ(11/18),ᆼᄆ(11/18),ᆨᄈ(11/23),ᆨᄈ(11),ᆨᄊ(11/23),ᆨᄊ(11),ᆨᄍ(11/23),ᆨᄍ(11),ᆨᄎ(11),ᆯᄏ(12),ᆨᄐ(11),ᆨᄑ(11),ᆨ\1(11)
+-ᆱ,ᆷᄒ(11),ᆷᄀ(11),ᆷᄁ(11),ᆷᄂ(11),ᆷᄃ(11),ᆷᄄ(11),ᆷᄅ(11),ᆷᄆ(11),ᆷᄇ(11),ᆷᄈ(11),ᆷᄉ(11),ᆷᄊ(11),ᆷᄌ(11),ᆷᄍ(11),ᆷᄎ(11),ᆷᄏ(11),ᆷᄐ(11),ᆷᄑ(11),ᆷ\1(11)
+-ᆲ,ᆯᄑ(12),ᆯᄁ(10/23),ᆯᄁ(10),ᆷᄂ(18),ᆯᄄ(10/23),ᆯᄄ(10),ᆯᄅ(10),ᆷᄆ(18),ᆯᄈ(10/23),ᆯᄈ(10),ᆯᄊ(10/23),ᆯᄊ(10),ᆯᄍ(10/23),ᆯᄍ(10),ᆯᄎ(10),ᆯᄏ(10)0),,,ᆯ\1(10)
+-ᆳ,ᆯᄒ(10),ᆯᄁ(10/23),ᆯᄁ(10),ᆯᄅ(10/20),ᆯᄄ(10/23),ᆯᄄ(10),ᆯᄅ(10),ᆯᄆ(10),ᆯᄈ(10/23),ᆯᄈ(10),ᆯᄊ(10/23),ᆯᄊ(10),ᆯᄍ(10/23),ᆯᄍ(10),ᆯᄎ(10),ᆯᄏ(ᄑ(10),,,ᆯ\1(10)
+-ᆴ,ᆯᄒ(10),ᆯᄀ(10),ᆯᄁ(10),ᆯᄅ(10/20),ᆯᄃ(10),ᆯᄄ(10),ᆯᄅ(10),ᆯᄆ(10),ᆯᄇ(10),ᆯᄈ(10),ᆯᄉ(10),ᆯᄊ(10),ᆯᄌ(10),ᆯᄍ(10),ᆯᄎ(10),ᆯᄏ(10),ᆯᄐ(10),ᆯᄑ(10),ᆯ\1(10)
+-ᆵ,ᆸᄑ(11/12),ᆸᄁ(11/23),ᆸᄁ(11),ᆷᄂ(18),ᆸᄄ(11/23),ᆸᄄ(11),ᆷᄅ(11),ᆷᄆ(11/18),ᆸᄈ(11/23),ᆸᄈ(11),ᆸᄊ(11/23),ᆸᄊ(11),ᆸᄍ(11/23),ᆸᄍ(11),ᆸᄎ(11),ᆸᆸᄑ,,,ᆸ\1(11)
+-ᆶ,ᆯᄒ(10),ᆯᄏ(12),ᆯᄁ,ᆯᄅ(12/20),ᆯᄐ(12),ᆯᄄ,ᆯᄅ,ᆯᄆ,ᆯᄇ,ᆯᄈ,ᆯᄊ(12),ᆯᄊ,ᆯᄎ(12),ᆯᄍ,ᆯᄎ,ᆯᄏ,ᆯᄐ,ᆯᄑ,ᆯ\1
+-ᆷ,,,,,,,,,,,,,,,,,,,,
+-ᆸ,ᄑ(12),ᆸᄁ(23),,ᆷᄂ(18),ᆸᄄ(23),,ᆷᄂ(19),ᆷᄆ(18),ᆸᄈ(23),,ᆸᄊ(23),,ᆸᄍ(23),,,,,,
+-ᆹ,ᆸᄑ(10),ᆸᄁ(10/23),ᆸᄁ(10),ᆷᄂ(10/18),ᆸᄄ(10/23),ᆸᄄ(10),ᆷᄂ(10/19/18),ᆷᄆ(10/18),ᆸᄈ(10/23),ᆸᄈ(10),ᆸᄊ(10/23),ᆸᄊ(10),ᆸᄍ(10/23),ᆸᄍ(10),ᆸᄎ(1ᄐ(10),ᆸᄑ,,,ᆸ\1(10)
+-ᆺ,ᄐ,ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(9/18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(9/18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
+-ᆻ,ᄐ,ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(9/18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(9/18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
+-ᆼ,,,,,,,,,,,,,,,,,,,,
+-ᆽ,ᄎ(12),ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
+-ᆾ,ᄐ,ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
+-ᆿ,ᄏ,ᆨᄁ(9/23),ᆨᄁ(9),ᆼᄂ(18),ᆨᄄ(9/23),ᆨᄄ(9),ᆼᄂ(9/19),ᆼᄆ(9/18),ᆨᄈ(9/23),ᆨᄈ(9),ᆨᄊ(9/23),ᆨᄊ(9),ᆨᄍ(9/23),ᆨᄍ(9),ᆨᄎ(9),ᆨᄏ(9),ᆨᄐ(9),ᆨᄑ(9),ᆨ\1(9)
+-ᇀ,ᄐ,ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
+-ᇁ,ᄑ,ᆸᄁ(9/23),ᆸᄁ(9),ᆷᄂ(18),ᆸᄄ(9/23),ᆸᄄ(9),ᆷᄂ(9/19),ᆷᄆ(18),ᆸᄈ(9/23),ᆸᄈ(9),ᆸᄊ(9/23),ᆸᄊ(9),ᆸᄍ(9/23),ᆸᄍ(9),ᆸᄎ(9),ᆸᄏ(9),ᆸᄐ(9),ᆸᄑ(9),ᆸ\1(9)
+\ No newline at end of file
++﻿,ᄒ,ᄀ,ᄁ,ᄂ,ᄃ,ᄄ,ᄅ,ᄆ,ᄇ,ᄈ,ᄉ,ᄊ,ᄌ,ᄍ,ᄎ,ᄏ,ᄐ,ᄑ,(\W|$)
++ᇂ,ᄒ,ᄏ(12),ᄁ,ᆫᄂ(12),ᄐ(12),ᄄ,ᄅ,ᄆ,ᄇ,ᄈ,ᄊ(12),ᄊ,ᄎ(12),ᄍ,ᄎ,ᄏ,ᄐ,ᄑ,ᆮ\1
++ᆨ,ᄏ(12),ᆨᄁ(23),,ᆼᄂ(18),ᆨᄄ(23),,ᆼᄅ(19/18),ᆼᄆ(18),ᆨᄈ(23),,ᆨᄊ(23),,ᆨᄍ(23),,,,,,
++ᆩ,ᄏ,ᆨᄁ(9/23),ᆨᄁ(9),ᆼᄂ(18),ᆨᄄ(9/23),ᆨᄄ(9),ᆼᄂ,ᆼᄆ(18),ᆨᄈ(9/23),ᆨᄈ(9),ᆨᄊ(9/23),ᆨᄊ(9),ᆨᄍ(9/23),ᆨᄍ(9),ᆨᄎ(9),ᆨᄏ(9),ᆨᄐ(9),ᆨᄑ(9),ᆨ\1(9)
++ᆪ,ᄏ,ᆨᄁ(9/23),ᆨᄁ(10),ᆼᄂ(18),ᆨᄄ(9/23),ᆨᄄ(10),ᆼᄂ,ᆼᄆ(18),ᆨᄈ(9/23),ᆨᄈ(10),ᆨᄊ(9/23),ᆨᄊ(10),ᆨᄍ(9/23),ᆨᄍ(10),ᆨᄎ(10),ᆨᄏ(10),ᆨᄐ(10),ᆨᄑ(10),ᆨ\1(10)
++ᆫ,,,,,,,ᆯᄅ(20),,,,,,,,,,,,
++ᆬ,ᆫᄎ(12),ᆫᄀ(10),ᆫᄁ(10),ᆫᄂ(10),ᆫᄃ(10),ᆫᄄ(10),ᆯᄅ(10/20),ᆫᄆ(10),ᆫᄇ(10),ᆫᄈ(10),ᆫᄉ(10),ᆫᄊ(10),ᆫᄌ(10),ᆫᄍ(10),ᆫᄎ(10),ᆫᄏ(10),ᆫᄐ(10),ᆫᄑ(10),ᆫ\1(10)
++ᆭ,ᆫᄒ,ᆫᄏ(12),ᆫᄁ,ᆫᄂ(12),ᆫᄐ(12),ᆫᄄ,ᆯᄅ,ᆫᄆ,ᆫᄇ,ᆫᄈ,ᆫᄊ(12),ᆫᄊ,ᆫᄎ(12),ᆫᄍ,ᆫᄎ,ᆫᄏ,ᆫᄐ,ᆫᄑ,ᆫ\1
++ᆮ,ᄐ(12),ᆮᄁ(23),,ᆫᄂ(18),ᆮᄄ(23),,ᆫᄂ,ᆫᄆ(18),ᆮᄈ(23),,ᆮᄊ(23),,ᆮᄍ(23),,,,,,
++ᆯ,,,,ᆯᄅ(20),,,,,,,,,,,,,,,
++ᆰ,ᆯᄏ(12),ᆨᄁ(11/23),ᆨᄁ(11),ᆼᄂ(11/18),ᆨᄄ(11/23),ᆨᄄ(11),ᆼᄂ(11/18),ᆼᄆ(11/18),ᆨᄈ(11/23),ᆨᄈ(11),ᆨᄊ(11/23),ᆨᄊ(11),ᆨᄍ(11/23),ᆨᄍ(11),ᆨᄎ(11),ᆯᄏ(12),ᆨᄐ(11),ᆨᄑ(11),ᆨ\1(11)
++ᆱ,ᆷᄒ(11),ᆷᄀ(11),ᆷᄁ(11),ᆷᄂ(11),ᆷᄃ(11),ᆷᄄ(11),ᆷᄅ(11),ᆷᄆ(11),ᆷᄇ(11),ᆷᄈ(11),ᆷᄉ(11),ᆷᄊ(11),ᆷᄌ(11),ᆷᄍ(11),ᆷᄎ(11),ᆷᄏ(11),ᆷᄐ(11),ᆷᄑ(11),ᆷ\1(11)
++ᆲ,ᆯᄑ(12),ᆯᄁ(10/23),ᆯᄁ(10),ᆷᄂ(18),ᆯᄄ(10/23),ᆯᄄ(10),ᆯᄅ(10),ᆷᄆ(18),ᆯᄈ(10/23),ᆯᄈ(10),ᆯᄊ(10/23),ᆯᄊ(10),ᆯᄍ(10/23),ᆯᄍ(10),ᆯᄎ(10),ᆯᄏ(10)0),,,ᆯ\1(10)
++ᆳ,ᆯᄒ(10),ᆯᄁ(10/23),ᆯᄁ(10),ᆯᄅ(10/20),ᆯᄄ(10/23),ᆯᄄ(10),ᆯᄅ(10),ᆯᄆ(10),ᆯᄈ(10/23),ᆯᄈ(10),ᆯᄊ(10/23),ᆯᄊ(10),ᆯᄍ(10/23),ᆯᄍ(10),ᆯᄎ(10),ᆯᄏ(ᄑ(10),,,ᆯ\1(10)
++ᆴ,ᆯᄒ(10),ᆯᄀ(10),ᆯᄁ(10),ᆯᄅ(10/20),ᆯᄃ(10),ᆯᄄ(10),ᆯᄅ(10),ᆯᄆ(10),ᆯᄇ(10),ᆯᄈ(10),ᆯᄉ(10),ᆯᄊ(10),ᆯᄌ(10),ᆯᄍ(10),ᆯᄎ(10),ᆯᄏ(10),ᆯᄐ(10),ᆯᄑ(10),ᆯ\1(10)
++ᆵ,ᆸᄑ(11/12),ᆸᄁ(11/23),ᆸᄁ(11),ᆷᄂ(18),ᆸᄄ(11/23),ᆸᄄ(11),ᆷᄅ(11),ᆷᄆ(11/18),ᆸᄈ(11/23),ᆸᄈ(11),ᆸᄊ(11/23),ᆸᄊ(11),ᆸᄍ(11/23),ᆸᄍ(11),ᆸᄎ(11),ᆸᆸᄑ,,,ᆸ\1(11)
++ᆶ,ᆯᄒ(10),ᆯᄏ(12),ᆯᄁ,ᆯᄅ(12/20),ᆯᄐ(12),ᆯᄄ,ᆯᄅ,ᆯᄆ,ᆯᄇ,ᆯᄈ,ᆯᄊ(12),ᆯᄊ,ᆯᄎ(12),ᆯᄍ,ᆯᄎ,ᆯᄏ,ᆯᄐ,ᆯᄑ,ᆯ\1
++ᆷ,,,,,,,,,,,,,,,,,,,,
++ᆸ,ᄑ(12),ᆸᄁ(23),,ᆷᄂ(18),ᆸᄄ(23),,ᆷᄂ(19),ᆷᄆ(18),ᆸᄈ(23),,ᆸᄊ(23),,ᆸᄍ(23),,,,,,
++ᆹ,ᆸᄑ(10),ᆸᄁ(10/23),ᆸᄁ(10),ᆷᄂ(10/18),ᆸᄄ(10/23),ᆸᄄ(10),ᆷᄂ(10/19/18),ᆷᄆ(10/18),ᆸᄈ(10/23),ᆸᄈ(10),ᆸᄊ(10/23),ᆸᄊ(10),ᆸᄍ(10/23),ᆸᄍ(10),ᆸᄎ(1ᄐ(10),ᆸᄑ,,,ᆸ\1(10)
++ᆺ,ᄐ,ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(9/18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(9/18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
++ᆻ,ᄐ,ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(9/18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(9/18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
++ᆼ,,,,,,,,,,,,,,,,,,,,
++ᆽ,ᄎ(12),ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
++ᆾ,ᄐ,ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
++ᆿ,ᄏ,ᆨᄁ(9/23),ᆨᄁ(9),ᆼᄂ(18),ᆨᄄ(9/23),ᆨᄄ(9),ᆼᄂ(9/19),ᆼᄆ(9/18),ᆨᄈ(9/23),ᆨᄈ(9),ᆨᄊ(9/23),ᆨᄊ(9),ᆨᄍ(9/23),ᆨᄍ(9),ᆨᄎ(9),ᆨᄏ(9),ᆨᄐ(9),ᆨᄑ(9),ᆨ\1(9)
++ᇀ,ᄐ,ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
++ᇁ,ᄑ,ᆸᄁ(9/23),ᆸᄁ(9),ᆷᄂ(18),ᆸᄄ(9/23),ᆸᄄ(9),ᆷᄂ(9/19),ᆷᄆ(18),ᆸᄈ(9/23),ᆸᄈ(9),ᆸᄊ(9/23),ᆸᄊ(9),ᆸᄍ(9/23),ᆸᄍ(9),ᆸᄎ(9),ᆸᄏ(9),ᆸᄐ(9),ᆸᄑ(9),ᆸ\1(9)
+diff --git a/kokorog2p/ko/g2p.py b/kokorog2p/ko/g2p.py
+index c54d3d1..cffef7d 100644
+--- a/kokorog2p/ko/g2p.py
++++ b/kokorog2p/ko/g2p.py
+@@ -138,7 +138,6 @@ class KoreanG2P(G2PBase):
+             return ipa_phonemes
+         return encode_for_model(ipa_phonemes)
+
+-
+     def __call__(self, text: str) -> list[GToken]:
+         """Convert Korean text to tokens with phonemes.
+
+diff --git a/kokorog2p/ko/g2pk.py b/kokorog2p/ko/g2pk.py
+index 599a06b..d8633a0 100644
+--- a/kokorog2p/ko/g2pk.py
++++ b/kokorog2p/ko/g2pk.py
+@@ -115,6 +115,7 @@ class G2p:
+             stacklevel=2,
+         )
+         return None
++
+     def idioms(self, string, descriptive=False, verbose=False):
+         """Process idioms from IDIOMS list.
+         Each tuple in IDIOMS contains (pattern, replacement).
+diff --git a/kokorog2p/ko/jamo_to_ipa.py b/kokorog2p/ko/jamo_to_ipa.py
+index 133c6fd..e565521 100644
+--- a/kokorog2p/ko/jamo_to_ipa.py
++++ b/kokorog2p/ko/jamo_to_ipa.py
+@@ -139,7 +139,6 @@ def to_positional_jamo(text: str) -> str:
+     return h2j(text)
+
+
+-
+ def jamo_to_ipa(text: str) -> str:
+     """Convert composed or positional Korean Jamo to IPA-like phonemes.
+
+diff --git a/kokorog2p/pipeline_api.py b/kokorog2p/pipeline_api.py
+index 2178d72..63071f1 100644
+--- a/kokorog2p/pipeline_api.py
++++ b/kokorog2p/pipeline_api.py
+@@ -1250,6 +1250,8 @@ def _build_phoneme_string(tokens: list[TokenSpan], clean_text: str) -> str:
+             # No phonemes - might be punctuation or failed phonemization
+             # Check if it's punctuation and include as-is
+             if token_is_punct:
++                if _is_quote_punctuation(normalized_token_text):
++                    continue
+                 if normalized_token_text.strip():
+                     parts.append(normalized_token_text)
+                 if whitespace:
+@@ -1288,7 +1290,7 @@ def _is_punctuation(text: str) -> bool:
+ def _is_quote_punctuation(text: str) -> bool:
+     if not text:
+         return False
+-    return any(ch in {'"', "\u201c", "\u201d"} for ch in text.strip())
++    return any(ch in {'"', "\u201c", "\u201d", "'"} for ch in text.strip())
+
+
+ def _is_punctuation_token(token: TokenSpan) -> bool:
+diff --git a/tests/conftest.py b/tests/conftest.py
+index 0af9e44..429709a 100644
+--- a/tests/conftest.py
++++ b/tests/conftest.py
+@@ -155,6 +155,7 @@ def english_g2p_with_medium_spacy():
+         spacy_model="en_core_web_md",
+     )
+
++
+ @pytest.fixture(scope="module")
+ def english_g2p_full():
+     """Create a fully-featured EnglishG2P."""
+diff --git a/tests/test_cs_g2p.py b/tests/test_cs_g2p.py
+index 1b3725b..02592dd 100644
+--- a/tests/test_cs_g2p.py
++++ b/tests/test_cs_g2p.py
+@@ -11,10 +11,10 @@ def g2p():
+     """Create one shared Czech G2P instance for mutation-free tests."""
+     return CzechG2P()
+
++
+ class TestCzechG2P:
+     """Tests for CzechG2P."""
+
+-
+     def test_creation(self, g2p):
+         """Test G2P creation."""
+         assert g2p.language == "cs-cz"
+diff --git a/tests/test_de_g2p.py b/tests/test_de_g2p.py
+index 939fb51..f0fc849 100644
+--- a/tests/test_de_g2p.py
++++ b/tests/test_de_g2p.py
+@@ -25,11 +25,10 @@ def lexicon():
+     """Create one shared German lexicon for lookup tests."""
+     return GermanLexicon()
+
++
+ class TestGermanG2P:
+     """Tests for GermanG2P."""
+
+-
+-
+     def test_creation(self, g2p):
+         """Test G2P creation."""
+         assert g2p.language == "de-de"
+@@ -199,7 +198,6 @@ class TestGermanG2P:
+ class TestGermanLexicon:
+     """Tests for GermanLexicon."""
+
+-
+     def test_creation(self, lexicon):
+         """Test lexicon creation."""
+         assert len(lexicon) > 0
+diff --git a/tests/test_en_debug.py b/tests/test_en_debug.py
+index 56e19f0..d72dc8d 100644
+--- a/tests/test_en_debug.py
++++ b/tests/test_en_debug.py
+@@ -14,7 +14,6 @@ class TestDebugMode:
+         """Create an EnglishG2P instance."""
+         return EnglishG2P(use_spacy=False, use_espeak_fallback=True)
+
+-
+     def test_process_with_debug_returns_processed_text(self, g2p):
+         """Test that process_with_debug returns a ProcessedText object."""
+         result = g2p.process_with_debug("hello world")
+diff --git a/tests/test_en_g2p.py b/tests/test_en_g2p.py
+index 306206a..55ec755 100644
+--- a/tests/test_en_g2p.py
++++ b/tests/test_en_g2p.py
+@@ -574,7 +574,6 @@ class TestMainAPI:
+ class TestEnNormalization:
+     """Comprehensive tests for normalization handling with spaCy."""
+
+-
+     def test_en_ellipses(self, g2p_spacy):
+         """Test 'don't' is phonemized as a single word, not 'do' + 'n't'."""
+         tokens = g2p_spacy("Don't . . . worry.")
+@@ -791,7 +790,6 @@ class TestDoubleContractions:
+     where spaCy splits them into 3+ tokens (e.g., "I'd've" -> "I" + "'d" + "'ve").
+     """
+
+-
+     def test_couldve_tokenization(self, g2p_spacy):
+         """Test 'could've' is treated as a single token."""
+         tokens = g2p_spacy("I could've done it")
+@@ -955,7 +953,6 @@ class TestContractionRobustness:
+     prevents spaCy from splitting them incorrectly.
+     """
+
+-
+     def test_dont_with_straight_apostrophe(self, g2p_spacy, phoneme_backend):
+         """Test 'don't' with straight apostrophe (U+0027)."""
+         text = "I don't understand them, but I love them."
+diff --git a/tests/test_it_g2p.py b/tests/test_it_g2p.py
+index 3fafcfe..f83e4ea 100644
+--- a/tests/test_it_g2p.py
++++ b/tests/test_it_g2p.py
+@@ -10,6 +10,8 @@ from kokorog2p.phonemes import IT_VOCAB
+ def g2p():
+     """Create one shared Italian G2P instance for mutation-free tests."""
+     return ItalianG2P()
++
++
+ class TestItalianG2P:
+     """Test suite for Italian G2P."""
+
+@@ -19,7 +21,6 @@ class TestItalianG2P:
+         assert g2p.use_spacy is True
+         assert g2p.spacy_model == "it_core_news_md"
+
+-
+     def test_basic_words(self, g2p):
+         """Test basic Italian words."""
+         test_cases = [
+diff --git a/tests/test_ko_g2p.py b/tests/test_ko_g2p.py
+index 982f2e9..0188eb4 100644
+--- a/tests/test_ko_g2p.py
++++ b/tests/test_ko_g2p.py
+@@ -8,7 +8,6 @@ from kokorog2p.token import GToken
+ pytest.importorskip("jamo")
+
+
+-
+ @pytest.fixture(scope="module")
+ def g2p():
+     """Create one shared Korean G2P instance for mutation-free tests."""
+@@ -19,10 +18,10 @@ def g2p():
+ def g2p_no_dict():
+     """Create one shared Korean G2P instance without MeCab dictionary."""
+     return KoreanG2P(use_dict=False)
+-class TestKoreanG2P:
+-    """Tests for KoreanG2P."""
+
+
++class TestKoreanG2P:
++    """Tests for KoreanG2P."""
+
+     def test_creation(self, g2p):
+         """Test G2P creation."""
+diff --git a/tests/test_normalization.py b/tests/test_normalization.py
+index 04e9722..54eb059 100644
+--- a/tests/test_normalization.py
++++ b/tests/test_normalization.py
+@@ -163,16 +163,16 @@ class TestDashNormalization:
+         assert "-" in result or "—" in result
+
+
+-
+ @pytest.fixture(scope="module")
+ def g2p(english_g2p_with_spacy):
+     """Share the explicit small-model G2P across normalization tests."""
+     return english_g2p_with_spacy
++
++
+ @pytest.mark.spacy
+ class TestEnglishG2PNormalization:
+     """Test that English G2P correctly normalizes during tokenization."""
+
+-
+     # Apostrophes
+     def test_g2p_apostrophe_right_quote(self, g2p):
+         """G2P normalizes right single quote in contractions."""
+@@ -254,7 +254,6 @@ class TestComplexNormalization:
+
+         return Punctuation()
+
+-
+     def test_normalize_quotes_contractions_ellipsis(self, punct):
+         """Complex text with quotes, contractions, and ellipsis."""
+         text = "Don't say, \"we're fine\"..."
+diff --git a/tests/test_phoneme_spacing.py b/tests/test_phoneme_spacing.py
+index c3fcd01..8983365 100644
+--- a/tests/test_phoneme_spacing.py
++++ b/tests/test_phoneme_spacing.py
+@@ -18,10 +18,10 @@ def g2p():
+     """Create one shared English G2P instance for spacing tests."""
+     return EnglishG2P(use_espeak_fallback=True, use_spacy=False)
+
++
+ class TestPhonemeSpacing:
+     """Test that phoneme output has correct spacing."""
+
+-
+     @pytest.fixture(params=["english_g2p", "pipeline"])
+     def phonemizer(self, request, g2p):
+         """Provide phonemizer outputs for G2P and pipeline API."""
+diff --git a/tests/test_pipeline_api.py b/tests/test_pipeline_api.py
+index b0fd76e..64addf5 100644
+--- a/tests/test_pipeline_api.py
++++ b/tests/test_pipeline_api.py
+@@ -282,6 +282,16 @@ class TestPhonemizeToResult:
+         assert len(result.token_ids) > 0
+         assert len(result.warnings) == 0
+
++    def test_span_alignment_matches_regex_quote_direction(self):
++        """Keep span output consistent with the no-spaCy G2P tokenizer."""
++        from kokorog2p import get_g2p
++
++        text = "'I can't... or shouldn't,' I replied."
++        g2p = get_g2p("en-us", use_spacy=False)
++        result = phonemize(text, g2p=g2p)
++
++        assert result.phonemes == g2p.phonemize(text)
++
+         text = "'I can't... or shouldn't,' I replied."
+         result = phonemize(text)
+         assert result.phonemes == "“ˈI kˈænt…ɔɹ ʃˈʊdᵊnt,” ˈI ɹᵻplˈId."
+diff --git a/tests/test_pt_g2p.py b/tests/test_pt_g2p.py
+index 514d9f6..431581f 100644
+--- a/tests/test_pt_g2p.py
++++ b/tests/test_pt_g2p.py
+@@ -22,6 +22,8 @@ def g2p_no_stress():
+ def g2p_no_affricate():
+     """Create one shared Portuguese G2P instance without affrication."""
+     return PortugueseG2P(mark_stress=True, affricate_ti_di=False)
++
++
+ class TestPortugueseG2P:
+     """Test Brazilian Portuguese G2P conversion."""
+
+@@ -51,7 +53,6 @@ class TestPortugueseG2P:
+         assert g2p.dialect == expected_dialect
+         assert g2p._normalizer("16") == expected_number
+
+-
+     def test_basic_words(self, g2p):
+         """Test basic Portuguese words."""
+         assert g2p.phonemize("olá") == "olaˈ"
+diff --git a/tests/test_quote_handling.py b/tests/test_quote_handling.py
+index f36842e..95a1c8f 100644
+--- a/tests/test_quote_handling.py
++++ b/tests/test_quote_handling.py
+@@ -9,10 +9,11 @@ from kokorog2p.en.g2p import EnglishG2P
+ def g2p():
+     """Create one shared English G2P instance for quote tests."""
+     return EnglishG2P()
++
++
+ class TestQuoteHandling:
+     """Test quote direction assignment for various cases."""
+
+-
+     def _get_quote_directions(self, g2p, text):
+         """Helper to extract quote characters and their directions from output."""
+         tokens = g2p(text)
+@@ -117,7 +118,6 @@ class TestQuoteHandling:
+ class TestQuoteSpacing:
+     """Test that quotes don't have extra spaces around them."""
+
+-
+     def _get_phonemes(self, g2p, text):
+         """Helper to get phoneme output as string."""
+         tokens = g2p(text)
+diff --git a/tests/test_tokenizer.py b/tests/test_tokenizer.py
+index 38a4c9f..80cfbeb 100644
+--- a/tests/test_tokenizer.py
++++ b/tests/test_tokenizer.py
+@@ -213,7 +213,6 @@ class TestRegexTokenizer:
+         assert "don't" in [t.text for t in contractions]
+
+
+-
+ @pytest.fixture(scope="module")
+ def spacy_nlp():
+     """Load the small spaCy model once for tokenizer tests."""
+@@ -231,12 +230,12 @@ def tokenizer(spacy_nlp):
+     return SpacyTokenizer(
+         nlp=spacy_nlp, track_positions=True, use_bracket_matching=True
+     )
++
++
+ @pytest.mark.spacy
+ class TestSpacyTokenizer:
+     """Test suite for SpacyTokenizer."""
+
+-
+-
+     def test_simple_sentence_with_pos(self, tokenizer):
+         """Test that POS tags are assigned."""
+         tokens = tokenizer.tokenize("Hello world")
+diff --git a/tools/run_test_suite.py b/tools/run_test_suite.py
+index b2b986d..48bbae7 100644
+--- a/tools/run_test_suite.py
++++ b/tools/run_test_suite.py
+@@ -83,9 +83,7 @@ def select_test_files(
+     if match is not None:
+         matcher = re.compile(match)
+         selected = [
+-            path
+-            for path in selected
+-            if matcher.search(_relative_test_path(path, root))
++            path for path in selected if matcher.search(_relative_test_path(path, root))
+         ]
+     return selected
+

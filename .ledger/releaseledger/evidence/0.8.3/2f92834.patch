@@ -1,0 +1,1615 @@
+ README.md                                  |  17 +-
+ benchmarks/THAI_DATASET.md                 |  14 ++
+ benchmarks/benchmark_th_differential.py    | 117 +++++++++++++
+ benchmarks/data/thai_cleanroom_cases.jsonl |   4 +
+ docs/api/thai.md                           |  50 ++++++
+ docs/index.md                              |   5 +
+ docs/installation.md                       |  13 ++
+ docs/languages.md                          |  12 ++
+ docs/th/PROVENANCE.md                      |  45 +++++
+ kokorog2p/__init__.py                      |  17 ++
+ kokorog2p/pipeline_api.py                  |   4 +
+ kokorog2p/th/__init__.py                   |  13 ++
+ kokorog2p/th/engine.py                     | 150 ++++++++++++++++
+ kokorog2p/th/g2p.py                        | 272 +++++++++++++++++++++++++++++
+ kokorog2p/th/model_profile.py              |  71 ++++++++
+ kokorog2p/th/normalizer.py                 | 227 ++++++++++++++++++++++++
+ kokorog2p/vocab.py                         |  34 ++++
+ pyproject.toml                             |   7 +-
+ tests/test_dependency_contract.py          |  12 ++
+ tests/test_th_engine.py                    |  72 ++++++++
+ tests/test_th_g2p.py                       |  82 +++++++++
+ tests/test_th_model_profile.py             |  48 +++++
+ tests/test_th_normalizer.py                |  57 ++++++
+ 23 files changed, 1341 insertions(+), 2 deletions(-)
+
+diff --git a/README.md b/README.md
+index 3621f88..bc964c9 100644
+--- a/README.md
++++ b/README.md
+@@ -11,11 +11,14 @@ kokorog2p converts text to phonemes optimized for the Kokoro text-to-speech syst
+ provides:
+
+ - **Multi-language support**: English (US/GB), German, French, Italian, Spanish,
+-  Portuguese (Brazilian), Czech, Chinese, Japanese, Korean, Hebrew, Vietnamese, Swedish
++  Portuguese (Brazilian), Czech, Chinese, Japanese, Korean, Hebrew, Vietnamese, Swedish,
++  Thai (optional)
+ - **Native Vietnamese frontend**: Pure-Python Northern/Hanoi `vi-vn` profile with six
+   named tones
+ - **Native Swedish frontend**: Pure-Python deterministic rules with no runtime lexicon;
+   external TSV benchmarking is development-only
++- **Native Thai frontend**: Optional TLTK/PyThaiNLP frontend targeting
++  `wayu-kokoro-thai-v1`; Latin phrases use lazy EnglishG2P
+ - **Mixed-language preprocessing**: Detect languages for per-word language switching
+ - **Dictionary-based lookup** with comprehensive lexicons
+   - English: 179k+ entries (gold tier), 187k+ silver tier (both loaded by default)
+@@ -89,6 +92,8 @@ pip install kokorog2p[de]
+ # With French support
+ pip install kokorog2p[fr]
+
++# Thai support (optional TLTK and PyThaiNLP)
++pip install "kokorog2p[th]"
+ # With multilang preprocessing support
+ pip install kokorog2p[mixed]
+
+@@ -609,6 +614,16 @@ Install `kokorog2p[ar]` for the Arabic eSpeak path. The optional
+ provisioned separately and is never downloaded automatically. See
+ [Arabic API](docs/api/arabic.md) for MSA scope, source offsets, and model-ID caveats.
+
++## Thai
++
++Thai support is an optional native TLTK/PyThaiNLP frontend. It supports the aliases
++`th`, `th-th`, `tha`, and `thai`, preserves Thai combining marks, recovers failed engine
++chunks with diagnostics, and uses lazy EnglishG2P for Latin phrases.
++
++The frontend targets `wayu-kokoro-thai-v1`; low tone `˩` is token ID 7 in that isolated
++vocabulary profile. See [Thai API](docs/api/thai.md) and
++[Thai provenance](docs/th/PROVENANCE.md).
++
+ ## License
+
+ Apache2 License - see [LICENSE](LICENSE) for details.
+diff --git a/benchmarks/THAI_DATASET.md b/benchmarks/THAI_DATASET.md
+new file mode 100644
+index 0000000..9848e4c
+--- /dev/null
++++ b/benchmarks/THAI_DATASET.md
+@@ -0,0 +1,14 @@
++# Thai clean-room benchmark dataset
++
++These cases are independently authored synthetic contract fixtures. They are not copied
++from the Wayu evaluation or training corpora.
++
++| Fixture                      | Origin                                | License                              | Retrieval date | Expected pronunciation           | Redistribution               |
++| ---------------------------- | ------------------------------------- | ------------------------------------ | -------------- | -------------------------------- | ---------------------------- |
++| `thai_cleanroom_cases.jsonl` | Independently authored by the project | CC0-compatible project-authored text | 2026-08-27     | TLTK or human review when frozen | Allowed with this repository |
++
++The differential benchmark accepts an operator-provided checkout of the pinned Wayu
++reference. The checkout must provide a development-only `benchmark_adapter.py` that
++reads the JSONL cases from stdin and emits one JSON object per case with `id`, and
++optionally `normalized`, `phonemes`, and `drops`. The reference checkout is not
++vendored, downloaded, imported at runtime, or used by normal CI.
+diff --git a/benchmarks/benchmark_th_differential.py b/benchmarks/benchmark_th_differential.py
+new file mode 100644
+index 0000000..70f65fb
+--- /dev/null
++++ b/benchmarks/benchmark_th_differential.py
+@@ -0,0 +1,117 @@
++#!/usr/bin/env python3
++"""Development-only differential benchmark for the clean-room Thai frontend.
++
++The reference checkout is an operator-provided oracle. It is never imported by
++kokorog2p and is not needed by normal tests or runtime installation.
++"""
++
++from __future__ import annotations
++
++import argparse
++import json
++import subprocess
++import sys
++from pathlib import Path
++from typing import Any
++
++from kokorog2p.th.g2p import ThaiG2P
++from kokorog2p.th.model_profile import TARGET_MODEL, validate_output
++from kokorog2p.th.normalizer import ThaiNormalizer
++
++
++def _load_cases(path: Path) -> list[dict[str, Any]]:
++    return [
++        json.loads(line)
++        for line in path.read_text(encoding="utf-8").splitlines()
++        if line.strip()
++    ]
++
++
++def _reference_results(
++    reference_dir: Path, cases: list[dict[str, Any]]
++) -> dict[str, dict[str, Any]]:
++    adapter = reference_dir / "benchmark_adapter.py"
++    if not adapter.is_file():
++        raise SystemExit(
++            f"Reference adapter not found: {adapter}. Provide a pinned checkout with "
++            "benchmark_adapter.py accepting JSONL on stdin."
++        )
++    completed = subprocess.run(
++        [sys.executable, str(adapter)],
++        input="".join(json.dumps(case, ensure_ascii=False) + "\n" for case in cases),
++        text=True,
++        capture_output=True,
++        cwd=reference_dir,
++        check=True,
++    )
++    return {
++        str(item["id"]): item for item in map(json.loads, completed.stdout.splitlines())
++    }
++
++
++def run(reference_dir: Path, cases_path: Path) -> dict[str, Any]:
++    cases = _load_cases(cases_path)
++    reference = _reference_results(reference_dir, cases)
++    g2p = ThaiG2P()
++    normalizer = ThaiNormalizer()
++    rows: list[dict[str, Any]] = []
++    for case in cases:
++        source = str(case["source"])
++        phonemes = g2p.phonemize(source)
++        valid, invalid = validate_output(phonemes)
++        clean = normalizer(source)
++        oracle = reference.get(str(case["id"]), {})
++        rows.append(
++            {
++                "id": case["id"],
++                "source": source,
++                "category": case.get("category", "uncategorized"),
++                "reference_normalized": oracle.get("normalized"),
++                "clean_room_normalized": clean,
++                "reference_phonemes": oracle.get("phonemes"),
++                "clean_room_phonemes": phonemes,
++                "exact_match": oracle.get("phonemes") == phonemes,
++                "model_valid": valid,
++                "invalid_symbols": invalid,
++                "reference_drops": oracle.get("drops", []),
++                "clean_room_warnings": list(g2p.warnings) + list(normalizer.warnings),
++            }
++        )
++    exact = sum(row["exact_match"] for row in rows)
++    valid = sum(row["model_valid"] for row in rows)
++    silent_drops = sum(
++        bool(row["reference_phonemes"]) and not row["clean_room_phonemes"]
++        for row in rows
++    )
++    return {
++        "target_model": TARGET_MODEL,
++        "reference_dir": str(reference_dir),
++        "cases": rows,
++        "summary": {
++            "case_count": len(rows),
++            "exact_phoneme_matches": exact,
++            "model_valid_count": valid,
++            "silent_lexical_drop_count": silent_drops,
++        },
++    }
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--reference-dir", type=Path, required=True)
++    parser.add_argument("--cases", type=Path, required=True)
++    parser.add_argument("--output", type=Path)
++    args = parser.parse_args()
++    report = (
++        json.dumps(run(args.reference_dir, args.cases), ensure_ascii=False, indent=2)
++        + "\n"
++    )
++    if args.output:
++        args.output.write_text(report, encoding="utf-8")
++    else:
++        print(report, end="")
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/benchmarks/data/thai_cleanroom_cases.jsonl b/benchmarks/data/thai_cleanroom_cases.jsonl
+new file mode 100644
+index 0000000..7b4da9b
+--- /dev/null
++++ b/benchmarks/data/thai_cleanroom_cases.jsonl
+@@ -0,0 +1,4 @@
++{"id":"th-digits-001","category":"thai-digits","source":"สวัสดี ๑๒๓"}
++{"id":"th-decimal-001","category":"decimal","source":"ราคา 2.05 บาท"}
++{"id":"th-mixed-001","category":"mixed-latin","source":"สวัสดี text to speech"}
++{"id":"th-tone-001","category":"tone","source":"กา"}
+diff --git a/docs/api/thai.md b/docs/api/thai.md
+new file mode 100644
+index 0000000..5e3aada
+--- /dev/null
++++ b/docs/api/thai.md
+@@ -0,0 +1,50 @@
++# Thai G2P
++
++Thai support is a native optional frontend targeting `wayu-kokoro-thai-v1`. Install it
++with:
++
++```bash
++pip install "kokorog2p[th]"
++```
++
++The aliases `th`, `th-th`, `tha`, and `thai` share one cached frontend:
++
++```python
++from kokorog2p import phonemize
++
++result = phonemize("สวัสดี", language="th", return_ids=True)
++print(result.phonemes)
++print(result.token_ids)
++```
++
++## Behavior
++
++Thai runs use TLTK with PyThaiNLP segmentation for recovery. Latin runs use the existing
++EnglishG2P lazily, so ordinary phrases such as `text to speech` are pronounced as
++English rather than spelled as Thai letter names. Whitespace and supported punctuation
++remain source-aligned.
++
++The frontend version is `1.0`; its target model is the separate `wayu-kokoro-thai-v1`
++vocabulary profile. That profile maps the Thai low-tone symbol `˩` to token ID 7 and is
++isolated from stock Kokoro and Nabra profiles. Do not combine this profile with another
++incompatible custom profile in one ID stream.
++
++## Normalization
++
++The local Thai normalizer handles Thai digits, cardinal and decimal numbers, ranges,
++repetition marks, common currency and operator forms, punctuation folding, conservative
++chat elongation, and tested identifier/time forms. Thai combining marks are preserved.
++Thai semantic ownership remains local until a released `spokenform` version provides the
++required Thai semantics.
++
++## Strictness and diagnostics
++
++`strict=True` raises after a lexical Thai unit remains unrecovered or the engine
++produces an invalid model symbol. `strict=False` retains recovered material and places
++diagnostic warnings on the frontend and public `PhonemizeResult` where available.
++Diagnostics include engine exceptions, empty or truncated output, unrecovered words,
++invalid model symbols, unsupported source symbols, and unrecovered Latin fallback runs.
++
++TLTK and PyThaiNLP are optional and are loaded only by the Thai frontend. A missing
++installation raises an actionable error recommending `kokorog2p[th]`. The pinned Wayu
++behavior baseline and clean-room deviations are documented in {doc}`../th/PROVENANCE`.
+diff --git a/docs/index.md b/docs/index.md
+index 3a424c8..374608e 100644
+--- a/docs/index.md
++++ b/docs/index.md
+@@ -21,6 +21,8 @@ high-quality text-to-phoneme conversion for multiple languages.
+   named tones
+ - **Mixed-language detection**: Automatic detection and handling of texts mixing
+   multiple languages
++- **Native Thai (optional)**: TLTK frontend with Wayu vocabulary targeting, bilingual
++  Latin routing, and diagnostics
+ - **Dictionary-based lookup** with large gold/silver tier lexicons for select languages
+ - **Rule-based G2P** for Romance and Slavic languages with comprehensive phonological
+   rules
+@@ -60,6 +62,8 @@ pip install kokorog2p[en]
+ # With espeak-ng backend
+ pip install kokorog2p[espeak]
+
++
++pip install "kokorog2p[th]"  # Thai support with TLTK and PyThaiNLP
+ # Full installation (all languages and backends)
+ pip install kokorog2p[all]
+ ```
+@@ -95,6 +99,7 @@ api/korean
+ api/vietnamese
+ api/hebrew
+ api/mixed
++api/thai
+ api/arabic
+ api/backends
+ api/utils
+diff --git a/docs/installation.md b/docs/installation.md
+index 44528ad..14e1461 100644
+--- a/docs/installation.md
++++ b/docs/installation.md
+@@ -73,6 +73,19 @@ from kokorog2p import phonemize
+ print(phonemize("Xin chào!", language="vi").phonemes)
+ ```
+
++### Thai
++
++Thai support is optional and installs TLTK plus PyThaiNLP:
++
++```bash
++pip install "kokorog2p[th]"
++```
++
++The native Thai frontend targets `wayu-kokoro-thai-v1`, uses a separate vocabulary
++profile, and lazily creates the existing English frontend for Latin phrases. Core
++installation does not import Thai dependencies. See {doc}`api/thai` for normalization,
++diagnostics, and strict-mode behavior.
++
+ ### Chinese
+
+ For Chinese support:
+diff --git a/docs/languages.md b/docs/languages.md
+index 33af30a..318d7a4 100644
+--- a/docs/languages.md
++++ b/docs/languages.md
+@@ -905,3 +905,15 @@ TSV is accepted only by `benchmarks/benchmark_sv_rules.py` for development bench
+ Aliases are `sv`, `sv-se`, `swe`, and `swedish`. Swedish number, date, unit,
+ abbreviation, and spoken semantic normalization remain outside this frontend. See
+ {doc}`api/swedish`.
++
++## Thai (th-th)
++
++Thai is an optional native frontend using TLTK and PyThaiNLP, with lazy EnglishG2P
++pronunciation for Latin runs. Install `kokorog2p[th]`; the aliases `th`, `th-th`, `tha`,
++and `thai` share one cached frontend.
++
++Thai output targets `wayu-kokoro-thai-v1`. Its low-tone symbol `˩` uses token ID 7 in an
++isolated profile, so it must not be combined with another incompatible custom model
++profile in one ID stream. Normalization and recovery diagnostics are source-aware, and
++strict mode reports unrecovered lexical material. See {doc}`api/thai` and
++`th/PROVENANCE`.
+diff --git a/docs/th/PROVENANCE.md b/docs/th/PROVENANCE.md
+new file mode 100644
+index 0000000..3565113
+--- /dev/null
++++ b/docs/th/PROVENANCE.md
+@@ -0,0 +1,45 @@
++# Thai frontend provenance
++
++## Clean-room statement
++
++The Thai frontend is an independent implementation for `kokorog2p`. The pinned Wayu
++repository is used only as an externally observed behavioral oracle. No Wayu
++implementation source, comments, regular expressions, control flow, model weights,
++generated name tables, evaluation corpus, or serving code is copied or vendored.
++
++## Behavioral baseline
++
++- Reference: `kunato/wayu-kokoro-thai-v1`
++- Behavioral baseline commit: `50d7f60e41ac118e5bb92b0ba52c30bb7830103c`
++- Later tree commits may be used only for packaging context, not as the behavioral
++  baseline.
++- Target vocabulary fact: Wayu uses `˩` (`U+02E9 MODIFIER LETTER EXTRA-LOW TONE BAR`) at
++  token ID `7`.
++
++## Dependencies and licenses
++
++- TLTK, version range selected by the package, is used as the optional Thai
++  pronunciation engine. TLTK is distributed under the BSD 3-Clause license.
++- PyThaiNLP, version range selected by the package, is used for optional Thai
++  segmentation and recovery. PyThaiNLP is distributed under the Apache License 2.0. Its
++  data and models may have separate CC0 or CC-BY terms, which remain subject to their
++  individual notices.
++- The Wayu model repository is Apache-2.0 licensed. This implementation does not
++  redistribute its weights or source.
++
++## Deliberate deviations
++
++- Latin runs use the existing `kokorog2p.en.EnglishG2P` lazily instead of a direct
++  Misaki English dependency.
++- No Rust TLTK port is included.
++- No generated Thai-name respelling database, runtime Thai lexicon, license-plate
++  acrophony, or model-training entity patch table is included.
++- Thai semantic normalization remains local to this package until a released
++  `spokenform` version advertises the required Thai semantics.
++
++## Fixture policy
++
++Tests and benchmark cases are independently authored synthetic or reviewed cases.
++Expected Thai pronunciation may be recorded from the pinned TLTK release, the observed
++reference, or human review. Reference checkouts and network access are development-only
++inputs and are not runtime or normal CI dependencies.
+diff --git a/kokorog2p/__init__.py b/kokorog2p/__init__.py
+index 6d8d893..c7191ae 100644
+--- a/kokorog2p/__init__.py
++++ b/kokorog2p/__init__.py
+@@ -168,6 +168,10 @@ _LANGUAGE_ALIASES = {
+     "sv-se": "sv-se",
+     "swe": "sv-se",
+     "swedish": "sv-se",
++    "th": "th-th",
++    "th-th": "th-th",
++    "tha": "th-th",
++    "thai": "th-th",
+ }
+
+ _FACTORY_KWARGS_BY_LANGUAGE = {
+@@ -226,6 +230,7 @@ _FACTORY_KWARGS_BY_LANGUAGE = {
+             "model_profile",
+         }
+     ),
++    "th": frozenset({"latin_fallback"}),
+     "sv": frozenset({"dialect", "preserve_stress"}),
+ }
+
+@@ -681,6 +686,18 @@ def get_g2p(  # noqa: C901
+             version=version,
+             **kwargs,
+         )
++    elif lang == "th-th":
++        from kokorog2p.th import ThaiG2P
++
++        g2p = ThaiG2P(
++            language=implementation_language,
++            use_espeak_fallback=use_espeak_fallback,
++            use_goruut_fallback=use_goruut_fallback,
++            use_cli=use_cli,
++            strict=strict,
++            version=version,
++            **kwargs,
++        )
+     elif lang == "ar":
+         from kokorog2p.ar import ArabicG2P
+
+diff --git a/kokorog2p/pipeline_api.py b/kokorog2p/pipeline_api.py
+index c106cb5..1c0d61e 100644
+--- a/kokorog2p/pipeline_api.py
++++ b/kokorog2p/pipeline_api.py
+@@ -314,6 +314,10 @@ def _get_language_normalizer(lang: str | None) -> Any | None:
+         from kokorog2p.cs.normalizer import CzechNormalizer
+
+         return CzechNormalizer(track_changes=False, expand_abbreviations=True)
++    if normalized.startswith("th"):
++        from kokorog2p.th import ThaiNormalizer
++
++        return ThaiNormalizer()
+
+     return None
+
+diff --git a/kokorog2p/th/__init__.py b/kokorog2p/th/__init__.py
+new file mode 100644
+index 0000000..8ba1945
+--- /dev/null
++++ b/kokorog2p/th/__init__.py
+@@ -0,0 +1,13 @@
++"""Thai frontend for KokoroG2P."""
++
++from .engine import ThaiG2PError
++from .g2p import ThaiAnalysis, ThaiG2P
++from .normalizer import ThaiNormalizer
++
++
++def phonemize_th(text: str, **kwargs: object) -> str:
++    """Convenience wrapper for Thai phonemization."""
++    return ThaiG2P(**kwargs).phonemize(text)
++
++
++__all__ = ["ThaiAnalysis", "ThaiG2P", "ThaiG2PError", "ThaiNormalizer", "phonemize_th"]
+diff --git a/kokorog2p/th/engine.py b/kokorog2p/th/engine.py
+new file mode 100644
+index 0000000..77b0bdd
+--- /dev/null
++++ b/kokorog2p/th/engine.py
+@@ -0,0 +1,150 @@
++"""Lazy TLTK adapter with source-aware recovery for Thai pronunciation."""
++
++from __future__ import annotations
++
++import re
++from dataclasses import dataclass, field
++from threading import RLock
++from types import ModuleType
++from typing import Any
++
++from .model_profile import adapt_tltk_output
++
++
++class ThaiG2PError(RuntimeError):
++    """Raised when Thai pronunciation cannot be provided or recovered."""
++
++
++@dataclass
++class EngineResult:
++    """Result from one Thai source chunk."""
++
++    source: str
++    raw_ipa: str = ""
++    used_fallback: bool = False
++    unrecovered: list[str] = field(default_factory=list)
++    warnings: list[str] = field(default_factory=list)
++
++    @property
++    def phonemes(self) -> str:
++        return adapt_tltk_output(self.raw_ipa)
++
++
++class ThaiEngine:
++    """Small, serializable adapter around the optional Thai dependencies."""
++
++    def __init__(
++        self,
++        *,
++        strict: bool = True,
++        tltk_module: ModuleType | Any | None = None,
++        pythainlp_module: ModuleType | Any | None = None,
++    ) -> None:
++        self.strict = strict
++        self._lock = RLock()
++        self._tltk = tltk_module or self._load_tltk()
++        self._pythainlp = pythainlp_module or self._load_pythainlp()
++
++    @staticmethod
++    def _load_tltk() -> Any:
++        try:
++            import tltk
++        except ImportError as exc:
++            raise ImportError(
++                "Thai G2P requires the optional Thai dependencies. "
++                'Install with: python -m pip install "kokorog2p[th]"'
++            ) from exc
++        return tltk
++
++    @staticmethod
++    def _load_pythainlp() -> Any:
++        try:
++            import pythainlp
++        except ImportError as exc:
++            raise ImportError(
++                "Thai G2P requires the optional Thai dependencies. "
++                'Install with: python -m pip install "kokorog2p[th]"'
++            ) from exc
++        return pythainlp
++
++    def _call_tltk(self, source: str) -> str:
++        with self._lock:
++            result = self._tltk.nlp.th2ipa(source)
++        if result is None:
++            return ""
++        return str(result).strip()
++
++    @staticmethod
++    def _looks_truncated(source: str, result: str) -> bool:
++        source_units = [part for part in re.split(r"\s+", source.strip()) if part]
++        if len(source_units) <= 1:
++            return False
++        output_units = [part for part in re.split(r"\s+", result.strip()) if part]
++        return len(output_units) < len(source_units) and len(result) < len(
++            "".join(source_units)
++        )
++
++    def _segment_units(self, source: str, kind: str) -> tuple[list[str], list[str]]:
++        tokenizer = getattr(self._pythainlp, kind, None)
++        if tokenizer is None:
++            tokenizer = getattr(getattr(self._pythainlp, "tokenize", None), kind, None)
++        if not callable(tokenizer):
++            return [part for part in re.split(r"\s+", source.strip()) if part], []
++        try:
++            pieces = tokenizer(source)
++        except Exception as exc:
++            return [source], [f"{kind} segmentation failed: {exc}"]
++        return [str(piece) for piece in pieces if str(piece).strip()], []
++
++    def pronounce_thai_chunk(self, source: str) -> EngineResult:
++        """Pronounce a chunk, retrying independently segmented pieces on failure."""
++        result = EngineResult(source=source)
++        if not source.strip():
++            return result
++        try:
++            raw = self._call_tltk(source)
++            if raw and not self._looks_truncated(source, raw):
++                result.raw_ipa = raw
++                return result
++            result.warnings.append("TH_ENGINE_TRUNCATED" if raw else "TH_ENGINE_EMPTY")
++        except Exception as exc:
++            result.warnings.append(f"TH_ENGINE_EXCEPTION: {exc}")
++
++        result.used_fallback = True
++        syllables = self._segment_units(source, "syllable_tokenize")
++        if isinstance(syllables, tuple):
++            syllables, segmentation_warnings = syllables
++            result.warnings.extend(segmentation_warnings)
++        pieces = syllables
++        if len(pieces) <= 1 or pieces == [source]:
++            words = self._segment_units(source, "word_tokenize")
++            if isinstance(words, tuple):
++                words, segmentation_warnings = words
++                result.warnings.extend(segmentation_warnings)
++            pieces = words
++        recovered: list[str] = []
++        for piece in pieces:
++            try:
++                raw_piece = self._call_tltk(piece)
++            except Exception as exc:
++                result.warnings.append(f"TH_ENGINE_EXCEPTION: {piece!r}: {exc}")
++                raw_piece = ""
++            if raw_piece and not self._looks_truncated(piece, raw_piece):
++                recovered.append(raw_piece)
++            else:
++                result.unrecovered.append(piece)
++                result.warnings.append(
++                    "TH_ENGINE_EMPTY: " + repr(piece)
++                    if not raw_piece
++                    else "TH_ENGINE_TRUNCATED: " + repr(piece)
++                )
++        result.raw_ipa = " ".join(recovered)
++        if result.unrecovered:
++            result.warnings.append(
++                "TH_UNRECOVERED_WORD: "
++                + ", ".join(repr(piece) for piece in result.unrecovered)
++            )
++        return result
++
++
++__all__ = ["EngineResult", "ThaiEngine", "ThaiG2PError"]
+diff --git a/kokorog2p/th/g2p.py b/kokorog2p/th/g2p.py
+new file mode 100644
+index 0000000..2d93a80
+--- /dev/null
++++ b/kokorog2p/th/g2p.py
+@@ -0,0 +1,272 @@
++"""Native Thai G2P frontend for the Wayu Kokoro model."""
++
++from __future__ import annotations
++
++import unicodedata
++from dataclasses import dataclass
++from typing import Literal
++
++from kokorog2p.base import G2PBase
++from kokorog2p.punctuation import normalize_punctuation
++from kokorog2p.token import GToken
++from kokorog2p.tokenization import ensure_gtoken_positions
++
++from .engine import EngineResult, ThaiEngine, ThaiG2PError
++from .model_profile import TARGET_MODEL, validate_output
++from .normalizer import ThaiNormalizer
++
++LatinFallback = Literal["english", "none"]
++
++
++@dataclass(frozen=True)
++class ThaiAnalysis:
++    """Inspectable result for one Thai source run."""
++
++    source: str
++    normalized: str
++    phonemes: str
++    classification: str = "THAI"
++    fallback: str | None = None
++    warnings: tuple[str, ...] = ()
++
++
++class ThaiG2P(G2PBase):
++    """Thai TLTK frontend with English pronunciation for Latin runs."""
++
++    aliases = frozenset(("th", "th-th", "tha", "thai"))
++
++    def __init__(
++        self,
++        language: str = "th-th",
++        *,
++        latin_fallback: LatinFallback = "english",
++        use_espeak_fallback: bool = True,
++        use_goruut_fallback: bool = False,
++        use_cli: bool = False,
++        strict: bool = True,
++        version: str = "1.0",
++        engine: ThaiEngine | None = None,
++    ) -> None:
++        normalized = language.lower().replace("_", "-")
++        if normalized not in self.aliases:
++            raise ValueError(f"Unsupported Thai language code: {language!r}")
++        if latin_fallback not in ("english", "none"):
++            raise ValueError("latin_fallback must be 'english' or 'none'")
++        if version != "1.0":
++            raise ValueError("ThaiG2P supports frontend version '1.0'.")
++        super().__init__(
++            language="th-th",
++            use_espeak_fallback=use_espeak_fallback,
++            use_goruut_fallback=use_goruut_fallback,
++            use_cli=use_cli,
++            strict=strict,
++        )
++        self.version = "1.0"
++        self.latin_fallback = latin_fallback
++        self._normalizer = ThaiNormalizer()
++        self._engine = engine or ThaiEngine(strict=strict)
++        self._english_g2p: G2PBase | None = None
++        self.warnings: list[str] = []
++
++    def get_target_model(self) -> str:
++        """Return the model profile required for Thai token IDs."""
++        return TARGET_MODEL
++
++    @property
++    def english_g2p(self) -> G2PBase | None:
++        """Create the English frontend only when a Latin run needs it."""
++        if self.latin_fallback == "none":
++            return None
++        if self._english_g2p is None:
++            from kokorog2p.en import EnglishG2P
++
++            self._english_g2p = EnglishG2P(
++                language="en-us",
++                use_espeak_fallback=self.use_espeak_fallback,
++                use_goruut_fallback=self.use_goruut_fallback,
++                use_cli=self.use_cli,
++                use_spacy=False,
++                load_silver=False,
++                load_gold=True,
++                strict=self.strict,
++            )
++        return self._english_g2p
++
++    @staticmethod
++    def _is_thai(char: str) -> bool:
++        return "\u0e00" <= char <= "\u0e7f" or unicodedata.combining(char) != 0
++
++    @staticmethod
++    def _is_latin(char: str) -> bool:
++        return char.isascii() and char.isalpha()
++
++    @classmethod
++    def _runs(cls, text: str) -> list[tuple[str, int, int, str]]:
++        runs: list[tuple[str, int, int, str]] = []
++        index = 0
++        while index < len(text):
++            start = index
++            if text[index].isspace():
++                index += 1
++                while index < len(text) and text[index].isspace():
++                    index += 1
++                runs.append((text[start:index], start, index, "WHITESPACE"))
++                continue
++            if cls._is_thai(text[index]):
++                index += 1
++                while index < len(text) and cls._is_thai(text[index]):
++                    index += 1
++                runs.append((text[start:index], start, index, "THAI"))
++                continue
++            if cls._is_latin(text[index]):
++                index += 1
++                while index < len(text) and (
++                    cls._is_latin(text[index]) or text[index] in "'’-"
++                ):
++                    index += 1
++                # Keep a contiguous phrase together for contextual English G2P.
++                while index < len(text) and text[index].isspace():
++                    gap_end = index
++                    while gap_end < len(text) and text[gap_end].isspace():
++                        gap_end += 1
++                    if gap_end >= len(text) or not cls._is_latin(text[gap_end]):
++                        break
++                    index = gap_end + 1
++                    while index < len(text) and (
++                        cls._is_latin(text[index]) or text[index] in "'’-"
++                    ):
++                        index += 1
++                runs.append((text[start:index], start, index, "LATIN"))
++                continue
++            index += 1
++            while (
++                index < len(text)
++                and not text[index].isspace()
++                and not (cls._is_thai(text[index]) or cls._is_latin(text[index]))
++            ):
++                index += 1
++            runs.append((text[start:index], start, index, "PUNCTUATION"))
++        return runs
++
++    def _thai_analysis(self, source: str) -> ThaiAnalysis:
++        normalized = self._normalizer.normalize(source)
++        result: EngineResult = self._engine.pronounce_thai_chunk(normalized)
++        phonemes = result.phonemes
++        valid, invalid = validate_output(phonemes)
++        warnings = list(result.warnings)
++        if not valid:
++            symbols = "".join(sorted(set(invalid)))
++            warnings.append(f"TH_INVALID_MODEL_SYMBOL: {symbols}")
++            if self.strict:
++                raise ThaiG2PError(
++                    f"Thai output for {source!r} contains unsupported symbols: "
++                    f"{symbols}"
++                )
++            phonemes = "".join(char for char in phonemes if char not in invalid)
++        if result.unrecovered and self.strict:
++            raise ThaiG2PError(
++                "Thai pronunciation could not recover lexical source units: "
++                f"{result.unrecovered!r}"
++            )
++        return ThaiAnalysis(
++            source=source,
++            normalized=normalized,
++            phonemes=phonemes,
++            warnings=tuple(warnings),
++        )
++
++    def _latin_phonemes(self, source: str) -> tuple[str | None, str | None, list[str]]:
++        backend = self.english_g2p
++        if backend is None:
++            return None, None, [f"TH_LATIN_UNRECOVERED: {source!r}"]
++        try:
++            phonemes = backend.phonemize(source)
++        except Exception as exc:
++            if self.strict:
++                raise ThaiG2PError(
++                    f"English fallback failed for Thai Latin run {source!r}: {exc}"
++                ) from exc
++            return None, "english", [f"TH_LATIN_UNRECOVERED: {source!r}: {exc}"]
++        return phonemes or None, "english", []
++
++    def __call__(self, text: str) -> list[GToken]:
++        self.warnings = []
++        if not text:
++            return []
++        runs = self._runs(text)
++        tokens: list[GToken] = []
++        for index, (source, start, end, classification) in enumerate(runs):
++            if classification == "WHITESPACE":
++                continue
++            next_start = len(text)
++            for (
++                _next_source,
++                next_run_start,
++                _next_run_end,
++                next_classification,
++            ) in runs[index + 1 :]:
++                if next_classification == "WHITESPACE":
++                    continue
++                next_start = next_run_start
++                break
++            whitespace = text[end:next_start]
++            if classification == "THAI":
++                analysis = self._thai_analysis(source)
++                token = GToken(
++                    source,
++                    tag="TH",
++                    whitespace=whitespace,
++                    phonemes=analysis.phonemes or None,
++                )
++                token.set("classification", "THAI")
++                token.set("normalized_source", analysis.normalized)
++                token.set("engine", "tltk")
++                token.set("fallback", None)
++                self.warnings.extend(analysis.warnings)
++            elif classification == "LATIN":
++                phonemes, fallback, warnings = self._latin_phonemes(source)
++                token = GToken(
++                    source, tag="LATIN", whitespace=whitespace, phonemes=phonemes
++                )
++                token.set("classification", "LATIN")
++                token.set("fallback", fallback)
++                self.warnings.extend(warnings)
++            else:
++                punctuation = normalize_punctuation(source)
++                token = GToken(
++                    source,
++                    tag="PUNCT",
++                    whitespace=whitespace,
++                    phonemes=punctuation or None,
++                    rating="4",
++                )
++                token.set("classification", "PUNCTUATION")
++            token.set("char_start", start)
++            token.set("char_end", end)
++            tokens.append(token)
++        ensure_gtoken_positions(tokens, text)
++        return tokens
++
++    def lookup(self, word: str, tag: str | None = None) -> str | None:
++        del tag
++        if not word or not all(self._is_thai(char) for char in word):
++            return None
++        return self._thai_analysis(word).phonemes or None
++
++    def capabilities(self) -> dict[str, object]:
++        return {
++            "language": "th-th",
++            "native": True,
++            "model": TARGET_MODEL,
++            "tones": 5,
++            "bilingual_latin": self.latin_fallback == "english",
++            "primary_engine": "tltk",
++            "semantic_owner": "kokorog2p-local",
++            "latin_fallback": self.latin_fallback,
++        }
++
++    def __repr__(self) -> str:
++        return f"ThaiG2P(language={self.language!r}, model={TARGET_MODEL!r})"
++
++
++__all__ = ["LatinFallback", "ThaiAnalysis", "ThaiG2P", "ThaiG2PError"]
+diff --git a/kokorog2p/th/model_profile.py b/kokorog2p/th/model_profile.py
+new file mode 100644
+index 0000000..f191596
+--- /dev/null
++++ b/kokorog2p/th/model_profile.py
+@@ -0,0 +1,71 @@
++"""Wayu Thai model vocabulary and TLTK adaptation policy."""
++
++from __future__ import annotations
++
++from typing import Final
++
++from kokorog2p.vocab import phonemes_to_ids, validate_for_kokoro
++
++TARGET_MODEL: Final[str] = "wayu-kokoro-thai-v1"
++TARGET_MODEL_ALIASES: Final[frozenset[str]] = frozenset({TARGET_MODEL, "wayu-thai"})
++LOW_TONE: Final[str] = "˩"
++RESERVED_TOKEN_IDS: Final[dict[str, int]] = {LOW_TONE: 7}
++TLTK_TONE_MAP: Final[dict[str, str]] = {
++    "1": "→",
++    "2": LOW_TONE,
++    "3": "↘",
++    "4": "↗",
++    "5": "↓",
++}
++TLTK_PHONE_REMAP: Final[dict[str, str]] = {"ᴐ": "ɔ"}
++TONE_SYMBOLS: Final[frozenset[str]] = frozenset(TLTK_TONE_MAP.values())
++
++
++def clean_engine_output(text: str) -> str:
++    """Remove formatting artifacts and apply the model's phone spelling."""
++    cleaned = text.replace("ᴐ", "ɔ")
++    for marker in ("|", "/", "<syl>", "</syl>", "<s>", "</s>"):
++        cleaned = cleaned.replace(marker, "")
++    return " ".join(cleaned.split())
++
++
++def adapt_tltk_output(text: str) -> str:
++    """Convert TLTK tone digits only when they follow a phone character."""
++    cleaned = clean_engine_output(text)
++    output: list[str] = []
++    for index, char in enumerate(cleaned):
++        if char in TLTK_TONE_MAP and index > 0 and not cleaned[index - 1].isdigit():
++            output.append(TLTK_TONE_MAP[char])
++        else:
++            output.append(char)
++    return "".join(output)
++
++
++def validate_output(text: str, model: str = TARGET_MODEL) -> tuple[bool, list[str]]:
++    """Validate Thai output against the selected model profile."""
++    return validate_for_kokoro(text, model=model)
++
++
++def encode_output(text: str, model: str = TARGET_MODEL) -> list[int]:
++    """Encode validated Thai output for the target model."""
++    valid, invalid = validate_output(text, model=model)
++    if not valid:
++        raise ValueError(
++            f"Kokoro model {model} cannot encode Thai output: {''.join(invalid)}"
++        )
++    return phonemes_to_ids(text, model=model)
++
++
++__all__ = [
++    "LOW_TONE",
++    "RESERVED_TOKEN_IDS",
++    "TARGET_MODEL",
++    "TARGET_MODEL_ALIASES",
++    "TLTK_PHONE_REMAP",
++    "TLTK_TONE_MAP",
++    "TONE_SYMBOLS",
++    "adapt_tltk_output",
++    "clean_engine_output",
++    "encode_output",
++    "validate_output",
++]
+diff --git a/kokorog2p/th/normalizer.py b/kokorog2p/th/normalizer.py
+new file mode 100644
+index 0000000..e2ca7dd
+--- /dev/null
++++ b/kokorog2p/th/normalizer.py
+@@ -0,0 +1,227 @@
++"""Thai semantic preparation kept local until spokenform owns Thai."""
++
++from __future__ import annotations
++
++import re
++import unicodedata
++from collections.abc import Iterable, Iterator
++
++from kokorog2p.punctuation import normalize_punctuation
++from kokorog2p.types import TextReplacement
++
++_THAI_DIGITS = str.maketrans("๐๑๒๓๔๕๖๗๘๙", "0123456789")
++_DIGITS = ("ศูนย์", "หนึ่ง", "สอง", "สาม", "สี่", "ห้า", "หก", "เจ็ด", "แปด", "เก้า")
++_SMALL_UNITS = ("", "สิบ", "ร้อย", "พัน", "หมื่น", "แสน", "ล้าน")
++_WORD_RE = re.compile(r"\S+")
++_DECIMAL_RE = re.compile(r"(?<!\w)(\d+)\.(\d+)(?!\w)")
++_RANGE_RE = re.compile(r"(?<!\w)(\d+)\s*(?:-|–|—|ถึง)\s*(\d+)(?!\w)")
++_CURRENCY_RE = re.compile(r"(?:฿|บาท\s*)(\d+(?:\.\d+)?)|(?<!\w)(\d+(?:\.\d+)?)\s*บาท")
++_TIME_RE = re.compile(r"(?<!\w)(\d{1,2}):(\d{2})(?!\w)")
++_IDENTIFIER_RE = re.compile(r"(?<!\w)(\d[\d\-/]{2,})(?!\w)")
++
++_OPERATOR_WORDS = {
++    "%": "เปอร์เซ็นต์",
++    "+": "บวก",
++    "=": "เท่ากับ",
++    "<": "น้อยกว่า",
++    ">": "มากกว่า",
++    "≤": "น้อยกว่าหรือเท่ากับ",
++    "≥": "มากกว่าหรือเท่ากับ",
++}
++_PUNCTUATION_TRANSLATION = str.maketrans(
++    {"、": ",", "。": ".", "！": "!", "？": "?", "，": ",", "：": ":", "；": ";"}
++)
++
++
++class ThaiNormalizer:
++    """Normalize common Thai text forms without loading Thai NLP packages."""
++
++    def __init__(self) -> None:
++        self.warnings: list[str] = []
++        self.diagnostics: list[dict[str, str]] = []
++
++    def _cardinal_under_million(self, value: int) -> str:
++        if value == 0:
++            return _DIGITS[0]
++        digits = str(value)
++        parts: list[str] = []
++        for position, digit_text in enumerate(digits):
++            digit = int(digit_text)
++            unit_position = len(digits) - position - 1
++            if not digit:
++                continue
++            if unit_position == 1 and digit == 2:
++                parts.append("ยี่สิบ")
++            elif unit_position == 1 and digit == 1:
++                parts.append("สิบ")
++            elif unit_position == 0 and digit == 1 and value >= 20:
++                parts.append("เอ็ด")
++            else:
++                parts.append(_DIGITS[digit] + _SMALL_UNITS[unit_position])
++        return "".join(parts)
++
++    def cardinal(self, value: int) -> str:
++        if value < 0:
++            return "ลบ" + self.cardinal(-value)
++        if value >= 1_000_000:
++            millions, remainder = divmod(value, 1_000_000)
++            result = self.cardinal(millions) + "ล้าน"
++            return result + (
++                self._cardinal_under_million(remainder) if remainder else ""
++            )
++        return self._cardinal_under_million(value)
++
++    @staticmethod
++    def _digits(value: str) -> str:
++        return " ".join(_DIGITS[int(char)] for char in value)
++
++    def _number_or_digits(self, value: str, *, identifier: bool = False) -> str:
++        if identifier:
++            return self._digits(value)
++        return self.cardinal(int(value))
++
++    def _replace_time(self, match: re.Match[str]) -> str:
++        hour, minute = match.groups()
++        return f"{self.cardinal(int(hour))} นาฬิกา {self._digits(minute)} นาที"
++
++    def _replace_decimal(self, match: re.Match[str]) -> str:
++        integer, fraction = match.groups()
++        return f"{self.cardinal(int(integer))} จุด {self._digits(fraction)}"
++
++    def _replace_currency(self, match: re.Match[str]) -> str:
++        value = match.group(1) or match.group(2)
++        if "." in value:
++            integer, fraction = value.split(".", 1)
++            return f"{self.cardinal(int(integer))} บาท {self._digits(fraction)} สตางค์"
++        return f"{self.cardinal(int(value))} บาท"
++
++    @staticmethod
++    def _replace_identifier_value(value: str) -> str:
++        if "/" in value or "-" in value:
++            return " ".join(
++                ThaiNormalizer._digits(part) if part.isdigit() else "ขีด"
++                for part in re.split(r"([/-])", value)
++                if part
++            )
++        return ThaiNormalizer._digits(value)
++
++    def _expand_repetition(self, text: str) -> str:
++        def replace(match: re.Match[str]) -> str:
++            word = match.group(1)
++            return f"{word} {word}"
++
++        return re.sub(r"(\S+)\s*ๆ", replace, text)
++
++    def _collapse_elongation(self, text: str) -> str:
++        # Two copies can be meaningful Thai spelling. Three or more are chat elongation.
++        return re.sub(r"([ก-ฮะ-์])\1{2,}", r"\1\1", text)
++
++    def _fold_latin_accents(self, text: str) -> str:
++        output: list[str] = []
++        for char in text:
++            if char.isascii() and char.isalpha():
++                output.append(char)
++                continue
++            if char.isalpha() and "LATIN" in unicodedata.name(char, ""):
++                output.extend(
++                    part
++                    for part in unicodedata.normalize("NFKD", char)
++                    if not unicodedata.combining(part)
++                )
++            else:
++                output.append(char)
++        return "".join(output)
++
++    def _drop_unsupported(self, text: str) -> str:
++        kept: list[str] = []
++        dropped: list[str] = []
++        for char in text:
++            category = unicodedata.category(char)
++            if (
++                category.startswith("C")
++                and char not in "\n\t\r"
++                or category == "So"
++                and not ("THAI" in unicodedata.name(char, ""))
++            ):
++                dropped.append(char)
++            else:
++                kept.append(char)
++        if dropped:
++            unique = "".join(dict.fromkeys(dropped))
++            self.warnings.append(f"TH_UNSUPPORTED_SOURCE_SYMBOL: dropped {unique!r}")
++            self.diagnostics.append(
++                {"kind": "TH_UNSUPPORTED_SOURCE_SYMBOL", "symbols": unique}
++            )
++        return "".join(kept)
++
++    def normalize(self, text: str) -> str:
++        self.warnings = []
++        self.diagnostics = []
++        result = text.translate(_THAI_DIGITS)
++        result = self._fold_latin_accents(result)
++        result = self._collapse_elongation(result)
++        result = re.sub(r"(?<!\w)(\d{1,2}):(\d{2})(?!\w)", self._replace_time, result)
++        result = _CURRENCY_RE.sub(self._replace_currency, result)
++        result = _DECIMAL_RE.sub(self._replace_decimal, result)
++        result = _RANGE_RE.sub(
++            lambda m: (
++                f"{self.cardinal(int(m.group(1)))} ถึง {self.cardinal(int(m.group(2)))}"
++            ),
++            result,
++        )
++        result = re.sub(
++            r"((?:เลขที่|รหัส|โทร|เบอร์|บัญชี)\s+)([\d\-/]{3,})",
++            lambda m: m.group(1) + self._replace_identifier_value(m.group(2)),
++            result,
++        )
++        result = re.sub(
++            r"(?<!\w)(\d[\d\-/]*[/-]\d[\d\-/]*)(?!\w)",
++            lambda m: self._replace_identifier_value(m.group(1)),
++            result,
++        )
++
++        def replace_integer(match: re.Match[str]) -> str:
++            value = match.group(0)
++            before = result[max(0, match.start() - 8) : match.start()]
++            if value == "555" and not re.search(
++                r"[บาทคนครั้งกิโลเมตร]", result[match.end() : match.end() + 4]
++            ):
++                return "ฮ่า ฮ่า ฮ่า"
++            identifier = bool(re.search(r"(?:เลขที่|รหัส|โทร|เบอร์|บัญชี)\s*$", before))
++            return self._number_or_digits(value, identifier=identifier)
++
++        result = re.sub(r"(?<![\w.])\d+(?![\w.])", replace_integer, result)
++        result = self._expand_repetition(result)
++        for symbol, spoken in _OPERATOR_WORDS.items():
++            result = result.replace(symbol, f" {spoken} ")
++        result = result.translate(_PUNCTUATION_TRANSLATION)
++        result = normalize_punctuation(result)
++        result = self._drop_unsupported(result)
++        return re.sub(r"[ \t\r\n]+", " ", result).strip()
++
++    def __call__(self, text: str) -> str:
++        return self.normalize(text)
++
++    def normalize_token(self, text: str, **_: object) -> str:
++        return self.normalize(text)
++
++    def iter_structured_replacements(
++        self, text: str, *, protected_spans: Iterable[tuple[int, int]] = ()
++    ) -> Iterator[TextReplacement]:
++        del protected_spans
++        normalized = self.normalize(text)
++        if normalized != text:
++            yield TextReplacement(
++                start=0,
++                end=len(text),
++                text=normalized,
++                kind="THAI_NORMALIZATION",
++                priority=10,
++                language="th-th",
++            )
++
++    def normalize_for_g2p(self, text: str) -> str:
++        return self.normalize(text)
++
++
++__all__ = ["ThaiNormalizer"]
+diff --git a/kokorog2p/vocab.py b/kokorog2p/vocab.py
+index f186098..b60e026 100644
+--- a/kokorog2p/vocab.py
++++ b/kokorog2p/vocab.py
+@@ -89,6 +89,36 @@ def _load_vocab_reverse_nabra() -> dict[int, str]:
+     return {v: k for k, v in _load_vocab_nabra().items()}
+
+
++WAYU_THAI_MODEL = "wayu-kokoro-thai-v1"
++WAYU_THAI_MODEL_ALIASES = frozenset({WAYU_THAI_MODEL, "wayu-thai"})
++_WAYU_THAI_RESERVED_IDS = {"˩": 7}
++
++
++@lru_cache(maxsize=1)
++def _load_vocab_wayu_thai() -> dict[str, int]:
++    """Build the Wayu Thai profile from an isolated stock copy."""
++    vocab = dict(_load_vocab())
++    reverse = _load_vocab_reverse()
++    for symbol, index in _WAYU_THAI_RESERVED_IDS.items():
++        if index >= N_TOKENS:
++            raise ValueError(f"Wayu Thai reserved ID {index} is outside the vocabulary")
++        existing_index = vocab.get(symbol)
++        existing_symbol = reverse.get(index)
++        if existing_index not in (None, index) or existing_symbol not in (None, symbol):
++            raise ValueError(
++                "Cannot construct Wayu Thai vocabulary profile: stock model "
++                f"already assigns reserved ID {index} incompatibly."
++            )
++        vocab[symbol] = index
++    return vocab
++
++
++@lru_cache(maxsize=1)
++def _load_vocab_reverse_wayu_thai() -> dict[int, str]:
++    """Build the isolated reverse Wayu Thai profile."""
++    return {v: k for k, v in _load_vocab_wayu_thai().items()}
++
++
+ @lru_cache(maxsize=1)
+ def _load_config() -> dict:
+     """Load and cache the full Kokoro config."""
+@@ -111,6 +141,8 @@ def get_vocab(model: str = "1.0") -> dict[str, int]:
+     Returns:
+         Dictionary mapping tokens to their indices.
+     """
++    if model in WAYU_THAI_MODEL_ALIASES:
++        return _load_vocab_wayu_thai()
+     if model in NABRA_MODEL_ALIASES:
+         return _load_vocab_nabra()
+     if model == "1.1" or model == "1.1-zh":
+@@ -129,6 +161,8 @@ def get_vocab_reverse(model: str = "1.0") -> dict[int, str]:
+     Returns:
+         Dictionary mapping indices to their tokens.
+     """
++    if model in WAYU_THAI_MODEL_ALIASES:
++        return _load_vocab_reverse_wayu_thai()
+     if model in NABRA_MODEL_ALIASES:
+         return _load_vocab_reverse_nabra()
+     if model == "1.1" or model == "1.1-zh":
+diff --git a/pyproject.toml b/pyproject.toml
+index f14bf72..8a3d3f0 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -87,6 +87,11 @@ zh = [
+     "pypinyin-dict>=0.8.0",
+     "ordered-set>=4.1.0",
+ ]
++th = [
++    "tltk>=1.10,<2",
++    "pythainlp>=5.3,<6",
++    "kokorog2p[espeak]",
++]
+ ja = [
+     "pyopenjtalk>=0.4.1,<0.5",
+ ]
+@@ -124,7 +129,7 @@ mixed = [
+     "lingua-language-detector>=2.0.0",
+ ]
+ all = [
+-    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,mixed,ar]",
++    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,mixed,ar,th]"
+ ]
+ dev = [
+     "pytest>=7.0.0",
+diff --git a/tests/test_dependency_contract.py b/tests/test_dependency_contract.py
+index 7126232..92ca68b 100644
+--- a/tests/test_dependency_contract.py
++++ b/tests/test_dependency_contract.py
+@@ -19,6 +19,18 @@ def test_migrated_semantic_dependency_floors() -> None:
+     assert "spokenform>=0.3.1,<0.4.0" in dependencies
+
+
++def test_thai_dependency_extra_is_optional() -> None:
++    data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
++    extras = data["project"]["optional-dependencies"]
++
++    assert extras["th"] == [
++        "tltk>=1.10,<2",
++        "pythainlp>=5.3,<6",
++        "kokorog2p[espeak]",
++    ]
++    assert "th" in extras["all"][-1]
++
++
+ def test_japanese_dependency_extras_are_separated() -> None:
+     data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+     extras = data["project"]["optional-dependencies"]
+diff --git a/tests/test_th_engine.py b/tests/test_th_engine.py
+new file mode 100644
+index 0000000..ee30d2a
+--- /dev/null
++++ b/tests/test_th_engine.py
+@@ -0,0 +1,72 @@
++"""Tests for the dependency-isolated Thai engine adapter."""
++
++from types import SimpleNamespace
++
++import pytest
++
++from kokorog2p.th.engine import ThaiEngine
++
++
++class FakeThai:
++    def __init__(self, failures: set[str] | None = None) -> None:
++        self.failures = failures or set()
++        self.calls: list[str] = []
++        self.nlp = SimpleNamespace(th2ipa=self.th2ipa)
++
++    def th2ipa(self, text: str) -> str:
++        self.calls.append(text)
++        if text in self.failures:
++            raise RuntimeError("simulated TLTK failure")
++        if text == "empty":
++            return ""
++        return "a2"
++
++
++class FakeThaiNLP:
++    @staticmethod
++    def syllable_tokenize(text: str) -> list[str]:
++        return text.split()
++
++    @staticmethod
++    def word_tokenize(text: str) -> list[str]:
++        return text.split()
++
++
++def test_engine_recovers_a_failed_middle_unit() -> None:
++    tltk = FakeThai({"ซ้าย กลาง ขวา", "กลาง"})
++    engine = ThaiEngine(tltk_module=tltk, pythainlp_module=FakeThaiNLP)
++
++    result = engine.pronounce_thai_chunk("ซ้าย กลาง ขวา")
++
++    assert result.used_fallback
++    assert result.phonemes == "a˩ a˩"
++    assert result.unrecovered == ["กลาง"]
++    assert any("TH_UNRECOVERED_WORD" in warning for warning in result.warnings)
++    assert tltk.calls == ["ซ้าย กลาง ขวา", "ซ้าย", "กลาง", "ขวา"]
++
++
++def test_engine_recovers_empty_output() -> None:
++    tltk = FakeThai({"empty all", "empty"})
++    engine = ThaiEngine(tltk_module=tltk, pythainlp_module=FakeThaiNLP)
++
++    result = engine.pronounce_thai_chunk("empty all")
++
++    assert result.used_fallback
++    assert result.unrecovered == ["empty"]
++    assert result.phonemes == "a˩"
++
++
++def test_engine_retries_an_obviously_truncated_chunk() -> None:
++    tltk = FakeThai()
++    engine = ThaiEngine(tltk_module=tltk, pythainlp_module=FakeThaiNLP)
++    result = engine.pronounce_thai_chunk("หนึ่ง สอง สาม")
++    assert result.used_fallback
++    assert result.phonemes == "a˩ a˩ a˩"
++
++
++def test_missing_dependencies_have_an_actionable_error(
++    monkeypatch: pytest.MonkeyPatch,
++) -> None:
++    monkeypatch.setitem(__import__("sys").modules, "tltk", None)
++    with pytest.raises(ImportError, match=r"kokorog2p\[th\]"):
++        ThaiEngine()
+diff --git a/tests/test_th_g2p.py b/tests/test_th_g2p.py
+new file mode 100644
+index 0000000..69f9ba0
+--- /dev/null
++++ b/tests/test_th_g2p.py
+@@ -0,0 +1,82 @@
++"""Tests for the native Thai G2P frontend."""
++
++from dataclasses import dataclass
++
++import pytest
++
++from kokorog2p.th.engine import EngineResult, ThaiG2PError
++from kokorog2p.th.g2p import ThaiG2P
++
++
++@dataclass
++class FakeEngine:
++    unrecovered: list[str] | None = None
++
++    def pronounce_thai_chunk(self, source: str) -> EngineResult:
++        return EngineResult(
++            source=source,
++            raw_ipa="a2",
++            unrecovered=list(self.unrecovered or []),
++        )
++
++
++class FakeEnglish:
++    def phonemize(self, text: str) -> str:
++        return "hˈɛlO wˈɜɹld" if text == "text to speech" else "wˈɜɹd"
++
++
++def test_pure_thai_does_not_create_english_frontend() -> None:
++    g2p = ThaiG2P(engine=FakeEngine(), latin_fallback="english")
++    tokens = g2p("สวัสดี")
++    assert tokens[0].phonemes == "a˩"
++    assert tokens[0].get("classification") == "THAI"
++    assert g2p._english_g2p is None
++
++
++def test_mixed_runs_preserve_phrase_and_offsets() -> None:
++    g2p = ThaiG2P(engine=FakeEngine())
++    g2p._english_g2p = FakeEnglish()  # type: ignore[assignment]
++
++    tokens = g2p("ไทย text to speech!")
++
++    assert [token.text for token in tokens] == ["ไทย", "text to speech", "!"]
++    assert tokens[0].get("char_start") == 0
++    assert tokens[0].get("char_end") == 3
++    assert tokens[1].get("char_start") == 4
++    assert tokens[1].get("char_end") == 18
++    assert tokens[1].phonemes == "hˈɛlO wˈɜɹld"
++    assert tokens[0].whitespace == " "
++    assert tokens[1].whitespace == ""
++    assert tokens[2].is_punctuation
++
++
++def test_latin_fallback_can_be_disabled() -> None:
++    g2p = ThaiG2P(engine=FakeEngine(), latin_fallback="none", strict=False)
++    tokens = g2p("hello")
++    assert tokens[0].phonemes is None
++    assert "TH_LATIN_UNRECOVERED" in g2p.warnings[0]
++
++
++def test_strict_mode_reports_unrecovered_lexical_units() -> None:
++    g2p = ThaiG2P(engine=FakeEngine(unrecovered=["กลาง"]))
++    with pytest.raises(ThaiG2PError, match="recover"):
++        g2p("กลาง")
++
++
++def test_target_model_and_capabilities() -> None:
++    g2p = ThaiG2P(engine=FakeEngine())
++    assert g2p.version == "1.0"
++    assert g2p.get_target_model() == "wayu-kokoro-thai-v1"
++    assert g2p.capabilities()["primary_engine"] == "tltk"
++
++
++def test_thai_script_segmentation_is_deterministic() -> None:
++    runs = ThaiG2P._runs("ไทย English, ทดสอบ")
++    assert [(text, kind) for text, _, _, kind in runs] == [
++        ("ไทย", "THAI"),
++        (" ", "WHITESPACE"),
++        ("English", "LATIN"),
++        (",", "PUNCTUATION"),
++        (" ", "WHITESPACE"),
++        ("ทดสอบ", "THAI"),
++    ]
+diff --git a/tests/test_th_model_profile.py b/tests/test_th_model_profile.py
+new file mode 100644
+index 0000000..3a6fb98
+--- /dev/null
++++ b/tests/test_th_model_profile.py
+@@ -0,0 +1,48 @@
++"""Tests for the isolated Wayu Thai vocabulary profile."""
++
++from kokorog2p.th.model_profile import (
++    LOW_TONE,
++    TARGET_MODEL,
++    TLTK_TONE_MAP,
++    adapt_tltk_output,
++)
++from kokorog2p.vocab import (
++    get_vocab,
++    get_vocab_reverse,
++    phonemes_to_ids,
++    validate_for_kokoro,
++)
++
++
++def test_wayu_profile_assigns_low_tone_without_mutating_stock() -> None:
++    stock = dict(get_vocab("1.0"))
++    wayu = get_vocab(TARGET_MODEL)
++
++    assert LOW_TONE not in stock
++    assert wayu[LOW_TONE] == 7
++    assert get_vocab("1.0") == stock
++    assert get_vocab_reverse(TARGET_MODEL)[7] == LOW_TONE
++
++
++def test_wayu_profile_is_isolated_from_nabra() -> None:
++    nabra_before = dict(get_vocab("nabra-82m-v0.1"))
++    _ = get_vocab(TARGET_MODEL)
++    assert get_vocab("nabra-82m-v0.1") == nabra_before
++
++
++def test_wayu_tones_validate_and_encode() -> None:
++    assert set(TLTK_TONE_MAP.values()) == {"→", "˩", "↘", "↗", "↓"}
++    for symbol in TLTK_TONE_MAP.values():
++        valid, invalid = validate_for_kokoro(symbol, model=TARGET_MODEL)
++        assert valid, invalid
++    valid, invalid = validate_for_kokoro(LOW_TONE, model="1.0")
++    assert not valid
++    assert LOW_TONE in invalid
++    assert phonemes_to_ids(LOW_TONE, model=TARGET_MODEL) == [7]
++
++
++def test_tltk_adaptation_is_contextual_and_cleans_artifacts() -> None:
++    assert adapt_tltk_output("a2") == "a˩"
++    assert adapt_tltk_output("a3") == "a↘"
++    assert adapt_tltk_output("12") == "12"
++    assert adapt_tltk_output("ᴐ1|<syl>") == "ɔ→"
+diff --git a/tests/test_th_normalizer.py b/tests/test_th_normalizer.py
+new file mode 100644
+index 0000000..b83cb79
+--- /dev/null
++++ b/tests/test_th_normalizer.py
+@@ -0,0 +1,57 @@
++"""Independent Thai normalization contract tests."""
++
++from kokorog2p.th.normalizer import ThaiNormalizer
++
++
++def test_thai_digits_and_cardinals() -> None:
++    normalizer = ThaiNormalizer()
++    assert normalizer("๑๒๓") == "หนึ่งร้อยยี่สิบสาม"
++    assert normalizer("21") == "ยี่สิบเอ็ด"
++
++
++def test_decimal_zeroes_and_ranges() -> None:
++    normalizer = ThaiNormalizer()
++    assert normalizer("2.05") == "สอง จุด ศูนย์ ห้า"
++    assert normalizer("3-5") == "สาม ถึง ห้า"
++
++
++def test_laughter_and_quantity_context() -> None:
++    normalizer = ThaiNormalizer()
++    assert normalizer("555") == "ฮ่า ฮ่า ฮ่า"
++    assert normalizer("555 คน") == "ห้าร้อยห้าสิบห้า คน"
++
++
++def test_currency_math_and_repetition() -> None:
++    normalizer = ThaiNormalizer()
++    assert normalizer("฿20") == "ยี่สิบ บาท"
++    assert normalizer("50% + 2 = 52") == "ห้าสิบ เปอร์เซ็นต์ บวก สอง เท่ากับ ห้าสิบสอง"
++    assert normalizer("เร็วๆ") == "เร็ว เร็ว"
++
++
++def test_punctuation_accents_and_combining_marks() -> None:
++    normalizer = ThaiNormalizer()
++    result = normalizer("“Café”… ก่ก่ก่ 😊")
++    assert "Cafe" in result
++    assert "…" in result
++    assert "ก่" in result
++    assert "😊" not in result
++    assert any(
++        item["kind"] == "TH_UNSUPPORTED_SOURCE_SYMBOL"
++        for item in normalizer.diagnostics
++    )
++
++
++def test_p1_identifier_time_and_address_forms() -> None:
++    normalizer = ThaiNormalizer()
++    assert normalizer("โทร 0812345678") == "โทร ศูนย์ แปด หนึ่ง สอง สาม สี่ ห้า หก เจ็ด แปด"
++    assert normalizer("12:05") == "สิบสอง นาฬิกา ศูนย์ ห้า นาที"
++    assert normalizer("บ้าน 12/4") == "บ้าน หนึ่ง สอง ขีด สี่"
++
++
++def test_structured_replacement_is_source_aligned() -> None:
++    normalizer = ThaiNormalizer()
++    replacements = list(normalizer.iter_structured_replacements("ราคา ๒๐ บาท"))
++    assert len(replacements) == 1
++    assert replacements[0].start == 0
++    assert replacements[0].end == len("ราคา ๒๐ บาท")
++    assert "ยี่สิบ" in replacements[0].text

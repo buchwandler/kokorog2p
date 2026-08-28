@@ -1,0 +1,1290 @@
+ .github/workflows/tests.yml              | 304 ++++++++++++++++---------------
+ docs/contributing.md                     |  53 ++++--
+ pyproject.toml                           |   1 +
+ tests/conftest.py                        |  21 ++-
+ tests/test_cs_g2p.py                     |   9 +-
+ tests/test_de_g2p.py                     |  29 +--
+ tests/test_en_debug.py                   |   9 +-
+ tests/test_en_g2p.py                     |  39 ++--
+ tests/test_it_g2p.py                     |   8 +-
+ tests/test_ko_g2p.py                     |  19 +-
+ tests/test_memory_regressions.py         |  40 ++++
+ tests/test_normalization.py              |  23 +--
+ tests/test_phoneme_spacing.py            |   9 +-
+ tests/test_pt_g2p.py                     |  30 +--
+ tests/test_quote_handling.py             |  12 +-
+ tests/test_ssmd_phrasplit_integration.py |   3 +-
+ tests/test_tokenizer.py                  |  34 ++--
+ tools/run_pytest_with_memory.py          |  44 ++++-
+ tools/run_test_suite.py                  | 149 +++++++++++++++
+ 19 files changed, 545 insertions(+), 291 deletions(-)
+
+diff --git a/.github/workflows/tests.yml b/.github/workflows/tests.yml
+index f379292..6d2ee5b 100644
+--- a/.github/workflows/tests.yml
++++ b/.github/workflows/tests.yml
+@@ -1,183 +1,191 @@
+ name: Run tests
++
+ on:
+   push:
+   schedule:
+     - cron: "17 3 * * 6"
+   workflow_dispatch:
++
+ jobs:
+-  run:
++  compatibility-smoke:
++    name: Smoke (${{ matrix.os }}, Python ${{ matrix.python-version }})
+     runs-on: ${{ matrix.os }}
+     strategy:
++      fail-fast: false
+       matrix:
+-        os: [ubuntu-latest, windows-latest, macos-latest]
+-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+-        test-group: [core, english, german, romance, asian, backends]
++        include:
++          - {os: ubuntu-latest, python-version: "3.10"}
++          - {os: ubuntu-latest, python-version: "3.11"}
++          - {os: ubuntu-latest, python-version: "3.12"}
++          - {os: ubuntu-latest, python-version: "3.13"}
++          - {os: ubuntu-latest, python-version: "3.14"}
++          - {os: windows-latest, python-version: "3.13"}
++          - {os: macos-latest, python-version: "3.13"}
+     steps:
+-    - uses: actions/checkout@master
+-    - name: Setup Python
+-      uses: actions/setup-python@master
+-      with:
+-        python-version: ${{ matrix.python-version }}
+-    - name: Install espeak-ng (Ubuntu)
+-      if: matrix.os == 'ubuntu-latest'
+-      run: |
+-        sudo apt-get update -o Acquire::Retries=3
+-        sudo apt-get install -y espeak-ng
+-    - name: Install espeak-ng (macOS)
+-      if: matrix.os == 'macos-latest'
+-      run: |
+-        brew install espeak-ng
+-    - name: Install espeak-ng (Windows)
+-      if: matrix.os == 'windows-latest'
+-      run: |
+-        choco install espeak-ng --version=1.52.0 --yes --no-progress --retry-count=5 --retry-wait=10
+-    - name: Install packages
+-      shell: bash
+-      run: |
+-        python -m pip install -e ".[all,dev]"
+-        python -m nltk.downloader cmudict
+-        if [ "${{ matrix.test-group }}" = "core" ] || [ "${{ matrix.test-group }}" = "english" ]; then
+-          python -m spacy download en_core_web_md
++      - uses: actions/checkout@v4
++      - name: Setup Python
++        uses: actions/setup-python@v5
++        with:
++          python-version: ${{ matrix.python-version }}
++      - name: Install smoke-test dependencies
++        shell: bash
++        run: python -m pip install -e ".[dev]"
++      - name: Run compatibility smoke tests
++        shell: bash
++        run: |
++          python -m pytest -q \
++            tests/test_attr_parser.py \
++            tests/test_base.py \
++            tests/test_dependency_contract.py \
++            tests/test_markers.py \
++            tests/test_pipeline_api.py \
++            tests/test_public_api_consistency.py
++
++  full-suite:
++    name: Exhaustive isolated suite
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - name: Setup Python
++        uses: actions/setup-python@v5
++        with:
++          python-version: "3.13"
++      - name: Install system dependencies
++        run: |
++          sudo apt-get update -o Acquire::Retries=3
++          sudo apt-get install -y espeak-ng
++      - name: Install all test dependencies
++        run: |
++          python -m pip install -e ".[all,dev]"
++          python -m nltk.downloader cmudict
+           python -m spacy download en_core_web_sm
+-        fi
+-    - name: Run test group
+-      shell: bash
+-      run: |
+-        case "${{ matrix.test-group }}" in
+-          core)
+-            python -m pytest -q \
+-              tests/test_attr_parser.py \
+-              tests/test_base.py \
+-              tests/test_pipeline_api.py \
+-              tests/test_public_api_consistency.py \
+-              tests/test_dependency_contract.py \
+-              tests/test_spokenform_migration.py \
+-              tests/test_abbr2words_source_of_truth.py
+-            ;;
+-          english)
+-            python -m pytest -q -m "not spacy" tests/test_en_*.py tests/test_quote_*.py tests/test_contraction_detection.py tests/test_guarded_abbreviation_merging.py
+-            ;;
++      - name: Assert the isolated runner covers every test module
++        run: python -m pytest -q tests/test_memory_regressions.py
++      - name: Run every test module in a fresh subprocess
++        run: python tools/run_test_suite.py --pytest-arg=-q
+
+-          german)
+-            python -m pytest -q tests/test_de_g2p.py
+-            ;;
+-          romance)
+-            python -m pytest -q tests/test_fr_g2p.py tests/test_es_g2p.py tests/test_it_g2p.py tests/test_pt_g2p.py
+-            ;;
+-          asian)
+-            python -m pytest -q tests/test_ko_g2p.py tests/test_he_g2p.py tests/test_ja_g2p.py tests/test_multilang.py
+-            ;;
+-          backends)
+-            python -m pytest -q tests/test_espeak_*.py tests/test_goruut_backend.py
+-            ;;
+-          *)
+-            echo "Unknown test group: ${{ matrix.test-group }}" >&2
+-            exit 2
+-            ;;
+-        esac
+   lower-bound:
+     runs-on: ubuntu-latest
+     steps:
+-    - uses: actions/checkout@master
+-    - name: Setup Python
+-      uses: actions/setup-python@master
+-      with:
+-        python-version: "3.13"
+-    - name: Install system dependencies
+-      run: |
+-        sudo apt-get update -o Acquire::Retries=3
+-        sudo apt-get install -y espeak-ng
+-    - name: Install exact dependency floor
+-      run: |
+-        python -m pip install --upgrade pip
+-        python -m pip install \
+-          "abbr2words==0.2.9" \
+-          "spokenform==0.3.1"
+-        python -m pip install -e ".[all,dev]"
+-        python -m spacy download en_core_web_md
+-        python -m spacy download en_core_web_sm
+-        python -m nltk.downloader cmudict
+-    - name: Run lower-bound migration tests
+-      run: |
+-        python -m pytest -q \
+-          tests/test_dependency_contract.py \
+-          tests/test_spokenform_migration.py
++      - uses: actions/checkout@v4
++      - name: Setup Python
++        uses: actions/setup-python@v5
++        with:
++          python-version: "3.13"
++      - name: Install exact dependency floor
++        run: |
++          python -m pip install --upgrade pip
++          python -m pip install \
++            "abbr2words==0.2.9" \
++            "spokenform==0.3.1"
++          python -m pip install -e ".[dev]"
++      - name: Run lower-bound migration tests
++        run: |
++          python -m pytest -q \
++            tests/test_dependency_contract.py \
++            tests/test_spokenform_migration.py
++
+   integration:
+     if: github.event_name != 'push'
+     runs-on: ubuntu-latest
+     steps:
+-    - uses: actions/checkout@master
+-    - name: Setup Python
+-      uses: actions/setup-python@master
+-      with:
+-        python-version: "3.13"
+-    - name: Install system dependencies
+-      run: |
+-        sudo apt-get update -o Acquire::Retries=3
+-        sudo apt-get install -y espeak-ng
+-    - name: Install packages and models
+-      run: |
+-        python -m pip install -e ".[all,dev]"
+-        python -m spacy download en_core_web_md
+-        python -m spacy download en_core_web_sm
+-        python -m nltk.downloader cmudict
+-    - name: Run full integration suite with RSS reporting
+-      run: python tools/run_pytest_with_memory.py -q
++      - uses: actions/checkout@v4
++      - name: Setup Python
++        uses: actions/setup-python@v5
++        with:
++          python-version: "3.13"
++      - name: Install system dependencies
++        run: |
++          sudo apt-get update -o Acquire::Retries=3
++          sudo apt-get install -y espeak-ng
++      - name: Install packages and routine model
++        run: |
++          python -m pip install -e ".[all,dev]"
++          python -m spacy download en_core_web_sm
++          python -m nltk.downloader cmudict
++      - name: Run isolated integration suite
++        run: python tools/run_test_suite.py --pytest-arg=-q
++
++  model-compatibility:
++    if: github.event_name == 'workflow_dispatch'
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - name: Setup Python
++        uses: actions/setup-python@v5
++        with:
++          python-version: "3.13"
++      - name: Install English model-test dependencies
++        run: python -m pip install -e ".[en,dev]"
++      - name: Download supported English models
++        run: |
++          python -m spacy download en_core_web_sm
++          python -m spacy download en_core_web_md
++      - name: Run narrow medium-model compatibility checks
++        run: |
++          python -m pytest -q -m spacy \
++            tests/test_en_g2p.py \
++            tests/test_normalization.py \
++            tests/test_tokenizer.py
++
+   minimal-install:
+     runs-on: ubuntu-latest
+     steps:
+-    - uses: actions/checkout@master
+-    - name: Setup Python
+-      uses: actions/setup-python@master
+-      with:
+-        python-version: "3.13"
+-    - name: Install core package only
+-      run: |
+-        python -m pip install --upgrade pip
+-        python -m pip install -e .
+-        python -m pip install pytest
+-    - name: Run no-model smoke tests
+-      run: python -m pytest -q tests/test_minimal_install.py tests/test_span_processing.py
++      - uses: actions/checkout@v4
++      - name: Setup Python
++        uses: actions/setup-python@v5
++        with:
++          python-version: "3.13"
++      - name: Install core package only
++        run: |
++          python -m pip install --upgrade pip
++          python -m pip install -e .
++          python -m pip install pytest
++      - name: Run no-model smoke tests
++        run: python -m pytest -q tests/test_minimal_install.py tests/test_span_processing.py
++
+   cross-package:
+     if: github.event_name != 'push'
+     runs-on: ubuntu-latest
+     steps:
+-    - uses: actions/checkout@master
+-    - name: Setup Python
+-      uses: actions/setup-python@master
+-      with:
+-        python-version: "3.13"
+-    - name: Install optional compatibility packages
+-      run: |
+-        python -m pip install -e .
+-        python -m pip install pytest phrasplit==0.3.4 ssmd==0.8.0
+-    - name: Run cross-package compatibility tests
+-      run: python -m pytest -q tests/test_ssmd_phrasplit_integration.py
++      - uses: actions/checkout@v4
++      - name: Setup Python
++        uses: actions/setup-python@v5
++        with:
++          python-version: "3.13"
++      - name: Install optional compatibility packages
++        run: |
++          python -m pip install -e .
++          python -m pip install pytest phrasplit==0.3.4 ssmd==0.8.0
++      - name: Run cross-package compatibility tests
++        run: python -m pytest -q tests/test_ssmd_phrasplit_integration.py
++
+   japanese-cutlet:
+     if: github.event_name != 'push'
+     runs-on: ubuntu-latest
+     steps:
+-    - uses: actions/checkout@master
+-    - name: Setup Python
+-      uses: actions/setup-python@master
+-      with:
+-        python-version: "3.13"
+-    - name: Install Cutlet backend
+-      run: python -m pip install -e ".[ja-cutlet,dev]"
+-    - name: Run Japanese Cutlet smoke tests
+-      run: python -m pytest -q tests/test_ja_g2p.py -k cutlet
++      - uses: actions/checkout@v4
++      - name: Setup Python
++        uses: actions/setup-python@v5
++        with:
++          python-version: "3.13"
++      - name: Install Cutlet backend
++        run: python -m pip install -e ".[ja-cutlet,dev]"
++      - name: Run Japanese Cutlet smoke tests
++        run: python -m pytest -q tests/test_ja_g2p.py -k cutlet
++
+   japanese-cutlet-full-unidic:
+     if: github.event_name == 'workflow_dispatch'
+     runs-on: ubuntu-latest
+     steps:
+-    - uses: actions/checkout@master
+-    - name: Setup Python
+-      uses: actions/setup-python@master
+-      with:
+-        python-version: "3.13"
+-    - name: Install full-UniDic backend
+-      run: python -m pip install -e ".[ja-cutlet-full,dev]"
+-    - name: Download UniDic
+-      run: python -m unidic download
+-    - name: Run Japanese Cutlet smoke tests
+-      run: python -m pytest -q tests/test_ja_g2p.py -k cutlet
++      - uses: actions/checkout@v4
++      - name: Setup Python
++        uses: actions/setup-python@v5
++        with:
++          python-version: "3.13"
++      - name: Install full-UniDic backend
++        run: python -m pip install -e ".[ja-cutlet-full,dev]"
++      - name: Download UniDic
++        run: python -m unidic download
++      - name: Run Japanese Cutlet smoke tests
++        run: python -m pytest -q tests/test_ja_g2p.py -k cutlet
+diff --git a/docs/contributing.md b/docs/contributing.md
+index daea93c..84beccb 100644
+--- a/docs/contributing.md
++++ b/docs/contributing.md
+@@ -31,43 +31,58 @@ We welcome contributions to kokorog2p! This guide will help you get started.
+    ```
+
+ ## Running Tests
+-
+-Run all tests:
++Run the complete suite with one fresh Python process per test module:
+
+ ```bash
+-pytest tests/
++python tools/run_test_suite.py
+ ```
+
+-Run specific test file:
++The isolated runner discovers every `tests/test_*.py` file in sorted order and runs
++the modules sequentially. It is the canonical full-suite command on developer machines
++and in exhaustive CI. Use `--list` to inspect coverage, `--fail-fast` to stop after the
++first failing module, `--start-at tests/test_en_g2p.py` to resume from a module, and
++`--match "en|normalization"` to select matching modules. Pass pytest options with
++`--pytest-arg=-vv` or additional arguments after the runner options.
++
++Run targeted selections with plain pytest when process isolation is not needed:
+
+ ```bash
+-pytest tests/test_en_g2p.py
++python -m pytest -q tests/test_en_g2p.py
++python -m pytest -m "not spacy"
++python -m pytest -q tests/test_attr_parser.py tests/test_base.py
+ ```
+
+-Run with coverage:
++Coverage aggregation across isolated subprocesses is intentionally separate from the
++first version of the runner. Use the existing single-process command when generating
++a local coverage report:
+
+ ```bash
+-pytest tests/ --cov=kokorog2p --cov-report=html
++python -m pytest tests/ --cov=kokorog2p --cov-report=html
+ ```
+
+ ### Running on memory-constrained machines
+
+-The English and German dictionaries are large, and optional spaCy models add substantial
+-native memory. Prefer sequential pytest processes for independent language groups
+-instead of `pytest-xdist`; each xdist worker loads another interpreter and may load
+-another dictionary or model.
++The English and German dictionaries, optional spaCy models, and native backends can
++use substantial memory. Do not use `pytest-xdist` as the RAM fix. Concurrent workers
++can each load another interpreter, dictionary, or model. The isolated full-suite runner
++uses process exit as the hard memory boundary and keeps only one test module active.
++
++Focused peak RSS diagnostics can be run with the separate measurement tool:
+
+ ```bash
+-python -m pytest -q tests/test_attr_parser.py tests/test_base.py tests/test_pipeline_api.py
+-python -m pytest -q tests/test_en_*.py tests/test_quote_*.py
+-python -m pytest -q tests/test_de_g2p.py
++python tools/run_pytest_with_memory.py -q tests/test_en_g2p.py
++python tools/run_pytest_with_memory.py -q tests/test_normalization.py
++python tools/run_pytest_with_memory.py -q tests/test_tokenizer.py
++python tools/run_pytest_with_memory.py -q tests/test_ko_g2p.py
++python tools/run_pytest_with_memory.py --max-rss-mb 1500 -q tests/test_en_g2p.py
+ ```
+
+-Peak RSS can be observed with `python tools/run_pytest_with_memory.py -q`. For a clean
+-collection comparison, set `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`. A bare `Killed` message
+-or exit status 137 can indicate an operating-system OOM kill; on Linux, inspect `dmesg`
+-or `journalctl -k` after the run and check any container or cgroup memory limit.
+-
++The `spacy` marker identifies tests that load real spaCy resources. Use `pytest -m spacy`
++or `pytest -m "not spacy"` to compare resource-heavy and lightweight selections.
++For collection comparisons, set `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`; do not disable plugin
++autoload unconditionally in the canonical suite because explicitly used plugins may be
++needed. A bare `Killed` message or exit status 137 can indicate an operating-system OOM
++kill; on Linux, inspect `dmesg` or `journalctl -k` and check container or cgroup limits.
+ ## Code Quality
+
+ Format code:
+diff --git a/pyproject.toml b/pyproject.toml
+index 78059e9..3589945 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -122,6 +122,7 @@ all = [
+ dev = [
+     "pytest>=7.0.0",
+     "pytest-cov>=4.0.0",
++    "psutil>=5.9",
+     "ruff>=0.16.0",
+     "mypy>=1.0.0",
+     "pre-commit>=3.0.0",
+diff --git a/tests/conftest.py b/tests/conftest.py
+index caffd1b..0af9e44 100644
+--- a/tests/conftest.py
++++ b/tests/conftest.py
+@@ -26,9 +26,8 @@ def _reset_process_state() -> object:
+     """Bound global G2P and abbreviation state to one test module."""
+     yield
+
+-    from kokorog2p import clear_cache, reset_abbreviations
++    from kokorog2p import reset_abbreviations
+
+-    clear_cache(deep=True)
+     reset_abbreviations()
+     gc.collect()
+
+@@ -132,6 +131,20 @@ def english_g2p_with_espeak():
+ @pytest.fixture(scope="module")
+ def english_g2p_with_spacy():
+     """Create an EnglishG2P with spaCy."""
++    _require_spacy_model("en_core_web_sm")
++    from kokorog2p.en import EnglishG2P
++
++    return EnglishG2P(
++        language="en-us",
++        use_espeak_fallback=False,
++        use_spacy=True,
++        spacy_model="en_core_web_sm",
++    )
++
++
++@pytest.fixture(scope="module")
++def english_g2p_with_medium_spacy():
++    """Create the medium-model G2P for model compatibility behavior tests."""
+     _require_spacy_model("en_core_web_md")
+     from kokorog2p.en import EnglishG2P
+
+@@ -142,18 +155,18 @@ def english_g2p_with_spacy():
+         spacy_model="en_core_web_md",
+     )
+
+-
+ @pytest.fixture(scope="module")
+ def english_g2p_full():
+     """Create a fully-featured EnglishG2P."""
+     pytest.importorskip("espeakng_loader")
+-    _require_spacy_model("en_core_web_md")
++    _require_spacy_model("en_core_web_sm")
+     from kokorog2p.en import EnglishG2P
+
+     return EnglishG2P(
+         language="en-us",
+         use_espeak_fallback=True,
+         use_spacy=True,
++        spacy_model="en_core_web_sm",
+     )
+
+
+diff --git a/tests/test_cs_g2p.py b/tests/test_cs_g2p.py
+index 93c3dbf..1b3725b 100644
+--- a/tests/test_cs_g2p.py
++++ b/tests/test_cs_g2p.py
+@@ -6,13 +6,14 @@ from kokorog2p.cs import CzechG2P
+ from kokorog2p.token import GToken
+
+
++@pytest.fixture(scope="module")
++def g2p():
++    """Create one shared Czech G2P instance for mutation-free tests."""
++    return CzechG2P()
++
+ class TestCzechG2P:
+     """Tests for CzechG2P."""
+
+-    @pytest.fixture
+-    def g2p(self):
+-        """Create a Czech G2P instance."""
+-        return CzechG2P()
+
+     def test_creation(self, g2p):
+         """Test G2P creation."""
+diff --git a/tests/test_de_g2p.py b/tests/test_de_g2p.py
+index 00a3029..939fb51 100644
+--- a/tests/test_de_g2p.py
++++ b/tests/test_de_g2p.py
+@@ -8,18 +8,27 @@ from kokorog2p.spacy_models import SpacyModelResolution, SpacyModelSize
+ from kokorog2p.token import GToken
+
+
++@pytest.fixture(scope="module")
++def g2p():
++    """Create one shared German G2P instance for mutation-free tests."""
++    return GermanG2P()
++
++
++@pytest.fixture(scope="module")
++def g2p_no_lexicon():
++    """Create one shared German G2P instance without lexicon."""
++    return GermanG2P(use_lexicon=False, use_espeak_fallback=False)
++
++
++@pytest.fixture(scope="module")
++def lexicon():
++    """Create one shared German lexicon for lookup tests."""
++    return GermanLexicon()
++
+ class TestGermanG2P:
+     """Tests for GermanG2P."""
+
+-    @pytest.fixture
+-    def g2p(self):
+-        """Create a German G2P instance."""
+-        return GermanG2P()
+
+-    @pytest.fixture
+-    def g2p_no_lexicon(self):
+-        """Create a German G2P instance without lexicon."""
+-        return GermanG2P(use_lexicon=False, use_espeak_fallback=False)
+
+     def test_creation(self, g2p):
+         """Test G2P creation."""
+@@ -190,10 +199,6 @@ class TestGermanG2P:
+ class TestGermanLexicon:
+     """Tests for GermanLexicon."""
+
+-    @pytest.fixture
+-    def lexicon(self):
+-        """Create a German lexicon instance."""
+-        return GermanLexicon()
+
+     def test_creation(self, lexicon):
+         """Test lexicon creation."""
+diff --git a/tests/test_en_debug.py b/tests/test_en_debug.py
+index 6c32c1f..56e19f0 100644
+--- a/tests/test_en_debug.py
++++ b/tests/test_en_debug.py
+@@ -14,10 +14,6 @@ class TestDebugMode:
+         """Create an EnglishG2P instance."""
+         return EnglishG2P(use_spacy=False, use_espeak_fallback=True)
+
+-    @pytest.fixture
+-    def g2p_spacy(self):
+-        """Create an EnglishG2P instance with spaCy."""
+-        return EnglishG2P(use_spacy=True, use_espeak_fallback=True)
+
+     def test_process_with_debug_returns_processed_text(self, g2p):
+         """Test that process_with_debug returns a ProcessedText object."""
+@@ -130,9 +126,10 @@ class TestDebugMode:
+         # Check that at least one quote has a depth > 0
+         assert any(tok.quote_depth > 0 for tok in quote_tokens)
+
+-    def test_spacy_pos_tagging_in_debug(self, g2p_spacy):
++    @pytest.mark.spacy
++    def test_spacy_pos_tagging_in_debug(self, english_g2p_with_spacy):
+         """Test that POS tags are tracked when using spaCy."""
+-        result = g2p_spacy.process_with_debug("hello world")
++        result = english_g2p_with_spacy.process_with_debug("hello world")
+
+         # Check that POS tags are present
+         assert result.tokens[0].pos_tag is not None
+diff --git a/tests/test_en_g2p.py b/tests/test_en_g2p.py
+index 180a634..306206a 100644
+--- a/tests/test_en_g2p.py
++++ b/tests/test_en_g2p.py
+@@ -24,6 +24,12 @@ def phoneme_backend(request: pytest.FixtureRequest) -> Literal["g2p", "pipeline"
+     return request.param
+
+
++@pytest.fixture(scope="module")
++def g2p_spacy(english_g2p_with_spacy):
++    """Share one explicit small spaCy G2P across English integration tests."""
++    return english_g2p_with_spacy
++
++
+ class TestEnglishG2PNoFallback:
+     """Tests for EnglishG2P without espeak fallback."""
+
+@@ -142,6 +148,11 @@ class TestEnglishG2PWithEspeak:
+ class TestEnglishG2PWithSpacy:
+     """Tests for EnglishG2P with spaCy."""
+
++    @pytest.fixture
++    def english_g2p_with_spacy(self, english_g2p_with_medium_spacy):
++        """Use the medium model for POS-sensitive compatibility assertions."""
++        return english_g2p_with_medium_spacy
++
+     def test_creation_with_spacy(self, english_g2p_with_spacy):
+         """Test G2P creation with spaCy."""
+         assert english_g2p_with_spacy.use_spacy is True
+@@ -563,13 +574,6 @@ class TestMainAPI:
+ class TestEnNormalization:
+     """Comprehensive tests for normalization handling with spaCy."""
+
+-    @pytest.fixture(scope="class")
+-    def g2p_spacy(self):
+-        """Create an EnglishG2P instance with spaCy enabled."""
+-        pytest.importorskip("en_core_web_md")
+-        from kokorog2p.en import EnglishG2P
+-
+-        return EnglishG2P(language="en-us", use_spacy=True, use_espeak_fallback=False)
+
+     def test_en_ellipses(self, g2p_spacy):
+         """Test 'don't' is phonemized as a single word, not 'do' + 'n't'."""
+@@ -595,14 +599,6 @@ class TestContractionMerging:
+     as separate words instead of using their dictionary entries.
+     """
+
+-    @pytest.fixture(scope="class")
+-    def g2p_spacy(self):
+-        """Create an EnglishG2P instance with spaCy enabled."""
+-        pytest.importorskip("en_core_web_md")
+-        from kokorog2p.en import EnglishG2P
+-
+-        return EnglishG2P(language="en-us", use_spacy=True, use_espeak_fallback=False)
+-
+     def test_dont_contraction(self, g2p_spacy):
+         """Test 'don't' is phonemized as a single word, not 'do' + 'n't'."""
+         tokens = g2p_spacy("Don't worry")
+@@ -795,13 +791,6 @@ class TestDoubleContractions:
+     where spaCy splits them into 3+ tokens (e.g., "I'd've" -> "I" + "'d" + "'ve").
+     """
+
+-    @pytest.fixture(scope="class")
+-    def g2p_spacy(self):
+-        """Create an EnglishG2P instance with spaCy enabled."""
+-        pytest.importorskip("en_core_web_md")
+-        from kokorog2p.en import EnglishG2P
+-
+-        return EnglishG2P(language="en-us", use_spacy=True, use_espeak_fallback=False)
+
+     def test_couldve_tokenization(self, g2p_spacy):
+         """Test 'could've' is treated as a single token."""
+@@ -966,12 +955,6 @@ class TestContractionRobustness:
+     prevents spaCy from splitting them incorrectly.
+     """
+
+-    @pytest.fixture
+-    def g2p_spacy(self):
+-        """Create an EnglishG2P instance with spaCy enabled."""
+-        from kokorog2p.en import EnglishG2P
+-
+-        return EnglishG2P(language="en-us", use_spacy=True)
+
+     def test_dont_with_straight_apostrophe(self, g2p_spacy, phoneme_backend):
+         """Test 'don't' with straight apostrophe (U+0027)."""
+diff --git a/tests/test_it_g2p.py b/tests/test_it_g2p.py
+index 3de9cf7..3fafcfe 100644
+--- a/tests/test_it_g2p.py
++++ b/tests/test_it_g2p.py
+@@ -6,6 +6,10 @@ from kokorog2p.it import ItalianG2P
+ from kokorog2p.phonemes import IT_VOCAB
+
+
++@pytest.fixture(scope="module")
++def g2p():
++    """Create one shared Italian G2P instance for mutation-free tests."""
++    return ItalianG2P()
+ class TestItalianG2P:
+     """Test suite for Italian G2P."""
+
+@@ -15,10 +19,6 @@ class TestItalianG2P:
+         assert g2p.use_spacy is True
+         assert g2p.spacy_model == "it_core_news_md"
+
+-    @pytest.fixture
+-    def g2p(self):
+-        """Create an Italian G2P instance."""
+-        return ItalianG2P()
+
+     def test_basic_words(self, g2p):
+         """Test basic Italian words."""
+diff --git a/tests/test_ko_g2p.py b/tests/test_ko_g2p.py
+index 0d1b4f6..982f2e9 100644
+--- a/tests/test_ko_g2p.py
++++ b/tests/test_ko_g2p.py
+@@ -8,18 +8,21 @@ from kokorog2p.token import GToken
+ pytest.importorskip("jamo")
+
+
++
++@pytest.fixture(scope="module")
++def g2p():
++    """Create one shared Korean G2P instance for mutation-free tests."""
++    return KoreanG2P()
++
++
++@pytest.fixture(scope="module")
++def g2p_no_dict():
++    """Create one shared Korean G2P instance without MeCab dictionary."""
++    return KoreanG2P(use_dict=False)
+ class TestKoreanG2P:
+     """Tests for KoreanG2P."""
+
+-    @pytest.fixture
+-    def g2p(self):
+-        """Create a Korean G2P instance."""
+-        return KoreanG2P()
+
+-    @pytest.fixture
+-    def g2p_no_dict(self):
+-        """Create a Korean G2P instance without MeCab dictionary."""
+-        return KoreanG2P(use_dict=False)
+
+     def test_creation(self, g2p):
+         """Test G2P creation."""
+diff --git a/tests/test_memory_regressions.py b/tests/test_memory_regressions.py
+index f56e559..eb3ae35 100644
+--- a/tests/test_memory_regressions.py
++++ b/tests/test_memory_regressions.py
+@@ -8,6 +8,8 @@ from pathlib import Path
+
+ import pytest
+
++from tools import run_test_suite
++
+
+ def test_pipeline_test_module_does_not_import_spacy() -> None:
+     """Collection helpers must not import the heavyweight spaCy package."""
+@@ -137,3 +139,41 @@ print(baseline, one, six)
+     baseline, one, six = (int(value) for value in result.stdout.split())
+     one_delta = max(one - baseline, 1)
+     assert six - baseline <= 2.5 * one_delta
++
++
++def test_full_suite_discovers_each_test_module_once(tmp_path: Path) -> None:
++    """The isolated runner enumerates every test module exactly once."""
++    tests_dir = tmp_path / "tests"
++    tests_dir.mkdir()
++    for name in ("test_z.py", "test_a.py", "test_a.txt", "helper.py"):
++        (tests_dir / name).touch()
++
++    discovered = run_test_suite.discover_test_files(tmp_path)
++
++    assert [path.name for path in discovered] == ["test_a.py", "test_z.py"]
++
++
++def test_full_suite_runs_modules_sequentially(monkeypatch, tmp_path: Path) -> None:
++    """The default runner starts the next module only after the prior exits."""
++    test_files = [tmp_path / "tests" / "test_a.py", tmp_path / "tests" / "test_b.py"]
++    calls: list[list[str]] = []
++    active = 0
++    maximum_active = 0
++
++    def fake_run(command: list[str], **kwargs: object) -> object:
++        nonlocal active, maximum_active
++        active += 1
++        maximum_active = max(maximum_active, active)
++        calls.append(command)
++        active -= 1
++        return type("Result", (), {"returncode": 0})()
++
++    monkeypatch.setattr(run_test_suite.subprocess, "run", fake_run)
++
++    assert run_test_suite.run_test_files(test_files, ["-q"], root=tmp_path) == 0
++    assert maximum_active == 1
++    assert [command[-1] for command in calls] == [
++        "tests/test_a.py",
++        "tests/test_b.py",
++    ]
++    assert all("-n" not in command for command in calls)
+diff --git a/tests/test_normalization.py b/tests/test_normalization.py
+index 6dfdea9..04e9722 100644
+--- a/tests/test_normalization.py
++++ b/tests/test_normalization.py
+@@ -163,14 +163,15 @@ class TestDashNormalization:
+         assert "-" in result or "—" in result
+
+
++
++@pytest.fixture(scope="module")
++def g2p(english_g2p_with_spacy):
++    """Share the explicit small-model G2P across normalization tests."""
++    return english_g2p_with_spacy
++@pytest.mark.spacy
+ class TestEnglishG2PNormalization:
+     """Test that English G2P correctly normalizes during tokenization."""
+
+-    @pytest.fixture
+-    def g2p(self):
+-        from kokorog2p.en import EnglishG2P
+-
+-        return EnglishG2P(language="en-us", use_spacy=True)
+
+     # Apostrophes
+     def test_g2p_apostrophe_right_quote(self, g2p):
+@@ -243,6 +244,7 @@ class TestEnglishG2PNormalization:
+         assert "nˈOn" in phonemes
+
+
++@pytest.mark.spacy
+ class TestComplexNormalization:
+     """Test complex cases with multiple normalizations."""
+
+@@ -252,11 +254,6 @@ class TestComplexNormalization:
+
+         return Punctuation()
+
+-    @pytest.fixture
+-    def g2p(self):
+-        from kokorog2p.en import EnglishG2P
+-
+-        return EnglishG2P(language="en-us", use_spacy=True)
+
+     def test_normalize_quotes_contractions_ellipsis(self, punct):
+         """Complex text with quotes, contractions, and ellipsis."""
+@@ -299,12 +296,12 @@ class TestComplexNormalization:
+         assert "…" in result
+
+
++@pytest.mark.spacy
+ class TestNormalizationConsistency:
+     """Ensure punctuation.py and en/g2p.py normalize consistently."""
+
+-    def test_punctuation_vs_g2p_apostrophes(self):
++    def test_punctuation_vs_g2p_apostrophes(self, english_g2p_with_spacy):
+         """Both modules should normalize apostrophes the same way."""
+-        from kokorog2p.en import EnglishG2P
+         from kokorog2p.punctuation import normalize_punctuation
+
+         test_text = "don't you're we've"
+@@ -313,7 +310,7 @@ class TestNormalizationConsistency:
+         punct_result = normalize_punctuation(test_text)
+
+         # G2P normalizes during tokenization
+-        g2p = EnglishG2P(language="en-us", use_spacy=True)
++        g2p = english_g2p_with_spacy
+         tokens = g2p(test_text)
+         g2p_text = " ".join(t.text for t in tokens)
+
+diff --git a/tests/test_phoneme_spacing.py b/tests/test_phoneme_spacing.py
+index d0f3e51..c3fcd01 100644
+--- a/tests/test_phoneme_spacing.py
++++ b/tests/test_phoneme_spacing.py
+@@ -13,13 +13,14 @@ from kokorog2p import phonemize
+ from kokorog2p.en.g2p import EnglishG2P
+
+
++@pytest.fixture(scope="module")
++def g2p():
++    """Create one shared English G2P instance for spacing tests."""
++    return EnglishG2P(use_espeak_fallback=True, use_spacy=False)
++
+ class TestPhonemeSpacing:
+     """Test that phoneme output has correct spacing."""
+
+-    @pytest.fixture
+-    def g2p(self):
+-        """Create G2P instance for testing."""
+-        return EnglishG2P(use_espeak_fallback=True, use_spacy=False)
+
+     @pytest.fixture(params=["english_g2p", "pipeline"])
+     def phonemizer(self, request, g2p):
+diff --git a/tests/test_pt_g2p.py b/tests/test_pt_g2p.py
+index 397641d..514d9f6 100644
+--- a/tests/test_pt_g2p.py
++++ b/tests/test_pt_g2p.py
+@@ -6,6 +6,22 @@ from kokorog2p.phonemes import PT_BR_VOCAB
+ from kokorog2p.pt import PortugueseG2P
+
+
++@pytest.fixture(scope="module")
++def g2p():
++    """Create one shared Portuguese G2P instance for mutation-free tests."""
++    return PortugueseG2P(mark_stress=True, affricate_ti_di=True)
++
++
++@pytest.fixture(scope="module")
++def g2p_no_stress():
++    """Create one shared Portuguese G2P instance without stress markers."""
++    return PortugueseG2P(mark_stress=False, affricate_ti_di=True)
++
++
++@pytest.fixture(scope="module")
++def g2p_no_affricate():
++    """Create one shared Portuguese G2P instance without affrication."""
++    return PortugueseG2P(mark_stress=True, affricate_ti_di=False)
+ class TestPortugueseG2P:
+     """Test Brazilian Portuguese G2P conversion."""
+
+@@ -35,20 +51,6 @@ class TestPortugueseG2P:
+         assert g2p.dialect == expected_dialect
+         assert g2p._normalizer("16") == expected_number
+
+-    @pytest.fixture
+-    def g2p(self):
+-        """Create a Portuguese G2P instance."""
+-        return PortugueseG2P(mark_stress=True, affricate_ti_di=True)
+-
+-    @pytest.fixture
+-    def g2p_no_stress(self):
+-        """Create a Portuguese G2P instance without stress markers."""
+-        return PortugueseG2P(mark_stress=False, affricate_ti_di=True)
+-
+-    @pytest.fixture
+-    def g2p_no_affricate(self):
+-        """Create a Portuguese G2P instance without affrication."""
+-        return PortugueseG2P(mark_stress=True, affricate_ti_di=False)
+
+     def test_basic_words(self, g2p):
+         """Test basic Portuguese words."""
+diff --git a/tests/test_quote_handling.py b/tests/test_quote_handling.py
+index 0512e30..f36842e 100644
+--- a/tests/test_quote_handling.py
++++ b/tests/test_quote_handling.py
+@@ -5,13 +5,13 @@ import pytest
+ from kokorog2p.en.g2p import EnglishG2P
+
+
++@pytest.fixture(scope="module")
++def g2p():
++    """Create one shared English G2P instance for quote tests."""
++    return EnglishG2P()
+ class TestQuoteHandling:
+     """Test quote direction assignment for various cases."""
+
+-    @pytest.fixture
+-    def g2p(self):
+-        """Create EnglishG2P instance."""
+-        return EnglishG2P()
+
+     def _get_quote_directions(self, g2p, text):
+         """Helper to extract quote characters and their directions from output."""
+@@ -117,10 +117,6 @@ class TestQuoteHandling:
+ class TestQuoteSpacing:
+     """Test that quotes don't have extra spaces around them."""
+
+-    @pytest.fixture
+-    def g2p(self):
+-        """Create EnglishG2P instance."""
+-        return EnglishG2P()
+
+     def _get_phonemes(self, g2p, text):
+         """Helper to get phoneme output as string."""
+diff --git a/tests/test_ssmd_phrasplit_integration.py b/tests/test_ssmd_phrasplit_integration.py
+index cde820f..13574d3 100644
+--- a/tests/test_ssmd_phrasplit_integration.py
++++ b/tests/test_ssmd_phrasplit_integration.py
+@@ -161,7 +161,8 @@ def test_installed_phrasplit_and_ssmd_pipeline_uses_clean_text_coordinates():
+     import phrasplit
+     import ssmd
+
+-    assert version("phrasplit") == "0.3.4"
++    phrasplit_version = tuple(int(part) for part in version("phrasplit").split(".")[:3])
++    assert phrasplit_version >= (0, 3, 4)
+     try:
+         ssmd_version = version("ssmd")
+     except PackageNotFoundError:
+diff --git a/tests/test_tokenizer.py b/tests/test_tokenizer.py
+index a45a6e6..38a4c9f 100644
+--- a/tests/test_tokenizer.py
++++ b/tests/test_tokenizer.py
+@@ -213,25 +213,29 @@ class TestRegexTokenizer:
+         assert "don't" in [t.text for t in contractions]
+
+
++
++@pytest.fixture(scope="module")
++def spacy_nlp():
++    """Load the small spaCy model once for tokenizer tests."""
++    try:
++        import spacy
++
++        return spacy.load("en_core_web_sm")
++    except (ImportError, OSError):
++        pytest.skip("spaCy not available or model not installed")
++
++
++@pytest.fixture(scope="module")
++def tokenizer(spacy_nlp):
++    """Create the spaCy tokenizer once for tokenizer tests."""
++    return SpacyTokenizer(
++        nlp=spacy_nlp, track_positions=True, use_bracket_matching=True
++    )
++@pytest.mark.spacy
+ class TestSpacyTokenizer:
+     """Test suite for SpacyTokenizer."""
+
+-    @pytest.fixture
+-    def spacy_nlp(self):
+-        """Load spaCy model if available."""
+-        try:
+-            import spacy
+-
+-            return spacy.load("en_core_web_sm")
+-        except (ImportError, OSError):
+-            pytest.skip("spaCy not available or model not installed")
+
+-    @pytest.fixture
+-    def tokenizer(self, spacy_nlp):
+-        """Create a spaCy tokenizer instance."""
+-        return SpacyTokenizer(
+-            nlp=spacy_nlp, track_positions=True, use_bracket_matching=True
+-        )
+
+     def test_simple_sentence_with_pos(self, tokenizer):
+         """Test that POS tags are assigned."""
+diff --git a/tools/run_pytest_with_memory.py b/tools/run_pytest_with_memory.py
+index 14b8f3a..7e59978 100644
+--- a/tools/run_pytest_with_memory.py
++++ b/tools/run_pytest_with_memory.py
+@@ -1,13 +1,16 @@
+-"""Run pytest while reporting current and peak RSS for the process tree."""
++"""Run pytest while reporting and optionally limiting tree RSS."""
+
+ from __future__ import annotations
+
++import argparse
+ import subprocess
+ import sys
+ import time
+
+ import psutil
+
++RSS_LIMIT_EXCEEDED = 3
++
+
+ def _tree_rss(process: psutil.Process) -> int:
+     """Return RSS for a process and all descendants still visible."""
+@@ -25,12 +28,29 @@ def _tree_rss(process: psutil.Process) -> int:
+     return total
+
+
++def _parse_args(argv: list[str]) -> tuple[int | None, list[str]]:
++    parser = argparse.ArgumentParser(
++        description="Run pytest while reporting process-tree RSS usage."
++    )
++    parser.add_argument(
++        "--max-rss-mb",
++        type=int,
++        help="Terminate pytest cleanly when tree RSS exceeds this many MiB.",
++    )
++    args, pytest_args = parser.parse_known_args(argv)
++    if args.max_rss_mb is not None and args.max_rss_mb <= 0:
++        parser.error("--max-rss-mb must be greater than zero")
++    return args.max_rss_mb, pytest_args
++
++
+ def main(argv: list[str] | None = None) -> int:
+     """Execute ``python -m pytest`` and return its exit status."""
+-    args = sys.argv[1:] if argv is None else argv
+-    process = subprocess.Popen([sys.executable, "-m", "pytest", *args])
++    max_rss_mb, pytest_args = _parse_args(sys.argv[1:] if argv is None else argv)
++    max_rss = max_rss_mb * 2**20 if max_rss_mb is not None else None
++    process = subprocess.Popen([sys.executable, "-m", "pytest", *pytest_args])
+     child = psutil.Process(process.pid)
+     peak = 0
++    limit_exceeded = False
+
+     while process.poll() is None:
+         rss = _tree_rss(child)
+@@ -40,8 +60,26 @@ def main(argv: list[str] | None = None) -> int:
+             end="",
+             flush=True,
+         )
++        if max_rss is not None and rss > max_rss:
++            print(
++                f"\nRSS limit exceeded: {rss / 2**20:.1f} MiB "
++                f"> {max_rss_mb} MiB; terminating pytest",
++                flush=True,
++            )
++            process.terminate()
++            limit_exceeded = True
++            break
+         time.sleep(0.25)
+
++    if limit_exceeded:
++        try:
++            process.wait(timeout=5)
++        except subprocess.TimeoutExpired:
++            process.kill()
++            process.wait()
++        print(f"Peak RSS {peak / 2**20:.1f} MiB", flush=True)
++        return RSS_LIMIT_EXCEEDED
++
+     process.wait()
+     print(f"\nPeak RSS {peak / 2**20:.1f} MiB")
+     return process.returncode
+diff --git a/tools/run_test_suite.py b/tools/run_test_suite.py
+new file mode 100644
+index 0000000..b2b986d
+--- /dev/null
++++ b/tools/run_test_suite.py
+@@ -0,0 +1,149 @@
++"""Run the complete pytest suite in isolated, sequential subprocesses."""
++
++from __future__ import annotations
++
++import argparse
++import re
++import subprocess
++import sys
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[1]
++TEST_PATTERN = "test_*.py"
++
++
++def discover_test_files(root: Path = ROOT) -> list[Path]:
++    """Return all test modules in deterministic order."""
++    return sorted((root / "tests").glob(TEST_PATTERN))
++
++
++def _relative_test_path(test_file: Path, root: Path = ROOT) -> str:
++    return test_file.relative_to(root).as_posix()
++
++
++def build_parser() -> argparse.ArgumentParser:
++    """Build the command-line parser."""
++    parser = argparse.ArgumentParser(
++        description="Run each tests/test_*.py module in a fresh pytest subprocess."
++    )
++    parser.add_argument(
++        "--list",
++        action="store_true",
++        help="List discovered test modules without running them.",
++    )
++    parser.add_argument(
++        "--fail-fast",
++        action="store_true",
++        help="Stop after the first test module failure.",
++    )
++    parser.add_argument(
++        "--start-at",
++        metavar="PATH",
++        help="Start with this test module and continue in sorted order.",
++    )
++    parser.add_argument(
++        "--match",
++        metavar="REGEX",
++        help=(
++            "Run only test modules whose relative paths match this regular expression."
++        ),
++    )
++    parser.add_argument(
++        "--pytest-arg",
++        action="append",
++        default=[],
++        metavar="ARG",
++        help="Pass one argument to every pytest subprocess. May be repeated.",
++    )
++    parser.add_argument(
++        "pytest_args",
++        nargs="*",
++        help="Additional pytest arguments passed to every subprocess.",
++    )
++    return parser
++
++
++def select_test_files(
++    test_files: list[Path],
++    *,
++    start_at: str | None = None,
++    match: str | None = None,
++    root: Path = ROOT,
++) -> list[Path]:
++    """Apply start and regular-expression filters to discovered modules."""
++    selected = test_files
++    if start_at is not None:
++        normalized_start = Path(start_at).as_posix()
++        relative_paths = [_relative_test_path(path, root) for path in selected]
++        try:
++            selected = selected[relative_paths.index(normalized_start) :]
++        except ValueError as exc:
++            raise ValueError(f"test module not found: {start_at}") from exc
++
++    if match is not None:
++        matcher = re.compile(match)
++        selected = [
++            path
++            for path in selected
++            if matcher.search(_relative_test_path(path, root))
++        ]
++    return selected
++
++
++def run_test_files(
++    test_files: list[Path],
++    pytest_args: list[str],
++    *,
++    fail_fast: bool = False,
++    root: Path = ROOT,
++) -> int:
++    """Run selected test modules sequentially and return the first failure code."""
++    first_failure = 0
++    for test_file in test_files:
++        relative_path = _relative_test_path(test_file, root)
++        print(f"Running {relative_path}", flush=True)
++        result = subprocess.run(
++            [sys.executable, "-m", "pytest", *pytest_args, relative_path],
++            cwd=root,
++            check=False,
++        )
++        if result.returncode != 0:
++            if first_failure == 0:
++                first_failure = result.returncode
++            if fail_fast:
++                break
++    return first_failure
++
++
++def main(argv: list[str] | None = None) -> int:
++    """Discover and run the selected test modules."""
++    parser = build_parser()
++    args = parser.parse_args(argv)
++    test_files = discover_test_files()
++
++    try:
++        selected = select_test_files(
++            test_files,
++            start_at=args.start_at,
++            match=args.match,
++        )
++    except ValueError as exc:
++        parser.error(str(exc))
++
++    if args.list:
++        for test_file in selected:
++            print(_relative_test_path(test_file))
++        return 0
++
++    if not selected:
++        parser.error("no test modules matched the requested selection")
++
++    return run_test_files(
++        selected,
++        [*args.pytest_arg, *args.pytest_args],
++        fail_fast=args.fail_fast,
++    )
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())

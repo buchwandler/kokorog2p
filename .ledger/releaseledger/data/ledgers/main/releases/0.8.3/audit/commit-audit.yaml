@@ -1,0 +1,866 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 4
+release_version: 0.8.3
+git_base_ref: v0.8.2
+git_base_sha: f8c0b3caf3cf0417ee367ca9d03d4f9a34ef370f
+git_head_ref: HEAD
+git_head_sha: 289b76c42ee7aa69478c25a5c02f6a8847dfc40e
+git_range: f8c0b3caf3cf0417ee367ca9d03d4f9a34ef370f..289b76c42ee7aa69478c25a5c02f6a8847dfc40e
+commit_count: 21
+rows:
+  - sha: 95d936dba1053c6397a4cce33473859bf74aa39c
+    source_ref: git:95d936dba1053c6397a4cce33473859bf74aa39c
+    short_sha: 95d936d
+    changed_paths:
+      - .github/workflows/tests.yml
+      - benchmarks/JAPANESE_DATASET.md
+      - benchmarks/benchmark_ja_comparison.py
+      - benchmarks/benchmark_ja_g2p.py
+      - docs/installation.md
+      - docs/languages.md
+      - kokorog2p/ja/cutlet.py
+      - kokorog2p/ja/g2p.py
+      - pyproject.toml
+      - scripts/compare_ja_frontends.py
+      - tests/test_dependency_contract.py
+      - tests/test_ja_benchmarks.py
+      - tests/test_ja_g2p.py
+      - tests/test_multilang.py
+    stats:
+      files_changed: 0
+      insertions: 853
+      deletions: 873
+    inspected: true
+    inspected_paths:
+      - kokorog2p/ja/g2p.py
+      - kokorog2p/ja/cutlet.py
+      - docs/languages.md
+      - tests/test_ja_g2p.py
+      - tests/test_ja_benchmarks.py
+    observed_behavior:
+      Japanese frontend behavior, dependency selection, benchmark coverage, and
+      regression tests were reviewed; the release improves Japanese G2P output and
+      preserves source alignment.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: improve japanese g2p output"
+    target_entry_key: japanese-frontend
+    target_entry_id: entry-0001
+    notes: Reviewed implementation, documentation, and tests.
+  - sha: dac063835ad89ced54b4f60e0b61bc5ea69a8012
+    source_ref: git:dac063835ad89ced54b4f60e0b61bc5ea69a8012
+    short_sha: dac0638
+    changed_paths:
+      - benchmarks/KOREAN_DATASET.md
+      - benchmarks/benchmark_ko_comparison.py
+      - benchmarks/benchmark_ko_differential.py
+      - benchmarks/data/ko_differential.json
+      - docs/api/korean.md
+      - docs/installation.md
+      - docs/languages.md
+      - kokorog2p/__init__.py
+      - kokorog2p/ko/README.md
+      - kokorog2p/ko/data/table.csv
+      - kokorog2p/ko/g2p.py
+      - kokorog2p/ko/g2pk.py
+      - kokorog2p/ko/jamo_to_ipa.py
+      - kokorog2p/ko/model_profile.py
+      - kokorog2p/ko/semantic.py
+      - kokorog2p/phonemes.py
+      - kokorog2p/pipeline_api.py
+      - pyproject.toml
+      - tests/test_dependency_contract.py
+      - tests/test_ko_contract.py
+    stats:
+      files_changed: 0
+      insertions: 652
+      deletions: 476
+    inspected: true
+    inspected_paths:
+      - kokorog2p/ko/g2p.py
+      - kokorog2p/ko/g2pk.py
+      - kokorog2p/ko/semantic.py
+      - kokorog2p/ko/model_profile.py
+      - docs/api/korean.md
+      - tests/test_ko_contract.py
+    observed_behavior:
+      Korean frontend processing, model profile, semantic preparation, API
+      documentation, and contract tests were reviewed; the release improves Korean G2P
+      behavior with explicit contract coverage.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: improve korean g2p output"
+    target_entry_key: korean-frontend
+    target_entry_id: entry-0002
+    notes: Reviewed implementation, documentation, and tests.
+  - sha: c2324aa1a298f70693fb5fb204e79212ac2c78b4
+    source_ref: git:c2324aa1a298f70693fb5fb204e79212ac2c78b4
+    short_sha: c2324aa
+    changed_paths:
+      - .github/workflows/tests.yml
+      - docs/contributing.md
+      - pyproject.toml
+      - tests/conftest.py
+      - tests/test_cs_g2p.py
+      - tests/test_de_g2p.py
+      - tests/test_en_debug.py
+      - tests/test_en_g2p.py
+      - tests/test_it_g2p.py
+      - tests/test_ko_g2p.py
+      - tests/test_memory_regressions.py
+      - tests/test_normalization.py
+      - tests/test_phoneme_spacing.py
+      - tests/test_pt_g2p.py
+      - tests/test_quote_handling.py
+      - tests/test_ssmd_phrasplit_integration.py
+      - tests/test_tokenizer.py
+      - tools/run_pytest_with_memory.py
+      - tools/run_test_suite.py
+    stats:
+      files_changed: 0
+      insertions: 545
+      deletions: 291
+    inspected: true
+    inspected_paths:
+      - tools/run_pytest_with_memory.py
+      - tools/run_test_suite.py
+      - tests/test_memory_regressions.py
+      - docs/contributing.md
+    observed_behavior:
+      The test runner now provides memory-regression coverage and isolated suite
+      execution support, with contributor documentation and regression tests updated
+      accordingly.
+    public_impact: docs
+    decision: accepted
+    evidence_subject: "fix: memory regression fix"
+    target_entry_key: test-suite-memory
+    target_entry_id: entry-0003
+    notes: Reviewed tooling, contributor documentation, and regression tests.
+  - sha: 721378ba010f213ce1b6a6a979356bb926421258
+    source_ref: git:721378ba010f213ce1b6a6a979356bb926421258
+    short_sha: 721378b
+    changed_paths:
+      - benchmarks/KOREAN_DATASET.md
+      - benchmarks/benchmark_ko_comparison.py
+      - benchmarks/data/ko_differential.json
+      - docs/api/korean.md
+      - docs/contributing.md
+      - docs/installation.md
+      - docs/languages.md
+      - kokorog2p/ko/README.md
+      - kokorog2p/ko/data/table.csv
+      - kokorog2p/ko/g2p.py
+      - kokorog2p/ko/g2pk.py
+      - kokorog2p/ko/jamo_to_ipa.py
+      - kokorog2p/pipeline_api.py
+      - tests/conftest.py
+      - tests/test_cs_g2p.py
+      - tests/test_de_g2p.py
+      - tests/test_en_debug.py
+      - tests/test_en_g2p.py
+      - tests/test_it_g2p.py
+      - tests/test_ko_g2p.py
+      - tests/test_normalization.py
+      - tests/test_phoneme_spacing.py
+      - tests/test_pipeline_api.py
+      - tests/test_pt_g2p.py
+      - tests/test_quote_handling.py
+      - tests/test_tokenizer.py
+      - tools/run_test_suite.py
+    stats:
+      files_changed: 0
+      insertions: 168
+      deletions: 123
+    inspected: true
+    inspected_paths:
+      - tools/run_test_suite.py
+      - tests/test_pipeline_api.py
+      - docs/installation.md
+    observed_behavior:
+      Formatting and CI-oriented follow-up changes were reviewed; they do not add a
+      user-facing runtime capability beyond the already covered feature work.
+    public_impact: none
+    decision: internal
+    evidence_subject: "chore: pre-commit ci fix"
+    target_entry_id: entry-0012
+    notes: CI and formatting follow-up.
+  - sha: a7c637367dfbdf7fac205c4512c43c832eb9e9a0
+    source_ref: git:a7c637367dfbdf7fac205c4512c43c832eb9e9a0
+    short_sha: a7c6373
+    changed_paths:
+      - README.md
+      - benchmarks/VIETNAMESE_DATASET.md
+      - benchmarks/benchmark_vi_differential.py
+      - benchmarks/benchmark_vi_g2p.py
+      - docs/api/vietnamese.md
+      - docs/index.md
+      - docs/installation.md
+      - docs/languages.md
+      - docs/quickstart.md
+      - docs/vi/PROVENANCE.md
+      - kokorog2p/__init__.py
+      - kokorog2p/multilang.py
+      - kokorog2p/tokenization.py
+      - kokorog2p/vi/__init__.py
+      - kokorog2p/vi/g2p.py
+      - kokorog2p/vi/model_profile.py
+      - kokorog2p/vi/phonology.py
+      - kokorog2p/vi/render.py
+      - kokorog2p/vi/syllable.py
+      - kokorog2p/vi/unicode.py
+      - tests/data/vi_gold.json
+      - tests/test_vi_g2p.py
+      - tests/test_vi_phonology.py
+      - tests/test_vi_syllable.py
+      - tests/test_vi_unicode.py
+    stats:
+      files_changed: 0
+      insertions: 1931
+      deletions: 4
+    inspected: true
+    inspected_paths:
+      - kokorog2p/vi/g2p.py
+      - kokorog2p/vi/phonology.py
+      - kokorog2p/vi/syllable.py
+      - kokorog2p/vi/render.py
+      - kokorog2p/vi/unicode.py
+      - docs/api/vietnamese.md
+      - tests/test_vi_g2p.py
+      - tests/test_vi_phonology.py
+      - tests/test_vi_syllable.py
+    observed_behavior:
+      A Vietnamese frontend, Unicode and syllable handling, phonology and rendering,
+      public registration, documentation, fixtures, and regression tests were reviewed.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: add vietnamese"
+    target_entry_key: vietnamese-frontend
+    target_entry_id: entry-0004
+    notes: Reviewed implementation, documentation, fixtures, and tests.
+  - sha: efdc0a9a298d7f30b1770a2c1b45d565607d43b6
+    source_ref: git:efdc0a9a298d7f30b1770a2c1b45d565607d43b6
+    short_sha: efdc0a9
+    changed_paths:
+      - .github/workflows/tests.yml
+    stats:
+      files_changed: 0
+      insertions: 12
+      deletions: 0
+    inspected: true
+    inspected_paths:
+      - .github/workflows/tests.yml
+    observed_behavior:
+      CI workflow-only adjustment was reviewed; it does not change the released runtime
+      or public API.
+    public_impact: none
+    decision: internal
+    evidence_subject: "chore: fix ci"
+    target_entry_id: entry-0012
+    notes: CI-only follow-up.
+  - sha: 31e1c1a4311b7d4843e20fe2d6df2f599eed0a8f
+    source_ref: git:31e1c1a4311b7d4843e20fe2d6df2f599eed0a8f
+    short_sha: 31e1c1a
+    changed_paths:
+      - tests/test_pipeline_api.py
+    stats:
+      files_changed: 0
+      insertions: 5
+      deletions: 1
+    inspected: true
+    inspected_paths:
+      - tests/test_pipeline_api.py
+    observed_behavior:
+      Test-only CI follow-up was reviewed; it does not change the released runtime or
+      public API.
+    public_impact: none
+    decision: internal
+    evidence_subject: "chore: fix ci"
+    target_entry_id: entry-0012
+    notes: Test-only CI follow-up.
+  - sha: bf4ae9ba33a90b1c226715ffefeef60174560676
+    source_ref: git:bf4ae9ba33a90b1c226715ffefeef60174560676
+    short_sha: bf4ae9b
+    changed_paths:
+      - README.md
+      - benchmarks/ARABIC_DATASET.md
+      - benchmarks/benchmark_ar_differential.py
+      - docs/api/arabic.md
+      - docs/ar/PROVENANCE.md
+      - docs/index.md
+      - docs/installation.md
+      - docs/languages.md
+      - docs/phonemes.md
+      - kokorog2p/__init__.py
+      - kokorog2p/ar/__init__.py
+      - kokorog2p/ar/diacritizer.py
+      - kokorog2p/ar/g2p.py
+      - kokorog2p/ar/model_profile.py
+      - kokorog2p/pipeline_api.py
+      - kokorog2p/punctuation.py
+      - kokorog2p/tokenization.py
+      - kokorog2p/vocab.py
+      - pyproject.toml
+      - tests/test_ar_g2p.py
+      - tests/test_factory_languages.py
+      - tests/test_offline_optional_dependencies.py
+      - tests/test_offset_tokenization.py
+    stats:
+      files_changed: 0
+      insertions: 1051
+      deletions: 59
+    inspected: true
+    inspected_paths:
+      - kokorog2p/ar/g2p.py
+      - kokorog2p/ar/diacritizer.py
+      - kokorog2p/ar/model_profile.py
+      - kokorog2p/pipeline_api.py
+      - docs/api/arabic.md
+      - tests/test_ar_g2p.py
+      - tests/test_factory_languages.py
+    observed_behavior:
+      An Arabic frontend with diacritization, model profile integration, factory
+      registration, optional dependency handling, API documentation, and regression
+      coverage was reviewed.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: add arabic"
+    target_entry_key: arabic-frontend
+    target_entry_id: entry-0005
+    notes: Reviewed implementation, integration, documentation, and tests.
+  - sha: 69b603c5ad874d90c59b76299223b60f07ade2f9
+    source_ref: git:69b603c5ad874d90c59b76299223b60f07ade2f9
+    short_sha: 69b603c
+    changed_paths:
+      - .github/workflows/pre-commit.yml
+      - README.md
+      - benchmarks/ARABIC_DATASET.md
+      - docs/api/arabic.md
+      - docs/ar/PROVENANCE.md
+      - docs/installation.md
+      - docs/languages.md
+      - docs/phonemes.md
+      - kokorog2p/pipeline_api.py
+      - kokorog2p/tokenization.py
+      - kokorog2p/vocab.py
+    stats:
+      files_changed: 0
+      insertions: 70
+      deletions: 68
+    inspected: true
+    inspected_paths:
+      - .github/workflows/pre-commit.yml
+      - kokorog2p/pipeline_api.py
+      - docs/api/arabic.md
+    observed_behavior:
+      Pre-commit normalization and formatting follow-up was reviewed; no independent
+      user-facing behavior was introduced.
+    public_impact: none
+    decision: internal
+    evidence_subject: "chore: pre-commit"
+    target_entry_id: entry-0012
+    notes: Formatting and lint follow-up.
+  - sha: b8a036be9bc9e7930eb3be61663ef3e36643b101
+    source_ref: git:b8a036be9bc9e7930eb3be61663ef3e36643b101
+    short_sha: b8a036b
+    changed_paths:
+      - benchmarks/benchmark_ja_g2p.py
+      - benchmarks/benchmark_ko_differential.py
+      - scripts/compare_ja_frontends.py
+    stats:
+      files_changed: 0
+      insertions: 0
+      deletions: 0
+    inspected: true
+    inspected_paths:
+      - benchmarks/benchmark_ja_g2p.py
+      - benchmarks/benchmark_ko_differential.py
+      - scripts/compare_ja_frontends.py
+    observed_behavior:
+      Executable-bit-only maintenance changes were reviewed; no runtime or public API
+      behavior changed.
+    public_impact: none
+    decision: internal
+    evidence_subject: "chore: pre-commit"
+    target_entry_id: entry-0012
+    notes: File mode maintenance only.
+  - sha: 57f93c454fffceacb93dea4fb1362e16a63451bf
+    source_ref: git:57f93c454fffceacb93dea4fb1362e16a63451bf
+    short_sha: 57f93c4
+    changed_paths:
+      - kokorog2p/ar/model_profile.py
+      - kokorog2p/pipeline_api.py
+      - tests/test_ar_g2p.py
+    stats:
+      files_changed: 0
+      insertions: 9
+      deletions: 5
+    inspected: true
+    inspected_paths:
+      - kokorog2p/ar/model_profile.py
+      - kokorog2p/pipeline_api.py
+      - tests/test_ar_g2p.py
+    observed_behavior:
+      Arabic model-profile validation and pipeline integration were reviewed; the
+      follow-up makes the new Arabic frontend usable with its intended model
+      configuration.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: fix ar model"
+    target_entry_key: arabic-frontend
+    target_entry_id: entry-0005
+    notes: Reviewed as a follow-up to the Arabic frontend entry.
+  - sha: 3150b9c9db109e9d5504a1b5ac46bc526d10b10d
+    source_ref: git:3150b9c9db109e9d5504a1b5ac46bc526d10b10d
+    short_sha: 3150b9c
+    changed_paths:
+      - kokorog2p/ar/model_profile.py
+    stats:
+      files_changed: 0
+      insertions: 1
+      deletions: 1
+    inspected: true
+    inspected_paths:
+      - kokorog2p/ar/model_profile.py
+    observed_behavior:
+      Formatting-only model-profile follow-up was reviewed; no independent user-facing
+      behavior changed.
+    public_impact: none
+    decision: internal
+    evidence_subject: "chore: pre-commit"
+    target_entry_id: entry-0012
+    notes: Formatting follow-up.
+  - sha: e273202aba40ca08990c5a223a808e0aa19ff05b
+    source_ref: git:e273202aba40ca08990c5a223a808e0aa19ff05b
+    short_sha: e273202
+    changed_paths:
+      - .gitignore
+      - README.md
+      - benchmarks/SWEDISH_RULES.md
+      - benchmarks/benchmark_sv_rules.py
+      - benchmarks/sv/README.md
+      - docs/api/swedish.md
+      - docs/languages.md
+      - docs/sv/PROVENANCE.md
+      - kokorog2p/__init__.py
+      - kokorog2p/ar/model_profile.py
+      - kokorog2p/sv/__init__.py
+      - kokorog2p/sv/g2p.py
+      - kokorog2p/sv/phonology.py
+      - kokorog2p/sv/rules.py
+      - tests/test_sv_benchmark_helpers.py
+      - tests/test_sv_g2p.py
+      - tests/test_sv_rules.py
+    stats:
+      files_changed: 0
+      insertions: 1886
+      deletions: 2
+    inspected: true
+    inspected_paths:
+      - kokorog2p/sv/g2p.py
+      - kokorog2p/sv/phonology.py
+      - kokorog2p/sv/rules.py
+      - docs/api/swedish.md
+      - tests/test_sv_g2p.py
+      - tests/test_sv_rules.py
+    observed_behavior:
+      A native Swedish rule-based frontend, phonology and rule tables, public
+      registration, API documentation, benchmark assets, and regression tests were
+      reviewed.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: add swedish"
+    target_entry_key: swedish-frontend
+    target_entry_id: entry-0006
+    notes: Reviewed implementation, documentation, benchmark assets, and tests.
+  - sha: 2f92834e01251c23d9bbba6cd16c6f9e0ae62670
+    source_ref: git:2f92834e01251c23d9bbba6cd16c6f9e0ae62670
+    short_sha: 2f92834
+    changed_paths:
+      - README.md
+      - benchmarks/THAI_DATASET.md
+      - benchmarks/benchmark_th_differential.py
+      - benchmarks/data/thai_cleanroom_cases.jsonl
+      - docs/api/thai.md
+      - docs/index.md
+      - docs/installation.md
+      - docs/languages.md
+      - docs/th/PROVENANCE.md
+      - kokorog2p/__init__.py
+      - kokorog2p/pipeline_api.py
+      - kokorog2p/th/__init__.py
+      - kokorog2p/th/engine.py
+      - kokorog2p/th/g2p.py
+      - kokorog2p/th/model_profile.py
+      - kokorog2p/th/normalizer.py
+      - kokorog2p/vocab.py
+      - pyproject.toml
+      - tests/test_dependency_contract.py
+      - tests/test_th_engine.py
+      - tests/test_th_g2p.py
+      - tests/test_th_model_profile.py
+      - tests/test_th_normalizer.py
+    stats:
+      files_changed: 0
+      insertions: 1341
+      deletions: 2
+    inspected: true
+    inspected_paths:
+      - kokorog2p/th/g2p.py
+      - kokorog2p/th/engine.py
+      - kokorog2p/th/normalizer.py
+      - docs/api/thai.md
+      - tests/test_th_g2p.py
+      - tests/test_th_engine.py
+      - tests/test_th_normalizer.py
+    observed_behavior:
+      A Thai frontend with normalization, optional dependency loading, source-aware
+      engine recovery, API documentation, fixtures, and regression tests was reviewed.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: add thai"
+    target_entry_key: thai-frontend
+    target_entry_id: entry-0007
+    notes: Reviewed implementation, documentation, fixtures, and tests.
+  - sha: 2278d47b8b7506c812ab8fa8d5630f9de6710692
+    source_ref: git:2278d47b8b7506c812ab8fa8d5630f9de6710692
+    short_sha: 2278d47
+    changed_paths:
+      - README.md
+      - benchmarks/RUSSIAN_DATASET.md
+      - benchmarks/benchmark_ru_differential.py
+      - docs/api/russian.md
+      - docs/index.md
+      - docs/installation.md
+      - docs/languages.md
+      - docs/ru/PROVENANCE.md
+      - docs/ru/README.md
+      - kokorog2p/__init__.py
+      - kokorog2p/backends/espeak/backend.py
+      - kokorog2p/backends/espeak/wrapper.py
+      - kokorog2p/multilang.py
+      - kokorog2p/ru/__init__.py
+      - kokorog2p/ru/accent.py
+      - kokorog2p/ru/alignment.py
+      - kokorog2p/ru/engine.py
+      - kokorog2p/ru/g2p.py
+      - kokorog2p/ru/model_profile.py
+      - kokorog2p/ru/orthoepy.py
+      - kokorog2p/th/__init__.py
+      - kokorog2p/th/engine.py
+      - pyproject.toml
+      - tests/test_ru_accent.py
+      - tests/test_ru_alignment.py
+      - tests/test_ru_engine.py
+      - tests/test_ru_factory.py
+      - tests/test_ru_g2p.py
+      - tests/test_ru_model_profile.py
+      - tests/test_ru_multilang.py
+      - tests/test_ru_offline.py
+      - tests/test_ru_orthoepy.py
+      - tests/test_ru_vocab.py
+    stats:
+      files_changed: 0
+      insertions: 1706
+      deletions: 37
+    inspected: true
+    inspected_paths:
+      - kokorog2p/ru/g2p.py
+      - kokorog2p/ru/engine.py
+      - kokorog2p/ru/accent.py
+      - kokorog2p/ru/orthoepy.py
+      - docs/api/russian.md
+      - tests/test_ru_g2p.py
+      - tests/test_ru_accent.py
+    observed_behavior:
+      A Russian frontend with explicit and contextual stress handling, lazy optional
+      dependencies, alignment and orthography support, API documentation, and regression
+      coverage was reviewed.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: add russian"
+    target_entry_key: russian-frontend
+    target_entry_id: entry-0008
+    notes: Reviewed implementation, documentation, and tests.
+  - sha: cc6552f59e079e915541dbbb78fc274dfe673fb5
+    source_ref: git:cc6552f59e079e915541dbbb78fc274dfe673fb5
+    short_sha: cc6552f
+    changed_paths:
+      - README.md
+      - benchmarks/KAZAKH_DATASET.md
+      - benchmarks/benchmark_kk_espeak.py
+      - docs/api/kazakh.md
+      - docs/index.md
+      - docs/installation.md
+      - docs/kk/PROVENANCE.md
+      - docs/languages.md
+      - docs/quickstart.md
+      - kokorog2p/__init__.py
+      - kokorog2p/espeak_g2p.py
+      - kokorog2p/kk/__init__.py
+      - kokorog2p/kk/g2p.py
+      - kokorog2p/kk/model_profile.py
+      - kokorog2p/multilang.py
+      - pyproject.toml
+      - tests/test_espeak_backend.py
+      - tests/test_factory_languages.py
+      - tests/test_kk_g2p.py
+      - tests/test_kk_model_profile.py
+      - tests/test_minimal_install.py
+      - tests/test_multilang.py
+      - tests/test_public_api_consistency.py
+    stats:
+      files_changed: 0
+      insertions: 787
+      deletions: 16
+    inspected: true
+    inspected_paths:
+      - kokorog2p/kk/g2p.py
+      - kokorog2p/espeak_g2p.py
+      - kokorog2p/multilang.py
+      - docs/api/kazakh.md
+      - tests/test_kk_g2p.py
+      - tests/test_kk_model_profile.py
+    observed_behavior:
+      A Kazakh eSpeak-backed frontend, raw IPA validation, shared backend extension,
+      public registration, API documentation, and regression tests were reviewed.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: add kazah"
+    target_entry_key: kazakh-frontend
+    target_entry_id: entry-0009
+    notes: Reviewed implementation, integration, documentation, and tests.
+  - sha: 24638aed9ddb530a6eacba0f299c963f1aad0721
+    source_ref: git:24638aed9ddb530a6eacba0f299c963f1aad0721
+    short_sha: 24638ae
+    changed_paths:
+      - README.md
+      - benchmarks/KAZAKH_DATASET.md
+      - docs/api/kazakh.md
+      - docs/installation.md
+      - docs/kk/PROVENANCE.md
+      - docs/languages.md
+      - tests/test_espeak_backend.py
+      - tests/test_public_api_consistency.py
+    stats:
+      files_changed: 0
+      insertions: 33
+      deletions: 26
+    inspected: true
+    inspected_paths:
+      - docs/api/kazakh.md
+      - tests/test_espeak_backend.py
+      - tests/test_public_api_consistency.py
+    observed_behavior:
+      Pre-commit follow-up changes were reviewed; they do not add independent public
+      behavior beyond the Kazakh frontend.
+    public_impact: none
+    decision: internal
+    evidence_subject: "chore: pre-commit"
+    target_entry_id: entry-0012
+    notes: Formatting and lint follow-up.
+  - sha: 77d91cb50322d543bb2d63facec30011a077cb36
+    source_ref: git:77d91cb50322d543bb2d63facec30011a077cb36
+    short_sha: 77d91cb
+    changed_paths:
+      - benchmarks/BENCHMARK_SUMMARY.md
+      - benchmarks/CRANE_TEST_DATA.md
+      - benchmarks/benchmark_crane_test_data.py
+      - benchmarks/crane_test_data.py
+      - tests/test_crane_test_data_benchmark.py
+    stats:
+      files_changed: 0
+      insertions: 1152
+      deletions: 0
+    inspected: true
+    inspected_paths:
+      - benchmarks/benchmark_crane_test_data.py
+      - benchmarks/crane_test_data.py
+      - benchmarks/CRANE_TEST_DATA.md
+      - tests/test_crane_test_data_benchmark.py
+    observed_behavior:
+      The pinned Crane held-out benchmark, profile configuration, result reporting,
+      mismatch handling, and regression tests were reviewed.
+    public_impact: docs
+    decision: accepted
+    evidence_subject: "feat: add crane bechmark test"
+    target_entry_key: crane-benchmark
+    target_entry_id: entry-0010
+    notes: Reviewed benchmark implementation, documentation, and tests.
+  - sha: 6ab9cd0c609cbe3d04f5f0ccf84e48fec34a26dd
+    source_ref: git:6ab9cd0c609cbe3d04f5f0ccf84e48fec34a26dd
+    short_sha: 6ab9cd0
+    changed_paths:
+      - .gitignore
+      - experiments/de_lexicon_compression/README.md
+      - experiments/de_lexicon_compression/__init__.py
+      - experiments/de_lexicon_compression/analyze_sources.py
+      - experiments/de_lexicon_compression/benchmark_quality.py
+      - experiments/de_lexicon_compression/benchmark_runtime.py
+      - experiments/de_lexicon_compression/compress.py
+      - experiments/de_lexicon_compression/data/.gitkeep
+      - experiments/de_lexicon_compression/download_sources.py
+      - experiments/de_lexicon_compression/fixtures/toy_ambiguity.tsv
+      - experiments/de_lexicon_compression/fixtures/toy_case_collisions.tsv
+      - experiments/de_lexicon_compression/fixtures/toy_single.tsv
+      - experiments/de_lexicon_compression/fixtures/toy_unicode.tsv
+      - experiments/de_lexicon_compression/fixtures/toy_variants.tsv
+      - experiments/de_lexicon_compression/generate_report.py
+      - experiments/de_lexicon_compression/lexlab/__init__.py
+      - experiments/de_lexicon_compression/lexlab/composition.py
+      - experiments/de_lexicon_compression/lexlab/compressor.py
+      - experiments/de_lexicon_compression/lexlab/decoder.py
+      - experiments/de_lexicon_compression/lexlab/download.py
+      - experiments/de_lexicon_compression/lexlab/keys.py
+      - experiments/de_lexicon_compression/lexlab/kokoro_view.py
+      - experiments/de_lexicon_compression/lexlab/metrics.py
+      - experiments/de_lexicon_compression/lexlab/model.py
+      - experiments/de_lexicon_compression/lexlab/overlap.py
+      - experiments/de_lexicon_compression/lexlab/parse.py
+      - experiments/de_lexicon_compression/lexlab/reports.py
+      - experiments/de_lexicon_compression/lexlab/serializer.py
+      - experiments/de_lexicon_compression/lexlab/sources.py
+      - experiments/de_lexicon_compression/lexlab/trie.py
+      - experiments/de_lexicon_compression/reports/.gitkeep
+      - experiments/de_lexicon_compression/run_matrix.py
+      - experiments/de_lexicon_compression/source_manifest.toml
+      - experiments/de_lexicon_compression/tests/__init__.py
+      - experiments/de_lexicon_compression/tests/test_analysis.py
+      - experiments/de_lexicon_compression/tests/test_benchmarks.py
+      - experiments/de_lexicon_compression/tests/test_cli.py
+      - experiments/de_lexicon_compression/tests/test_composition.py
+      - experiments/de_lexicon_compression/tests/test_compressor.py
+      - experiments/de_lexicon_compression/tests/test_download.py
+      - experiments/de_lexicon_compression/tests/test_keys.py
+      - experiments/de_lexicon_compression/tests/test_overlap.py
+      - experiments/de_lexicon_compression/tests/test_parser.py
+      - experiments/de_lexicon_compression/tests/test_serializer.py
+      - experiments/de_lexicon_compression/tests/test_sources.py
+      - experiments/de_lexicon_compression/tests/test_toy_roundtrip.py
+      - experiments/de_lexicon_compression/tests/test_variants.py
+      - experiments/de_lexicon_compression/tests/test_views.py
+      - experiments/de_lexicon_compression/verify.py
+    stats:
+      files_changed: 0
+      insertions: 2605
+      deletions: 0
+    inspected: true
+    inspected_paths:
+      - experiments/de_lexicon_compression/README.md
+      - experiments/de_lexicon_compression/compress.py
+      - experiments/de_lexicon_compression/lexlab/compressor.py
+      - experiments/de_lexicon_compression/tests/test_compressor.py
+    observed_behavior:
+      The opt-in German lexicon compression harness, exact composition and verification
+      contract, source provenance handling, reports, and tests were reviewed.
+    public_impact: docs
+    decision: accepted
+    evidence_subject: "feat: experiments regarding compression"
+    target_entry_key: german-lexicon-research
+    target_entry_id: entry-0011
+    notes: Research tooling only; it does not alter the production German runtime.
+  - sha: 2e1b9ffdefda094102d1caee4e1fceff955e8956
+    source_ref: git:2e1b9ffdefda094102d1caee4e1fceff955e8956
+    short_sha: 2e1b9ff
+    changed_paths:
+      - experiments/de_lexicon_compression/README.md
+      - experiments/de_lexicon_compression/analyze_sources.py
+      - experiments/de_lexicon_compression/benchmark_quality.py
+      - experiments/de_lexicon_compression/benchmark_runtime.py
+      - experiments/de_lexicon_compression/compress.py
+      - experiments/de_lexicon_compression/download_sources.py
+      - experiments/de_lexicon_compression/generate_report.py
+      - experiments/de_lexicon_compression/lexlab/cascade.py
+      - experiments/de_lexicon_compression/lexlab/compact.py
+      - experiments/de_lexicon_compression/lexlab/composition.py
+      - experiments/de_lexicon_compression/lexlab/compressor.py
+      - experiments/de_lexicon_compression/lexlab/decoder.py
+      - experiments/de_lexicon_compression/lexlab/kokoro_view.py
+      - experiments/de_lexicon_compression/lexlab/metrics.py
+      - experiments/de_lexicon_compression/lexlab/p4.py
+      - experiments/de_lexicon_compression/lexlab/parse.py
+      - experiments/de_lexicon_compression/lexlab/serializer.py
+      - experiments/de_lexicon_compression/lexlab/sources.py
+      - experiments/de_lexicon_compression/run_matrix.py
+      - experiments/de_lexicon_compression/tests/test_analysis.py
+      - experiments/de_lexicon_compression/tests/test_v2_review.py
+      - experiments/de_lexicon_compression/verify.py
+    stats:
+      files_changed: 0
+      insertions: 1768
+      deletions: 354
+    inspected: true
+    inspected_paths:
+      - experiments/de_lexicon_compression/README.md
+      - experiments/de_lexicon_compression/lexlab/compact.py
+      - experiments/de_lexicon_compression/tests/test_v2_review.py
+    observed_behavior:
+      The compression research harness gained lookup-semantic verification, compact
+      representation modes, measurement reporting, and staged review coverage.
+    public_impact: docs
+    decision: accepted
+    evidence_subject: "feat: improve lexicon expwriments"
+    target_entry_key: german-lexicon-research
+    target_entry_id: entry-0011
+    notes: Research tooling only; it does not alter the production German runtime.
+  - sha: 289b76c42ee7aa69478c25a5c02f6a8847dfc40e
+    source_ref: git:289b76c42ee7aa69478c25a5c02f6a8847dfc40e
+    short_sha: 289b76c
+    changed_paths:
+      - .gitignore
+      - experiments/de_lexicon_compression/lexlab/cascade.py
+      - experiments/de_lexicon_compression/lexlab/compact.py
+      - experiments/de_lexicon_compression/lexlab/p4.py
+      - experiments/de_lexicon_compression/tests/test_v2_review.py
+      - experiments/de_lexicon_entry_reduction/README.md
+      - experiments/de_lexicon_entry_reduction/__init__.py
+      - experiments/de_lexicon_entry_reduction/analyze_failures.py
+      - experiments/de_lexicon_entry_reduction/benchmark_memory.py
+      - experiments/de_lexicon_entry_reduction/generate_report.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/__init__.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/affixes.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/audit.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/boundary_rules.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/builder.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/composer.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/diagnostics.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/linkers.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/literals.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/membership.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/optimizer.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/prefix_index.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/reports.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/resolver.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/rules.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/segmentation.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/selector.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/serializer.py
+      - experiments/de_lexicon_entry_reduction/model.py
+      - experiments/de_lexicon_entry_reduction/run.py
+      - experiments/de_lexicon_entry_reduction/run_matrix.py
+      - experiments/de_lexicon_entry_reduction/source.py
+      - experiments/de_lexicon_entry_reduction/tests/__init__.py
+      - experiments/de_lexicon_entry_reduction/tests/test_entry_reduction.py
+      - experiments/de_lexicon_entry_reduction/verify.py
+    stats:
+      files_changed: 0
+      insertions: 3967
+      deletions: 19
+    inspected: true
+    inspected_paths:
+      - experiments/de_lexicon_entry_reduction/README.md
+      - experiments/de_lexicon_entry_reduction/lexreduce/__init__.py
+      - experiments/de_lexicon_entry_reduction/tests/test_entry_reduction.py
+      - experiments/de_lexicon_compression/lexlab/cascade.py
+      - experiments/de_lexicon_compression/lexlab/compact.py
+    observed_behavior:
+      The opt-in German resident-lexicon entry-reduction experiment, bounded composition
+      and optimization primitives, diagnostics, memory tooling, and tests were reviewed.
+    public_impact: docs
+    decision: accepted
+    evidence_subject: "feat: improve experiments"
+    target_entry_key: german-lexicon-research
+    target_entry_id: entry-0011
+    notes: Research tooling only; it does not alter the production German runtime.

@@ -1,0 +1,1191 @@
+ benchmarks/BENCHMARK_SUMMARY.md         |   6 +
+ benchmarks/CRANE_TEST_DATA.md           | 114 ++++++
+ benchmarks/benchmark_crane_test_data.py | 187 ++++++++++
+ benchmarks/crane_test_data.py           | 599 ++++++++++++++++++++++++++++++++
+ tests/test_crane_test_data_benchmark.py | 246 +++++++++++++
+ 5 files changed, 1152 insertions(+)
+
+diff --git a/benchmarks/BENCHMARK_SUMMARY.md b/benchmarks/BENCHMARK_SUMMARY.md
+index db9bc95..acc708b 100644
+--- a/benchmarks/BENCHMARK_SUMMARY.md
++++ b/benchmarks/BENCHMARK_SUMMARY.md
+@@ -379,3 +379,9 @@ and numbers are handled through the comprehensive English lexicon
+ (`kokorog2p/en/lexicon.txt`), which contains expansions for all common abbreviations and
+ number formats. The system is production-ready for handling real-world English text from
+ any source.
++
++## External held-out benchmark
++
++For pinned CER measurements against the Crane `en_US` and `de_DE` fixtures, see
++[`CRANE_TEST_DATA.md`](CRANE_TEST_DATA.md). It is separate from these synthetic
++benchmarks and does not modify production lexica.
+diff --git a/benchmarks/CRANE_TEST_DATA.md b/benchmarks/CRANE_TEST_DATA.md
+new file mode 100644
+index 0000000..d02e10e
+--- /dev/null
++++ b/benchmarks/CRANE_TEST_DATA.md
+@@ -0,0 +1,114 @@
++# Crane held-out G2P benchmark
++
++This benchmark measures `kokorog2p` against an external, held-out word-to-IPA fixture
++for US English (`en_US`) and German (`de_DE`). It is deliberately separate from the
++checked-in synthetic sentence benchmarks. The fixture is used for measurement only and
++must not be copied into package lexica or model data.
++
++## Source and provenance
++
++- Dataset:
++  [`crane-local-ai/test-data`](https://huggingface.co/datasets/crane-local-ai/test-data)
++- Pinned revision: `19b6ea610af45d9258a3957c7a22694280bdf145`
++- Files: `g2p/en_us/test.tsv`, `g2p/de_de/test.tsv`, the shared `g2p/kokoro_vocab.json`,
++  and both normalizer reference files.
++- Each language test file contains 5,000 held-out word-to-IPA rows. The dataset card
++  describes random seed 42 samples from Moonshine Voice lexica, with source lineage to
++  CMUdict for English.
++
++The benchmark code pins SHA-256 values for all five assets and checks them before a run.
++Review the upstream dataset card for its current license and attribution obligations
++before redistributing data or results. This repository does not package the external
++fixture.
++
++## Acquisition
++
++An existing checkout or extracted directory can be used without network access:
++
++```bash
++python benchmarks/benchmark_crane_test_data.py \
++  --data-root /path/to/test-data \
++  --language all
++```
++
++The directory must contain:
++
++```text
++g2p/kokoro_vocab.json
++g2p/en_us/test.tsv
++g2p/en_us/kokoro_normalizer_ref.tsv
++g2p/de_de/test.tsv
++g2p/de_de/kokoro_normalizer_ref.tsv
++```
++
++Downloading is explicit and uses the pinned revision. Missing data never causes an
++implicit download:
++
++```bash
++python benchmarks/benchmark_crane_test_data.py --download --language all
++```
++
++The default cache is `~/.cache/kokorog2p/benchmarks/crane-test-data/<revision>/`.
++Downloads use temporary files, verify their checksum, and then atomically replace the
++target. `--limit` is available for development runs; an unrestricted language run
++requires exactly 5,000 rows.
++
++## Normalization and comparison policy
++
++The fixture contains raw IPA, while `kokorog2p` emits Kokoro phoneme characters. The
++benchmark independently converts only the reference side using the supplied vocabulary
++and documented mappings. English mappings include diphthongs, affricates, rhotic vowels,
++and stress-preserving transformations. German mappings include `ʦ`, `ʣ`, `S`,
++diphthongs, `ʏ`, syllabic consonants, and tie-marker handling.
++
++Before scoring, every supplied normalizer reference row must match both its expected
++normalized string and its expected token IDs. English therefore requires 71/71 cases and
++German 32/32 cases. A mismatch aborts the scored run.
++
++The actual side receives only Unicode NFC normalization and whitespace collapsing.
++Stress, length, affricates, diphthongs, and unknown output are not silently normalized
++away. Punctuation token phonemes are excluded, while lexical pronunciation parts retain
++their order and are joined with one ASCII space.
++
++## Metrics
++
++The primary score is corpus character error rate:
++
++```text
++CER = sum(entry edit distance) / sum(reference character count)
++```
++
++Reports also include exact-match rate, exact matches, total edit distance, reference
++characters, conversion exceptions, elapsed time, words per second, normalizer case
++counts, and deterministic worst mismatch examples. Conversion exceptions remain in the
++denominator with empty actual output. The runner does not add a quality threshold or
++pass/fail accuracy gate.
++
++## Commands
++
++```bash
++# Help and local development sample
++python benchmarks/benchmark_crane_test_data.py --help
++python benchmarks/benchmark_crane_test_data.py \
++  --data-root /path/to/test-data --language en_US --limit 100 --verbose
++
++# Full language run with JSON output
++python benchmarks/benchmark_crane_test_data.py \
++  --data-root /path/to/test-data --language de_DE \
++  --output crane_de_DE.json
++```
++
++The JSON records the dataset revision, selected profile, normalizer validation, metrics,
++and worst cases. It does not include the external fixture itself.
++
++## Interpretation and leakage rule
++
++This is an accuracy measurement and diagnostic tool, not a replacement for the synthetic
++benchmarks. Inspect worst cases to distinguish G2P errors, pronunciation variants,
++representation differences, and backend environment differences before making changes.
++
++The two `test.tsv` files are evaluation-only. Never merge them into `en_gold`,
++`en_silver`, German lexicon assets, or other production lookup data. Do not special-case
++their words. Improvements motivated by this benchmark must be general linguistic rules,
++normalization fixes, or independently sourced lexicon corrections. The benchmark remains
++useful only while its target pronunciations remain held out.
+diff --git a/benchmarks/benchmark_crane_test_data.py b/benchmarks/benchmark_crane_test_data.py
+new file mode 100644
+index 0000000..4f8de17
+--- /dev/null
++++ b/benchmarks/benchmark_crane_test_data.py
+@@ -0,0 +1,187 @@
++#!/usr/bin/env python3
++"""Run the pinned Crane held-out word-to-IPA benchmark."""
++
++from __future__ import annotations
++
++import argparse
++import json
++import sys
++from datetime import datetime, timezone
++from pathlib import Path
++from typing import Any
++
++try:
++    from .crane_test_data import (
++        CRANE_REPO,
++        CRANE_REVISION,
++        LANGUAGES,
++        CraneBenchmarkError,
++        benchmark_language,
++        resolve_data_root,
++        result_to_dict,
++    )
++except ImportError:
++    from crane_test_data import (
++        CRANE_REPO,
++        CRANE_REVISION,
++        LANGUAGES,
++        CraneBenchmarkError,
++        benchmark_language,
++        resolve_data_root,
++        result_to_dict,
++    )
++
++PROFILE_CONFIGS: dict[str, dict[str, Any]] = {
++    "en_US": {
++        "kokorog2p_language": "en-us",
++        "use_espeak_fallback": True,
++        "use_goruut_fallback": False,
++        "use_spacy": False,
++        "load_gold": True,
++        "load_silver": True,
++        "strict": True,
++    },
++    "de_DE": {
++        "kokorog2p_language": "de-de",
++        "use_espeak_fallback": True,
++        "use_goruut_fallback": False,
++        "use_spacy": False,
++        "use_lexicon": True,
++        "load_gold": True,
++        "load_silver": True,
++        "strip_stress": False,
++    },
++}
++
++
++def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
++    parser = argparse.ArgumentParser(
++        description="Benchmark kokorog2p against the pinned Crane held-out G2P fixture."
++    )
++    parser.add_argument("--language", choices=["en_US", "de_DE", "all"], default="all")
++    parser.add_argument(
++        "--data-root", type=Path, help="Existing Crane checkout or extracted data root"
++    )
++    parser.add_argument(
++        "--download",
++        action="store_true",
++        help="Explicitly download missing or changed assets at the pinned revision",
++    )
++    parser.add_argument(
++        "--cache-dir", type=Path, help="Override the default benchmark cache directory"
++    )
++    parser.add_argument(
++        "--limit", type=int, help="Run only the first N entries per language"
++    )
++    parser.add_argument("--output", type=Path, help="Write the complete result as JSON")
++    parser.add_argument(
++        "--worst", type=int, default=20, help="Number of worst mismatches to retain"
++    )
++    parser.add_argument(
++        "--verbose", action="store_true", help="Print worst mismatch examples"
++    )
++    parser.add_argument(
++        "--fail-fast",
++        action="store_true",
++        help="Stop on the first conversion exception",
++    )
++    return parser.parse_args(argv)
++
++
++def selected_languages(selection: str) -> list[str]:
++    return list(LANGUAGES) if selection == "all" else [selection]
++
++
++def print_summary(results: dict[str, dict[str, Any]]) -> None:
++    print("Crane held-out G2P benchmark")
++    print(f"Dataset: {CRANE_REPO}")
++    print(f"Revision: {CRANE_REVISION}")
++    print()
++    print(
++        f"{'Language':<10} {'Entries':>7} {'Exact match':>12} "
++        f"{'CER':>10} {'Errors':>8} {'Speed':>12}"
++    )
++    print("-" * 65)
++    for language, value in results.items():
++        metrics = value["metrics"]
++        print(
++            f"{language:<10} {value['entries']:>7} "
++            f"{metrics['exact_match_rate']:>11.2%} {metrics['cer']:>10.4f} "
++            f"{metrics['exceptions']:>8} {metrics['words_per_second']:>10,.0f} w/s"
++        )
++
++
++def print_worst(results: dict[str, dict[str, Any]]) -> None:
++    for language, value in results.items():
++        cases = value["worst_cases"]
++        if not cases:
++            continue
++        print(f"\nWorst mismatches for {language}:")
++        for case in cases:
++            print(
++                f"  {case['word']!r}: expected={case['expected_kokoro']!r}, "
++                f"actual={case['actual_kokoro']!r}, distance={case['edit_distance']}"
++            )
++            if case["error"]:
++                print(f"    error: {case['error']}")
++
++
++def main(argv: list[str] | None = None) -> int:
++    args = parse_args(argv)
++    if args.limit is not None and args.limit < 0:
++        print("--limit must be non-negative", file=sys.stderr)
++        return 2
++    if args.worst < 0:
++        print("--worst must be non-negative", file=sys.stderr)
++        return 2
++
++    languages = selected_languages(args.language)
++    configs = [LANGUAGES[language] for language in languages]
++    try:
++        root = resolve_data_root(
++            args.data_root,
++            download=args.download,
++            cache_dir=args.cache_dir,
++            configs=configs,
++        )
++        serialized: dict[str, dict[str, Any]] = {}
++        for language in languages:
++            config = LANGUAGES[language]
++            result = benchmark_language(
++                config=config,
++                data_root=root,
++                limit=args.limit,
++                worst_n=args.worst,
++                fail_fast=args.fail_fast,
++            )
++            serialized[language] = result_to_dict(
++                result,
++                config=config,
++                profile=PROFILE_CONFIGS[language],
++            )
++    except (CraneBenchmarkError, OSError, ValueError) as exc:
++        print(f"ERROR: {exc}", file=sys.stderr)
++        return 1
++
++    print_summary(serialized)
++    if args.verbose:
++        print_worst(serialized)
++    if args.output:
++        payload = {
++            "benchmark": CRANE_REPO,
++            "benchmark_schema": 1,
++            "dataset_revision": CRANE_REVISION,
++            "generated_at_utc": datetime.now(timezone.utc)
++            .isoformat()
++            .replace("+00:00", "Z"),
++            "languages": serialized,
++        }
++        args.output.parent.mkdir(parents=True, exist_ok=True)
++        args.output.write_text(
++            json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
++        )
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/benchmarks/crane_test_data.py b/benchmarks/crane_test_data.py
+new file mode 100644
+index 0000000..df01920
+--- /dev/null
++++ b/benchmarks/crane_test_data.py
+@@ -0,0 +1,599 @@
++"""Reusable infrastructure for the pinned Crane held-out G2P benchmark."""
++
++from __future__ import annotations
++
++import hashlib
++import json
++import os
++import tempfile
++import time
++import unicodedata
++import urllib.request
++from collections.abc import Mapping, Sequence
++from dataclasses import asdict, dataclass
++from pathlib import Path
++from typing import Any
++
++from kokorog2p.token import GToken
++
++CRANE_REPO = "crane-local-ai/test-data"
++CRANE_REVISION = "19b6ea610af45d9258a3957c7a22694280bdf145"
++DEFAULT_CACHE_DIR = (
++    Path.home() / ".cache" / "kokorog2p" / "benchmarks" / "crane-test-data"
++)
++
++
++@dataclass(frozen=True)
++class CraneLanguageConfig:
++    public_code: str
++    hf_code: str
++    kokorog2p_code: str
++    test_path: str
++    normalizer_ref_path: str
++    expected_entries: int = 5000
++
++
++LANGUAGES: dict[str, CraneLanguageConfig] = {
++    "en_US": CraneLanguageConfig(
++        "en_US",
++        "en_us",
++        "en-us",
++        "g2p/en_us/test.tsv",
++        "g2p/en_us/kokoro_normalizer_ref.tsv",
++    ),
++    "de_DE": CraneLanguageConfig(
++        "de_DE",
++        "de_de",
++        "de-de",
++        "g2p/de_de/test.tsv",
++        "g2p/de_de/kokoro_normalizer_ref.tsv",
++    ),
++}
++
++# These are the SHA-256 values of the files at CRANE_REVISION.
++ASSET_SHA256: dict[str, str] = {
++    "g2p/kokoro_vocab.json": (
++        "02762226a6edbbfb28295d0617b333484bf821a3785a59f3cc4b8d1f32a6f2cf"
++    ),
++    "g2p/en_us/test.tsv": (
++        "3a9adc0a30ea7c8be5cadd91f38020b2f4b4e44130cf00c4a43a5034ca35aa1c"
++    ),
++    "g2p/de_de/test.tsv": (
++        "0dd924798e6f66ef207f9e48be3d9da56cd7212234445dd9102e05093ba0d29d"
++    ),
++    "g2p/en_us/kokoro_normalizer_ref.tsv": (
++        "03d68fe6179feeb4130bfae4d34c747646106908a5efe614ca77145ad06cacd5"
++    ),
++    "g2p/de_de/kokoro_normalizer_ref.tsv": (
++        "40e2ba2678e855c323351decbf0f57cab9ba0c7f38bc41986c04d816db9382b3"
++    ),
++}
++
++
++@dataclass(frozen=True)
++class BenchmarkEntry:
++    word: str
++    expected_raw_ipa: str
++    line_number: int
++
++
++@dataclass(frozen=True)
++class NormalizerReference:
++    raw_ipa: str
++    expected_normalized: str
++    expected_ids: tuple[int, ...]
++    line_number: int = 0
++
++
++@dataclass(frozen=True)
++class NormalizerMismatch:
++    line_number: int
++    raw_ipa: str
++    expected_normalized: str
++    actual_normalized: str
++    expected_ids: tuple[int, ...]
++    actual_ids: tuple[int, ...]
++    reason: str
++
++
++@dataclass(frozen=True)
++class NormalizerValidation:
++    cases: int
++    mismatches: tuple[NormalizerMismatch, ...]
++
++    @property
++    def mismatch_count(self) -> int:
++        return len(self.mismatches)
++
++
++@dataclass(frozen=True)
++class EntryResult:
++    word: str
++    expected_raw_ipa: str
++    expected_kokoro: str
++    actual_kokoro: str
++    edit_distance: int
++    reference_characters: int
++    exact_match: bool
++    error: str | None
++
++    @property
++    def per_entry_cer(self) -> float:
++        if self.reference_characters:
++            return self.edit_distance / self.reference_characters
++        return 0.0 if not self.actual_kokoro else 1.0
++
++
++@dataclass(frozen=True)
++class LanguageBenchmarkResult:
++    language: str
++    entries: int
++    exact_matches: int
++    exact_match_rate: float
++    total_edit_distance: int
++    reference_characters: int
++    cer: float
++    exceptions: int
++    elapsed_seconds: float
++    words_per_second: float
++    normalizer_cases: int
++    normalizer_mismatches: int
++    worst_cases: tuple[EntryResult, ...]
++
++
++class CraneBenchmarkError(RuntimeError):
++    """Base class for benchmark infrastructure failures."""
++
++
++class MissingDataError(CraneBenchmarkError):
++    """Raised when the caller did not provide the external fixture."""
++
++
++def dataset_url(relative_path: str) -> str:
++    """Build a URL containing the immutable dataset revision."""
++    return f"https://huggingface.co/datasets/{CRANE_REPO}/raw/{CRANE_REVISION}/{relative_path}"
++
++
++def _required_paths(configs: Sequence[CraneLanguageConfig]) -> list[str]:
++    paths = ["g2p/kokoro_vocab.json"]
++    for config in configs:
++        paths.extend((config.test_path, config.normalizer_ref_path))
++    return list(dict.fromkeys(paths))
++
++
++def _sha256(path: Path) -> str:
++    digest = hashlib.sha256()
++    with path.open("rb") as handle:
++        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
++            digest.update(chunk)
++    return digest.hexdigest()
++
++
++def verify_asset(path: Path, relative_path: str) -> None:
++    """Verify one asset against the checksum for the pinned revision."""
++    expected = ASSET_SHA256[relative_path]
++    actual = _sha256(path)
++    if actual != expected:
++        raise CraneBenchmarkError(
++            f"Checksum mismatch for {relative_path}: expected {expected}, got {actual}"
++        )
++
++
++def verify_assets(data_root: Path, configs: Sequence[CraneLanguageConfig]) -> None:
++    """Verify all assets needed by the selected languages."""
++    for relative_path in _required_paths(configs):
++        path = data_root / relative_path
++        if not path.is_file():
++            raise MissingDataError(f"Crane benchmark data is missing: {path}")
++        verify_asset(path, relative_path)
++
++
++def _download_asset(data_root: Path, relative_path: str) -> None:
++    target = data_root / relative_path
++    target.parent.mkdir(parents=True, exist_ok=True)
++    fd, temporary_name = tempfile.mkstemp(prefix=f".{target.name}.", dir=target.parent)
++    os.close(fd)
++    temporary = Path(temporary_name)
++    try:
++        urllib.request.urlretrieve(dataset_url(relative_path), temporary)
++        verify_asset(temporary, relative_path)
++        os.replace(temporary, target)
++    finally:
++        temporary.unlink(missing_ok=True)
++
++
++def resolve_data_root(
++    data_root: Path | None,
++    *,
++    download: bool,
++    cache_dir: Path | None = None,
++    configs: Sequence[CraneLanguageConfig] | None = None,
++) -> Path:
++    """Resolve a local checkout or explicitly populate the pinned cache."""
++    selected = tuple(configs or LANGUAGES.values())
++    root = (
++        Path(data_root)
++        if data_root is not None
++        else Path(cache_dir or DEFAULT_CACHE_DIR) / CRANE_REVISION
++    )
++    missing = [
++        path for path in _required_paths(selected) if not (root / path).is_file()
++    ]
++    if missing and not download:
++        expected = "\n".join(f"  {root / path}" for path in missing)
++        raise MissingDataError(
++            "Crane benchmark data is missing.\n\n"
++            f"Expected:\n{expected}\n\n"
++            "Either:\n"
++            "  1. pass --data-root /path/to/crane-test-data\n"
++            "  2. rerun with --download"
++        )
++    if download:
++        for relative_path in _required_paths(selected):
++            path = root / relative_path
++            if not path.is_file() or _sha256(path) != ASSET_SHA256[relative_path]:
++                _download_asset(root, relative_path)
++    verify_assets(root, selected)
++    return root
++
++
++def load_vocab(path: Path) -> dict[str, int]:
++    """Load the Crane Kokoro character-to-token vocabulary."""
++    with path.open("r", encoding="utf-8") as handle:
++        value = json.load(handle)
++    if not isinstance(value, dict) or any(
++        not isinstance(key, str) or not isinstance(token_id, int)
++        for key, token_id in value.items()
++    ):
++        raise ValueError(
++            f"{path}: expected a JSON object mapping characters to integer IDs"
++        )
++    return value
++
++
++def load_test_tsv(path: Path) -> list[BenchmarkEntry]:
++    """Load a strict, headerless word-to-IPA TSV."""
++    entries: list[BenchmarkEntry] = []
++    with path.open("r", encoding="utf-8", newline="") as handle:
++        for line_number, line in enumerate(handle, 1):
++            fields = line.rstrip("\r\n").split("\t")
++            if len(fields) != 2:
++                raise ValueError(
++                    f"{path}:{line_number}: expected 2 tab-separated fields, "
++                    f"got {len(fields)}"
++                )
++            word, ipa = fields
++            if not word:
++                raise ValueError(f"{path}:{line_number}: empty spelling")
++            entries.append(BenchmarkEntry(word, ipa, line_number))
++    return entries
++
++
++def _parse_ids(value: str, path: Path, line_number: int) -> tuple[int, ...]:
++    if not value:
++        return ()
++    try:
++        return tuple(int(part) for part in value.split(","))
++    except ValueError as exc:
++        raise ValueError(
++            f"{path}:{line_number}: invalid comma-separated token IDs: {value!r}"
++        ) from exc
++
++
++def load_normalizer_ref(path: Path) -> list[NormalizerReference]:
++    """Load a strict, headerless raw-IPA normalization reference TSV."""
++    references: list[NormalizerReference] = []
++    with path.open("r", encoding="utf-8", newline="") as handle:
++        for line_number, line in enumerate(handle, 1):
++            fields = line.rstrip("\r\n").split("\t")
++            if len(fields) != 3:
++                raise ValueError(
++                    f"{path}:{line_number}: expected 3 tab-separated fields, "
++                    f"got {len(fields)}"
++                )
++            raw_ipa, expected_normalized, expected_ids = fields
++            references.append(
++                NormalizerReference(
++                    raw_ipa,
++                    expected_normalized,
++                    _parse_ids(expected_ids, path, line_number),
++                    line_number,
++                )
++            )
++    return references
++
++
++_SHARED_REPLACEMENTS = {
++    "t͡ʃ": "ʧ",
++    "d͡ʒ": "ʤ",
++    "tʃ": "ʧ",
++    "dʒ": "ʤ",
++    "eɪ": "A",
++    "aɪ": "I",
++    "aʊ": "W",
++    "oʊ": "O",
++    "əʊ": "Q",
++    "ɔɪ": "Y",
++    "ɝ": "ɜɹ",
++    "ɚ": "əɹ",
++}
++_GERMAN_REPLACEMENTS = {
++    "t͡s": "ʦ",
++    "d͡z": "ʣ",
++    "ts": "ʦ",
++    "dz": "ʣ",
++    "aʊ̯": "W",
++    "aɪ̯": "I",
++    "ɔʏ̯": "ɔy",
++    "aʊ": "W",
++    "aɪ": "I",
++    "ss": "S",
++    "ʏ": "y",
++    "tʃ": "ʧ",
++    "dʒ": "ʤ",
++    "n̩": "n",
++    "l̩": "l",
++}
++
++
++def _replace_longest(value: str, replacements: Mapping[str, str]) -> str:
++    for source in sorted(replacements, key=len, reverse=True):
++        value = value.replace(source, replacements[source])
++    return value
++
++
++def normalize_reference_ipa(
++    raw_ipa: str,
++    *,
++    language: str,
++    vocab: Mapping[str, int],
++) -> str:
++    """Convert raw Crane IPA into the expected Kokoro character representation."""
++    replacements = dict(_SHARED_REPLACEMENTS)
++    if language == "de_DE":
++        replacements.update(_GERMAN_REPLACEMENTS)
++    value = _replace_longest(unicodedata.normalize("NFC", raw_ipa), replacements)
++    chars: list[str] = []
++    for char in value:
++        if char.isspace():
++            chars.append(" ")
++        elif char in vocab:
++            chars.append(char)
++    return " ".join("".join(chars).split())
++
++
++def canonicalize_actual(value: str) -> str:
++    """Apply only representation-neutral cleanup to package output."""
++    return " ".join(unicodedata.normalize("NFC", value).split())
++
++
++def validate_reference_normalizer(
++    references: Sequence[NormalizerReference],
++    *,
++    language: str,
++    vocab: Mapping[str, int],
++) -> NormalizerValidation:
++    """Compare the benchmark normalizer with every supplied fixture row."""
++    mismatches: list[NormalizerMismatch] = []
++    for reference in references:
++        actual = normalize_reference_ipa(
++            reference.raw_ipa, language=language, vocab=vocab
++        )
++        actual_ids = (0, *(vocab[char] for char in actual), 0)
++        reasons = []
++        if actual != reference.expected_normalized:
++            reasons.append("normalized text")
++        if actual_ids != reference.expected_ids:
++            reasons.append("token IDs")
++        if reasons:
++            mismatches.append(
++                NormalizerMismatch(
++                    reference.line_number,
++                    reference.raw_ipa,
++                    reference.expected_normalized,
++                    actual,
++                    reference.expected_ids,
++                    actual_ids,
++                    ", ".join(reasons),
++                )
++            )
++    return NormalizerValidation(len(references), tuple(mismatches))
++
++
++def extract_pronunciation(tokens: Sequence[GToken]) -> str:
++    """Join lexical token phonemes while omitting punctuation phoneme tokens."""
++    parts = [token.phonemes for token in tokens if token.is_word and token.phonemes]
++    return canonicalize_actual(" ".join(parts))
++
++
++def levenshtein(left: str, right: str) -> int:
++    """Return edit distance using O(min(len(left), len(right))) memory."""
++    if len(left) < len(right):
++        left, right = right, left
++    previous = list(range(len(right) + 1))
++    for left_index, left_char in enumerate(left, 1):
++        current = [left_index]
++        for right_index, right_char in enumerate(right, 1):
++            current.append(
++                min(
++                    current[-1] + 1,
++                    previous[right_index] + 1,
++                    previous[right_index - 1] + (left_char != right_char),
++                )
++            )
++        previous = current
++    return previous[-1]
++
++
++def aggregate_results(
++    language: str,
++    results: Sequence[EntryResult],
++    *,
++    elapsed_seconds: float,
++    normalizer_cases: int,
++    normalizer_mismatches: int,
++    worst_n: int,
++) -> LanguageBenchmarkResult:
++    entries = len(results)
++    exact_matches = sum(result.exact_match for result in results)
++    total_distance = sum(result.edit_distance for result in results)
++    reference_characters = sum(result.reference_characters for result in results)
++    cer = (
++        total_distance / reference_characters
++        if reference_characters
++        else (0.0 if total_distance == 0 else 1.0)
++    )
++    mismatches = sorted(
++        (result for result in results if not result.exact_match),
++        key=lambda result: (-result.per_entry_cer, -result.edit_distance, result.word),
++    )
++    return LanguageBenchmarkResult(
++        language=language,
++        entries=entries,
++        exact_matches=exact_matches,
++        exact_match_rate=exact_matches / entries if entries else 0.0,
++        total_edit_distance=total_distance,
++        reference_characters=reference_characters,
++        cer=cer,
++        exceptions=sum(result.error is not None for result in results),
++        elapsed_seconds=elapsed_seconds,
++        words_per_second=entries / elapsed_seconds if elapsed_seconds else 0.0,
++        normalizer_cases=normalizer_cases,
++        normalizer_mismatches=normalizer_mismatches,
++        worst_cases=tuple(mismatches[: max(0, worst_n)]),
++    )
++
++
++def create_benchmark_g2p(language: str) -> Any:
++    """Create the documented deterministic G2P profile for one language."""
++    if language == "en_US":
++        from kokorog2p.en import EnglishG2P
++
++        return EnglishG2P(
++            language="en-us",
++            use_espeak_fallback=True,
++            use_goruut_fallback=False,
++            use_spacy=False,
++            load_gold=True,
++            load_silver=True,
++            strict=True,
++        )
++    if language == "de_DE":
++        from kokorog2p.de import GermanG2P
++
++        return GermanG2P(
++            language="de-de",
++            use_espeak_fallback=True,
++            use_goruut_fallback=False,
++            use_spacy=False,
++            use_lexicon=True,
++            load_gold=True,
++            load_silver=True,
++            strip_stress=False,
++        )
++    raise ValueError(f"Unsupported Crane language: {language}")
++
++
++def benchmark_language(
++    *,
++    config: CraneLanguageConfig,
++    data_root: Path,
++    limit: int | None,
++    worst_n: int,
++    fail_fast: bool = False,
++    g2p: Any | None = None,
++) -> LanguageBenchmarkResult:
++    """Run one language after validating its external reference fixtures."""
++    vocab = load_vocab(data_root / "g2p/kokoro_vocab.json")
++    references = load_normalizer_ref(data_root / config.normalizer_ref_path)
++    validation = validate_reference_normalizer(
++        references, language=config.public_code, vocab=vocab
++    )
++    if validation.mismatches:
++        raise CraneBenchmarkError(
++            f"Crane reference normalizer is incompatible with supplied fixture: "
++            f"language: {config.public_code}, cases: {validation.cases}, "
++            f"mismatches: {validation.mismatch_count}"
++        )
++    entries = load_test_tsv(data_root / config.test_path)
++    if limit is None and len(entries) != config.expected_entries:
++        raise CraneBenchmarkError(
++            f"{config.test_path}: expected {config.expected_entries} entries, "
++            f"got {len(entries)}"
++        )
++    if limit is not None:
++        entries = entries[:limit]
++    converter = g2p or create_benchmark_g2p(config.public_code)
++    started = time.perf_counter()
++    results: list[EntryResult] = []
++    for entry in entries:
++        expected = normalize_reference_ipa(
++            entry.expected_raw_ipa, language=config.public_code, vocab=vocab
++        )
++        try:
++            actual = extract_pronunciation(converter(entry.word))
++            error = None
++        except Exception as exc:
++            if fail_fast:
++                raise CraneBenchmarkError(
++                    f"{config.public_code}:{entry.line_number} {entry.word!r}: "
++                    f"{type(exc).__name__}: {exc}"
++                ) from exc
++            actual = ""
++            error = f"{type(exc).__name__}: {exc}"
++        results.append(
++            EntryResult(
++                entry.word,
++                entry.expected_raw_ipa,
++                expected,
++                actual,
++                levenshtein(expected, actual),
++                len(expected),
++                error is None and expected == actual,
++                error,
++            )
++        )
++    return aggregate_results(
++        config.public_code,
++        results,
++        elapsed_seconds=time.perf_counter() - started,
++        normalizer_cases=validation.cases,
++        normalizer_mismatches=validation.mismatch_count,
++        worst_n=worst_n,
++    )
++
++
++def _entry_to_dict(result: EntryResult) -> dict[str, Any]:
++    value = asdict(result)
++    value["per_entry_cer"] = result.per_entry_cer
++    return value
++
++
++def result_to_dict(
++    result: LanguageBenchmarkResult,
++    *,
++    config: CraneLanguageConfig,
++    profile: Mapping[str, Any],
++) -> dict[str, Any]:
++    """Serialize one language result using the stable JSON contract."""
++    return {
++        "dataset_file": config.test_path,
++        "entries": result.entries,
++        "profile": dict(profile),
++        "normalizer_validation": {
++            "file": config.normalizer_ref_path,
++            "cases": result.normalizer_cases,
++            "mismatches": result.normalizer_mismatches,
++        },
++        "metrics": {
++            "cer": result.cer,
++            "exact_match_rate": result.exact_match_rate,
++            "exact_matches": result.exact_matches,
++            "total_edit_distance": result.total_edit_distance,
++            "reference_characters": result.reference_characters,
++            "exceptions": result.exceptions,
++            "elapsed_seconds": result.elapsed_seconds,
++            "words_per_second": result.words_per_second,
++        },
++        "worst_cases": [_entry_to_dict(case) for case in result.worst_cases],
++    }
+diff --git a/tests/test_crane_test_data_benchmark.py b/tests/test_crane_test_data_benchmark.py
+new file mode 100644
+index 0000000..53a74f7
+--- /dev/null
++++ b/tests/test_crane_test_data_benchmark.py
+@@ -0,0 +1,246 @@
++"""Network-free tests for the Crane benchmark infrastructure."""
++
++from __future__ import annotations
++
++import json
++from pathlib import Path
++
++import pytest
++
++from benchmarks import benchmark_crane_test_data as cli
++from benchmarks.crane_test_data import (
++    LANGUAGES,
++    BenchmarkEntry,
++    CraneBenchmarkError,
++    EntryResult,
++    NormalizerReference,
++    aggregate_results,
++    canonicalize_actual,
++    create_benchmark_g2p,
++    dataset_url,
++    extract_pronunciation,
++    levenshtein,
++    load_normalizer_ref,
++    load_test_tsv,
++    normalize_reference_ipa,
++    resolve_data_root,
++    result_to_dict,
++    validate_reference_normalizer,
++)
++from kokorog2p.token import GToken
++
++
++def test_language_config_and_pinned_url() -> None:
++    assert LANGUAGES["en_US"].hf_code == "en_us"
++    assert LANGUAGES["en_US"].kokorog2p_code == "en-us"
++    assert LANGUAGES["de_DE"].hf_code == "de_de"
++    assert LANGUAGES["de_DE"].kokorog2p_code == "de-de"
++    assert len(cli.CRANE_REVISION) == 40
++    assert cli.CRANE_REVISION in dataset_url("g2p/en_us/test.tsv")
++    assert "/main/" not in dataset_url("g2p/en_us/test.tsv")
++
++
++def test_load_test_tsv_preserves_spelling_and_line_numbers(tmp_path: Path) -> None:
++    path = tmp_path / "test.tsv"
++    path.write_text(
++        "apostrophe's\tɑ\n50-Franken-Noten\ta\nAstronomischen Kalender\ti\nҚазақ\tu\n"
++    )
++    entries = load_test_tsv(path)
++    assert entries == [
++        BenchmarkEntry("apostrophe's", "ɑ", 1),
++        BenchmarkEntry("50-Franken-Noten", "a", 2),
++        BenchmarkEntry("Astronomischen Kalender", "i", 3),
++        BenchmarkEntry("Қазақ", "u", 4),
++    ]
++
++
++@pytest.mark.parametrize("content, fields", [("word", 1), ("word\tipa\textra", 3)])
++def test_load_test_tsv_rejects_wrong_field_count(
++    tmp_path: Path, content: str, fields: int
++) -> None:
++    path = tmp_path / "bad.tsv"
++    path.write_text(content + "\n")
++    with pytest.raises(
++        ValueError, match=rf"{path}:1: expected 2 tab-separated fields, got {fields}"
++    ):
++        load_test_tsv(path)
++
++
++def test_load_normalizer_ref_parses_empty_values_and_ids(tmp_path: Path) -> None:
++    path = tmp_path / "normalizer.tsv"
++    path.write_text("\t\t0,0\na\tb\t43,0\n")
++    assert load_normalizer_ref(path) == [
++        NormalizerReference("", "", (0, 0), 1),
++        NormalizerReference("a", "b", (43, 0), 2),
++    ]
++
++    path.write_text("a\tb\tnot-an-int\n")
++    with pytest.raises(ValueError, match="invalid comma-separated token IDs"):
++        load_normalizer_ref(path)
++
++
++def test_reference_normalization_covers_english_mapping_families() -> None:
++    value = "t͡ʃ dʒ eɪ aɪ aʊ oʊ əʊ ɔɪ ɝ ɚ gab ́"
++    chars = set("ʧʤAIWOQYɜɹəɹab ")
++    vocab = {char: index for index, char in enumerate(chars)}
++    assert normalize_reference_ipa(value, language="en_US", vocab=vocab) == (
++        "ʧ ʤ A I W O Q Y ɜɹ əɹ ab"
++    )
++
++
++def test_reference_normalization_covers_german_mapping_families() -> None:
++    value = "t͡s ts d͡z dz ss ʏ aʊ̯ aɪ̯ ɔʏ̯ n̩ l̩"
++    chars = set("ʦʣSyaWIɔ ") | set("nql")
++    vocab = {char: index for index, char in enumerate(chars)}
++    assert normalize_reference_ipa(value, language="de_DE", vocab=vocab) == (
++        "ʦ ʦ ʣ ʣ S y W I ɔy n l"
++    )
++
++
++def test_reference_normalizer_validation_checks_text_and_token_ids() -> None:
++    vocab = {char: index for index, char in enumerate(" ab")}
++    references = [NormalizerReference("  a  ", "a", (0, vocab["a"], 0), 1)]
++    validation = validate_reference_normalizer(
++        references, language="en_US", vocab=vocab
++    )
++    assert validation.cases == 1
++    assert validation.mismatch_count == 0
++
++    bad = [NormalizerReference("a", "b", (0, vocab["a"], 0), 2)]
++    assert (
++        validate_reference_normalizer(bad, language="en_US", vocab=vocab).mismatch_count
++        == 1
++    )
++
++
++def test_whitespace_canonicalization() -> None:
++    assert canonicalize_actual(" a\t b ") == "a b"
++    assert canonicalize_actual(" a\u00a0b ") == "a b"
++    assert canonicalize_actual(" a\nb ") == "a b"
++
++
++def test_extract_pronunciation_omits_punctuation_and_keeps_order() -> None:
++    tokens = [
++        GToken("Anti", tag="NN", phonemes="an ti"),
++        GToken("-", tag="-", phonemes="-"),
++        GToken("Terror", tag="NN", phonemes="tɛɹə"),
++        GToken(" ", tag="SPACE", phonemes=" "),
++        GToken("", tag="NN", phonemes=""),
++    ]
++    assert extract_pronunciation(tokens) == "an ti tɛɹə"
++
++
++def test_levenshtein_and_corpus_cer() -> None:
++    assert levenshtein("", "") == 0
++    assert levenshtein("abc", "abc") == 0
++    assert levenshtein("abc", "ab") == 1
++    assert levenshtein("ab", "abc") == 1
++    assert levenshtein("abc", "axc") == 1
++    results = [
++        EntryResult("one", "a", "a", "", 1, 1, False, None),
++        EntryResult("two", "abcdef", "abcdef", "abcdef", 0, 6, True, None),
++    ]
++    aggregate = aggregate_results(
++        "en_US",
++        results,
++        elapsed_seconds=1.0,
++        normalizer_cases=71,
++        normalizer_mismatches=0,
++        worst_n=20,
++    )
++    assert aggregate.cer == pytest.approx(1 / 7)
++    assert aggregate.exact_match_rate == pytest.approx(1 / 2)
++    assert aggregate.total_edit_distance == 1
++    assert aggregate.reference_characters == 7
++
++
++def test_exceptions_are_in_denominator_and_worst_sort_is_deterministic() -> None:
++    results = [
++        EntryResult("z", "ab", "ab", "", 2, 2, False, "RuntimeError: failed"),
++        EntryResult("a", "abc", "abc", "ab", 1, 3, False, None),
++    ]
++    aggregate = aggregate_results(
++        "en_US",
++        results,
++        elapsed_seconds=2.0,
++        normalizer_cases=1,
++        normalizer_mismatches=0,
++        worst_n=1,
++    )
++    assert aggregate.exceptions == 1
++    assert aggregate.worst_cases[0].word == "z"
++
++
++def test_profile_construction_uses_documented_arguments(
++    monkeypatch: pytest.MonkeyPatch,
++) -> None:
++    import kokorog2p.de
++    import kokorog2p.en
++
++    class FakeG2P:
++        def __init__(self, **kwargs: object) -> None:
++            self.kwargs = kwargs
++
++    monkeypatch.setattr(kokorog2p.en, "EnglishG2P", FakeG2P)
++    english = create_benchmark_g2p("en_US")
++    assert english.kwargs == {
++        "language": "en-us",
++        "use_espeak_fallback": True,
++        "use_goruut_fallback": False,
++        "use_spacy": False,
++        "load_gold": True,
++        "load_silver": True,
++        "strict": True,
++    }
++
++    monkeypatch.setattr(kokorog2p.de, "GermanG2P", FakeG2P)
++    german = create_benchmark_g2p("de_DE")
++    assert german.kwargs["language"] == "de-de"
++    assert german.kwargs["use_spacy"] is False
++    assert german.kwargs["strip_stress"] is False
++
++
++def test_missing_data_does_not_download_implicitly(tmp_path: Path) -> None:
++    with pytest.raises(CraneBenchmarkError, match="Either:"):
++        resolve_data_root(tmp_path, download=False, configs=[LANGUAGES["en_US"]])
++
++
++def test_json_serialization_has_stable_content() -> None:
++    config = LANGUAGES["en_US"]
++    result = aggregate_results(
++        "en_US",
++        [],
++        elapsed_seconds=0.0,
++        normalizer_cases=71,
++        normalizer_mismatches=0,
++        worst_n=20,
++    )
++    value = result_to_dict(result, config=config, profile=cli.PROFILE_CONFIGS["en_US"])
++    assert json.dumps(value, sort_keys=True) == json.dumps(value, sort_keys=True)
++    assert value["metrics"]["cer"] == 0.0
++    assert value["worst_cases"] == []
++
++
++def test_cli_argument_contract() -> None:
++    args = cli.parse_args(
++        [
++            "--language",
++            "de_DE",
++            "--data-root",
++            "/tmp/data",
++            "--download",
++            "--cache-dir",
++            "/tmp/cache",
++            "--limit",
++            "10",
++            "--output",
++            "/tmp/result.json",
++            "--worst",
++            "3",
++            "--verbose",
++            "--fail-fast",
++        ]
++    )
++    assert args.language == "de_DE"
++    assert args.limit == 10
++    assert args.fail_fast is True

@@ -1,0 +1,2207 @@
+ .github/workflows/tests.yml           |  30 +-
+ benchmarks/JAPANESE_DATASET.md        | 251 ++++------------
+ benchmarks/benchmark_ja_comparison.py | 311 ++++++++-----------
+ benchmarks/benchmark_ja_g2p.py        | 542 ++++++++--------------------------
+ docs/installation.md                  |  25 +-
+ docs/languages.md                     |  34 ++-
+ kokorog2p/ja/cutlet.py                |  19 +-
+ kokorog2p/ja/g2p.py                   | 146 ++++++---
+ pyproject.toml                        |  12 +-
+ scripts/compare_ja_frontends.py       | 122 ++++++++
+ tests/test_dependency_contract.py     |  11 +
+ tests/test_ja_benchmarks.py           |  41 +++
+ tests/test_ja_g2p.py                  | 173 +++++++++++
+ tests/test_multilang.py               |   9 +
+ 14 files changed, 853 insertions(+), 873 deletions(-)
+
+diff --git a/.github/workflows/tests.yml b/.github/workflows/tests.yml
+index 06fcb61..f379292 100644
+--- a/.github/workflows/tests.yml
++++ b/.github/workflows/tests.yml
+@@ -65,7 +65,7 @@ jobs:
+             python -m pytest -q tests/test_fr_g2p.py tests/test_es_g2p.py tests/test_it_g2p.py tests/test_pt_g2p.py
+             ;;
+           asian)
+-            python -m pytest -q tests/test_ko_g2p.py tests/test_he_g2p.py tests/test_multilang.py
++            python -m pytest -q tests/test_ko_g2p.py tests/test_he_g2p.py tests/test_ja_g2p.py tests/test_multilang.py
+             ;;
+           backends)
+             python -m pytest -q tests/test_espeak_*.py tests/test_goruut_backend.py
+@@ -153,3 +153,31 @@ jobs:
+         python -m pip install pytest phrasplit==0.3.4 ssmd==0.8.0
+     - name: Run cross-package compatibility tests
+       run: python -m pytest -q tests/test_ssmd_phrasplit_integration.py
++  japanese-cutlet:
++    if: github.event_name != 'push'
++    runs-on: ubuntu-latest
++    steps:
++    - uses: actions/checkout@master
++    - name: Setup Python
++      uses: actions/setup-python@master
++      with:
++        python-version: "3.13"
++    - name: Install Cutlet backend
++      run: python -m pip install -e ".[ja-cutlet,dev]"
++    - name: Run Japanese Cutlet smoke tests
++      run: python -m pytest -q tests/test_ja_g2p.py -k cutlet
++  japanese-cutlet-full-unidic:
++    if: github.event_name == 'workflow_dispatch'
++    runs-on: ubuntu-latest
++    steps:
++    - uses: actions/checkout@master
++    - name: Setup Python
++      uses: actions/setup-python@master
++      with:
++        python-version: "3.13"
++    - name: Install full-UniDic backend
++      run: python -m pip install -e ".[ja-cutlet-full,dev]"
++    - name: Download UniDic
++      run: python -m unidic download
++    - name: Run Japanese Cutlet smoke tests
++      run: python -m pytest -q tests/test_ja_g2p.py -k cutlet
+diff --git a/benchmarks/JAPANESE_DATASET.md b/benchmarks/JAPANESE_DATASET.md
+index 21af768..f747cfa 100644
+--- a/benchmarks/JAPANESE_DATASET.md
++++ b/benchmarks/JAPANESE_DATASET.md
+@@ -1,225 +1,98 @@
+-# Japanese Synthetic Benchmark Dataset
++# Japanese G2P Benchmark Dataset
+
+-## Overview
++## Scope
+
+-The Japanese benchmark script is located at:
++The checked-in dataset is `benchmarks/data/ja_synthetic.json`. It is a reproducible
++coverage and regression corpus, not an independently reviewed pronunciation gold set.
++The benchmark harnesses are:
+
+-- **benchmarks/benchmark_ja_comparison.py**
++- `benchmarks/benchmark_ja_comparison.py` for backend comparison
++- `benchmarks/benchmark_ja_g2p.py` for primary-backend throughput and vocabulary checks
+
+-This script tests all Japanese G2P configurations and measures accuracy and speed.
+-
+-## Quick Start
++## Running the checks
+
+ ```bash
+-# Run all configurations
++python benchmarks/validate_synthetic_data.py benchmarks/data/ja_synthetic.json
+ python benchmarks/benchmark_ja_comparison.py
+-
+-# Test specific configuration
+-python benchmarks/benchmark_ja_comparison.py --config "pyopenjtalk"
+-
+-# Verbose output
+-python benchmarks/benchmark_ja_comparison.py --verbose
+-
+-# Export results
+-python benchmarks/benchmark_ja_comparison.py --output results.json
+-```
+-
+-## Benchmark Results (371 sentences)
+-
+-| Configuration        | Accuracy | Speed        | Recommendation |
+-| -------------------- | -------- | ------------ | -------------- |
+-| pyopenjtalk + espeak | 100.0%   | 6,286 sent/s | ✅ **Best**    |
+-| pyopenjtalk          | 100.0%   | 1,716 sent/s | Good           |
+-| cutlet + espeak      | N/A      | -            | Requires MeCab |
+-| cutlet               | N/A      | -            | Requires MeCab |
+-
+-**Recommendation**: Use **pyopenjtalk + espeak** configuration for Japanese for best
+-speed and accuracy.
+-
+-## Dataset Composition
+-
+-The dataset consists of:
+-
+-- **31 hand-crafted sentences** covering:
+-  - Greetings (こんにちは, おはよう, etc.)
+-  - Common words and phrases
+-  - Questions
+-  - Numbers
+-  - Verbs and adjectives
+-  - Conversational phrases
+-- **340 natural speech samples** from CHILDES ja-JP corpus (adult speech only)
+-
+-**Total**: 371 sentences with 1,432 words
+-
+-## Phoneme Coverage
+-
+-The dataset achieves **100% coverage** of all 29 Japanese phoneme characters:
+-
+-```
+-a b d e f g h i j k m n o p r s t u w z ɕ ɴ ʔ ʥ ʦ ʨ ː ᶄ ᶉ
++python benchmarks/benchmark_ja_comparison.py --config pyopenjtalk
++python benchmarks/benchmark_ja_comparison.py --config cutlet
++python benchmarks/benchmark_ja_g2p.py --sample-size 5000
+ ```
+
+-### Special Japanese Phonemes
++The comparison benchmark uses `backend="pyopenjtalk"` and `backend="cutlet"`. It does
++not expose `+ espeak` variants because Japanese G2P does not implement an espeak
++fallback. Unavailable optional backends are reported as unavailable rather than
++presented as a zero-quality result.
+
+-- **ɕ** - palatal fricative (し shi)
+-- **ɴ** - moraic n (ん)
+-- **ʔ** - glottal stop
+-- **ʥ** - voiced affricate (じ ji)
+-- **ʦ** - voiceless affricate (つ tsu)
+-- **ʨ** - palatal affricate (ち chi)
+-- **ː** - long vowel marker (ー)
+-- **ᶄ ᶉ** - special pronunciation markers
++## Metrics and provenance
+
+-## Character-Based Phoneme System
++The benchmark reports:
+
+-**Important**: Unlike European languages where phonemes are space-separated by word,
+-Japanese phonemes are **character-based**. Each character in the phoneme string
+-represents a single phoneme.
++- `coverage_rate`: inputs that produced the expected fixture output or a valid result
++- `sentences_per_second` or `words_per_second`: warm steady-state throughput
++- `encoding_validity_rate` through the vocabulary validation benchmark
++- unique output symbols and bounded mismatch samples
+
+-**Example**:
++Coverage and successful conversion are not pronunciation accuracy. Accuracy requires an
++independently reviewed expected output. Each JSON result records the Kokoro package,
++Python/platform identity, backend, frontend distribution versions, and Cutlet dictionary
++package versions when applicable.
+
+-- Text: `こんにちは`
+-- Phonemes: `koɴniʨiwa` (9 characters = 9 phonemes)
+-  - k-o-ɴ-n-i-ʨ-i-w-a
++Japanese output is dictionary-sensitive. Compare results only when the frontend and
++OpenJTalk dictionary identity are known. Do not compare upstream `pyopenjtalk` and
++`pyopenjtalk-plus` in the same environment. They provide the same `pyopenjtalk` import
++namespace and must be evaluated in separate clean environments.
+
+-## Category Breakdown
++## Dataset composition
+
+-| Category        | Sentences | Description                              |
+-| --------------- | --------- | ---------------------------------------- |
+-| childes_natural | 340       | Natural adult speech from CHILDES corpus |
+-| greetings       | 5         | Common Japanese greetings                |
+-| common_words    | 4         | Frequently used vocabulary               |
+-| conversation    | 7         | Conversational phrases                   |
+-| verbs           | 5         | Common verb forms                        |
+-| adjectives      | 4         | Basic adjectives                         |
+-| questions       | 3         | Question patterns                        |
+-| numbers         | 3         | Number pronunciation                     |
++The dataset contains 371 Japanese sentences covering greetings, common words,
++conversation, verbs, adjectives, questions, numbers, punctuation, and natural speech
++samples. The current fixture metadata records its exact sentence and phoneme coverage.
++Validate the JSON before using it in a benchmark.
+
+-## G2P Backend Information
++## Model-input contract
+
+-### pyopenjtalk (Recommended)
++Japanese token phonemes contain the base Kokoro symbols. `JapaneseG2P.phonemize()`
++returns the concatenated model representation: the base phoneme channel followed by an
++equally long pitch/control channel. The channels are aligned character by character.
++Punctuation, whitespace, long vowels, moraic N, and sokuon are part of the tested
++contract.
+
+-The default and recommended backend for Japanese G2P. It provides:
++## Reference and gold data
+
+-- Accurate kana/kanji → phoneme conversion
+-- MeCab-based morphological analysis
+-- Built-in pronunciation dictionary
+-- No additional dependencies (MeCab included)
++A generated backend snapshot is useful for parity testing but is not independent gold
++data. Future quality work should keep two layers:
+
+-### cutlet (Alternative)
++- an upstream reference snapshot for deterministic frontend parity
++- a smaller hand-reviewed Japanese gold set for pronunciation and model-input review
+
+-An alternative backend that requires:
++The current synthetic fixture is not a substitute for that hand-reviewed set.
+
+-- External MeCab installation
+-- Additional system setup
+-- May have different accuracy characteristics
++## Resource and installation contract
+
+-**Note**: The benchmark currently shows 0% accuracy for cutlet because MeCab is not
+-installed in the test environment.
+-
+-## Validation Results
+-
+-Run the validator to check dataset integrity:
++`kokorog2p/ja/data/ja_words.txt` is a runtime resource for the retained legacy Cutlet
++implementation and is included in built artifacts. The primary installation is:
+
+ ```bash
+-python benchmarks/validate_synthetic_data.py benchmarks/data/ja_synthetic.json
++pip install "kokorog2p[ja]"
+ ```
+
+-**Results**:
+-
+-- ✅ All 371 sentences validated
+-- ✅ 100% phoneme coverage (29/29 unique characters)
+-- ✅ No invalid phonemes
+-- ✅ All required fields present
+-
+-## CHILDES Corpus Source
++Cutlet with the pip-only dictionary is:
+
+-The natural speech examples were extracted from:
+-
+-- **Corpus**: CHILDES IPA corpus
+-- **Language**: ja-JP (Japanese)
+-- **Source size**: 246 MB (~850K sentences)
+-- **Selection criteria**:
+-  - Adult speech only (not child babbling)
+-  - 3-10 tokens per sentence
+-  - Valid Japanese characters
+-  - No special markers or errors
+-  - Deduplicated against hand-crafted sentences
+-
+-**Extraction rate**: ~0.06% (340 sentences from 300K+ candidates)
+-
+-- High filtering rate due to strict quality criteria
+-- Focus on natural, grammatical adult speech
+-- Removal of incomplete utterances and non-standard forms
+-
+-## Usage Examples
+-
+-### Basic Benchmarking
+-
+-```python
+-from kokorog2p.ja import JapaneseG2P
+-
+-# Create G2P with recommended configuration
+-g2p = JapaneseG2P(
+-    use_espeak_fallback=True,
+-    version="pyopenjtalk"
+-)
+-
+-# Phonemize Japanese text
+-tokens = g2p("こんにちは")
+-for token in tokens:
+-    print(f"{token.text} → {token.phonemes}")
+-# Output: こんにちは → koɴniʨiwa
++```bash
++pip install "kokorog2p[ja-cutlet]"
+ ```
+
+-### Testing Different Configurations
++Full UniDic is optional and requires an explicit download:
+
+ ```bash
+-# Test pyopenjtalk only (no fallback)
+-python benchmarks/benchmark_ja_comparison.py --config "pyopenjtalk"
+-
+-# Test with espeak fallback (faster)
+-python benchmarks/benchmark_ja_comparison.py --config "pyopenjtalk + espeak"
+-
+-# See detailed errors (if any)
+-python benchmarks/benchmark_ja_comparison.py --verbose
++pip install "kokorog2p[ja-cutlet-full]"
++python -m unidic download
+ ```
+
+-## Known Limitations
+-
+-1. **Katakana romanization**: Some katakana words (especially English loanwords) may
+-   have non-standard phoneme outputs
+-2. **Kanji readings**: Multiple readings (kun/on) are context-dependent; the G2P uses
+-   MeCab for disambiguation
+-3. **Pitch accent**: Japanese pitch accent is not represented in the phoneme output
+-4. **Dialectal variation**: Dataset represents standard Tokyo Japanese pronunciation
+-
+-## Future Improvements
+-
+-Potential areas for enhancement:
+-
+-- [ ] Add more katakana loanword examples
+-- [ ] Include compound word edge cases
+-- [ ] Add regional dialect variations
+-- [ ] Test with alternative MeCab dictionaries
+-- [ ] Expand conversation category with longer dialogues
+-
+-## References
+-
+-- CHILDES IPA Corpus: https://github.com/ErikMorton/ipa-childes
+-- pyopenjtalk: https://github.com/r9y9/pyopenjtalk
+-- cutlet: https://github.com/polm/cutlet
+-- Japanese IPA: https://en.wikipedia.org/wiki/Help:IPA/Japanese
+-
+-## Contributing
+-
+-To improve the Japanese dataset:
+-
+-1. Add more diverse sentence patterns
+-2. Test with specialized vocabulary (technical, literary, etc.)
+-3. Validate pronunciation with native speakers
+-4. Report any phoneme mismatches or errors
+-
+-## License
++## Limitations
+
+-The Japanese synthetic dataset is released under the same license as kokorog2p.
++- The fixture does not establish native-speaker pronunciation accuracy.
++- Backend output depends on dictionary and distribution versions.
++- Platform installation results come from the CI matrix, not from this document alone.
++- Japanese semantic written-to-spoken normalization is not provided by Spokenform.
+diff --git a/benchmarks/benchmark_ja_comparison.py b/benchmarks/benchmark_ja_comparison.py
+index 00ddd24..d1f41d8 100755
+--- a/benchmarks/benchmark_ja_comparison.py
++++ b/benchmarks/benchmark_ja_comparison.py
+@@ -1,38 +1,30 @@
+ #!/usr/bin/env python3
+-"""Comprehensive benchmark comparison for Japanese G2P configurations.
++"""Compare the supported Japanese G2P backends.
+
+-This script tests all possible configurations of kokorog2p for Japanese:
+-- pyopenjtalk backend (default)
+-- cutlet backend
+-- With/without espeak fallback
+-
+-It measures:
+-- Accuracy against ground truth
+-- Processing speed (sentences/second)
+-- Phoneme coverage
+-
+-Usage:
+-    python benchmarks/benchmark_ja_comparison.py
+-    python benchmarks/benchmark_ja_comparison.py --output results.json
+-    python benchmarks/benchmark_ja_comparison.py --verbose
+-    python benchmarks/benchmark_ja_comparison.py --config "pyopenjtalk"
++This benchmark measures coverage and throughput. It does not call coverage or
++successful conversion "accuracy" because those metrics are not pronunciation
++quality measurements.
+ """
+
++from __future__ import annotations
++
+ import argparse
++import importlib.metadata
+ import json
++import platform
+ import sys
+ import time
+-from dataclasses import dataclass, field
++from dataclasses import asdict, dataclass, field
+ from pathlib import Path
+ from typing import Any
+
+
+ @dataclass
+ class ConfigBenchmark:
+-    """Results from benchmarking a single configuration."""
++    """Results from benchmarking one Japanese backend configuration."""
+
+     config_name: str
+-    accuracy_percent: float
++    coverage_rate: float
+     sentences_per_second: float
+     total_time_ms: float
+     total_sentences: int
+@@ -40,252 +32,181 @@ class ConfigBenchmark:
+     successful: int
+     failed: int
+     unique_phonemes: int
+-    errors: list[tuple[int, str, str]] = field(
+-        default_factory=list
+-    )  # (id, expected, got)
++    dependency_metadata: dict[str, str | None]
++    errors: list[tuple[int, str, str]] = field(default_factory=list)
+
+
+ def load_synthetic_data() -> dict[str, Any]:
+-    """Load Japanese synthetic benchmark data."""
++    """Load the checked-in Japanese synthetic benchmark dataset."""
+     filepath = Path(__file__).parent / "data" / "ja_synthetic.json"
+-    if not filepath.exists():
++    if not filepath.is_file():
+         raise FileNotFoundError(f"Japanese synthetic data not found: {filepath}")
+-
+-    with open(filepath) as f:
+-        return json.load(f)
++    with filepath.open(encoding="utf-8") as file:
++        return json.load(file)
++
++
++def _distribution_version(name: str) -> str | None:
++    try:
++        return importlib.metadata.version(name)
++    except importlib.metadata.PackageNotFoundError:
++        return None
++
++
++def dependency_metadata(backend: str) -> dict[str, str | None]:
++    """Return package and runtime identity needed to interpret results."""
++    metadata = {
++        "kokorog2p": _distribution_version("kokorog2p"),
++        "python": platform.python_version(),
++        "platform": platform.platform(),
++        "architecture": platform.machine(),
++        "backend": backend,
++        "pyopenjtalk": _distribution_version("pyopenjtalk"),
++        "pyopenjtalk-plus": _distribution_version("pyopenjtalk-plus"),
++    }
++    if backend == "cutlet":
++        metadata.update(
++            {
++                "fugashi": _distribution_version("fugashi"),
++                "unidic": _distribution_version("unidic"),
++                "unidic-lite": _distribution_version("unidic-lite"),
++                "cutlet-implementation": "kokorog2p.vendored.cutlet",
++            }
++        )
++    return metadata
+
+
+ def create_g2p(config: dict[str, Any]):
+-    """Create a Japanese G2P instance with the given configuration."""
++    """Create a Japanese G2P instance from a backend-only configuration."""
+     from kokorog2p.ja import JapaneseG2P
+
+-    return JapaneseG2P(
+-        use_espeak_fallback=config.get("use_espeak", False),
+-        version=config.get("version", "pyopenjtalk"),
+-    )
++    return JapaneseG2P(backend=config.get("backend", "pyopenjtalk"))
+
+
+-def benchmark_config(g2p, data: dict[str, Any], config_name: str) -> ConfigBenchmark:
+-    """Benchmark a single G2P configuration."""
++def benchmark_config(
++    g2p, data: dict[str, Any], config_name: str, backend: str
++) -> ConfigBenchmark:
++    """Measure warm steady-state conversion and dataset coverage."""
+     sentences = data["sentences"]
++    if sentences:
++        g2p(sentences[0]["text"])
++
+     successful = 0
+     failed = 0
+     total_words = 0
+-    errors = []
+-    phonemes_used = set()
+-
++    errors: list[tuple[int, str, str]] = []
++    phonemes_used: set[str] = set()
+     start_time = time.perf_counter()
+
+     for sentence in sentences:
+         sentence_id = sentence["id"]
+         text = sentence["text"]
+         expected_phonemes = sentence["phonemes"]
+-        word_count = sentence.get("word_count", len(text.split()))
+-
+-        # Phonemize
++        total_words += sentence.get("word_count", len(text.split()))
+         try:
+             tokens = g2p(text)
+-        except Exception as e:
+-            failed += 1
+-            errors.append((sentence_id, expected_phonemes, f"ERROR: {e}"))
+-            continue
+-
+-        # Extract phonemes
+-        all_phonemes = []
+-        for token in tokens:
+-            if token.phonemes:
+-                all_phonemes.append(token.phonemes)
+-                # Track unique phonemes (each character is a phoneme in Japanese)
+-                phonemes_used.update(c for c in token.phonemes if c not in ("", " "))
+-
+-        got_phonemes = " ".join(all_phonemes)
+-        total_words += word_count
+-
+-        # Compare (normalize whitespace)
+-        expected_norm = " ".join(expected_phonemes.split())
+-        got_norm = " ".join(got_phonemes.split())
++            got_phonemes = " ".join(
++                token.phonemes for token in tokens if token.phonemes
++            )
++            phonemes_used.update(char for char in got_phonemes if char != " ")
++        except Exception as exc:
++            got_phonemes = f"ERROR: {exc}"
+
+-        if expected_norm == got_norm:
++        expected_normalized = " ".join(expected_phonemes.split())
++        got_normalized = " ".join(got_phonemes.split())
++        if "ERROR:" not in got_phonemes and expected_normalized == got_normalized:
+             successful += 1
+         else:
+             failed += 1
+             if len(errors) < 20:
+                 errors.append((sentence_id, expected_phonemes, got_phonemes))
+
+-    end_time = time.perf_counter()
+-    total_time_ms = (end_time - start_time) * 1000
+-
++    total_time_ms = (time.perf_counter() - start_time) * 1000
++    sentence_count = len(sentences)
+     return ConfigBenchmark(
+         config_name=config_name,
+-        accuracy_percent=(successful / len(sentences) * 100) if sentences else 0,
+-        sentences_per_second=len(sentences) / (total_time_ms / 1000)
++        coverage_rate=(successful / sentence_count * 100) if sentence_count else 0,
++        sentences_per_second=(sentence_count / (total_time_ms / 1000))
+         if total_time_ms > 0
+         else 0,
+         total_time_ms=total_time_ms,
+-        total_sentences=len(sentences),
++        total_sentences=sentence_count,
+         total_words=total_words,
+         successful=successful,
+         failed=failed,
+         unique_phonemes=len(phonemes_used),
++        dependency_metadata=dependency_metadata(backend),
+         errors=errors,
+     )
+
+
+-def print_results(results: list[ConfigBenchmark], verbose: bool = False):
+-    """Print benchmark results in a nice table."""
++def print_results(results: list[ConfigBenchmark], verbose: bool = False) -> None:
++    """Print benchmark results without implying pronunciation accuracy."""
+     print("\n" + "=" * 80)
+-    print("Japanese G2P Configuration Comparison")
++    print("Japanese G2P Backend Comparison")
+     print("=" * 80)
+     print(
+         f"Dataset: {results[0].total_sentences} sentences, "
+         f"{results[0].total_words} words"
+     )
+     print()
+-
+-    # Table header
+-    print(f"{'Configuration':<30} {'Accuracy':>10} {'Speed':>15} {'Phonemes':>10}")
++    print(f"{'Configuration':<24} {'Coverage':>10} {'Speed':>15} {'Phonemes':>10}")
+     print("-" * 80)
+-
+-    # Sort by accuracy, then speed
+-    sorted_results = sorted(
+-        results, key=lambda x: (-x.accuracy_percent, -x.sentences_per_second)
+-    )
+-
+-    for result in sorted_results:
++    for result in sorted(
++        results, key=lambda item: (-item.coverage_rate, -item.sentences_per_second)
++    ):
+         print(
+-            f"{result.config_name:<30} "
+-            f"{result.accuracy_percent:>9.1f}% "
+-            f"{result.sentences_per_second:>10,.0f} sent/s "
+-            f"{result.unique_phonemes:>10}"
++            f"{result.config_name:<24} {result.coverage_rate:>9.1f}% "
++            f"{result.sentences_per_second:>10,.0f} sent/s {result.unique_phonemes:>10}"
+         )
+-
+-    # Recommendations
+-    print("\n" + "=" * 80)
+-    print("Recommendations:")
+-    print("=" * 80)
+-
+-    best_accuracy = max(results, key=lambda x: x.accuracy_percent)
+-    best_speed = max(results, key=lambda x: x.sentences_per_second)
+-
+-    print(
+-        f"Best accuracy:  {best_accuracy.config_name} "
+-        f"({best_accuracy.accuracy_percent:.1f}%)"
+-    )
+-    print(
+-        f"Fastest:        {best_speed.config_name} "
+-        f"({best_speed.sentences_per_second:,.0f} sent/s)"
+-    )
+-    print()
+-
+-    # Show errors if verbose
+-    if verbose:
+-        for result in sorted_results:
+-            if result.errors:
+-                print(f"\n--- Errors for {result.config_name} ---")
+-                for sentence_id, expected, got in result.errors[:5]:
+-                    print(f"Sentence #{sentence_id}:")
+-                    print(f"  Expected: {expected[:100]}")
+-                    print(f"  Got:      {got[:100]}")
+-                if len(result.errors) > 5:
+-                    print(f"  ... and {len(result.errors) - 5} more errors")
+-
+-
+-def main():
+-    parser = argparse.ArgumentParser(
+-        description="Benchmark Japanese G2P configurations"
+-    )
+-    parser.add_argument("--output", "-o", type=Path, help="Save results to JSON file")
+-    parser.add_argument(
+-        "--verbose", "-v", action="store_true", help="Show detailed errors"
+-    )
+-    parser.add_argument(
+-        "--config", "-c", type=str, help="Test only specific configuration"
+-    )
+-
++        if verbose:
++            for sentence_id, expected, got in result.errors[:5]:
++                print(
++                    f"  Sentence #{sentence_id}: "
++                    f"expected={expected[:100]!r} got={got[:100]!r}"
++                )
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description="Benchmark Japanese G2P backends")
++    parser.add_argument("--output", "-o", type=Path, help="Save results to JSON")
++    parser.add_argument("--verbose", "-v", action="store_true", help="Show mismatches")
++    parser.add_argument("--config", "-c", choices=["pyopenjtalk", "cutlet"])
+     args = parser.parse_args()
+
+-    # Load data
+-    print("Loading Japanese synthetic data...")
+     data = load_synthetic_data()
+-    print(f"Loaded {len(data['sentences'])} sentences")
+-
+-    # Define configurations to test
+-    all_configs = {
+-        "pyopenjtalk": {
+-            "version": "pyopenjtalk",
+-            "use_espeak": False,
+-        },
+-        "pyopenjtalk + espeak": {
+-            "version": "pyopenjtalk",
+-            "use_espeak": True,
+-        },
+-        "cutlet": {
+-            "version": "cutlet",
+-            "use_espeak": False,
+-        },
+-        "cutlet + espeak": {
+-            "version": "cutlet",
+-            "use_espeak": True,
+-        },
++    configurations = {
++        "pyopenjtalk": {"backend": "pyopenjtalk"},
++        "cutlet": {"backend": "cutlet"},
+     }
+-
+-    # Filter if specific config requested
+     if args.config:
+-        if args.config not in all_configs:
+-            print(f"Error: Unknown configuration '{args.config}'")
+-            print(f"Available: {', '.join(all_configs.keys())}")
+-            return 1
+-        configs_to_test = {args.config: all_configs[args.config]}
+-    else:
+-        configs_to_test = all_configs
++        configurations = {args.config: configurations[args.config]}
+
+-    # Run benchmarks
+     results = []
+-    for config_name, config in configs_to_test.items():
+-        print(f"\nTesting: {config_name}...")
++    for name, config in configurations.items():
++        print(f"Testing {name}...")
+         try:
+-            g2p = create_g2p(config)
+-            result = benchmark_config(g2p, data, config_name)
+-            results.append(result)
+-            print(
+-                f"  → {result.accuracy_percent:.1f}% accuracy, "
+-                f"{result.sentences_per_second:,.0f} sent/s"
+-            )
+-        except Exception as e:
+-            print(f"  → Error: {e}")
++            result = benchmark_config(create_g2p(config), data, name, config["backend"])
++        except Exception as exc:
++            print(f"  Backend unavailable: {exc}")
+             continue
++        results.append(result)
+
+     if not results:
+-        print("\n✗ No configurations completed successfully")
++        print("No backend completed successfully", file=sys.stderr)
+         return 1
+
+-    # Print results
+-    print_results(results, verbose=args.verbose)
+-
+-    # Save to JSON if requested
++    print_results(results, args.verbose)
+     if args.output:
+-        output_data = {
+-            "dataset": "ja_synthetic.json",
++        payload = {
++            "dataset": "benchmarks/data/ja_synthetic.json",
+             "total_sentences": data["metadata"]["total_sentences"],
+-            "total_words": sum(s.get("word_count", 0) for s in data["sentences"]),
+-            "results": [
+-                {
+-                    "config_name": r.config_name,
+-                    "accuracy_percent": r.accuracy_percent,
+-                    "sentences_per_second": r.sentences_per_second,
+-                    "total_time_ms": r.total_time_ms,
+-                    "successful": r.successful,
+-                    "failed": r.failed,
+-                    "unique_phonemes": r.unique_phonemes,
+-                }
+-                for r in results
+-            ],
++            "results": [asdict(result) for result in results],
+         }
+-
+-        with open(args.output, "w") as f:
+-            json.dump(output_data, f, indent=2)
+-        print(f"\n✓ Results saved to: {args.output}")
+-
++        args.output.write_text(
++            json.dumps(payload, indent=2, ensure_ascii=False),
++            encoding="utf-8",
++        )
++        print(f"Results saved to {args.output}")
+     return 0
+
+
+diff --git a/benchmarks/benchmark_ja_g2p.py b/benchmarks/benchmark_ja_g2p.py
+index 4527d10..a7655f2 100644
+--- a/benchmarks/benchmark_ja_g2p.py
++++ b/benchmarks/benchmark_ja_g2p.py
+@@ -1,24 +1,21 @@
+-"""Benchmarks for kokorog2p Japanese G2P conversion.
++#!/usr/bin/env python3
++"""Throughput and coverage benchmarks for Japanese G2P."""
+
+-This module provides benchmarks to measure:
+-1. G2P conversion throughput
+-2. Vocabulary coverage validation
+-3. End-to-end phonemization throughput for Japanese text
+-4. Comparison between pyopenjtalk and cutlet backends
+-
+-Run with: python -m benchmarks.benchmark_ja_g2p
+-"""
++from __future__ import annotations
+
++import argparse
+ import random
+ import sys
+ import time
+ from dataclasses import dataclass, field
+ from pathlib import Path
+
++from benchmarks.benchmark_ja_comparison import dependency_metadata
++
+
+ @dataclass
+ class BenchmarkResult:
+-    """Results from a benchmark run."""
++    """A benchmark result with coverage terminology, not pronunciation accuracy."""
+
+     name: str
+     total_words: int
+@@ -26,501 +23,194 @@ class BenchmarkResult:
+     failed: int
+     total_time_ms: float
+     words_per_second: float
+-    accuracy_percent: float
+-    errors: list[tuple[str, str, str]] = field(
+-        default_factory=list
+-    )  # (word, expected, got)
++    coverage_rate: float
++    dependency_metadata: dict[str, str | None]
++    errors: list[tuple[str, str, str]] = field(default_factory=list)
+
+     def __str__(self) -> str:
+         return (
+             f"\n{'=' * 60}\n"
+             f"Benchmark: {self.name}\n"
+             f"{'=' * 60}\n"
+-            f"Total words:      {self.total_words:,}\n"
++            f"Total items:      {self.total_words:,}\n"
+             f"Successful:       {self.successful:,}\n"
+             f"Failed:           {self.failed:,}\n"
+-            f"Accuracy:         {self.accuracy_percent:.2f}%\n"
++            f"Coverage:         {self.coverage_rate:.2f}%\n"
+             f"Total time:       {self.total_time_ms:.2f} ms\n"
+-            f"Words/second:     {self.words_per_second:,.0f}\n"
++            f"Items/second:     {self.words_per_second:,.0f}\n"
+         )
+
+
+ def load_word_list(path: Path) -> list[str]:
+-    """Load a word list from a text file.
+-
+-    Args:
+-        path: Path to the word list file (one word per line).
+-
+-    Returns:
+-        List of words.
+-    """
+-    with open(path, encoding="utf-8") as f:
+-        return [line.strip() for line in f if line.strip()]
++    """Load one Japanese word per line."""
++    with path.open(encoding="utf-8") as file:
++        return [line.strip() for line in file if line.strip()]
++
++
++def _result(
++    name: str,
++    total: int,
++    successful: int,
++    elapsed_ms: float,
++    errors: list[tuple[str, str, str]],
++    *,
++    backend: str = "pyopenjtalk",
++) -> BenchmarkResult:
++    return BenchmarkResult(
++        name=name,
++        total_words=total,
++        successful=successful,
++        failed=total - successful,
++        total_time_ms=elapsed_ms,
++        words_per_second=(total / (elapsed_ms / 1000)) if elapsed_ms else 0,
++        coverage_rate=(successful / total * 100) if total else 0,
++        dependency_metadata=dependency_metadata(backend),
++        errors=errors,
++    )
+
+
+ def benchmark_g2p_throughput(
+-    g2p,
+-    words: list[str],
+-    name: str = "G2P Throughput",
++    g2p, words: list[str], name: str = "G2P Throughput"
+ ) -> BenchmarkResult:
+-    """Benchmark G2P conversion throughput for Japanese words.
+-
+-    Args:
+-        g2p: The G2P instance to test.
+-        words: List of words to convert.
+-        name: Name for this benchmark.
+-
+-    Returns:
+-        BenchmarkResult with timing data.
+-    """
+-    successful = 0
+-    failed = 0
++    """Measure warm G2P conversion coverage and throughput."""
++    if words:
++        g2p(words[0])
+     errors: list[tuple[str, str, str]] = []
+-
++    successful = 0
+     start_time = time.perf_counter()
+-
+     for word in words:
+         try:
+             tokens = g2p(word)
+-            if tokens and tokens[0].phonemes:
++            if tokens and any(token.phonemes for token in tokens):
+                 successful += 1
+-            else:
+-                failed += 1
+-                if len(errors) < 100:
+-                    errors.append((word, "expected phonemes", "None"))
+-        except Exception as e:
+-            failed += 1
++            elif len(errors) < 100:
++                errors.append((word, "phonemes", "None"))
++        except Exception as exc:
+             if len(errors) < 100:
+-                errors.append((word, "no error", str(e)))
+-
+-    end_time = time.perf_counter()
+-    total_time_ms = (end_time - start_time) * 1000
+-
+-    return BenchmarkResult(
+-        name=name,
+-        total_words=len(words),
+-        successful=successful,
+-        failed=failed,
+-        total_time_ms=total_time_ms,
+-        words_per_second=len(words) / (total_time_ms / 1000)
+-        if total_time_ms > 0
+-        else 0,
+-        accuracy_percent=(successful / len(words) * 100) if words else 0,
+-        errors=errors,
+-    )
++                errors.append((word, "no error", str(exc)))
++    elapsed_ms = (time.perf_counter() - start_time) * 1000
++    return _result(name, len(words), successful, elapsed_ms, errors)
+
+
+ def benchmark_sentence_throughput(
+-    g2p,
+-    sentences: list[str],
+-    name: str = "Sentence Throughput",
++    g2p, sentences: list[str], name: str = "Sentence Throughput"
+ ) -> BenchmarkResult:
+-    """Benchmark sentence phonemization throughput for Japanese.
+-
+-    Args:
+-        g2p: The G2P instance to test.
+-        sentences: List of sentences to convert.
+-        name: Name for this benchmark.
+-
+-    Returns:
+-        BenchmarkResult with timing data.
+-    """
+-    total_chars = 0
++    """Measure warm sentence conversion coverage and throughput."""
++    if sentences:
++        g2p(sentences[0])
+     successful = 0
+-
+     start_time = time.perf_counter()
+-
+     for sentence in sentences:
+-        tokens = g2p(sentence)
+-        total_chars += len(sentence)
+-        if tokens:
++        if g2p(sentence):
+             successful += 1
+-
+-    end_time = time.perf_counter()
+-    total_time_ms = (end_time - start_time) * 1000
+-
+-    return BenchmarkResult(
+-        name=name,
+-        total_words=len(sentences),
+-        successful=successful,
+-        failed=len(sentences) - successful,
+-        total_time_ms=total_time_ms,
+-        words_per_second=total_chars / (total_time_ms / 1000)
+-        if total_time_ms > 0
+-        else 0,
+-        accuracy_percent=(successful / len(sentences) * 100) if sentences else 0,
+-    )
++    elapsed_ms = (time.perf_counter() - start_time) * 1000
++    return _result(name, len(sentences), successful, elapsed_ms, [])
+
+
+ def benchmark_vocab_validation(
+-    g2p,
+-    words: list[str],
+-    name: str = "Vocab Validation",
++    g2p, words: list[str], name: str = "Vocab Validation"
+ ) -> BenchmarkResult:
+-    """Validate that all generated phonemes are in Kokoro vocabulary.
+-
+-    Args:
+-        g2p: The G2P instance to test.
+-        words: List of words to convert and validate.
+-        name: Name for this benchmark.
+-
+-    Returns:
+-        BenchmarkResult with validation data.
+-    """
++    """Measure the rate of outputs accepted by the Kokoro vocabulary."""
+     from kokorog2p.vocab import validate_for_kokoro
+
+-    successful = 0
+-    failed = 0
+     errors: list[tuple[str, str, str]] = []
+-
++    successful = 0
+     start_time = time.perf_counter()
+-
+     for word in words:
+         tokens = g2p(word)
+-        if not tokens or not tokens[0].phonemes:
+-            failed += 1
+-            if len(errors) < 100:
+-                errors.append((word, "expected phonemes", "None"))
+-            continue
+-
+-        # Get the phoneme string (without pitch markers)
+-        phonemes = tokens[0].phonemes
+-        # Japanese phonemes include pitch markers like _^- at the end
+-        # We need to extract just the phoneme part
+-        if phonemes:
+-            # Split phonemes from pitch markers (pitch markers are _^-j)
+-            phoneme_part = ""
+-            for char in phonemes:
+-                if char not in "_^-j":
+-                    phoneme_part += char
+-
+-            is_valid, invalid = validate_for_kokoro(phoneme_part)
+-            if is_valid:
+-                successful += 1
+-            else:
+-                failed += 1
+-                if len(errors) < 100:
+-                    errors.append((word, phoneme_part, f"Invalid: {invalid}"))
+-        else:
+-            failed += 1
+-
+-    end_time = time.perf_counter()
+-    total_time_ms = (end_time - start_time) * 1000
+-
+-    return BenchmarkResult(
+-        name=name,
+-        total_words=len(words),
+-        successful=successful,
+-        failed=failed,
+-        total_time_ms=total_time_ms,
+-        words_per_second=len(words) / (total_time_ms / 1000)
+-        if total_time_ms > 0
+-        else 0,
+-        accuracy_percent=(successful / len(words) * 100) if words else 0,
+-        errors=errors,
+-    )
++        phonemes = "".join(token.phonemes or "" for token in tokens)
++        valid, invalid = validate_for_kokoro(phonemes)
++        if valid:
++            successful += 1
++        elif len(errors) < 100:
++            errors.append((word, phonemes, f"Invalid: {invalid}"))
++    elapsed_ms = (time.perf_counter() - start_time) * 1000
++    return _result(name, len(words), successful, elapsed_ms, errors)
+
+
+ def benchmark_encoding(
+-    g2p,
+-    words: list[str],
+-    name: str = "Kokoro Encoding",
++    g2p, words: list[str], name: str = "Kokoro Encoding"
+ ) -> BenchmarkResult:
+-    """Benchmark phoneme-to-token encoding speed for Japanese.
+-
+-    Args:
+-        g2p: The G2P instance to test.
+-        words: List of words to convert and encode.
+-        name: Name for this benchmark.
+-
+-    Returns:
+-        BenchmarkResult with timing and validation data.
+-    """
++    """Measure the rate of outputs that validate and encode for Kokoro."""
+     from kokorog2p.vocab import encode, validate_for_kokoro
+
+-    successful = 0
+-    failed = 0
+     errors: list[tuple[str, str, str]] = []
+-
++    successful = 0
+     start_time = time.perf_counter()
+-
+     for word in words:
+         tokens = g2p(word)
+-        if not tokens or not tokens[0].phonemes:
+-            failed += 1
+-            continue
+-
+-        phonemes = tokens[0].phonemes
+-        # Extract phoneme part without pitch markers
+-        phoneme_part = ""
+-        for char in phonemes:
+-            if char not in "_^-j":
+-                phoneme_part += char
+-
+-        is_valid, invalid = validate_for_kokoro(phoneme_part)
+-        if is_valid:
+-            ids = encode(phoneme_part)
+-            if ids:
+-                successful += 1
+-            else:
+-                failed += 1
+-                if len(errors) < 100:
+-                    errors.append((word, phoneme_part, "Empty encoding"))
+-        else:
+-            failed += 1
+-            if len(errors) < 100:
+-                errors.append((word, phoneme_part, f"Invalid chars: {invalid}"))
+-
+-    end_time = time.perf_counter()
+-    total_time_ms = (end_time - start_time) * 1000
+-
+-    return BenchmarkResult(
+-        name=name,
+-        total_words=len(words),
+-        successful=successful,
+-        failed=failed,
+-        total_time_ms=total_time_ms,
+-        words_per_second=len(words) / (total_time_ms / 1000)
+-        if total_time_ms > 0
+-        else 0,
+-        accuracy_percent=(successful / len(words) * 100) if words else 0,
+-        errors=errors,
+-    )
++        phonemes = "".join(token.phonemes or "" for token in tokens)
++        valid, invalid = validate_for_kokoro(phonemes)
++        if valid and encode(phonemes):
++            successful += 1
++        elif len(errors) < 100:
++            errors.append((word, phonemes, f"Invalid or empty encoding: {invalid}"))
++    elapsed_ms = (time.perf_counter() - start_time) * 1000
++    return _result(name, len(words), successful, elapsed_ms, errors)
+
+
+ def benchmark_phoneme_output(
+-    g2p,
+-    words: list[str],
+-    name: str = "Phoneme Output Sample",
++    g2p, words: list[str], name: str = "Phoneme Output Sample"
+ ) -> BenchmarkResult:
+-    """Sample phoneme outputs for inspection.
+-
+-    This benchmark doesn't measure accuracy but collects sample outputs
+-    for manual inspection of the G2P quality.
+-
+-    Args:
+-        g2p: The G2P instance to test.
+-        words: List of words to convert.
+-        name: Name for this benchmark.
+-
+-    Returns:
+-        BenchmarkResult with sample outputs in errors field.
+-    """
+-    samples: list[tuple[str, str, str]] = []
+-
++    """Collect output samples for manual pronunciation review."""
++    samples = []
+     start_time = time.perf_counter()
+-
+-    for word in words[:100]:  # Only sample first 100
++    for word in words[:100]:
+         tokens = g2p(word)
+-        phonemes = tokens[0].phonemes if tokens else "None"
++        phonemes = "".join(token.phonemes or "" for token in tokens)
+         samples.append((word, "", phonemes or "None"))
+-
+-    end_time = time.perf_counter()
+-    total_time_ms = (end_time - start_time) * 1000
+-
+-    return BenchmarkResult(
+-        name=name,
+-        total_words=len(words),
+-        successful=len(words),
+-        failed=0,
+-        total_time_ms=total_time_ms,
+-        words_per_second=len(words) / (total_time_ms / 1000)
+-        if total_time_ms > 0
+-        else 0,
+-        accuracy_percent=100.0,
+-        errors=samples,
+-    )
++    elapsed_ms = (time.perf_counter() - start_time) * 1000
++    return _result(name, len(words), len(words), elapsed_ms, samples)
+
+
+ def run_all_benchmarks(
+-    sample_size: int = 5000,
+-    seed: int = 42,
+-    verbose: bool = True,
++    sample_size: int = 5000, seed: int = 42, verbose: bool = True
+ ) -> list[BenchmarkResult]:
+-    """Run all Japanese G2P benchmarks.
+-
+-    Args:
+-        sample_size: Number of words to sample for each benchmark.
+-        seed: Random seed for reproducibility.
+-        verbose: Whether to print results.
+-
+-    Returns:
+-        List of BenchmarkResult objects.
+-    """
++    """Run Japanese benchmarks using the primary OpenJTalk backend."""
+     random.seed(seed)
+-    results: list[BenchmarkResult] = []
+-
+-    # Get data directory
+     data_dir = Path(__file__).parent.parent / "kokorog2p" / "ja" / "data"
+-    if not data_dir.exists():
+-        data_dir = Path(__file__).parent.parent / "ja" / "data"
+-
+     word_list_path = data_dir / "ja_words.txt"
+-
+-    print(f"Loading word list from {word_list_path}...")
+-
+-    # Load Japanese word list
+     all_words = load_word_list(word_list_path)
+-    print(f"Total words available: {len(all_words):,}")
+-
+-    # Sample words
+     sample_words = random.sample(all_words, min(sample_size, len(all_words)))
+
+-    # Import Japanese G2P
+-    print("\nInitializing Japanese G2P components...")
+     from kokorog2p.ja import JapaneseG2P
+
+-    # Initialize with pyopenjtalk backend (default)
+-    g2p_pyopenjtalk = JapaneseG2P(version="pyopenjtalk")
+-
+-    print("\nRunning benchmarks...\n")
+-
+-    # Benchmark 1: G2P Throughput (pyopenjtalk)
+-    result = benchmark_g2p_throughput(
+-        g2p_pyopenjtalk,
+-        sample_words,
+-        name="Japanese - G2P Throughput (pyopenjtalk)",
+-    )
+-    results.append(result)
+-    if verbose:
+-        print(result)
+-        if result.errors:
+-            print("Sample errors (word, expected, got):")
+-            for word, expected_val, got in result.errors[:10]:
+-                print(f"  {word}: {expected_val} -> {got}")
+-
+-    # Benchmark 2: Vocabulary validation
+-    result = benchmark_vocab_validation(
+-        g2p_pyopenjtalk,
+-        sample_words[: min(1000, len(sample_words))],
+-        name="Japanese - Vocab Validation",
+-    )
+-    results.append(result)
+-    if verbose:
+-        print(result)
+-        if result.errors:
+-            print("Sample errors (word, phonemes, issue):")
+-            for word, phonemes, issue in result.errors[:10]:
+-                print(f"  {word}: {phonemes} -> {issue}")
+-
+-    # Benchmark 3: Kokoro encoding
+-    result = benchmark_encoding(
+-        g2p_pyopenjtalk,
+-        sample_words[: min(1000, len(sample_words))],
+-        name="Japanese - Kokoro Encoding",
+-    )
+-    results.append(result)
+-    if verbose:
+-        print(result)
+-        if result.errors:
+-            print("Sample errors (word, phonemes, issue):")
+-            for word, phonemes, issue in result.errors[:10]:
+-                print(f"  {word}: {phonemes} -> {issue}")
+-
+-    # Benchmark 4: Sample phoneme outputs
+-    result = benchmark_phoneme_output(
+-        g2p_pyopenjtalk,
+-        sample_words,
+-        name="Japanese - Phoneme Output Sample",
+-    )
+-    results.append(result)
+-    if verbose:
+-        print(result)
+-        print("Sample outputs (word -> phonemes):")
+-        for word, _, phonemes in result.errors[:20]:
+-            print(f"  {word} -> {phonemes}")
+-
+-    # Benchmark 5: Sentence throughput
+-    sample_sentences = [
+-        "こんにちは、世界。",
+-        "今日はいい天気ですね。",
+-        "東京は日本の首都です。",
+-        "私は日本語を勉強しています。",
+-        "美味しいラーメンを食べました。",
+-        "電車で会社に行きます。",
+-        "週末は映画を見に行きたいです。",
+-        "この本はとても面白いです。",
+-        "明日の朝、早く起きなければなりません。",
+-        "彼女は歌がとても上手です。",
+-    ] * 100  # 1000 sentences
+-
+-    result = benchmark_sentence_throughput(
+-        g2p_pyopenjtalk,
+-        sample_sentences,
+-        name="Japanese - Sentence Throughput",
+-    )
+-    results.append(result)
++    g2p = JapaneseG2P(backend="pyopenjtalk")
++    results = [
++        benchmark_g2p_throughput(g2p, sample_words, "Japanese G2P Throughput"),
++        benchmark_vocab_validation(g2p, sample_words[:1000]),
++        benchmark_encoding(g2p, sample_words[:1000]),
++        benchmark_phoneme_output(g2p, sample_words),
++        benchmark_sentence_throughput(
++            g2p,
++            [
++                "こんにちは、世界。",
++                "今日はいい天気ですね。",
++                "東京は日本の首都です。",
++                "私は日本語を勉強しています。",
++            ]
++            * 250,
++        ),
++    ]
+     if verbose:
+-        print(result)
+-
+-    # Try cutlet backend if available
+-    try:
+-        print("\nTrying cutlet backend...")
+-        g2p_cutlet = JapaneseG2P(version="cutlet")
+-
+-        # Benchmark 6: G2P Throughput (cutlet)
+-        result = benchmark_g2p_throughput(
+-            g2p_cutlet,
+-            sample_words[: min(1000, len(sample_words))],
+-            name="Japanese - G2P Throughput (cutlet)",
+-        )
+-        results.append(result)
+-        if verbose:
++        for result in results:
+             print(result)
+-
+-    except ImportError as e:
+-        print(f"Cutlet backend not available: {e}")
+-    except Exception as e:
+-        print(f"Failed to initialize cutlet backend: {e}")
+-
+-    # Summary
+-    if verbose:
+-        print("\n" + "=" * 60)
+-        print("SUMMARY")
+-        print("=" * 60)
+-        for r in results:
+-            print(
+-                f"{r.name:45} | {r.accuracy_percent:6.2f}% "
+-                f"| {r.words_per_second:10,.0f} words/sec"
+-            )
+-
+     return results
+
+
+-def main():
+-    """Run benchmarks from command line."""
+-    import argparse
+-
++def main() -> int:
+     parser = argparse.ArgumentParser(description="Run kokorog2p Japanese benchmarks")
+-    parser.add_argument(
+-        "--sample-size",
+-        "-n",
+-        type=int,
+-        default=5000,
+-        help="Number of words to sample (default: 5000)",
+-    )
+-    parser.add_argument(
+-        "--seed", "-s", type=int, default=42, help="Random seed (default: 42)"
+-    )
+-    parser.add_argument(
+-        "--quiet", "-q", action="store_true", help="Suppress verbose output"
+-    )
+-
++    parser.add_argument("--sample-size", "-n", type=int, default=5000)
++    parser.add_argument("--seed", "-s", type=int, default=42)
++    parser.add_argument("--quiet", "-q", action="store_true")
+     args = parser.parse_args()
+-
+-    results = run_all_benchmarks(
+-        sample_size=args.sample_size,
+-        seed=args.seed,
+-        verbose=not args.quiet,
+-    )
+-
+-    # Return non-zero if any benchmark has <90% accuracy
+-    critical_benchmarks = [
+-        r for r in results if "Validation" in r.name or "Encoding" in r.name
++    results = run_all_benchmarks(args.sample_size, args.seed, not args.quiet)
++    critical = [
++        result
++        for result in results
++        if "Validation" in result.name or "Encoding" in result.name
+     ]
+-    if any(r.accuracy_percent < 90 for r in critical_benchmarks):
+-        return 1
+-    return 0
++    return 0 if all(result.coverage_rate >= 90 for result in critical) else 1
+
+
+ if __name__ == "__main__":
+diff --git a/docs/installation.md b/docs/installation.md
+index bebf813..0b15798 100644
+--- a/docs/installation.md
++++ b/docs/installation.md
+@@ -79,17 +79,30 @@ This includes:
+
+ ### Japanese
+
+-For Japanese support:
++For the recommended OpenJTalk-compatible Japanese backend:
+
+ ```bash
+-pip install kokorog2p[ja]
++pip install "kokorog2p[ja]"
+ ```
+
+-This includes:
++This installs only the primary `pyopenjtalk` frontend and the Kokoro mora mapper. The
++legacy Cutlet backend is separate:
++
++```bash
++pip install "kokorog2p[ja-cutlet]"
++```
++
++The Cutlet extra uses `unidic-lite` and is intended for compatibility use. Full UniDic
++is an explicit opt-in and is not downloaded by pip:
++
++```bash
++pip install "kokorog2p[ja-cutlet-full]"
++python -m unidic download
++```
+
+-- pyopenjtalk for text analysis
+-- Cutlet for romanization
+-- Mora-based phoneme generation
++`backend` selects the Japanese frontend and `version` selects the target model
++representation. `use_espeak_fallback` is retained for API compatibility but is not used
++by Japanese G2P.
+
+ ### Mixed-Language Detection
+
+diff --git a/docs/languages.md b/docs/languages.md
+index bc72559..cfb816e 100644
+--- a/docs/languages.md
++++ b/docs/languages.md
+@@ -513,14 +513,17 @@ print(phonemize("你好世界", language="zh"))
+
+ ## Japanese (ja)
+
+-Japanese G2P uses pyopenjtalk for text analysis and mora-based phoneme generation.
++Japanese G2P uses an OpenJTalk-compatible frontend for linguistic analysis, then maps
++pronunciation moras and accent metadata into the Kokoro Japanese vocabulary.
+
+ ### Features
+
+-- **pyopenjtalk**: Full Japanese text analysis
+-- **Mora-based**: Phonemes aligned with mora structure
+-- **Pitch accent**: Automatic pitch accent assignment
+-- **Number handling**: Japanese numerals
++- **OpenJTalk frontend**: Morphological analysis, readings, phrase boundaries, and
++  accent data
++- **Mora-based mapping**: Japanese pronunciation is converted to Kokoro phoneme symbols
++- **Aligned pitch channel**: `JapaneseG2P.phonemize()` returns base phonemes followed by
++  an equally long pitch/control channel
++- **Optional Cutlet backend**: A legacy romaji backend is available separately
+
+ ### Usage
+
+@@ -529,21 +532,24 @@ from kokorog2p.ja import JapaneseG2P
+
+ g2p = JapaneseG2P(
+     language="ja",
+-    version="pyopenjtalk"
++    backend="pyopenjtalk",
++    version="1.0",
+ )
++print(g2p.phonemize("こんにちは"))
+ ```
+
+-### Examples
++`backend` selects the linguistic frontend. `version` selects the target Kokoro model
++representation and is not a backend selector. The legacy `version="pyopenjtalk"` and
++`version="cutlet"` forms are deprecated.
+
+-```python
+-from kokorog2p import phonemize
++For the legacy backend, install `kokorog2p[ja-cutlet]`. The recommended `ja` extra
++contains only the primary OpenJTalk-compatible backend. Full UniDic is an explicit
++option and requires `python -m unidic download` after installation.
+
+-print(phonemize("こんにちは", language="ja"))
+-# → koɴɲit͡ɕiha
++### Japanese espeak flag
+
+-print(phonemize("世界", language="ja"))
+-# → sekai
+-```
++`use_espeak_fallback` is retained for common API compatibility but is not used by the
++Japanese backend. It is not a Japanese benchmark or performance configuration.
+
+ ## Korean (ko)
+
+diff --git a/kokorog2p/ja/cutlet.py b/kokorog2p/ja/cutlet.py
+index 22867de..350190f 100644
+--- a/kokorog2p/ja/cutlet.py
++++ b/kokorog2p/ja/cutlet.py
+@@ -252,10 +252,12 @@ KATAKANA_PHONETIC_EXT = {
+
+ # Load Japanese words
+ try:
+-    with importlib.resources.open_text(ja_data, "ja_words.txt") as f:
+-        JA_WORDS = frozenset(line.strip() for line in f)
+-except Exception:
+-    JA_WORDS = frozenset()
++    _resource = importlib.resources.files(ja_data).joinpath("ja_words.txt")
++    JA_WORDS = frozenset(_resource.read_text(encoding="utf-8").splitlines())
++except FileNotFoundError as exc:
++    raise RuntimeError(
++        "Japanese Cutlet backend data file ja_words.txt is missing"
++    ) from exc
+
+ SUTEGANA = frozenset("ゃゅょぁぃぅぇぉ")
+ ODORI = frozenset("〃々ゝゞヽ")
+@@ -291,7 +293,14 @@ class Cutlet:
+     """Japanese romaji/IPA converter using MeCab (via fugashi)."""
+
+     def __init__(self) -> None:
+-        self.tagger = Tagger()
++        try:
++            self.tagger = Tagger()
++        except Exception as exc:
++            raise RuntimeError(
++                "Japanese Cutlet requires a usable MeCab dictionary. "
++                "Install `kokorog2p[ja-cutlet]` or install the full-UniDic extra "
++                "and run `python -m unidic download`."
++            ) from exc
+         self.table = dict(HEPBURN)  # make a copy so we can modify it
+         self.exceptions = {}
+
+diff --git a/kokorog2p/ja/g2p.py b/kokorog2p/ja/g2p.py
+index cad9831..0e51a3b 100644
+--- a/kokorog2p/ja/g2p.py
++++ b/kokorog2p/ja/g2p.py
+@@ -9,10 +9,22 @@ Copyright 2024 kokorog2p contributors
+ Licensed under the Apache License, Version 2.0
+ """
+
++import warnings
++from collections.abc import Mapping
++from typing import Any, Protocol
++
+ from kokorog2p.base import G2PBase
+ from kokorog2p.token import GToken
+ from kokorog2p.tokenization import ensure_gtoken_positions
+
++
++class JapaneseFrontend(Protocol):
++    """OpenJTalk-compatible Japanese frontend."""
++
++    def run_frontend(self, text: str) -> list[Mapping[str, Any]]: ...
++
++
++JA_BACKENDS = frozenset({"pyopenjtalk", "cutlet"})
+ # Katakana to phoneme mapping
+ M2P = {
+     chr(12449): "a",  # ァ
+@@ -268,30 +280,40 @@ class JapaneseG2P(G2PBase):
+         load_silver: bool = True,
+         load_gold: bool = True,
+         version: str = "1.0",
++        frontend: JapaneseFrontend | None = None,
+         **kwargs,
+     ) -> None:
+         """Initialize the Japanese G2P.
+
+-        Args:
+-            language: Language code (e.g., 'ja', 'ja-jp').
+-            use_espeak_fallback: Whether to use espeak for unknown words.
+-            use_spacy: Reserved for API consistency. Japanese uses
+-                pyopenjtalk/cutlet backends for tokenization and phonemization.
+-            spacy_model: Reserved for API consistency when use_spacy is enabled.
+-            backend: Backend to use ("pyopenjtalk" or "cutlet").
+-            unk: Unknown token placeholder.
+-            load_silver: If True, load silver tier dictionary if available.
+-                Currently Japanese doesn't use dictionary system, so this
+-                parameter is reserved for future use and consistency.
+-                Defaults to True for consistency.
+-            load_gold: If True, load gold tier dictionary if available.
+-                Currently Japanese doesn't use dictionary system, so this
+-                parameter is reserved for future use and consistency.
+-                Defaults to True for consistency.
+-            version: Model version ("1.0" for base, "1.1" for multilingual).
+-                Default: "1.0".
+-            **kwargs: Additional arguments.
++        ``backend`` selects the linguistic frontend and ``version`` selects the
++        target Kokoro model representation. The old ``version=`` backend
++        selector is accepted temporarily with a deprecation warning.
+         """
++        if version in JA_BACKENDS:
++            if backend != "pyopenjtalk":
++                raise ValueError(
++                    "Japanese backend was supplied through both backend= "
++                    "and legacy version="
++                )
++            warnings.warn(
++                "Japanese backend selection through version= is deprecated; "
++                "use backend= instead.",
++                DeprecationWarning,
++                stacklevel=2,
++            )
++            backend = version
++            version = "1.0"
++
++        if backend not in JA_BACKENDS:
++            raise ValueError(
++                f"Unsupported Japanese backend {backend!r}; "
++                f"expected one of {sorted(JA_BACKENDS)!r}"
++            )
++        if frontend is not None and backend != "pyopenjtalk":
++            raise ValueError(
++                "A custom frontend can only be used with backend='pyopenjtalk'"
++            )
++
+         super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
+         self.backend = backend
+         self.version = version
+@@ -301,38 +323,66 @@ class JapaneseG2P(G2PBase):
+         self.spacy_model = None
+         self.load_silver = load_silver
+         self.load_gold = load_gold
++        self._frontend = frontend
+         self._pyopenjtalk = None
+         self._cutlet = None
+
+     @property
+     def pyopenjtalk(self):
+-        """Lazy import of pyopenjtalk."""
++        """Lazy import of pyopenjtalk with an actionable installation error."""
+         if self._pyopenjtalk is None:
+-            import pyopenjtalk
++            try:
++                import pyopenjtalk
++            except ImportError as exc:
++                raise ImportError(
++                    "Japanese OpenJTalk support is not installed. "
++                    "Install it with `pip install 'kokorog2p[ja]'`."
++                ) from exc
+
+             self._pyopenjtalk = pyopenjtalk
+         return self._pyopenjtalk
+
+     @property
+     def cutlet(self):
+-        """Lazy initialization of Cutlet backend."""
++        """Lazy initialization of the optional Cutlet backend."""
+         if self._cutlet is None and self.backend == "cutlet":
+-            from kokorog2p.ja.cutlet import Cutlet
++            try:
++                from kokorog2p.ja.cutlet import Cutlet
++            except ImportError as exc:
++                raise ImportError(
++                    "Japanese Cutlet support is not installed. "
++                    "Install it with `pip install 'kokorog2p[ja-cutlet]'`."
++                ) from exc
+
+             self._cutlet = Cutlet()
+         return self._cutlet
+
+     @staticmethod
+-    def pron2moras(pron: str) -> list[str]:
+-        """Convert pronunciation to mora list."""
++    def _pron2moras(pron: str) -> tuple[list[str], list[str]]:
++        """Convert pronunciation to moras and report unsupported symbols."""
+         moras = []
++        unsupported = []
+         for k in pron:
+             if k not in M2P:
++                unsupported.append(k)
+                 continue
+             if moras and moras[-1] + k in M2P:
+                 moras[-1] += k
+             else:
+                 moras.append(k)
++        return moras, unsupported
++
++    @staticmethod
++    def pron2moras(pron: str) -> list[str]:
++        """Convert pronunciation to mora list.
++
++        Raises:
++            ValueError: If the pronunciation contains an unsupported symbol.
++        """
++        moras, unsupported = JapaneseG2P._pron2moras(pron)
++        if unsupported:
++            symbols = "".join(dict.fromkeys(unsupported))
++            raise ValueError(f"Unsupported Japanese pronunciation symbols: {symbols!r}")
+         return moras
+
+     def __call__(self, text: str) -> list[GToken]:
+@@ -381,18 +431,41 @@ class JapaneseG2P(G2PBase):
+         # Use pyopenjtalk
+         return self._phonemize_pyopenjtalk(text)
+
++    @staticmethod
++    def _word_moras(word: Mapping[str, Any]) -> list[str]:
++        """Parse and validate the pronunciation and mora metadata of a word."""
++        pron = word["pron"]
++        mora_size = word["mora_size"]
++        if mora_size <= 0:
++            return []
++
++        moras, unsupported = JapaneseG2P._pron2moras(pron)
++        if unsupported:
++            symbols = "".join(dict.fromkeys(unsupported))
++            raise ValueError(
++                f"Unsupported Japanese pronunciation symbols in {pron!r}: {symbols!r}"
++            )
++        valid_size = len(moras) == mora_size or (
++            bool(moras) and moras[0] == "ー" and len(moras) + 1 == mora_size
++        )
++        if not valid_size:
++            raise ValueError(
++                f"Japanese mora count mismatch for {word['string']!r}: "
++                f"frontend={mora_size}, parsed={len(moras)}, "
++                f"pronunciation={pron!r}"
++            )
++        return moras
++
+     def _phonemize_pyopenjtalk(self, text: str) -> tuple[str, list[GToken] | None]:
+-        """Phonemize using pyopenjtalk."""
++        """Phonemize using an OpenJTalk-compatible frontend."""
+         tokens = []
+         last_a, _last_p = 0, ""
+         acc, mcount = None, 0
+
+-        for word in self.pyopenjtalk.run_frontend(text):
++        frontend = self._frontend if self._frontend is not None else self.pyopenjtalk
++        for word in frontend.run_frontend(text):
+             pron, mora_size = word["pron"], word["mora_size"]
+-            moras = []
+-            if mora_size > 0:
+-                moras = self.pron2moras(pron)
+-
++            moras = self._word_moras(word)
+             chain_flag = (
+                 mora_size > 0
+                 and tokens
+@@ -439,10 +512,8 @@ class JapaneseG2P(G2PBase):
+                 ):
+                     tokens[-1].whitespace = " "
+
+-            if (
+-                tokens
+-                and phonemes is None
+-                and surface == "・"
++            if tokens and (
++                (phonemes is None and surface == "・")
+                 or (surface and not surface.strip())
+             ):
+                 tokens[-1].whitespace = " "
+@@ -493,6 +564,11 @@ class JapaneseG2P(G2PBase):
+             result = result[: -len(tokens[-1].whitespace)]
+             pitch_str = pitch_str[: len(result)]
+
++        if len(result) != len(pitch_str):
++            raise RuntimeError(
++                "Japanese phoneme and pitch channels are misaligned: "
++                f"phonemes={len(result)}, pitch={len(pitch_str)}"
++            )
+         return result + pitch_str, tokens
+
+     def lookup(self, word: str, tag: str | None = None) -> str | None:
+diff --git a/pyproject.toml b/pyproject.toml
+index 8f94b58..ba90c5d 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -81,7 +81,15 @@ zh = [
+     "ordered-set>=4.1.0",
+ ]
+ ja = [
+-    "pyopenjtalk>=0.3.0",
++    "pyopenjtalk>=0.4.1,<0.5",
++]
++ja-cutlet = [
++    "fugashi>=1.3.0",
++    "jaconv>=0.3.4",
++    "mojimoji>=0.0.13",
++    "unidic-lite>=1.0.8",
++]
++ja-cutlet-full = [
+     "fugashi>=1.3.0",
+     "jaconv>=0.3.4",
+     "mojimoji>=0.0.13",
+@@ -98,7 +106,7 @@ mixed = [
+     "lingua-language-detector>=2.0.0",
+ ]
+ all = [
+-    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ko,he,mixed]",
++    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,mixed]",
+ ]
+ dev = [
+     "pytest>=7.0.0",
+diff --git a/scripts/compare_ja_frontends.py b/scripts/compare_ja_frontends.py
+new file mode 100644
+index 0000000..8397c49
+--- /dev/null
++++ b/scripts/compare_ja_frontends.py
+@@ -0,0 +1,122 @@
++#!/usr/bin/env python3
++"""Create or compare Japanese frontend snapshots in clean environments.
++
++Run this script once in an environment containing upstream pyopenjtalk and once
++in an environment containing pyopenjtalk-plus. Never install both distributions
++into the same environment because they provide the same import namespace.
++"""
++
++from __future__ import annotations
++
++import argparse
++import importlib.metadata
++import json
++import platform
++from pathlib import Path
++from typing import Any
++
++DEFAULT_TEXTS = [
++    "こんにちは、世界。",
++    "今日はいい天気ですね。",
++    "東京は日本の首都です。",
++    "一人で三本のペンを買いました。",
++    "コンピューターとヴァイオリン。",
++]
++
++
++def package_version(name: str) -> str | None:
++    try:
++        return importlib.metadata.version(name)
++    except importlib.metadata.PackageNotFoundError:
++        return None
++
++
++def create_snapshot(label: str, texts: list[str]) -> dict[str, Any]:
++    """Capture frontend records and final model input for one clean environment."""
++    from kokorog2p.ja import JapaneseG2P
++
++    g2p = JapaneseG2P(backend="pyopenjtalk")
++    rows = []
++    for text in texts:
++        rows.append(
++            {
++                "text": text,
++                "frontend": g2p.pyopenjtalk.run_frontend(text),
++                "model_input": g2p.phonemize(text),
++            }
++        )
++    return {
++        "label": label,
++        "environment": {
++            "python": platform.python_version(),
++            "platform": platform.platform(),
++            "pyopenjtalk": package_version("pyopenjtalk"),
++            "pyopenjtalk-plus": package_version("pyopenjtalk-plus"),
++        },
++        "rows": rows,
++    }
++
++
++def compare(reference: dict[str, Any], candidate: dict[str, Any]) -> dict[str, Any]:
++    """Classify differences at frontend and final model-input levels."""
++    reference_rows = {row["text"]: row for row in reference["rows"]}
++    differences = []
++    for candidate_row in candidate["rows"]:
++        text = candidate_row["text"]
++        reference_row = reference_rows[text]
++        frontend_changed = candidate_row["frontend"] != reference_row["frontend"]
++        model_input_changed = (
++            candidate_row["model_input"] != reference_row["model_input"]
++        )
++        if frontend_changed or model_input_changed:
++            differences.append(
++                {
++                    "text": text,
++                    "frontend_changed": frontend_changed,
++                    "model_input_changed": model_input_changed,
++                    "classification": (
++                        "model_input_changed"
++                        if model_input_changed
++                        else "frontend_only"
++                    ),
++                }
++            )
++    return {
++        "reference": reference["environment"],
++        "candidate": candidate["environment"],
++        "differences": differences,
++    }
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--label", choices=["upstream", "plus"])
++    parser.add_argument("--output", type=Path)
++    parser.add_argument("--compare", nargs=2, metavar=("REFERENCE", "CANDIDATE"))
++    parser.add_argument("--comparison-output", type=Path)
++    args = parser.parse_args()
++
++    if args.compare:
++        reference = json.loads(Path(args.compare[0]).read_text(encoding="utf-8"))
++        candidate = json.loads(Path(args.compare[1]).read_text(encoding="utf-8"))
++        result = compare(reference, candidate)
++        output = json.dumps(result, indent=2, ensure_ascii=False)
++        if args.comparison_output:
++            args.comparison_output.write_text(output + "\n", encoding="utf-8")
++        else:
++            print(output)
++        return 0
++
++    if not args.label or not args.output:
++        parser.error("--label and --output are required when creating a snapshot")
++    snapshot = create_snapshot(args.label, DEFAULT_TEXTS)
++    args.output.write_text(
++        json.dumps(snapshot, indent=2, ensure_ascii=False) + "\n",
++        encoding="utf-8",
++    )
++    print(f"Wrote {args.label} snapshot to {args.output}")
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/tests/test_dependency_contract.py b/tests/test_dependency_contract.py
+index 7bdc8eb..cbe7def 100644
+--- a/tests/test_dependency_contract.py
++++ b/tests/test_dependency_contract.py
+@@ -17,3 +17,14 @@ def test_migrated_semantic_dependency_floors() -> None:
+     # baseline for the current migration.
+     assert "abbr2words>=0.2.9,<0.3.0" in dependencies
+     assert "spokenform>=0.3.1,<0.4.0" in dependencies
++
++
++def test_japanese_dependency_extras_are_separated() -> None:
++    data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
++    extras = data["project"]["optional-dependencies"]
++
++    assert extras["ja"] == ["pyopenjtalk>=0.4.1,<0.5"]
++    assert "fugashi>=1.3.0" not in extras["ja"]
++    assert "unidic-lite>=1.0.8" in extras["ja-cutlet"]
++    assert "unidic>=1.1.0" in extras["ja-cutlet-full"]
++    assert "unidic-lite>=1.0.8" not in extras["ja-cutlet-full"]
+diff --git a/tests/test_ja_benchmarks.py b/tests/test_ja_benchmarks.py
+new file mode 100644
+index 0000000..21c4cf5
+--- /dev/null
++++ b/tests/test_ja_benchmarks.py
+@@ -0,0 +1,41 @@
++"""Tests for Japanese benchmark contracts that do not require native backends."""
++
++from benchmarks.benchmark_ja_comparison import create_g2p
++from scripts.compare_ja_frontends import compare
++
++
++def test_comparison_uses_distinct_backend_selector(monkeypatch) -> None:
++    selected = []
++
++    class FakeJapaneseG2P:
++        def __init__(self, **kwargs):
++            selected.append(kwargs["backend"])
++
++    monkeypatch.setattr("kokorog2p.ja.JapaneseG2P", FakeJapaneseG2P)
++    create_g2p({"backend": "pyopenjtalk"})
++    create_g2p({"backend": "cutlet"})
++    assert selected == ["pyopenjtalk", "cutlet"]
++
++
++def test_frontend_comparison_classifies_model_input_changes() -> None:
++    reference = {
++        "environment": {"label": "upstream"},
++        "rows": [
++            {"text": "今日は", "frontend": [{"pron": "キョウ"}], "model_input": "abc"}
++        ],
++    }
++    candidate = {
++        "environment": {"label": "plus"},
++        "rows": [
++            {"text": "今日は", "frontend": [{"pron": "キョー"}], "model_input": "def"}
++        ],
++    }
++    result = compare(reference, candidate)
++    assert result["differences"] == [
++        {
++            "text": "今日は",
++            "frontend_changed": True,
++            "model_input_changed": True,
++            "classification": "model_input_changed",
++        }
++    ]
+diff --git a/tests/test_ja_g2p.py b/tests/test_ja_g2p.py
+new file mode 100644
+index 0000000..f45d90e
+--- /dev/null
++++ b/tests/test_ja_g2p.py
+@@ -0,0 +1,173 @@
++"""Deterministic and optional integration tests for Japanese G2P."""
++
++from __future__ import annotations
++
++import importlib.resources
++import sys
++from dataclasses import dataclass
++
++import pytest
++
++from kokorog2p.ja import JapaneseG2P
++from kokorog2p.vocab import validate_for_kokoro
++
++
++@dataclass
++class FakeJapaneseFrontend:
++    records: list[dict[str, object]]
++
++    def run_frontend(self, text: str) -> list[dict[str, object]]:
++        return self.records
++
++
++def record(
++    surface: str,
++    pron: str,
++    mora_size: int,
++    *,
++    acc: int = 0,
++    chain_flag: int = 0,
++    pos: str = "名詞",
++) -> dict[str, object]:
++    return {
++        "string": surface,
++        "pron": pron,
++        "mora_size": mora_size,
++        "acc": acc,
++        "chain_flag": chain_flag,
++        "pos": pos,
++    }
++
++
++def frontend_for(*records: dict[str, object]) -> FakeJapaneseFrontend:
++    return FakeJapaneseFrontend(list(records))
++
++
++class TestJapaneseConstructor:
++    def test_default_backend_and_model_version(self) -> None:
++        g2p = JapaneseG2P(frontend=frontend_for(record("コンニチハ", "コンニチハ", 5)))
++        assert g2p.backend == "pyopenjtalk"
++        assert g2p.get_target_model() == "1.0"
++
++    @pytest.mark.parametrize("backend", ["pyopenjtalk", "cutlet"])
++    def test_documented_backend_values_are_accepted(self, backend: str) -> None:
++        g2p = JapaneseG2P(backend=backend)
++        assert g2p.backend == backend
++
++    def test_invalid_backend_is_rejected(self) -> None:
++        with pytest.raises(ValueError, match="Unsupported Japanese backend"):
++            JapaneseG2P(backend="typo")
++
++    @pytest.mark.parametrize("legacy_backend", ["pyopenjtalk", "cutlet"])
++    def test_legacy_version_backend_selector_is_deprecated(
++        self, legacy_backend: str
++    ) -> None:
++        with pytest.warns(DeprecationWarning, match="backend"):
++            g2p = JapaneseG2P(version=legacy_backend)
++        assert g2p.backend == legacy_backend
++        assert g2p.version == "1.0"
++
++    def test_model_version_is_not_used_as_backend(self) -> None:
++        g2p = JapaneseG2P(version="1.1")
++        assert g2p.backend == "pyopenjtalk"
++        assert g2p.get_target_model() == "1.1"
++
++    def test_conflicting_legacy_and_current_backend_selectors_are_rejected(
++        self,
++    ) -> None:
++        with pytest.raises(ValueError, match="both backend"):
++            JapaneseG2P(backend="cutlet", version="pyopenjtalk")
++
++
++class TestJapaneseMoraMapping:
++    @pytest.mark.parametrize(
++        ("pron", "expected"),
++        [
++            ("コンニチハ", ["コ", "ン", "ニ", "チ", "ハ"]),
++            ("キャ", ["キャ"]),
++            ("スーパー", ["ス", "ー", "パ", "ー"]),
++            ("ガッコウ", ["ガ", "ッ", "コ", "ウ"]),
++            ("ティッシュ", ["ティ", "ッ", "シュ"]),
++        ],
++    )
++    def test_exact_mora_mapping(self, pron: str, expected: list[str]) -> None:
++        assert JapaneseG2P.pron2moras(pron) == expected
++
++    def test_unknown_pronunciation_symbol_is_reported(self) -> None:
++        with pytest.raises(ValueError, match="Unsupported"):
++            JapaneseG2P.pron2moras("コン😀")
++
++
++class TestJapaneseFrontendMapping:
++    def test_mora_metadata_mismatch_is_reported(self) -> None:
++        frontend = frontend_for(record("テスト", "テスト", 99))
++        g2p = JapaneseG2P(frontend=frontend)
++        with pytest.raises(ValueError, match="mora count mismatch"):
++            g2p.phonemize("テスト")
++
++    def test_frontend_unknown_symbol_is_reported(self) -> None:
++        frontend = frontend_for(record("未知", "コン😀", 2))
++        g2p = JapaneseG2P(frontend=frontend)
++        with pytest.raises(ValueError, match="Unsupported Japanese pronunciation"):
++            g2p.phonemize("未知")
++
++    def test_leading_whitespace_does_not_index_empty_tokens(self) -> None:
++        frontend = frontend_for(
++            record(" ", "", 0, pos="記号"),
++            record("コンニチハ", "コンニチハ", 5),
++        )
++        tokens = JapaneseG2P(frontend=frontend)(" コンニチハ")
++        assert tokens
++
++    def test_leading_punctuation_does_not_index_empty_tokens(self) -> None:
++        frontend = frontend_for(
++            record("、", "", 0, pos="記号"),
++            record("コンニチハ", "コンニチハ", 5),
++        )
++        tokens = JapaneseG2P(frontend=frontend)("、コンニチハ")
++        assert tokens
++
++    def test_model_input_has_equal_base_and_pitch_channels(self) -> None:
++        frontend = frontend_for(record("コンニチハ", "コンニチハ", 5, acc=2))
++        result = JapaneseG2P(frontend=frontend).phonemize("コンニチハ")
++        assert len(result) % 2 == 0
++        midpoint = len(result) // 2
++        base, pitch = result[:midpoint], result[midpoint:]
++        assert base
++        assert len(base) == len(pitch)
++
++    def test_generated_token_phonemes_are_in_kokoro_vocabulary(self) -> None:
++        frontend = frontend_for(record("コンニチハ", "コンニチハ", 5))
++        tokens = JapaneseG2P(frontend=frontend)("コンニチハ")
++        for token in tokens:
++            if token.phonemes:
++                valid, invalid = validate_for_kokoro(token.phonemes)
++                assert valid, invalid
++
++    def test_missing_pyopenjtalk_has_actionable_error(
++        self, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        monkeypatch.setitem(sys.modules, "pyopenjtalk", None)
++        with pytest.raises(ImportError, match=r"kokorog2p\[ja\]"):
++            JapaneseG2P().phonemize("こんにちは")
++
++
++@pytest.mark.skipif(
++    not all(
++        importlib.util.find_spec(module) is not None
++        for module in ("fugashi", "jaconv", "mojimoji")
++    ),
++    reason="Cutlet dependencies are not installed",
++)
++def test_cutlet_smoke() -> None:
++    g2p = JapaneseG2P(backend="cutlet")
++    try:
++        result = g2p.phonemize("こんにちは")
++    except RuntimeError as exc:
++        pytest.skip(f"Cutlet dictionary is not installed: {exc}")
++    assert result
++
++
++def test_japanese_runtime_resource_exists() -> None:
++    resource = importlib.resources.files("kokorog2p.ja.data").joinpath("ja_words.txt")
++    assert resource.is_file()
+diff --git a/tests/test_multilang.py b/tests/test_multilang.py
+index eb4c70f..d59f7a7 100644
+--- a/tests/test_multilang.py
++++ b/tests/test_multilang.py
+@@ -338,6 +338,15 @@ class TestJapaneseG2P:
+         assert g2p.use_spacy is False
+         assert g2p.spacy_model is None
+
++    def test_backend_validation_and_model_version(self):
++        """Backend selection is separate from the target model version."""
++        from kokorog2p.ja import JapaneseG2P
++
++        assert JapaneseG2P(backend="cutlet").backend == "cutlet"
++        assert JapaneseG2P(version="1.1").get_target_model() == "1.1"
++        with pytest.raises(ValueError, match="Unsupported Japanese backend"):
++            JapaneseG2P(backend="invalid")
++
+     def test_custom_spacy_model_option_is_reserved(self):
+         """Japanese does not claim a model for its reserved spaCy option."""
+         from kokorog2p.ja import JapaneseG2P

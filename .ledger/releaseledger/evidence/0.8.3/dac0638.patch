@@ -1,0 +1,1533 @@
+ benchmarks/KOREAN_DATASET.md            | 357 ++------------------------------
+ benchmarks/benchmark_ko_comparison.py   |  26 +--
+ benchmarks/benchmark_ko_differential.py |  92 ++++++++
+ benchmarks/data/ko_differential.json    |  12 ++
+ docs/api/korean.md                      |  28 ++-
+ docs/installation.md                    |  15 ++
+ docs/languages.md                       |  46 ++--
+ kokorog2p/__init__.py                   |  13 ++
+ kokorog2p/ko/README.md                  |  25 +++
+ kokorog2p/ko/data/table.csv             |  56 ++---
+ kokorog2p/ko/g2p.py                     |  89 ++++++--
+ kokorog2p/ko/g2pk.py                    |  88 +++++---
+ kokorog2p/ko/jamo_to_ipa.py             |  33 +--
+ kokorog2p/ko/model_profile.py           |  39 ++++
+ kokorog2p/ko/semantic.py                |  66 ++++++
+ kokorog2p/phonemes.py                   |   8 +-
+ kokorog2p/pipeline_api.py               |  16 +-
+ pyproject.toml                          |  11 +
+ tests/test_dependency_contract.py       |  11 +
+ tests/test_ko_contract.py               |  97 +++++++++
+ 20 files changed, 652 insertions(+), 476 deletions(-)
+
+diff --git a/benchmarks/KOREAN_DATASET.md b/benchmarks/KOREAN_DATASET.md
+index f85a51e..3c5a413 100644
+--- a/benchmarks/KOREAN_DATASET.md
++++ b/benchmarks/KOREAN_DATASET.md
+@@ -1,348 +1,37 @@
+-# Korean Synthetic Benchmark Dataset
++# Korean benchmark dataset
+
+-## Overview
++`benchmarks/data/ko_synthetic.json` is a checked-in 100-sentence Korean fixture
++containing hand-crafted and CHILDES-derived examples. The benchmark compares
++meaningful Korean configurations of the vendored g2pkc-compatible frontend.
+
+-The Korean benchmark script is located at:
+-
+-- **benchmarks/benchmark_ko_comparison.py**
+-
+-This script tests Korean G2P configurations and measures accuracy and speed.
+-
+-## Quick Start
++## Run
+
+ ```bash
+-# Run all configurations
+ python benchmarks/benchmark_ko_comparison.py
+-
+-# Test specific configuration
+ python benchmarks/benchmark_ko_comparison.py --config "Korean G2P"
+-
+-# Verbose output
+-python benchmarks/benchmark_ko_comparison.py --verbose
+-
+-# Export results
++python benchmarks/benchmark_ko_comparison.py --config "Korean G2P (morphology auto)"
+ python benchmarks/benchmark_ko_comparison.py --output results.json
+ ```
+
+-## Benchmark Results (100 sentences, 301 words)
+-
+-| Configuration       | Accuracy | Speed     | Recommendation        |
+-| ------------------- | -------- | --------- | --------------------- |
+-| Korean G2P + Espeak | 100.0%   | 37 sent/s | ✅ **Best** (fastest) |
+-| Korean G2P          | 100.0%   | 22 sent/s | Good default          |
+-
+-**Recommendation**: Use **Korean G2P + Espeak** configuration for best speed while
+-maintaining 100% accuracy. The espeak fallback improves performance without sacrificing
+-accuracy.
+-
+-## Dataset Composition
+-
+-The dataset consists of:
+-
+-- **40 hand-crafted sentences** covering:
+-  - Greetings (안녕하세요, 감사합니다, etc.)
+-  - Common words (사랑, 행복, 가족, etc.)
+-  - Numbers (하나 둘 셋, 일 이 삼, etc.)
+-  - Food vocabulary (김치, 밥, 물, etc.)
+-  - Phoneme coverage (특수 발음 테스트)
+-  - Questions and conversation
+-- **60 natural speech samples** from CHILDES ko-KR corpus (adult speech only)
+-
+-**Total**: 100 sentences with 301 words
+-
+-## Phoneme Coverage
+-
+-The dataset achieves **100% coverage** of all 23 Korean phoneme characters:
+-
+-```
+-a e h i j k l m n o p s t u w ø ɛ ɯ ɰ ʌ ʨ ʰ ͈
+-```
+-
+-### Character-Based Phoneme System
+-
+-**Important**: Like Japanese, Korean phonemes are **character-based**. Each character in
+-the phoneme string represents a single phoneme (not space-separated by word).
+-
+-**Example**:
+-
+-- Text: `안녕하세요`
+-- Phonemes: `annjʌhasejo` (11 characters = 11 phonemes)
+-  - a-n-n-j-ʌ-h-a-s-e-j-o
+-
+-### Korean Vowels
+-
+-**Basic vowels:**
+-
+-- **a** - 아 (PALM vowel)
+-- **e** - 에 (mid front vowel)
+-- **i** - 이 (FLEECE vowel)
+-- **o** - 오 (mid back rounded vowel)
+-- **u** - 우 (GOOSE vowel)
+-
+-**Special vowels:**
+-
+-- **ø** - 외 (front rounded vowel, like German ö)
+-- **ɛ** - 애 (open-mid front vowel)
+-- **ɯ** - 으 (close back unrounded vowel, unique to Korean)
+-- **ɰ** - 의 onset (velar approximant)
+-- **ʌ** - 어 (mid-central vowel, like English "uh")
+-
+-### Korean Consonants
+-
+-**Plain consonants:**
+-
+-- **k** - ㄱ (velar stop)
+-- **t** - ㄷ (alveolar stop)
+-- **p** - ㅂ (bilabial stop)
+-- **s** - ㅅ (alveolar fricative)
+-- **ʨ** - ㅈ (alveolo-palatal affricate)
+-
+-**Sonorants:**
+-
+-- **n** - ㄴ (alveolar nasal)
+-- **m** - ㅁ (bilabial nasal)
+-- **l** - ㄹ (lateral approximant)
+-- **h** - ㅎ (glottal fricative)
+-
+-**Approximants:**
+-
+-- **j** - ㅣ onset, y-sound (palatal approximant)
+-- **w** - ㅜ onset, w-sound (labio-velar approximant)
+-
+-### Phonological Features
+-
+-**Aspiration (ʰ):**
+-
+-- **kʰ** - ㅋ (aspirated k)
+-- **tʰ** - ㅌ (aspirated t)
+-- **pʰ** - ㅍ (aspirated p)
+-- **ʨʰ** - ㅊ (aspirated affricate)
+-
+-**Tenseness (͈):**
+-
+-- **k͈** - ㄲ (tensed k, double consonant)
+-- **t͈** - ㄸ (tensed t)
+-- **p͈** - ㅃ (tensed p)
+-- **s͈** - ㅆ (tensed s)
+-- **ʨ͈** - ㅉ (tensed affricate)
+-
+-### Note on Simplified Phonology
+-
+-**Without MeCab**: The current implementation uses g2pK without MeCab morphological
+-analysis, which produces simplified phonology:
+-
+-- **No ŋ (velar nasal)** - Final ㅇ is simplified
+-- **No ̚ (unreleased stops)** - Final consonants are not marked as unreleased
+-- Still achieves **100% accuracy** on benchmark
+-
+-**With MeCab** (optional): Installing `mecab-python3` enables:
+-
+-- More accurate morphological analysis
+-- Proper handling of ŋ (받침 ㅇ)
+-- Unreleased stop notation (̚)
+-- Better context-dependent pronunciation
+-
+-## Category Breakdown
+-
+-| Category         | Sentences | Description                              |
+-| ---------------- | --------- | ---------------------------------------- |
+-| childes_natural  | 60        | Natural adult speech from CHILDES corpus |
+-| common_words     | 8         | Frequently used vocabulary               |
+-| greetings        | 5         | Common Korean greetings                  |
+-| conversation     | 5         | Conversational phrases                   |
+-| phoneme_coverage | 10        | Sentences ensuring all phonemes present  |
+-| questions        | 4         | Question patterns                        |
+-| numbers          | 4         | Number pronunciation                     |
+-| food             | 4         | Food and drink vocabulary                |
+-
+-## G2P Backend Information
+-
+-### Korean G2P (g2pK-based)
+-
+-The Korean G2P uses the g2pK library, which provides:
+-
+-- Hangul decomposition into jamo (consonants and vowels)
+-- Application of Korean phonological rules
+-- Jamo to IPA conversion
+-- Support for:
+-  - Idiom/abbreviation replacement
+-  - English to Hangul conversion
+-  - Number spelling (both native and Sino-Korean)
+-  - Optional MeCab POS tagging
+-
+-**Performance**: 100% accuracy on benchmark, 22 sent/s (without espeak)
+-
+-### Espeak Fallback (Optional)
+-
+-Adding espeak fallback provides:
+-
+-- ~68% speed improvement (22 → 37 sent/s)
+-- Maintains 100% accuracy
+-- Handles edge cases with espeak phonemization
+-
+-## Korean Phonological Features
+-
+-### Three-Way Consonant Contrast
+-
+-Korean distinguishes consonants in three ways:
+-
+-1. **Plain** (ㄱ ㄷ ㅂ ㅅ ㅈ) - k t p s ʨ
+-2. **Aspirated** (ㅋ ㅌ ㅍ ㅊ) - kʰ tʰ pʰ ʨʰ (with ʰ marker)
+-3. **Tensed** (ㄲ ㄸ ㅃ ㅆ ㅉ) - k͈ t͈ p͈ s͈ ʨ͈ (with ͈ marker)
+-
+-### Unique Vowels
+-
+-Korean has vowels not found in English:
+-
+-- **ɯ (으)** - Close back unrounded (unique to Korean/Turkic languages)
+-- **ʌ (어)** - Mid-central vowel
+-- **ø (외)** - Front rounded (like German/French)
+-
+-### Hangul Romanization
+-
+-The phoneme output uses IPA, not standard Romanization:
+-
+-- 한글 → hankɯl (IPA) vs. hangul (Romanization)
+-- 김치 → kimʨʰi (IPA) vs. kimchi (Romanization)
+-
+-## CHILDES Corpus Source
+-
+-The natural speech examples were extracted from:
+-
+-- **Corpus**: CHILDES IPA corpus
+-- **Language**: ko-KR (Korean)
+-- **Source size**: 23.2 MB (~94,754 sentences)
+-- **Selection criteria**:
+-  - Adult speech only (not child babbling)
+-  - 3-10 tokens per sentence
+-  - Valid Korean characters (Hangul)
+-  - No errors or special markers
+-  - Deduplicated against hand-crafted sentences
+-
+-**Extraction rate**: ~4.1% (60 sentences from ~1,450 candidates)
+-
+-- High filtering rate due to quality criteria
+-- Focus on grammatical, complete adult utterances
+-- All sentences validated with KoreanG2P
+-
+-## Usage Examples
+-
+-### Basic Benchmarking
+-
+-```python
+-from kokorog2p.ko import KoreanG2P
+-
+-# Create G2P with recommended configuration
+-g2p = KoreanG2P(use_espeak_fallback=True)
+-
+-# Phonemize Korean text
+-tokens = g2p("안녕하세요")
+-for token in tokens:
+-    print(f"{token.text} → {token.phonemes}")
+-# Output: 안녕하세요 → annjʌhasejo
+-```
+-
+-### Testing Different Configurations
+-
+-```python
+-from kokorog2p.ko import KoreanG2P
+-
+-# Default configuration (no MeCab)
+-g2p_default = KoreanG2P()
+-
+-# With espeak fallback (faster)
+-g2p_fast = KoreanG2P(use_espeak_fallback=True)
+-
+-# Test with various phrases
+-phrases = ["안녕하세요", "감사합니다", "사랑해요"]
+-for phrase in phrases:
+-    tokens = g2p_fast(phrase)
+-    print(f"{phrase}: {tokens[0].phonemes}")
+-```
+-
+-### Running Benchmarks
+-
+-```bash
+-# Test default configuration
+-python benchmarks/benchmark_ko_comparison.py --config "Korean G2P"
+-
+-# Test with espeak fallback (recommended)
+-python benchmarks/benchmark_ko_comparison.py --config "Korean G2P + Espeak"
+-
+-# See detailed output
+-python benchmarks/benchmark_ko_comparison.py --verbose
+-```
+-
+-## Validation Results
+-
+-Run the validator to check dataset integrity:
+-
+-```bash
+-python benchmarks/validate_synthetic_data.py benchmarks/data/ko_synthetic.json
+-```
+-
+-**Results**:
+-
+-- ✅ All 100 sentences validated
+-- ✅ 100% phoneme coverage (23/23 unique characters)
+-- ✅ No invalid phonemes
+-- ✅ All required fields present
+-
+-## Known Limitations
+-
+-1. **No MeCab support in benchmark**: Current implementation uses simplified phonology
+-   without MeCab
+-2. **Missing advanced features**: ŋ (velar nasal) and ̚ (unreleased stops) not in current
+-   phoneme set
+-3. **No pitch accent**: Korean pitch accent is not represented in phoneme output
+-4. **Standard Seoul dialect**: Dataset represents standard Seoul Korean pronunciation
+-5. **Limited OOV handling**: Without MeCab, some complex words may have simplified
+-   pronunciation
+-6. **No liaison/sandhi marks**: Phonological changes are applied but not explicitly
+-   marked
+-
+-## Korean G2P Phonological Rules
+-
+-The g2pK backend applies standard Korean pronunciation rules including:
+-
+-- **Nasalization** (제18항): 먹는 → [멍는]
+-- **Liquid nasalization** (제20항): 신라 → [실라]
+-- **Tensification** (제23항): 국밥 → [국빱]
+-- **Palatalization**: 굳이 → [구지]
+-- **Liaison** (제13항): 옷이 → [오시]
+-- **Aspiration** (제12항): 놓고 → [노코]
+-- **Coda neutralization** (제9항): 옷 → [옫]
+-
+-## Future Improvements
+-
+-Potential areas for enhancement:
+-
+-- [ ] Add MeCab support for better morphological analysis
+-- [ ] Include ŋ and ̚ phonemes (requires MeCab)
+-- [ ] Expand dataset to 150+ sentences
+-- [ ] Add specialized vocabulary (medical, technical, etc.)
+-- [ ] Include regional dialect variations (Busan, Jeolla, etc.)
+-- [ ] Add more loanwords (English → Korean)
+-- [ ] Test compound words and complex morphology
+-
+-## References
+-
+-- CHILDES IPA Corpus: https://github.com/ErikMorton/ipa-childes
+-- g2pK: https://github.com/kyubyong/g2pK
+-- Korean IPA: https://en.wikipedia.org/wiki/Help:IPA/Korean
+-- Kokoro TTS Korean: https://github.com/hexgrad/kokoro-onnx
+-- Korean Standard Pronunciation Rules: https://korean.go.kr/
++The `Korean G2P` configuration runs with morphology off. The auto configuration
++uses a supported Korean morphology backend when installed and otherwise falls
++back with an actionable warning. Espeak is not a Korean comparison backend.
+
+-## Contributing
++## Metrics
+
+-To improve the Korean dataset:
++The script reports exact fixture agreement, sentences per second, total timing,
++and unique output characters. The fixture is a regression and performance
++reference, not a native-speaker-reviewed pronunciation gold corpus. Results are
++environment-dependent and must not be presented as universal accuracy claims.
+
+-1. Add more diverse sentence patterns
+-2. Test with specialized vocabulary
+-3. Validate pronunciation with native Korean speakers
+-4. Report any phoneme mismatches or errors
+-5. Add examples of complex phonological rules
++The default output uses the Kokoro 82M v1.0 model alphabet and the `jf_alpha`
++Japanese voice metadata. Use `output="ipa"` or `output="jamo"` in direct API
++calls when inspecting linguistic or intermediate representations.
+
+-## License
++## Alternative backends
+
+-The Korean synthetic dataset is released under the same license as kokorog2p.
++Optional differential comparisons belong in a separately provisioned benchmark
++environment. Candidates include the exact g2pkc snapshot, upstream g2pK, KSS
++with MeCab or Pecab, ko-speech-tools, and mecab-ko. They must report exact
++agreement by category and intentional divergences from the local compatibility
++baseline rather than selecting a backend by aggregate string agreement alone.
+diff --git a/benchmarks/benchmark_ko_comparison.py b/benchmarks/benchmark_ko_comparison.py
+index 834d298..1b76ccc 100755
+--- a/benchmarks/benchmark_ko_comparison.py
++++ b/benchmarks/benchmark_ko_comparison.py
+@@ -1,14 +1,13 @@
+ #!/usr/bin/env python3
+ """Comprehensive benchmark comparison for Korean G2P configurations.
+
+-This script tests Korean G2P with kokorog2p:
+-- Default (g2pK without MeCab)
+-- With espeak fallback (optional)
++This script tests the vendored g2pkc-compatible Korean G2P with morphology off
++and morphology auto. It does not use espeak as a Korean configuration.
+
+ It measures:
+-- Accuracy against ground truth
++- Exact phoneme agreement against the checked-in fixture
+ - Processing speed (sentences/second)
+-- Phoneme coverage
++- Character coverage
+
+ Usage:
+     python benchmarks/benchmark_ko_comparison.py
+@@ -53,17 +52,15 @@ def load_synthetic_data() -> dict[str, Any]:
+     with open(filepath) as f:
+         return json.load(f)
+
+-
+ def create_g2p(config: dict[str, Any]):
+-    """Create a Korean G2P instance with the given configuration."""
++    """Create a Korean G2P instance with a meaningful configuration."""
+     from kokorog2p.ko import KoreanG2P
+
+     return KoreanG2P(
+-        use_espeak_fallback=config.get("use_espeak", False),
+-        use_dict=config.get("use_dict", True),
++        morphology=config.get("morphology", "auto"),
++        output="model",
+     )
+
+-
+ def benchmark_config(g2p, data: dict[str, Any], config_name: str) -> ConfigBenchmark:
+     """Benchmark a single G2P configuration."""
+     sentences = data["sentences"]
+@@ -207,14 +204,13 @@ def main():
+     print(f"Loaded {len(data['sentences'])} sentences")
+
+     # Define configurations to test
++    # Compare morphology choices. Espeak is not a Korean G2P configuration.
+     all_configs = {
+         "Korean G2P": {
+-            "use_dict": True,
+-            "use_espeak": False,
++            "morphology": "off",
+         },
+-        "Korean G2P + Espeak": {
+-            "use_dict": True,
+-            "use_espeak": True,
++        "Korean G2P (morphology auto)": {
++            "morphology": "auto",
+         },
+     }
+
+diff --git a/benchmarks/benchmark_ko_differential.py b/benchmarks/benchmark_ko_differential.py
+new file mode 100644
+index 0000000..6bc006d
+--- /dev/null
++++ b/benchmarks/benchmark_ko_differential.py
+@@ -0,0 +1,92 @@
++#!/usr/bin/env python3
++"""Compare the local Korean baseline with optional external frontends.
++
++External packages are intentionally optional. Missing packages are reported as
++unavailable rather than changing the runtime default or weakening the local
++compatibility gate.
++"""
++
++from __future__ import annotations
++
++import argparse
++import importlib
++import json
++from pathlib import Path
++from typing import Any
++
++DATA = Path(__file__).parent / "data" / "ko_differential.json"
++
++
++def load_cases() -> dict[str, Any]:
++    return json.loads(DATA.read_text(encoding="utf-8"))
++
++
++def local_g2pkc(text: str) -> str:
++    from kokorog2p.ko import KoreanG2P
++
++    return KoreanG2P(morphology="off", output="jamo", to_syl=True).phonemize(text)
++
++
++def optional_backend_status() -> dict[str, str]:
++    candidates = {
++        "upstream-g2pK": "g2pk",
++        "KSS": "kss",
++        "Pecab": "pecab",
++        "ko-speech-tools": "ko_speech_tools",
++        "mecab-ko": "mecab_ko",
++    }
++    status = {}
++    for label, module_name in candidates.items():
++        try:
++            importlib.import_module(module_name)
++        except ImportError:
++            status[label] = "unavailable"
++        else:
++            status[label] = "installed, adapter review required"
++    return status
++
++
++def compare_local(cases: list[dict[str, Any]]) -> dict[str, Any]:
++    matches = 0
++    by_category: dict[str, list[bool]] = {}
++    for case in cases:
++        matched = local_g2pkc(case["source"]) == case["expected_jamo"]
++        matches += matched
++        by_category.setdefault(case["category"], []).append(matched)
++    return {
++        "backend": "local-g2pkc",
++        "matches": matches,
++        "total": len(cases),
++        "exact_match_percent": matches / len(cases) * 100 if cases else 0,
++        "categories": {
++            category: sum(values) / len(values) * 100
++            for category, values in by_category.items()
++        },
++    }
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument(
++        "--json", action="store_true", help="Print machine-readable output"
++    )
++    args = parser.parse_args()
++
++    data = load_cases()
++    result = {
++        "schema_version": data["schema_version"],
++        "baseline": "5Hyeons/StyleTTS2 vocos g2pkc",
++        "local": compare_local(data["cases"]),
++        "optional_backends": optional_backend_status(),
++    }
++    if args.json:
++        print(json.dumps(result, ensure_ascii=False, indent=2))
++    else:
++        print(f"Local g2pkc exact match: {result['local']['exact_match_percent']:.1f}%")
++        for name, status in result["optional_backends"].items():
++            print(f"{name}: {status}")
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/benchmarks/data/ko_differential.json b/benchmarks/data/ko_differential.json
+new file mode 100644
+index 0000000..ea50e89
+--- /dev/null
++++ b/benchmarks/data/ko_differential.json
+@@ -0,0 +1,12 @@
++{
++  "schema_version": "1.0",
++  "language": "ko",
++  "cases": [
++    {"id": "school", "category": "tensification", "source": "학교", "expected_jamo": "학꾜"},
++    {"id": "rice", "category": "tensification", "source": "국밥", "expected_jamo": "국빱"},
++    {"id": "palatalization", "category": "palatalization", "source": "굳이", "expected_jamo": "구지"},
++    {"id": "liaison", "category": "liaison", "source": "옷이", "expected_jamo": "오시"},
++    {"id": "nasalization", "category": "liquid-nasalization", "source": "신라", "expected_jamo": "실라"},
++    {"id": "counter-time", "category": "counter-time", "source": "12시 12분", "expected_jamo": "열두시 십이분"}
++  ]
++}
+diff --git a/docs/api/korean.md b/docs/api/korean.md
+index b333b6c..a250c68 100644
+--- a/docs/api/korean.md
++++ b/docs/api/korean.md
+@@ -1,7 +1,8 @@
+ # Korean API
+
+-Korean G2P provides phoneme conversion using MeCab for morphological analysis and custom
+-phonological rules based on Korean Standard Pronunciation.
++Korean G2P uses the vendored 5Hyeons `g2pkc` compatibility rules and the
++Kokoro 82M v1.0 model alphabet by default. The default Korean voice metadata is
++`jf_alpha`, using the Japanese voice requested for Korean synthesis.
+
+ ## Main Class
+
+@@ -17,19 +18,28 @@ phonological rules based on Korean Standard Pronunciation.
+ ```python
+ from kokorog2p.ko import KoreanG2P
+
+-g2p = KoreanG2P(language="ko-kr")
++g2p = KoreanG2P(
++    language="ko-kr",
++    morphology="auto",
++    voice="jf_alpha",
++    output="model",
++)
+ tokens = g2p("안녕하세요!")
+
+ for token in tokens:
+     print(f"{token.text} -> {token.phonemes}")
+ ```
+
+-## Implementation
++Use `output="ipa"` to retain the linguistic IPA-like form and positional coda
++markers, or `output="jamo"` to inspect the g2pkc intermediate representation.
++The `morphology` setting accepts `auto`, `required`, and `off`. The compatible
++morphology extra is `kokorog2p[ko-mecab]`, which installs `python-mecab-ko`.
+
+-The Korean G2P implementation is based on g2pK by kyubyong and uses:
++Pure Hangul input does not load CMUdict. Latin input uses NLTK CMUdict and
++requires the resource to be installed explicitly.
+
+-- MeCab for morphological analysis
+-- Korean Standard Pronunciation rules
+-- Jamo-to-IPA conversion for phoneme output
++## Implementation
+
+-Reference: <https://github.com/kyubyong/g2pK>
++The Korean backend is based on the 5Hyeons StyleTTS2 `g2pkc` fork of Kyubyong's
++g2pK. See `kokorog2p/ko/README.md` for source revision, checksums, local
++adaptations, and licensing provenance.
+diff --git a/docs/installation.md b/docs/installation.md
+index 0b15798..010ca5e 100644
+--- a/docs/installation.md
++++ b/docs/installation.md
+@@ -106,6 +106,21 @@ by Japanese G2P.
+
+ ### Mixed-Language Detection
+
++## Korean support
++
++For Korean G2P with the Kokoro 82M v1.0 model alphabet:
++
++```bash
++pip install "kokorog2p[ko]"
++```
++
++Korean morphology is optional. Install the upstream-compatible Korean analyzer with:
++
++```bash
++pip install "kokorog2p[ko-mecab]"
++```
++
++The default Korean voice metadata is `jf_alpha`, the Japanese voice requested for Korean synthesis. Pure Hangul does not require CMUdict. Latin input requires the NLTK `cmudict` resource, which is installed separately with `python -m nltk.downloader cmudict`.
+ For automatic language detection in mixed-language texts:
+
+ ```bash
+diff --git a/docs/languages.md b/docs/languages.md
+index cfb816e..661e99e 100644
+--- a/docs/languages.md
++++ b/docs/languages.md
+@@ -553,25 +553,17 @@ Japanese backend. It is not a Japanese benchmark or performance configuration.
+
+ ## Korean (ko)
+
+-Korean G2P uses MeCab-based morphological analysis with comprehensive phonological
+-rules.
++Korean G2P uses the vendored 5Hyeons `g2pkc` compatibility rules. Morphology is optional and is used only when a supported Korean analyzer is installed.
+
+ ### Features
+
+-- **MeCab integration**: Korean morphological analysis
+-
+-- **Phonological rules**:
+-
+-  - Consonant assimilation
+-  - Palatalization
+-  - Tensification
+-  - Aspiration
+-  - Liaison (연음)
+-  - Final consonant neutralization
+-
+-- **Hanja support**: Sino-Korean character handling
+-
+-- **Number handling**: Korean numerals
++- **g2pkc compatibility baseline**: Korean Standard Pronunciation rules, liaison, assimilation, palatalization, tensification, aspiration, and number context
++- **Morphology modes**: `auto`, `required`, or `off`
++- **Output modes**: `model` (default Kokoro 82M v1.0 alphabet), `ipa`, or positional `jamo`
++- **Default voice metadata**: `jf_alpha`, the Japanese Kokoro voice requested for Korean
++- **Offline behavior**: pure Hangul does not load CMUdict; Latin input requires the NLTK CMUdict resource
++- **Hanja**: not currently converted; Hanja support is intentionally not claimed
++- **Provenance**: see `kokorog2p/ko/README.md` for the frozen source revision and checksums
+
+ ### Usage
+
+@@ -580,24 +572,32 @@ from kokorog2p.ko import KoreanG2P
+
+ g2p = KoreanG2P(
+     language="ko-kr",
+-    use_mecab=True
+-)
++    morphology="auto",
++    voice="jf_alpha",
++    output="model",
++ )
+ ```
+
++Use `output="ipa"` for the linguistic IPA-like representation, including positional coda markers. Use `output="jamo"` to inspect the g2pkc intermediate form. The model output explicitly maps markers absent from Kokoro 82M v1.0 and rejects other unsupported symbols.
++
+ ### Examples
+
+ ```python
+ from kokorog2p import phonemize
+
+ print(phonemize("안녕하세요", language="ko"))
+-# → annjʌŋhasejo
++ # → annjʌŋhasejo
+
+-# Phonological rules
+-print(phonemize("학교", language="ko"))     # → hakk͈jo (tensification)
+-print(phonemize("받침", language="ko"))     # → patʃʰim (palatalization)
++print(phonemize("학교", language="ko"))
++ # → hakkjo in the model alphabet
++
++# Explicit linguistic output
++from kokorog2p.ko import KoreanG2P
++print(KoreanG2P(output="ipa", morphology="off").phonemize("강"))
++ # → kaŋ
+ ```
+
+-## Hebrew (he)
++`use_espeak_fallback`, `use_goruut_fallback`, spaCy settings, and dictionary tier flags are retained for common factory compatibility but do not control Korean pronunciation.
+
+ Hebrew G2P uses phonikud for nikud-based phonemization.
+
+diff --git a/kokorog2p/__init__.py b/kokorog2p/__init__.py
+index 492d2df..d96150d 100644
+--- a/kokorog2p/__init__.py
++++ b/kokorog2p/__init__.py
+@@ -190,6 +190,19 @@ _FACTORY_KWARGS_BY_LANGUAGE = {
+         }
+     ),
+     "he": frozenset({"preserve_punctuation", "preserve_stress", "some_extra_param"}),
++    "ko": frozenset(
++        {
++            "voice",
++            "morphology",
++            "morphology_backend",
++            "descriptive",
++            "use_dict",
++            "group_vowels",
++            "to_syl",
++            "output",
++            "model_profile",
++        }
++    ),
+ }
+
+ _SPACY_DEFAULTS_BY_FAMILY = {
+diff --git a/kokorog2p/ko/README.md b/kokorog2p/ko/README.md
+index e69de29..16cd185 100644
+--- a/kokorog2p/ko/README.md
++++ b/kokorog2p/ko/README.md
+@@ -0,0 +1,25 @@
++# Korean G2P provenance
++
++The Korean pronunciation engine is a local, packaged adaptation of the `g2pkc`
++variant used by 5Hyeons/StyleTTS2. Its rule lineage originates in
++[Kyubyong/g2pK](https://github.com/Kyubyong/g2pK).
++
++## Frozen sources
++
++- Compatibility source: [5Hyeons/StyleTTS2](https://github.com/5Hyeons/StyleTTS2)
++- Branch: `vocos`
++- Source revision: `a895e5bff1d7a22dff2f2d32dafb7c4c4e0ee4b7`
++- Data path: `g2pK/g2pkc/table.csv`
++- `table.csv` SHA-256: `61aca8535fd75f16ca71df59bc5eeab625073edfd50732fda3f12b30ccade31f`
++- Default Kokoro model tokenizer:
++  <https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/blob/main/tokenizer.json>
++- Tokenizer SHA-256: `77a02c8e164413299b4b4c403b14f8e0e1c1b727db4d46a09d6327b861060a34`
++
++The local adaptation converts upstream data modules to Python modules, keeps
++`link3` out of the executed link pipeline for Kokoro compatibility, avoids
++runtime downloads, and supports operation without optional morphology or CMUdict
++resources when the input does not require them.
++
++The copied rule data retains its upstream Apache-2.0 provenance. This document
++records source identity and local changes; the repository's license and notice
++files apply to distribution.
+diff --git a/kokorog2p/ko/data/table.csv b/kokorog2p/ko/data/table.csv
+index cfea256..b0b3421 100644
+--- a/kokorog2p/ko/data/table.csv
++++ b/kokorog2p/ko/data/table.csv
+@@ -1,28 +1,28 @@
+-﻿,ᄒ,ᄀ,ᄁ,ᄂ,ᄃ,ᄄ,ᄅ,ᄆ,ᄇ,ᄈ,ᄉ,ᄊ,ᄌ,ᄍ,ᄎ,ᄏ,ᄐ,ᄑ,(\W|$)
+-ᇂ,ᄒ,ᄏ(12),ᄁ,ᆫᄂ(12),ᄐ(12),ᄄ,ᄅ,ᄆ,ᄇ,ᄈ,ᄊ(12),ᄊ,ᄎ(12),ᄍ,ᄎ,ᄏ,ᄐ,ᄑ,ᆮ\1
+-ᆨ,ᄏ(12),ᆨᄁ(23),,ᆼᄂ(18),ᆨᄄ(23),,ᆼᄅ(19/18),ᆼᄆ(18),ᆨᄈ(23),,ᆨᄊ(23),,ᆨᄍ(23),,,,,,
+-ᆩ,ᄏ,ᆨᄁ(9/23),ᆨᄁ(9),ᆼᄂ(18),ᆨᄄ(9/23),ᆨᄄ(9),ᆼᄂ,ᆼᄆ(18),ᆨᄈ(9/23),ᆨᄈ(9),ᆨᄊ(9/23),ᆨᄊ(9),ᆨᄍ(9/23),ᆨᄍ(9),ᆨᄎ(9),ᆨᄏ(9),ᆨᄐ(9),ᆨᄑ(9),ᆨ\1(9)
+-ᆪ,ᄏ,ᆨᄁ(9/23),ᆨᄁ(10),ᆼᄂ(18),ᆨᄄ(9/23),ᆨᄄ(10),ᆼᄂ,ᆼᄆ(18),ᆨᄈ(9/23),ᆨᄈ(10),ᆨᄊ(9/23),ᆨᄊ(10),ᆨᄍ(9/23),ᆨᄍ(10),ᆨᄎ(10),ᆨᄏ(10),ᆨᄐ(10),ᆨᄑ(10),ᆨ\1(10)
+-ᆫ,,,,,,,ᆯᄅ(20),,,,,,,,,,,,
+-ᆬ,ᆫᄎ(12),ᆫᄀ(10),ᆫᄁ(10),ᆫᄂ(10),ᆫᄃ(10),ᆫᄄ(10),ᆯᄅ(10/20),ᆫᄆ(10),ᆫᄇ(10),ᆫᄈ(10),ᆫᄉ(10),ᆫᄊ(10),ᆫᄌ(10),ᆫᄍ(10),ᆫᄎ(10),ᆫᄏ(10),ᆫᄐ(10),ᆫᄑ(10),ᆫ\1(10)
+-ᆭ,ᆫᄒ,ᆫᄏ(12),ᆫᄁ,ᆫᄂ(12),ᆫᄐ(12),ᆫᄄ,ᆯᄅ,ᆫᄆ,ᆫᄇ,ᆫᄈ,ᆫᄊ(12),ᆫᄊ,ᆫᄎ(12),ᆫᄍ,ᆫᄎ,ᆫᄏ,ᆫᄐ,ᆫᄑ,ᆫ\1
+-ᆮ,ᄐ(12),ᆮᄁ(23),,ᆫᄂ(18),ᆮᄄ(23),,ᆫᄂ,ᆫᄆ(18),ᆮᄈ(23),,ᆮᄊ(23),,ᆮᄍ(23),,,,,,
+-ᆯ,,,,ᆯᄅ(20),,,,,,,,,,,,,,,
+-ᆰ,ᆯᄏ(12),ᆨᄁ(11/23),ᆨᄁ(11),ᆼᄂ(11/18),ᆨᄄ(11/23),ᆨᄄ(11),ᆼᄂ(11/18),ᆼᄆ(11/18),ᆨᄈ(11/23),ᆨᄈ(11),ᆨᄊ(11/23),ᆨᄊ(11),ᆨᄍ(11/23),ᆨᄍ(11),ᆨᄎ(11),ᆯᄏ(12),ᆨᄐ(11),ᆨᄑ(11),ᆨ\1(11)
+-ᆱ,ᆷᄒ(11),ᆷᄀ(11),ᆷᄁ(11),ᆷᄂ(11),ᆷᄃ(11),ᆷᄄ(11),ᆷᄅ(11),ᆷᄆ(11),ᆷᄇ(11),ᆷᄈ(11),ᆷᄉ(11),ᆷᄊ(11),ᆷᄌ(11),ᆷᄍ(11),ᆷᄎ(11),ᆷᄏ(11),ᆷᄐ(11),ᆷᄑ(11),ᆷ\1(11)
+-ᆲ,ᆯᄑ(12),ᆯᄁ(10/23),ᆯᄁ(10),ᆷᄂ(18),ᆯᄄ(10/23),ᆯᄄ(10),ᆯᄅ(10),ᆷᄆ(18),ᆯᄈ(10/23),ᆯᄈ(10),ᆯᄊ(10/23),ᆯᄊ(10),ᆯᄍ(10/23),ᆯᄍ(10),ᆯᄎ(10),ᆯᄏ(10)0),,,ᆯ\1(10)
+-ᆳ,ᆯᄒ(10),ᆯᄁ(10/23),ᆯᄁ(10),ᆯᄅ(10/20),ᆯᄄ(10/23),ᆯᄄ(10),ᆯᄅ(10),ᆯᄆ(10),ᆯᄈ(10/23),ᆯᄈ(10),ᆯᄊ(10/23),ᆯᄊ(10),ᆯᄍ(10/23),ᆯᄍ(10),ᆯᄎ(10),ᆯᄏ(ᄑ(10),,,ᆯ\1(10)
+-ᆴ,ᆯᄒ(10),ᆯᄀ(10),ᆯᄁ(10),ᆯᄅ(10/20),ᆯᄃ(10),ᆯᄄ(10),ᆯᄅ(10),ᆯᄆ(10),ᆯᄇ(10),ᆯᄈ(10),ᆯᄉ(10),ᆯᄊ(10),ᆯᄌ(10),ᆯᄍ(10),ᆯᄎ(10),ᆯᄏ(10),ᆯᄐ(10),ᆯᄑ(10),ᆯ\1(10)
+-ᆵ,ᆸᄑ(11/12),ᆸᄁ(11/23),ᆸᄁ(11),ᆷᄂ(18),ᆸᄄ(11/23),ᆸᄄ(11),ᆷᄅ(11),ᆷᄆ(11/18),ᆸᄈ(11/23),ᆸᄈ(11),ᆸᄊ(11/23),ᆸᄊ(11),ᆸᄍ(11/23),ᆸᄍ(11),ᆸᄎ(11),ᆸᆸᄑ,,,ᆸ\1(11)
+-ᆶ,ᆯᄒ(10),ᆯᄏ(12),ᆯᄁ,ᆯᄅ(12/20),ᆯᄐ(12),ᆯᄄ,ᆯᄅ,ᆯᄆ,ᆯᄇ,ᆯᄈ,ᆯᄊ(12),ᆯᄊ,ᆯᄎ(12),ᆯᄍ,ᆯᄎ,ᆯᄏ,ᆯᄐ,ᆯᄑ,ᆯ\1
+-ᆷ,,,,,,,,,,,,,,,,,,,,
+-ᆸ,ᄑ(12),ᆸᄁ(23),,ᆷᄂ(18),ᆸᄄ(23),,ᆷᄂ(19),ᆷᄆ(18),ᆸᄈ(23),,ᆸᄊ(23),,ᆸᄍ(23),,,,,,
+-ᆹ,ᆸᄑ(10),ᆸᄁ(10/23),ᆸᄁ(10),ᆷᄂ(10/18),ᆸᄄ(10/23),ᆸᄄ(10),ᆷᄂ(10/19/18),ᆷᄆ(10/18),ᆸᄈ(10/23),ᆸᄈ(10),ᆸᄊ(10/23),ᆸᄊ(10),ᆸᄍ(10/23),ᆸᄍ(10),ᆸᄎ(1ᄐ(10),ᆸᄑ,,,ᆸ\1(10)
+-ᆺ,ᄐ,ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(9/18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(9/18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
+-ᆻ,ᄐ,ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(9/18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(9/18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
+-ᆼ,,,,,,,,,,,,,,,,,,,,
+-ᆽ,ᄎ(12),ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
+-ᆾ,ᄐ,ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
+-ᆿ,ᄏ,ᆨᄁ(9/23),ᆨᄁ(9),ᆼᄂ(18),ᆨᄄ(9/23),ᆨᄄ(9),ᆼᄂ(9/19),ᆼᄆ(9/18),ᆨᄈ(9/23),ᆨᄈ(9),ᆨᄊ(9/23),ᆨᄊ(9),ᆨᄍ(9/23),ᆨᄍ(9),ᆨᄎ(9),ᆨᄏ(9),ᆨᄐ(9),ᆨᄑ(9),ᆨ\1(9)
+-ᇀ,ᄐ,ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
+-ᇁ,ᄑ,ᆸᄁ(9/23),ᆸᄁ(9),ᆷᄂ(18),ᆸᄄ(9/23),ᆸᄄ(9),ᆷᄂ(9/19),ᆷᄆ(18),ᆸᄈ(9/23),ᆸᄈ(9),ᆸᄊ(9/23),ᆸᄊ(9),ᆸᄍ(9/23),ᆸᄍ(9),ᆸᄎ(9),ᆸᄏ(9),ᆸᄐ(9),ᆸᄑ(9),ᆸ\1(9)
++﻿,ᄒ,ᄀ,ᄁ,ᄂ,ᄃ,ᄄ,ᄅ,ᄆ,ᄇ,ᄈ,ᄉ,ᄊ,ᄌ,ᄍ,ᄎ,ᄏ,ᄐ,ᄑ,(\W|$)
++ᇂ,ᄒ,ᄏ(12),ᄁ,ᆫᄂ(12),ᄐ(12),ᄄ,ᄅ,ᄆ,ᄇ,ᄈ,ᄊ(12),ᄊ,ᄎ(12),ᄍ,ᄎ,ᄏ,ᄐ,ᄑ,ᆮ\1
++ᆨ,ᄏ(12),ᆨᄁ(23),,ᆼᄂ(18),ᆨᄄ(23),,ᆼᄅ(19/18),ᆼᄆ(18),ᆨᄈ(23),,ᆨᄊ(23),,ᆨᄍ(23),,,,,,
++ᆩ,ᄏ,ᆨᄁ(9/23),ᆨᄁ(9),ᆼᄂ(18),ᆨᄄ(9/23),ᆨᄄ(9),ᆼᄂ,ᆼᄆ(18),ᆨᄈ(9/23),ᆨᄈ(9),ᆨᄊ(9/23),ᆨᄊ(9),ᆨᄍ(9/23),ᆨᄍ(9),ᆨᄎ(9),ᆨᄏ(9),ᆨᄐ(9),ᆨᄑ(9),ᆨ\1(9)
++ᆪ,ᄏ,ᆨᄁ(9/23),ᆨᄁ(10),ᆼᄂ(18),ᆨᄄ(9/23),ᆨᄄ(10),ᆼᄂ,ᆼᄆ(18),ᆨᄈ(9/23),ᆨᄈ(10),ᆨᄊ(9/23),ᆨᄊ(10),ᆨᄍ(9/23),ᆨᄍ(10),ᆨᄎ(10),ᆨᄏ(10),ᆨᄐ(10),ᆨᄑ(10),ᆨ\1(10)
++ᆫ,,,,,,,ᆯᄅ(20),,,,,,,,,,,,
++ᆬ,ᆫᄎ(12),ᆫᄀ(10),ᆫᄁ(10),ᆫᄂ(10),ᆫᄃ(10),ᆫᄄ(10),ᆯᄅ(10/20),ᆫᄆ(10),ᆫᄇ(10),ᆫᄈ(10),ᆫᄉ(10),ᆫᄊ(10),ᆫᄌ(10),ᆫᄍ(10),ᆫᄎ(10),ᆫᄏ(10),ᆫᄐ(10),ᆫᄑ(10),ᆫ\1(10)
++ᆭ,ᆫᄒ,ᆫᄏ(12),ᆫᄁ,ᆫᄂ(12),ᆫᄐ(12),ᆫᄄ,ᆯᄅ,ᆫᄆ,ᆫᄇ,ᆫᄈ,ᆫᄊ(12),ᆫᄊ,ᆫᄎ(12),ᆫᄍ,ᆫᄎ,ᆫᄏ,ᆫᄐ,ᆫᄑ,ᆫ\1
++ᆮ,ᄐ(12),ᆮᄁ(23),,ᆫᄂ(18),ᆮᄄ(23),,ᆫᄂ,ᆫᄆ(18),ᆮᄈ(23),,ᆮᄊ(23),,ᆮᄍ(23),,,,,,
++ᆯ,,,,ᆯᄅ(20),,,,,,,,,,,,,,,
++ᆰ,ᆯᄏ(12),ᆨᄁ(11/23),ᆨᄁ(11),ᆼᄂ(11/18),ᆨᄄ(11/23),ᆨᄄ(11),ᆼᄂ(11/18),ᆼᄆ(11/18),ᆨᄈ(11/23),ᆨᄈ(11),ᆨᄊ(11/23),ᆨᄊ(11),ᆨᄍ(11/23),ᆨᄍ(11),ᆨᄎ(11),ᆯᄏ(12),ᆨᄐ(11),ᆨᄑ(11),ᆨ\1(11)
++ᆱ,ᆷᄒ(11),ᆷᄀ(11),ᆷᄁ(11),ᆷᄂ(11),ᆷᄃ(11),ᆷᄄ(11),ᆷᄅ(11),ᆷᄆ(11),ᆷᄇ(11),ᆷᄈ(11),ᆷᄉ(11),ᆷᄊ(11),ᆷᄌ(11),ᆷᄍ(11),ᆷᄎ(11),ᆷᄏ(11),ᆷᄐ(11),ᆷᄑ(11),ᆷ\1(11)
++ᆲ,ᆯᄑ(12),ᆯᄁ(10/23),ᆯᄁ(10),ᆷᄂ(18),ᆯᄄ(10/23),ᆯᄄ(10),ᆯᄅ(10),ᆷᄆ(18),ᆯᄈ(10/23),ᆯᄈ(10),ᆯᄊ(10/23),ᆯᄊ(10),ᆯᄍ(10/23),ᆯᄍ(10),ᆯᄎ(10),ᆯᄏ(10)0),,,ᆯ\1(10)
++ᆳ,ᆯᄒ(10),ᆯᄁ(10/23),ᆯᄁ(10),ᆯᄅ(10/20),ᆯᄄ(10/23),ᆯᄄ(10),ᆯᄅ(10),ᆯᄆ(10),ᆯᄈ(10/23),ᆯᄈ(10),ᆯᄊ(10/23),ᆯᄊ(10),ᆯᄍ(10/23),ᆯᄍ(10),ᆯᄎ(10),ᆯᄏ(ᄑ(10),,,ᆯ\1(10)
++ᆴ,ᆯᄒ(10),ᆯᄀ(10),ᆯᄁ(10),ᆯᄅ(10/20),ᆯᄃ(10),ᆯᄄ(10),ᆯᄅ(10),ᆯᄆ(10),ᆯᄇ(10),ᆯᄈ(10),ᆯᄉ(10),ᆯᄊ(10),ᆯᄌ(10),ᆯᄍ(10),ᆯᄎ(10),ᆯᄏ(10),ᆯᄐ(10),ᆯᄑ(10),ᆯ\1(10)
++ᆵ,ᆸᄑ(11/12),ᆸᄁ(11/23),ᆸᄁ(11),ᆷᄂ(18),ᆸᄄ(11/23),ᆸᄄ(11),ᆷᄅ(11),ᆷᄆ(11/18),ᆸᄈ(11/23),ᆸᄈ(11),ᆸᄊ(11/23),ᆸᄊ(11),ᆸᄍ(11/23),ᆸᄍ(11),ᆸᄎ(11),ᆸᆸᄑ,,,ᆸ\1(11)
++ᆶ,ᆯᄒ(10),ᆯᄏ(12),ᆯᄁ,ᆯᄅ(12/20),ᆯᄐ(12),ᆯᄄ,ᆯᄅ,ᆯᄆ,ᆯᄇ,ᆯᄈ,ᆯᄊ(12),ᆯᄊ,ᆯᄎ(12),ᆯᄍ,ᆯᄎ,ᆯᄏ,ᆯᄐ,ᆯᄑ,ᆯ\1
++ᆷ,,,,,,,,,,,,,,,,,,,,
++ᆸ,ᄑ(12),ᆸᄁ(23),,ᆷᄂ(18),ᆸᄄ(23),,ᆷᄂ(19),ᆷᄆ(18),ᆸᄈ(23),,ᆸᄊ(23),,ᆸᄍ(23),,,,,,
++ᆹ,ᆸᄑ(10),ᆸᄁ(10/23),ᆸᄁ(10),ᆷᄂ(10/18),ᆸᄄ(10/23),ᆸᄄ(10),ᆷᄂ(10/19/18),ᆷᄆ(10/18),ᆸᄈ(10/23),ᆸᄈ(10),ᆸᄊ(10/23),ᆸᄊ(10),ᆸᄍ(10/23),ᆸᄍ(10),ᆸᄎ(1ᄐ(10),ᆸᄑ,,,ᆸ\1(10)
++ᆺ,ᄐ,ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(9/18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(9/18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
++ᆻ,ᄐ,ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(9/18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(9/18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
++ᆼ,,,,,,,,,,,,,,,,,,,,
++ᆽ,ᄎ(12),ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
++ᆾ,ᄐ,ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
++ᆿ,ᄏ,ᆨᄁ(9/23),ᆨᄁ(9),ᆼᄂ(18),ᆨᄄ(9/23),ᆨᄄ(9),ᆼᄂ(9/19),ᆼᄆ(9/18),ᆨᄈ(9/23),ᆨᄈ(9),ᆨᄊ(9/23),ᆨᄊ(9),ᆨᄍ(9/23),ᆨᄍ(9),ᆨᄎ(9),ᆨᄏ(9),ᆨᄐ(9),ᆨᄑ(9),ᆨ\1(9)
++ᇀ,ᄐ,ᆮᄁ(9/23),ᆮᄁ(9),ᆫᄂ(18),ᆮᄄ(9/23),ᆮᄄ(9),ᆷᄂ(9/19),ᆫᄆ(18),ᆮᄈ(9/23),ᆮᄈ(9),ᆮᄊ(9/23),ᆮᄊ(9),ᆮᄍ(9/23),ᆮᄍ(9),ᆮᄎ(9),ᆮᄏ(9),ᆮᄐ(9),ᆮᄑ(9),ᆮ\1(9)
++ᇁ,ᄑ,ᆸᄁ(9/23),ᆸᄁ(9),ᆷᄂ(18),ᆸᄄ(9/23),ᆸᄄ(9),ᆷᄂ(9/19),ᆷᄆ(18),ᆸᄈ(9/23),ᆸᄈ(9),ᆸᄊ(9/23),ᆸᄊ(9),ᆸᄍ(9/23),ᆸᄍ(9),ᆸᄎ(9),ᆸᄏ(9),ᆸᄐ(9),ᆸᄑ(9),ᆸ\1(9)
+\ No newline at end of file
+diff --git a/kokorog2p/ko/g2p.py b/kokorog2p/ko/g2p.py
+index 09970fe..c54d3d1 100644
+--- a/kokorog2p/ko/g2p.py
++++ b/kokorog2p/ko/g2p.py
+@@ -9,11 +9,14 @@ Copyright 2025 kokorog2p contributors
+ Licensed under the Apache License, Version 2.0
+ """
+
++from typing import Literal
++
+ from kokorog2p.base import G2PBase
+ from kokorog2p.token import GToken
+ from kokorog2p.tokenization import ensure_gtoken_positions
+
+ from .jamo_to_ipa import jamo_to_ipa
++from .model_profile import KOKORO_V1_VOICE, encode_for_model
+
+
+ class KoreanG2P(G2PBase):
+@@ -42,9 +45,15 @@ class KoreanG2P(G2PBase):
+         spacy_model: str = "ko_core_news_sm",
+         load_silver: bool = True,
+         load_gold: bool = True,
+-        use_dict: bool = True,
++        use_dict: bool | None = None,
++        morphology: Literal["auto", "required", "off"] = "auto",
++        morphology_backend: str = "auto",
++        descriptive: bool = False,
+         group_vowels: bool = False,
+         to_syl: bool = False,
++        output: Literal["model", "jamo", "ipa"] = "model",
++        model_profile: str = "kokoro-1.0",
++        voice: str = KOKORO_V1_VOICE,
+         version: str = "1.0",
+         **kwargs,
+     ) -> None:
+@@ -71,6 +80,28 @@ class KoreanG2P(G2PBase):
+                 Defaults to False (returns decomposed jamo).
+             **kwargs: Additional arguments.
+         """
++        if kwargs:
++            names = ", ".join(sorted(kwargs))
++            raise TypeError(f"Unsupported KoreanG2P options: {names}")
++        if morphology not in ("auto", "required", "off"):
++            raise ValueError("morphology must be 'auto', 'required', or 'off'")
++        if morphology_backend not in ("auto", "python-mecab-ko", "mecab-ko"):
++            raise ValueError(
++                "morphology_backend must be 'auto', 'python-mecab-ko', or 'mecab-ko'"
++            )
++        if output not in ("model", "jamo", "ipa"):
++            raise ValueError("output must be 'model', 'jamo', or 'ipa'")
++        if model_profile != "kokoro-1.0":
++            raise ValueError("Only the 'kokoro-1.0' Korean model profile is supported")
++        if use_dict is False:
++            morphology = "off"
++
++        self.morphology = morphology
++        self.morphology_backend = morphology_backend
++        self.descriptive = descriptive
++        self.output = output
++        self.model_profile = model_profile
++        self.voice = voice
+         super().__init__(
+             language=language,
+             use_espeak_fallback=use_espeak_fallback,
+@@ -83,7 +114,7 @@ class KoreanG2P(G2PBase):
+         self.spacy_model = spacy_model
+         self.load_silver = load_silver
+         self.load_gold = load_gold
+-        self.use_dict = use_dict
++        self.use_dict = morphology != "off" if use_dict is None else use_dict
+         self.group_vowels = group_vowels
+         self.to_syl = to_syl
+         self._g2pk_instance = None
+@@ -94,9 +125,20 @@ class KoreanG2P(G2PBase):
+         if self._g2pk_instance is None:
+             from .g2pk import G2p
+
+-            self._g2pk_instance = G2p()
++            self._g2pk_instance = G2p(
++                morphology=self.morphology, morphology_backend=self.morphology_backend
++            )
+         return self._g2pk_instance
+
++    def _convert_output(self, hangul_phonemes: str) -> str:
++        if self.output == "jamo":
++            return hangul_phonemes
++        ipa_phonemes = jamo_to_ipa(hangul_phonemes)
++        if self.output == "ipa":
++            return ipa_phonemes
++        return encode_for_model(ipa_phonemes)
++
++
+     def __call__(self, text: str) -> list[GToken]:
+         """Convert Korean text to tokens with phonemes.
+
+@@ -112,7 +154,7 @@ class KoreanG2P(G2PBase):
+         # Convert to phonemes using g2pK (returns Hangul in phonetic form)
+         hangul_phonemes = self.g2pk(
+             text,
+-            descriptive=False,
++            descriptive=self.descriptive,
+             verbose=False,
+             group_vowels=self.group_vowels,
+             to_syl=self.to_syl,
+@@ -120,16 +162,16 @@ class KoreanG2P(G2PBase):
+         )
+
+         # Convert jamo to IPA phonemes
+-        ipa_phonemes = jamo_to_ipa(hangul_phonemes) if hangul_phonemes else None
+-
++        # Convert to the requested linguistic or model representation
++        phonemes = self._convert_output(hangul_phonemes) if hangul_phonemes else None
+         # Create a single token with the phoneme string
+         token = GToken(
+             text=text,
+             tag="KO",
+             whitespace="",
+-            phonemes=ipa_phonemes if ipa_phonemes else None,
++            phonemes=phonemes,
+         )
+-        token.rating = "ko" if ipa_phonemes else None
++        token.rating = "ko" if phonemes else None
+         tokens = [token]
+         ensure_gtoken_positions(tokens, text)
+         return tokens
+@@ -150,17 +192,17 @@ class KoreanG2P(G2PBase):
+         # Use g2pK to convert the word (returns Hangul in phonetic form)
+         hangul_phonemes = self.g2pk(
+             word,
+-            descriptive=False,
++            descriptive=self.descriptive,
+             verbose=False,
+             group_vowels=self.group_vowels,
+             to_syl=self.to_syl,
+             use_dict=self.use_dict,
+         )
+
+-        # Convert jamo to IPA phonemes
+-        ipa_phonemes = jamo_to_ipa(hangul_phonemes) if hangul_phonemes else None
++        # Convert to the requested linguistic or model representation
++        phonemes = self._convert_output(hangul_phonemes) if hangul_phonemes else None
+
+-        return ipa_phonemes if ipa_phonemes else None
++        return phonemes if phonemes else None
+
+     def _phonemize_internal(self, text: str) -> tuple[str, list[GToken] | None]:
+         """Internal phonemization logic.
+@@ -174,26 +216,37 @@ class KoreanG2P(G2PBase):
+         # Convert to phonemes using g2pK (returns Hangul in phonetic form)
+         hangul_phonemes = self.g2pk(
+             text,
+-            descriptive=False,
++            descriptive=self.descriptive,
+             verbose=False,
+             group_vowels=self.group_vowels,
+             to_syl=self.to_syl,
+             use_dict=self.use_dict,
+         )
+
+-        # Convert jamo to IPA phonemes
+-        ipa_phonemes = jamo_to_ipa(hangul_phonemes) if hangul_phonemes else ""
++        # Convert to the requested linguistic or model representation
++        phonemes = self._convert_output(hangul_phonemes) if hangul_phonemes else ""
+
+         # Create a token
+         token = GToken(
+             text=text,
+             tag="KO",
+             whitespace="",
+-            phonemes=ipa_phonemes if ipa_phonemes else None,
++            phonemes=phonemes if phonemes else None,
+         )
+-        token.rating = "ko" if ipa_phonemes else None
++        token.rating = "ko" if phonemes else None
+
+-        return ipa_phonemes, [token] if ipa_phonemes else None
++        return phonemes, [token] if phonemes else None
++
++    @property
++    def capabilities(self) -> dict[str, bool]:
++        """Return Korean options that affect pronunciation."""
++        return {
++            "morphology": self.morphology != "off",
++            "descriptive": True,
++            "spacy": False,
++            "silver_lexicon": False,
++            "espeak_fallback": False,
++        }
+
+     def get_target_model(self) -> str:
+         """Get the target Kokoro model variant for this G2P instance.
+diff --git a/kokorog2p/ko/g2pk.py b/kokorog2p/ko/g2pk.py
+index 7f019f0..599a06b 100644
+--- a/kokorog2p/ko/g2pk.py
++++ b/kokorog2p/ko/g2pk.py
+@@ -2,8 +2,8 @@
+ https://github.com/kyubyong/g2pK
+ """
+
+-import os
+ import re
++import warnings
+
+ from jamo import h2j
+
+@@ -27,9 +27,27 @@ from .special import (
+ from .utils import annotate, compose, get_rule_id2text, group, parse_table
+
+
++class _MecabKoAdapter:
++    """Adapt mecab-ko's raw Tagger output to the g2pkc ``pos`` API."""
++
++    def __init__(self, tagger):
++        self.tagger = tagger
++
++    def pos(self, text):
++        tokens = []
++        for line in self.tagger.parse(text).splitlines():
++            if not line or line == "EOS" or "\t" not in line:
++                continue
++            surface, features = line.split("\t", 1)
++            tokens.append((surface, features.split(",", 1)[0]))
++        return tokens
++
++
+ class G2p:
+-    def __init__(self):
+-        self.mecab = self.get_mecab()
++    def __init__(self, morphology: str = "auto", morphology_backend: str = "auto"):
++        self.mecab = self.get_mecab(
++            morphology=morphology, morphology_backend=morphology_backend
++        )
+         self.table = parse_table()
+         self._cmu = None
+
+@@ -61,35 +79,42 @@ class G2p:
+                 ) from exc
+         return self._cmu
+
+-    def get_mecab(self):
+-        try:
+-            if os.name == "nt":
+-                import MeCab
+-
+-                return MeCab.Tagger()
+-            elif os.name == "posix":
+-                try:
+-                    import mecab
+-
+-                    return mecab.MeCab()
+-                except ImportError:
+-                    # Try mecab-python3 as fallback
+-                    import mecab_python3 as mecab
+-
+-                    return mecab.MeCab()
+-        except ImportError as e:
+-            # MeCab not available - will work without POS tagging
+-            import warnings
+-
+-            warnings.warn(
+-                f"MeCab not available: {e}. "
+-                "Korean G2P will work but without morphological analysis. "
+-                "Install mecab-python3 for better results: pip install mecab-python3",
+-                UserWarning,
+-                stacklevel=2,
+-            )
++    def get_mecab(self, morphology="auto", morphology_backend="auto"):
++        if morphology == "off":
+             return None
++        if morphology_backend in ("auto", "python-mecab-ko"):
++            try:
++                from mecab import MeCab
+
++                return MeCab()
++            except ImportError as exc:
++                python_mecab_error = exc
++        else:
++            python_mecab_error = None
++
++        if morphology_backend in ("auto", "mecab-ko"):
++            try:
++                from mecab_ko import Tagger
++
++                return _MecabKoAdapter(Tagger())
++            except ImportError as exc:
++                mecab_ko_error = exc
++        else:
++            mecab_ko_error = None
++
++        if morphology == "required":
++            raise ImportError(
++                "Korean morphology requires python-mecab-ko or mecab-ko. "
++                "Install python-mecab-ko with: python -m pip install python-mecab-ko"
++            ) from (python_mecab_error or mecab_ko_error)
++
++        warnings.warn(
++            "Korean morphology is unavailable; using morphology-free G2P. "
++            "Install python-mecab-ko for Korean POS tagging.",
++            UserWarning,
++            stacklevel=2,
++        )
++        return None
+     def idioms(self, string, descriptive=False, verbose=False):
+         """Process idioms from IDIOMS list.
+         Each tuple in IDIOMS contains (pattern, replacement).
+@@ -149,7 +174,8 @@ class G2p:
+         string = self.idioms(string, descriptive, verbose)
+
+         # 2 English to Hangul
+-        string = convert_eng(string, self.cmu)
++        if re.search(r"[A-Za-z]", string):
++            string = convert_eng(string, self.cmu)
+
+         # 3. annotate
+         if use_dict and self.mecab is not None:
+diff --git a/kokorog2p/ko/jamo_to_ipa.py b/kokorog2p/ko/jamo_to_ipa.py
+index e1e3997..133c6fd 100644
+--- a/kokorog2p/ko/jamo_to_ipa.py
++++ b/kokorog2p/ko/jamo_to_ipa.py
+@@ -127,30 +127,37 @@ JAMO_VOWELS_TO_IPA = {
+ }
+
+
+-def jamo_to_ipa(text: str) -> str:
+-    """Convert Korean jamo characters to IPA phonemes.
+-
+-    Args:
+-        text: Korean text in jamo form (decomposed or composed).
++def to_positional_jamo(text: str) -> str:
++    """Convert Hangul syllables to positional Unicode Jamo.
+
+-    Returns:
+-        IPA phoneme string.
++    Compatibility Jamo input is retained as-is because it does not encode
++    onset and coda roles. Callers that need unambiguous conversion should
++    pass composed Hangul or positional Jamo.
+     """
+-    from jamo import j2hcj
++    from jamo import h2j
++
++    return h2j(text)
++
+
+-    # Convert to compatibility jamo if needed
+-    jamo_text = j2hcj(text)
++
++def jamo_to_ipa(text: str) -> str:
++    """Convert composed or positional Korean Jamo to IPA-like phonemes.
++
++    Positional Jamo is required to distinguish onset and coda consonants.
++    In particular, final ㅇ maps to ``ŋ`` and final stops retain their
++    unreleased-stop symbols.
++    """
++    positional = to_positional_jamo(text)
+
+     result = []
+-    for char in jamo_text:
++    for char in positional:
+         if char in JAMO_CONSONANTS_TO_IPA:
+             ipa = JAMO_CONSONANTS_TO_IPA[char]
+-            if ipa:  # Skip empty strings (silent ㅇ)
++            if ipa:
+                 result.append(ipa)
+         elif char in JAMO_VOWELS_TO_IPA:
+             result.append(JAMO_VOWELS_TO_IPA[char])
+         else:
+-            # Keep non-jamo characters (punctuation, spaces, etc.)
+             result.append(char)
+
+     return "".join(result)
+diff --git a/kokorog2p/ko/model_profile.py b/kokorog2p/ko/model_profile.py
+new file mode 100644
+index 0000000..f2f4920
+--- /dev/null
++++ b/kokorog2p/ko/model_profile.py
+@@ -0,0 +1,39 @@
++"""Kokoro 82M v1.0 output contract for Korean phonemization."""
++
++from typing import Final
++
++from kokorog2p.vocab import get_vocab
++
++KOKORO_V1_MODEL: Final[str] = "1.0"
++KOKORO_V1_VOICE: Final[str] = "jf_alpha"
++KOKORO_V1_TOKENIZER_URL: Final[str] = (
++    "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/blob/main/tokenizer.json"
++)
++
++# These symbols are meaningful in the linguistic IPA-like representation but
++# have no token in Kokoro 82M v1.0. The Japanese voice receives the closest
++# supported segmental representation instead.
++_LOSSY_SYMBOLS: Final[dict[str, str]] = {"͈": "", "̚": ""}
++
++
++def model_vocab() -> frozenset[str]:
++    """Return the exact character vocabulary used by the bundled v1.0 config."""
++    return frozenset(get_vocab(model=KOKORO_V1_MODEL))
++
++
++def encode_for_model(phonemes: str) -> str:
++    """Convert IPA-like Korean output into Kokoro v1.0 model symbols.
++
++    Known Korean prosodic markers absent from the selected tokenizer are
++    handled explicitly. Any other unsupported symbol raises instead of being
++    silently discarded.
++    """
++    encoded = "".join(_LOSSY_SYMBOLS.get(char, char) for char in phonemes)
++    vocab = model_vocab()
++    invalid = sorted({char for char in encoded if char not in vocab})
++    if invalid:
++        raise ValueError(
++            "Kokoro 82M v1.0 tokenizer does not support Korean output symbols: "
++            + "".join(invalid)
++        )
++    return encoded
+diff --git a/kokorog2p/ko/semantic.py b/kokorog2p/ko/semantic.py
+new file mode 100644
+index 0000000..138a32d
+--- /dev/null
++++ b/kokorog2p/ko/semantic.py
+@@ -0,0 +1,66 @@
++"""Small Korean semantic-preparation fallback for older Spokenform releases."""
++
++import re
++
++from kokorog2p.types import TextReplacement
++
++_PATTERNS = (
++    (
++        re.compile(r"(?P<number>\d[\d,]*)\s*°\s*[Cc]"),
++        "섭씨 {number}도",
++        "temperature-celsius",
++    ),
++    (
++        re.compile(r"(?P<number>\d[\d,]*)\s*km/h", re.IGNORECASE),
++        "시속 {number}킬로미터",
++        "speed-kilometer-per-hour",
++    ),
++    (
++        re.compile(r"(?P<number>\d[\d,]*)\s*L/100km", re.IGNORECASE),
++        "100킬로미터당 {number}리터",
++        "fuel-consumption-liter-per-100-kilometer",
++    ),
++    (re.compile(r"₩(?P<number>\d[\d,]*)"), "{number}원", "currency-krw"),
++    (
++        re.compile(r"(?P<year>\d{4})-(?P<month>\d{1,2})-(?P<day>\d{1,2})"),
++        "{year}년 {month}월 {day}일",
++        "date-iso",
++    ),
++)
++
++
++def replacements(
++    text: str,
++    *,
++    source_offset: int = 0,
++    protected_spans: tuple[tuple[int, int], ...] = (),
++) -> list[TextReplacement]:
++    """Return source-aligned structured Korean semantic replacements."""
++    found: list[TextReplacement] = []
++    occupied: list[tuple[int, int]] = []
++    for pattern, template, rule in _PATTERNS:
++        for match in pattern.finditer(text):
++            start, end = match.span()
++            if any(
++                start < protected_end and end > protected_start
++                for protected_start, protected_end in protected_spans
++            ):
++                continue
++            if any(
++                start < other_end and end > other_start
++                for other_start, other_end in occupied
++            ):
++                continue
++            found.append(
++                TextReplacement(
++                    start=source_offset + start,
++                    end=source_offset + end,
++                    text=template.format(**match.groupdict()),
++                    kind="structured",
++                    rule=f"structured:ko:{rule}",
++                    language="ko",
++                    stages=("structured",),
++                )
++            )
++            occupied.append((start, end))
++    return sorted(found, key=lambda item: item.start)
+diff --git a/kokorog2p/phonemes.py b/kokorog2p/phonemes.py
+index 8e9c732..d346889 100644
+--- a/kokorog2p/phonemes.py
++++ b/kokorog2p/phonemes.py
+@@ -58,10 +58,10 @@ FR_VOCAB: Final[frozenset[str]] = frozenset("',-abdefijklmnopstuvwyzøœɑɔəɛ
+ # - Special vowels: ø (외), ɛ (애/에), ɯ (으), ɰ (의 onset), ʌ (어)
+ # - Consonants: h j k l m n p s t w
+ # - Special consonant: ʨ (ㅈ/ㅊ affricate)
+-# - Modifiers: ʰ (aspiration), ͈ (tenseness)
+-# Note: Character-based like Japanese - each character represents one phoneme
+-# Note: Without MeCab, ŋ and ̚ are not produced (simplified phonology)
+-KO_VOCAB: Final[frozenset[str]] = frozenset("aehijklmnopstuwøɛɯɰʌʨʰ͈")
++# Korean phoneme vocabulary for the Kokoro 82M v1.0 model profile
++# The linguistic IPA-like form may additionally contain ͈ (tenseness) and ̚
++# (unreleased stops); the model encoder explicitly removes those unsupported markers.
++KO_VOCAB: Final[frozenset[str]] = frozenset("aehijklmnopstuwøɛɯɰʌʨʰŋ")
+
+ # Chinese (Mandarin) phoneme vocabulary (59 characters)
+ # Uses Zhuyin (Bopomofo) notation, NOT IPA
+diff --git a/kokorog2p/pipeline_api.py b/kokorog2p/pipeline_api.py
+index 341cfb6..2178d72 100644
+--- a/kokorog2p/pipeline_api.py
++++ b/kokorog2p/pipeline_api.py
+@@ -74,7 +74,7 @@ def _uses_spokenform_semantics(lang: str | None) -> bool:
+         base = spokenform_base_language(normalized)
+     except (TypeError, ValueError):
+         base = normalized.split("-", 1)[0]
+-    return base in _SPOKENFORM_SEMANTIC_LANGUAGES
++    return base in _SPOKENFORM_SEMANTIC_LANGUAGES or base == "ko"
+
+
+ def _get_g2p_lock(g2p: Any) -> threading.RLock:
+@@ -344,6 +344,20 @@ def _spokenform_replacements_for_run(
+     expand_nums: bool = True,
+ ) -> _SpokenformRunResult:
+     """Adapt spokenform source replacements into kokorog2p's public type."""
++    normalized_language = (_normalize_lang(language) or "").split("-", 1)[0]
++    if (
++        normalized_language == "ko"
++        and normalized_language not in _SPOKENFORM_SEMANTIC_LANGUAGES
++    ):
++        from kokorog2p.ko.semantic import replacements
++
++        return _SpokenformRunResult(
++            replacements(
++                text,
++                source_offset=source_offset,
++                protected_spans=tuple(protected_spans),
++            )
++        )
+
+     from dataclasses import replace
+
+diff --git a/pyproject.toml b/pyproject.toml
+index ba90c5d..78059e9 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -99,6 +99,17 @@ ko = [
+     "jamo>=0.4.1",
+     "nltk>=3.8.1",
+ ]
++ko-mecab = [
++    "kokorog2p[ko]",
++    "python-mecab-ko>=1.3.7,<2",
++]
++ko-benchmark = [
++    "kokorog2p[ko-mecab]",
++    "kss>=6,<7",
++    "pecab>=1.0.0",
++    "ko-speech-tools",
++    "mecab-ko>=1.0.2,<2",
++]
+ he = [
+     "phonikud"
+ ]
+diff --git a/tests/test_dependency_contract.py b/tests/test_dependency_contract.py
+index cbe7def..7126232 100644
+--- a/tests/test_dependency_contract.py
++++ b/tests/test_dependency_contract.py
+@@ -28,3 +28,14 @@ def test_japanese_dependency_extras_are_separated() -> None:
+     assert "unidic-lite>=1.0.8" in extras["ja-cutlet"]
+     assert "unidic>=1.1.0" in extras["ja-cutlet-full"]
+     assert "unidic-lite>=1.0.8" not in extras["ja-cutlet-full"]
++
++
++def test_korean_dependency_extras_use_korean_backends() -> None:
++    data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
++    extras = data["project"]["optional-dependencies"]
++
++    assert "jamo>=0.4.1" in extras["ko"]
++    assert "nltk>=3.8.1" in extras["ko"]
++    assert "mecab-python3" not in extras["ko"]
++    assert "python-mecab-ko>=1.3.7,<2" in extras["ko-mecab"]
++    assert "mecab-python3" not in extras["ko-mecab"]
+diff --git a/tests/test_ko_contract.py b/tests/test_ko_contract.py
+new file mode 100644
+index 0000000..e95b2e7
+--- /dev/null
++++ b/tests/test_ko_contract.py
+@@ -0,0 +1,97 @@
++"""Korean resource, representation, and model-contract regressions."""
++
++import importlib.resources
++
++import pytest
++
++from kokorog2p.ko import KoreanG2P
++from kokorog2p.ko.jamo_to_ipa import jamo_to_ipa
++from kokorog2p.ko.model_profile import KOKORO_V1_VOICE, encode_for_model, model_vocab
++
++
++def test_korean_rule_table_is_packaged() -> None:
++    resource = importlib.resources.files("kokorog2p.ko.data").joinpath("table.csv")
++    assert resource.is_file()
++    assert resource.read_text(encoding="utf-8").strip()
++
++
++@pytest.mark.parametrize(
++    ("text", "ending"),
++    [("강", "ŋ"), ("안녕", "ŋ"), ("국", "k̚"), ("밥", "p̚"), ("옷", "t̚")],
++)
++def test_jamo_to_ipa_preserves_coda_classes(text: str, ending: str) -> None:
++    assert jamo_to_ipa(text).endswith(ending) or ending in jamo_to_ipa(text)
++
++
++@pytest.mark.parametrize("text", ["강", "안녕", "국", "밥", "옷", "강", "국"])
++def test_model_output_matches_kokoro_v1_vocab(text: str) -> None:
++    output = KoreanG2P(use_dict=False).phonemize(text)
++    assert set(output) <= model_vocab()
++    assert encode_for_model(output) == output
++
++
++def test_model_output_uses_explicit_lossy_symbols() -> None:
++    assert encode_for_model("k͈uk̚") == "kuk"
++    with pytest.raises(ValueError, match="does not support"):
++        encode_for_model("§")
++
++
++def test_default_korean_voice_is_jf_alpha() -> None:
++    assert KoreanG2P(use_dict=False).voice == KOKORO_V1_VOICE == "jf_alpha"
++
++
++def test_korean_morphology_off_is_deterministic() -> None:
++    g2p = KoreanG2P(morphology="off")
++    assert g2p.g2pk.mecab is None
++    assert g2p.phonemize("안녕하세요")
++
++
++def test_pure_hangul_does_not_load_cmudict() -> None:
++    g2p = KoreanG2P(use_dict=False)
++    assert g2p.phonemize("안녕하세요")
++    assert g2p.g2pk._cmu is None
++
++
++def test_unknown_korean_options_are_rejected() -> None:
++    with pytest.raises(TypeError, match="Unsupported KoreanG2P options"):
++        KoreanG2P(use_dict=False, use_mecab=True)
++
++
++def test_factory_forwards_korean_voice() -> None:
++    from kokorog2p import clear_cache, get_g2p
++
++    clear_cache()
++    assert get_g2p("ko", voice="jf_alpha").voice == "jf_alpha"
++
++
++@pytest.mark.parametrize(
++    ("source", "expected"),
++    [
++        ("학교", "학꾜"),
++        ("국밥", "국빱"),
++        ("굳이", "구지"),
++        ("옷이", "오시"),
++        ("놓고", "노코"),
++        ("신라", "실라"),
++        ("12시 12분", "열두시 십이분"),
++        ("1개", "한개"),
++        ("2명", "두명"),
++        ("3마리", "세마리"),
++    ],
++    ids=lambda case: case[0],
++)
++def test_g2pkc_intermediate_regressions(source: str, expected: str) -> None:
++    g2p = KoreanG2P(use_dict=False, output="jamo", to_syl=True)
++    assert g2p.phonemize(source) == expected
++
++
++def test_korean_semantic_fallback_preserves_source_coordinates() -> None:
++    from kokorog2p.pipeline_api import _spokenform_replacements_for_run
++
++    source = "prefix 20°C and ₩5000"
++    replacements = _spokenform_replacements_for_run(source, "ko")
++    assert [(item.start, item.end) for item in replacements] == [
++        (7, 11),
++        (16, 21),
++    ]
++    assert [item.text for item in replacements] == ["섭씨 20도", "5000원"]

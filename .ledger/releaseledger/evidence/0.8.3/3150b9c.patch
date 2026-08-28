@@ -1,0 +1,17 @@
+ kokorog2p/ar/model_profile.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/kokorog2p/ar/model_profile.py b/kokorog2p/ar/model_profile.py
+index d8cc8f3..2625ff2 100644
+--- a/kokorog2p/ar/model_profile.py
++++ b/kokorog2p/ar/model_profile.py
+@@ -66,8 +66,8 @@ __all__ = [
+     "clean_espeak_output",
+     "encode_output",
+     "strip_espeak_articulation_marks",
+-    "strip_tie_bars",
+     "strip_grouping_delimiters",
+     "strip_internal_syllable_dots",
++    "strip_tie_bars",
+     "validate_nabra_symbols",
+ ]

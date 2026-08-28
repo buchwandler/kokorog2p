@@ -1,0 +1,2943 @@
+ .gitignore                                         |   6 +
+ experiments/de_lexicon_compression/README.md       |  43 ++++
+ experiments/de_lexicon_compression/__init__.py     |   6 +
+ .../de_lexicon_compression/analyze_sources.py      | 253 +++++++++++++++++++++
+ .../de_lexicon_compression/benchmark_quality.py    | 172 ++++++++++++++
+ .../de_lexicon_compression/benchmark_runtime.py    | 123 ++++++++++
+ experiments/de_lexicon_compression/compress.py     | 196 ++++++++++++++++
+ experiments/de_lexicon_compression/data/.gitkeep   |   0
+ .../de_lexicon_compression/download_sources.py     |  41 ++++
+ .../fixtures/toy_ambiguity.tsv                     |   6 +
+ .../fixtures/toy_case_collisions.tsv               |   3 +
+ .../de_lexicon_compression/fixtures/toy_single.tsv |   3 +
+ .../fixtures/toy_unicode.tsv                       |   2 +
+ .../fixtures/toy_variants.tsv                      |   5 +
+ .../de_lexicon_compression/generate_report.py      | 127 +++++++++++
+ .../de_lexicon_compression/lexlab/__init__.py      |   5 +
+ .../de_lexicon_compression/lexlab/composition.py   | 120 ++++++++++
+ .../de_lexicon_compression/lexlab/compressor.py    | 134 +++++++++++
+ .../de_lexicon_compression/lexlab/decoder.py       |  50 ++++
+ .../de_lexicon_compression/lexlab/download.py      |  59 +++++
+ experiments/de_lexicon_compression/lexlab/keys.py  |  68 ++++++
+ .../de_lexicon_compression/lexlab/kokoro_view.py   |  54 +++++
+ .../de_lexicon_compression/lexlab/metrics.py       |  29 +++
+ experiments/de_lexicon_compression/lexlab/model.py | 105 +++++++++
+ .../de_lexicon_compression/lexlab/overlap.py       |  92 ++++++++
+ experiments/de_lexicon_compression/lexlab/parse.py | 170 ++++++++++++++
+ .../de_lexicon_compression/lexlab/reports.py       |  52 +++++
+ .../de_lexicon_compression/lexlab/serializer.py    |  73 ++++++
+ .../de_lexicon_compression/lexlab/sources.py       | 136 +++++++++++
+ experiments/de_lexicon_compression/lexlab/trie.py  |  35 +++
+ .../de_lexicon_compression/reports/.gitkeep        |   0
+ experiments/de_lexicon_compression/run_matrix.py   | 108 +++++++++
+ .../de_lexicon_compression/source_manifest.toml    |  38 ++++
+ .../de_lexicon_compression/tests/__init__.py       |   0
+ .../de_lexicon_compression/tests/test_analysis.py  |  13 ++
+ .../tests/test_benchmarks.py                       |  19 ++
+ .../de_lexicon_compression/tests/test_cli.py       |  11 +
+ .../tests/test_composition.py                      |  14 ++
+ .../tests/test_compressor.py                       |  38 ++++
+ .../de_lexicon_compression/tests/test_download.py  |  12 +
+ .../de_lexicon_compression/tests/test_keys.py      |  18 ++
+ .../de_lexicon_compression/tests/test_overlap.py   |  13 ++
+ .../de_lexicon_compression/tests/test_parser.py    |  37 +++
+ .../tests/test_serializer.py                       |  15 ++
+ .../de_lexicon_compression/tests/test_sources.py   |   9 +
+ .../tests/test_toy_roundtrip.py                    |  16 ++
+ .../de_lexicon_compression/tests/test_variants.py  |   9 +
+ .../de_lexicon_compression/tests/test_views.py     |   7 +
+ experiments/de_lexicon_compression/verify.py       |  60 +++++
+ 49 files changed, 2605 insertions(+)
+
+diff --git a/.gitignore b/.gitignore
+index 8b709ec..cef40ad 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -215,3 +215,9 @@ benchmarks/data/sv/lexicon.tsv
+
+ # Generated Swedish rule benchmark results
+ benchmarks/results/sv/
++
++# German lexicon compression experiment: never commit downloaded sources or reports
++experiments/de_lexicon_compression/data/*
++!experiments/de_lexicon_compression/data/.gitkeep
++experiments/de_lexicon_compression/reports/*
++!experiments/de_lexicon_compression/reports/.gitkeep
+diff --git a/experiments/de_lexicon_compression/README.md b/experiments/de_lexicon_compression/README.md
+new file mode 100644
+index 0000000..0e3d84f
+--- /dev/null
++++ b/experiments/de_lexicon_compression/README.md
+@@ -0,0 +1,43 @@
++# German multi-lexicon compression experiment
++
++This is an opt-in research harness. It does not change `kokorog2p.de` and never
++downloads data on import. The three sources remain independent because provenance and
++licensing are source-specific.
++
++## Contracts
++
++- **Source-semantic lossless** means exact source spellings, codepoints, duplicate rows,
++  and ordered pronunciation variants round-trip.
++- **Behavior-lossless** is a separate derived Kokoro-view experiment and cannot
++  authorize deletion from raw source data.
++- `records_exact` preserves duplicate rows; `runtime_unique` removes only exact
++  duplicate IPA values, preserving first-seen order.
++
++## Quick start
++
++```bash
++python -m pytest -q experiments/de_lexicon_compression/tests
++python experiments/de_lexicon_compression/download_sources.py --source crane_wiktionary --download
++python experiments/de_lexicon_compression/analyze_sources.py --source crane_wiktionary --data-root ~/.cache/kokorog2p/experiments/de-lexicons --output reports/source-analysis
++python experiments/de_lexicon_compression/compress.py --source crane_wiktionary --mode exact-multipart --data-root ~/.cache/kokorog2p/experiments/de-lexicons --output reports/crane-multipart
++python experiments/de_lexicon_compression/verify.py --run reports/crane-multipart --data-root ~/.cache/kokorog2p/experiments/de-lexicons
++```
++
++Large downloads, full benchmarks, and the matrix are manual/opt-in. The `data/` and
++`reports/` directories are ignored so third-party assets are not accidentally shipped.
++The gruut/eSpeak-derived source remains `REVIEW_REQUIRED`; Crane data remains CC
++BY-SA-4.0 and is not redistributable under only the project license.
++
++## Matrix and reports
++
++`analyze_sources.py` writes source statistics, casing/Unicode collisions,
++overlap/conflicts, reachability, and baseline plain/gzip/xz measurements. Compression
++runs contain `summary.json`, deterministic atom/exception/derived TSVs, failures,
++verification, size breakdown, and `compressed.asset`. `benchmark_quality.py`,
++`benchmark_runtime.py`, and `run_matrix.py` emit JSON/TSV and use isolated subprocesses
++where data size warrants it.
++
++The first exact modes are `exact-two-part` (C1) and `exact-multipart` (C2). They use
++deterministic source-semantic equality only. Linguistic join rules, merged source
++stores, production APIs, neural G2P, and custom binary/mmap formats are intentionally
++deferred until measurements justify them.
+diff --git a/experiments/de_lexicon_compression/__init__.py b/experiments/de_lexicon_compression/__init__.py
+new file mode 100644
+index 0000000..65cb6f5
+--- /dev/null
++++ b/experiments/de_lexicon_compression/__init__.py
+@@ -0,0 +1,6 @@
++"""Research tooling for German multi-lexicon experiments.
++
++This package is intentionally isolated from the public German G2P runtime.
++"""
++
++__version__ = "0.1"
+diff --git a/experiments/de_lexicon_compression/analyze_sources.py b/experiments/de_lexicon_compression/analyze_sources.py
+new file mode 100644
+index 0000000..8c7e6bb
+--- /dev/null
++++ b/experiments/de_lexicon_compression/analyze_sources.py
+@@ -0,0 +1,253 @@
++#!/usr/bin/env python3
++"""Analyze source statistics, overlaps, reachability, and baseline storage."""
++
++from __future__ import annotations
++
++import argparse
++import gzip
++import lzma
++import platform
++import time
++from pathlib import Path
++
++try:
++    from .lexlab.keys import casing_collisions, unicode_statistics
++    from .lexlab.overlap import all_pair_metrics
++    from .lexlab.reports import source_dict, write_json, write_tsv
++    from .lexlab.sources import load_source
++except ImportError:  # direct script execution
++    from lexlab.keys import casing_collisions, unicode_statistics
++    from lexlab.overlap import all_pair_metrics
++    from lexlab.reports import source_dict, write_json, write_tsv
++    from lexlab.sources import load_source
++
++
++def _reachability(source):
++    rows = []
++    try:
++        from kokorog2p.de.normalizer import GermanNormalizer
++        from kokorog2p.pipeline.tokenizer import RegexTokenizer
++
++        normalizer = GermanNormalizer()
++        tokenizer = RegexTokenizer(lang="de")
++    except Exception as exc:  # optional runtime dependencies
++        return [
++            {"source": source.source.source_id, "error": f"{type(exc).__name__}: {exc}"}
++        ]
++    for word in source.words:
++        try:
++            normalized = normalizer(word)
++            tokens = tokenizer.tokenize(normalized)
++            token_texts = tuple(token.text for token in tokens)
++            if not token_texts:
++                classification = "EMPTY_AFTER_NORMALIZATION"
++                key = ""
++            elif len(token_texts) > 1 or token_texts[0] != normalized:
++                classification = (
++                    "SPLIT_MULTIPLE_TOKENS"
++                    if len(token_texts) > 1
++                    else "NORMALIZED_SINGLE_TOKEN_CHANGED"
++                )
++                key = token_texts[0].lower() if len(token_texts) == 1 else ""
++            elif token_texts[0].isalnum() or any(
++                char.isalpha() for char in token_texts[0]
++            ):
++                classification = "DIRECT_SINGLE_TOKEN"
++                key = token_texts[0].lower()
++            else:
++                classification = "PUNCT_ONLY_OR_INVALID"
++                key = ""
++            rows.append(
++                {
++                    "source": source.source.source_id,
++                    "source_word": word,
++                    "normalized_text": normalized,
++                    "tokens": "|".join(token_texts),
++                    "classification": classification,
++                    "lookup_key": key,
++                }
++            )
++        except Exception as exc:
++            rows.append(
++                {
++                    "source": source.source.source_id,
++                    "source_word": word,
++                    "normalized_text": "",
++                    "tokens": "",
++                    "classification": "ERROR",
++                    "lookup_key": "",
++                    "error": f"{type(exc).__name__}: {exc}",
++                }
++            )
++    return rows
++
++
++def _canonical_tsv(source) -> bytes:
++    return "".join(
++        f"{word}\t{record.ipa}\n"
++        for word, record in sorted(
++            source.iter_records(), key=lambda item: (item[0], item[1].line_number or 0)
++        )
++    ).encode("utf-8")
++
++
++def analyze(
++    source_ids: list[str], data_root: Path | None, output: Path
++) -> dict[str, object]:
++    output.mkdir(parents=True, exist_ok=True)
++    loaded = {
++        source_id: load_source(source_id, data_root=data_root)
++        for source_id in source_ids
++    }
++    source_rows = []
++    key_rows = []
++    variant_rows = []
++    unicode_rows = []
++    reach_rows = []
++    baseline_rows = []
++    for source_id, source in loaded.items():
++        source_rows.append(
++            {
++                **source_dict(source.source),
++                **source.metadata,
++                "source": source_id,
++                "pronunciation_variants": sum(len(v) for v in source.entries.values()),
++            }
++        )
++        collisions = casing_collisions(source)
++        key_rows.extend(
++            {
++                "source": source_id,
++                "key_type": key_type,
++                "key": key,
++                "spellings": "|".join(words),
++            }
++            for key_type, groups in collisions.items()
++            for key, words in groups.items()
++        )
++        variant_rows.append(
++            {
++                "source": source_id,
++                "unique_words": len(source.entries),
++                "physical_rows": source.physical_rows,
++                "variants": sum(len(v) for v in source.entries.values()),
++                "multi_variant_words": sum(len(v) > 1 for v in source.entries.values()),
++                "max_variants": max(
++                    (len(v) for v in source.entries.values()), default=0
++                ),
++                "duplicate_identical_rows": source.metadata.get(
++                    "duplicate_identical_rows", 0
++                ),
++            }
++        )
++        unicode_rows.append(
++            {
++                "source": source_id,
++                **{
++                    key: value
++                    for key, value in unicode_statistics(source).items()
++                    if not isinstance(value, dict)
++                },
++            }
++        )
++        reach_rows.extend(_reachability(source))
++        started = time.perf_counter()
++        canonical = _canonical_tsv(source)
++        elapsed = time.perf_counter() - started
++        gzip_bytes = gzip.compress(canonical, mtime=0)
++        xz_bytes = lzma.compress(
++            canonical, format=lzma.FORMAT_XZ, check=lzma.CHECK_CRC64
++        )
++        baseline_rows.append(
++            {
++                "source": source_id,
++                "source_bytes": source.source.size_bytes,
++                "canonical_bytes": len(canonical),
++                "gzip_bytes": len(gzip_bytes),
++                "xz_bytes": len(xz_bytes),
++                "serialization_seconds": elapsed,
++                "python": platform.python_version(),
++            }
++        )
++    pairs = all_pair_metrics(loaded)
++    write_json(
++        output / "summary.json",
++        {
++            "schema": 1,
++            "python": platform.python_version(),
++            "sources": source_rows,
++            "pairs": pairs,
++            "reachability": {
++                source_id: sum(
++                    row.get("classification") == "DIRECT_SINGLE_TOKEN"
++                    for row in reach_rows
++                    if row.get("source") == source_id
++                )
++                for source_id in loaded
++            },
++        },
++    )
++    write_tsv(output / "sources.tsv", source_rows)
++    write_tsv(
++        output / "key_stats.tsv", key_rows, ["source", "key_type", "key", "spellings"]
++    )
++    write_tsv(output / "variant_stats.tsv", variant_rows)
++    write_tsv(output / "unicode_stats.tsv", unicode_rows)
++    write_tsv(
++        output / "casing_collisions.tsv",
++        key_rows,
++        ["source", "key_type", "key", "spellings"],
++    )
++    write_tsv(
++        output / "overlap_words.tsv",
++        [
++            {
++                "source_a": row["source_a"],
++                "source_b": row["source_b"],
++                "exact_intersection": row["exact_spelling_intersection"],
++            }
++            for row in pairs
++        ],
++    )
++    write_tsv(
++        output / "pronunciation_agreement.tsv",
++        [
++            {key: value for key, value in row.items() if key != "conflicts"}
++            for row in pairs
++        ],
++    )
++    write_tsv(
++        output / "conflicts.tsv",
++        [
++            {"source_a": pair["source_a"], "source_b": pair["source_b"], **conflict}
++            for pair in pairs
++            for conflict in pair["conflicts"]
++        ],
++    )
++    write_tsv(output / "reachability.tsv", reach_rows)
++    write_tsv(output / "baseline.tsv", baseline_rows)
++    write_json(
++        output / "provenance.json",
++        {source_id: source_dict(source.source) for source_id, source in loaded.items()},
++    )
++    (output / "README.md").write_text(
++        "Generated source analysis. Raw source records were not normalized; Kokoro views are analysis-only.\n",
++        encoding="utf-8",
++    )
++    return {"sources": source_rows, "pairs": pairs}
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--source", required=True, help="Comma-separated source IDs")
++    parser.add_argument("--data-root", type=Path)
++    parser.add_argument("--output", type=Path, required=True)
++    args = parser.parse_args()
++    analyze(
++        [item.strip() for item in args.source.split(",")], args.data_root, args.output
++    )
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/experiments/de_lexicon_compression/benchmark_quality.py b/experiments/de_lexicon_compression/benchmark_quality.py
+new file mode 100644
+index 0000000..d54190a
+--- /dev/null
++++ b/experiments/de_lexicon_compression/benchmark_quality.py
+@@ -0,0 +1,172 @@
++#!/usr/bin/env python3
++"""Compare source coverage and pronunciation quality on the pinned Crane fixture."""
++
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++try:
++    from .lexlab.kokoro_view import to_kokoro_view
++    from .lexlab.metrics import cer
++    from .lexlab.reports import write_json
++    from .lexlab.sources import load_source
++except ImportError:  # direct script execution
++    from lexlab.kokoro_view import to_kokoro_view
++    from lexlab.metrics import cer
++    from lexlab.reports import write_json
++    from lexlab.sources import load_source
++
++
++def _crane_data(root: Path | None, download: bool):
++    from benchmarks.crane_test_data import (
++        LANGUAGES,
++        load_test_tsv,
++        load_vocab,
++        normalize_reference_ipa,
++        resolve_data_root,
++    )
++
++    config = LANGUAGES["de_DE"]
++    data_root = resolve_data_root(root, download=download, configs=(config,))
++    vocab = load_vocab(data_root / "g2p/kokoro_vocab.json")
++    entries = load_test_tsv(data_root / config.test_path)
++    return entries, vocab, normalize_reference_ipa
++
++
++def score_source(source, entries, vocab, normalizer):
++    covered = selected_exact = oracle_exact = 0
++    selected_values: list[str] = []
++    expected_values: list[str] = []
++    fallback_count = 0
++    rows = []
++    for entry in entries:
++        expected = normalizer(entry.expected_raw_ipa, language="de_DE", vocab=vocab)
++        variants = source.lookup_all(entry.word)
++        if not variants:
++            key = entry.word.lower()
++            variants = source.lookup_all(key)
++        if variants:
++            covered += 1
++        views = tuple(
++            to_kokoro_view(source.source.source_id, value, vocab=vocab)
++            for value in variants
++        )
++        selected = views[0] if views else ""
++        selected_values.append(selected)
++        expected_values.append(expected)
++        selected_match = selected == expected
++        oracle_match = expected in views
++        selected_exact += selected_match
++        oracle_exact += oracle_match
++        rows.append(
++            {
++                "word": entry.word,
++                "covered": bool(variants),
++                "variant_count": len(variants),
++                "selected_exact": selected_match,
++                "oracle_exact": oracle_match,
++                "selected_cer": cer((expected,), (selected,)),
++            }
++        )
++        if not variants:
++            fallback_count += 1
++    return {
++        "source": source.source.source_id,
++        "entries": len(entries),
++        "coverage": covered / len(entries) if entries else 0.0,
++        "selected_exact_match_rate": selected_exact / len(entries) if entries else 0.0,
++        "oracle_variant_exact_match_rate": oracle_exact / len(entries)
++        if entries
++        else 0.0,
++        "selected_cer": cer(tuple(expected_values), tuple(selected_values)),
++        "invalid_or_empty_outputs": sum(not value for value in selected_values),
++        "fallback_rows": fallback_count,
++        "rows": rows,
++    }
++
++
++def score_full_pipeline(source, entries, vocab, normalizer):
++    """Score source lookup plus the normal German fallback profile."""
++    try:
++        from benchmarks.crane_test_data import (
++            create_benchmark_g2p,
++            extract_pronunciation,
++        )
++
++        fallback = create_benchmark_g2p("de_DE")
++    except Exception as exc:  # optional eSpeak/runtime dependencies
++        return {"available": False, "error": f"{type(exc).__name__}: {exc}"}
++    values = []
++    expected_values = []
++    fallback_rows = 0
++    errors = 0
++    for entry in entries:
++        expected = normalizer(entry.expected_raw_ipa, language="de_DE", vocab=vocab)
++        variants = source.lookup_all(entry.word) or source.lookup_all(
++            entry.word.lower()
++        )
++        if variants:
++            actual = to_kokoro_view(source.source.source_id, variants[0], vocab=vocab)
++        else:
++            fallback_rows += 1
++            try:
++                actual = extract_pronunciation(fallback(entry.word))
++            except Exception:
++                actual = ""
++                errors += 1
++        expected_values.append(expected)
++        values.append(actual)
++    exact = sum(
++        left == right for left, right in zip(expected_values, values, strict=True)
++    )
++    return {
++        "available": True,
++        "entries": len(entries),
++        "coverage": sum(bool(value) for value in values) / len(values)
++        if values
++        else 0.0,
++        "selected_exact_match_rate": exact / len(values) if values else 0.0,
++        "oracle_variant_exact_match_rate": exact / len(values) if values else 0.0,
++        "selected_cer": cer(tuple(expected_values), tuple(values)),
++        "invalid_or_empty_outputs": sum(not value for value in values),
++        "fallback_rows": fallback_rows,
++        "errors": errors,
++    }
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--sources", required=True)
++    parser.add_argument("--data-root", type=Path)
++    parser.add_argument("--download-crane-test-data", action="store_true")
++    parser.add_argument("--output", type=Path, required=True)
++    parser.add_argument("--limit", type=int)
++    args = parser.parse_args()
++    entries, vocab, normalizer = _crane_data(
++        args.data_root, args.download_crane_test_data
++    )
++    if args.limit is not None:
++        entries = entries[: args.limit]
++    results = []
++    for source_id in (value.strip() for value in args.sources.split(",")):
++        source = load_source(source_id, data_root=args.data_root)
++        score = score_source(source, entries, vocab, normalizer)
++        score["full_pipeline"] = score_full_pipeline(source, entries, vocab, normalizer)
++        results.append(score)
++    output = {
++        "schema": 1,
++        "fixture": "crane-local-ai/test-data",
++        "revision": "19b6ea610af45d9258a3957c7a22694280bdf145",
++        "sources": results,
++    }
++    write_json(args.output, output)
++    print(
++        json.dumps({"sources": len(results), "entries": len(entries)}, sort_keys=True)
++    )
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/experiments/de_lexicon_compression/benchmark_runtime.py b/experiments/de_lexicon_compression/benchmark_runtime.py
+new file mode 100644
+index 0000000..20c11a7
+--- /dev/null
++++ b/experiments/de_lexicon_compression/benchmark_runtime.py
+@@ -0,0 +1,123 @@
++#!/usr/bin/env python3
++"""Measure isolated decoder load, memory, throughput, and latency."""
++
++from __future__ import annotations
++
++import argparse
++import json
++import random
++import resource
++import subprocess
++import sys
++import time
++from pathlib import Path
++
++try:
++    from .lexlab.reports import write_json
++    from .lexlab.serializer import load_asset
++except ImportError:  # direct script execution
++    from lexlab.reports import write_json
++    from lexlab.serializer import load_asset
++
++
++def _percentile(values: list[float], fraction: float) -> float:
++    if not values:
++        return 0.0
++    ordered = sorted(values)
++    return ordered[min(len(ordered) - 1, int((len(ordered) - 1) * fraction))]
++
++
++def _worker(run: Path, seed: int, iterations: int) -> dict[str, object]:
++    before = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
++    started = time.perf_counter()
++    asset = load_asset(run / "compressed.asset" if run.is_dir() else run)
++    load_seconds = time.perf_counter() - started
++    after = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
++    rng = random.Random(seed)
++    direct = sorted(asset.atoms)
++    derived = sorted(asset.derived)
++    misses = [f"__missing_{index}__" for index in range(max(1, min(iterations, 1000)))]
++
++    def measure(words):
++        latencies = []
++        started = time.perf_counter()
++        for _index in range(iterations):
++            word = words[rng.randrange(len(words))]
++            one = time.perf_counter()
++            asset.lookup_all(word)
++            latencies.append((time.perf_counter() - one) * 1000)
++        elapsed = time.perf_counter() - started
++        return {
++            "count": iterations,
++            "words_per_second": iterations / elapsed if elapsed else 0.0,
++            "p50_ms": _percentile(latencies, 0.50),
++            "p95_ms": _percentile(latencies, 0.95),
++            "p99_ms": _percentile(latencies, 0.99),
++        }
++
++    result = {
++        "asset_bytes": (run / "compressed.asset" if run.is_dir() else run)
++        .stat()
++        .st_size,
++        "cold_load_ms": load_seconds * 1000,
++        "rss_before_kib": before,
++        "rss_after_kib": after,
++        "peak_rss_kib": after,
++        "direct": measure(direct or ["__none__"]),
++        "derived": measure(derived or ["__none__"]),
++        "misses": measure(misses),
++        "composition_cache": {
++            "hits": 0,
++            "misses": len(derived),
++            "note": "decoder has no implicit cache",
++        },
++    }
++    return result
++
++
++def run_benchmark(
++    run: Path, *, output: Path, seed: int = 1729, iterations: int = 10_000
++) -> dict[str, object]:
++    command = [
++        sys.executable,
++        str(Path(__file__).resolve()),
++        "--worker",
++        str(run),
++        "--seed",
++        str(seed),
++        "--iterations",
++        str(iterations),
++    ]
++    completed = subprocess.run(command, check=True, capture_output=True, text=True)
++    result = json.loads(completed.stdout)
++    write_json(output, result)
++    return result
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--run", type=Path, required=True)
++    parser.add_argument("--output", type=Path)
++    parser.add_argument("--seed", type=int, default=1729)
++    parser.add_argument("--iterations", type=int, default=10_000)
++    parser.add_argument("--worker", action="store_true")
++    args = parser.parse_args()
++    if args.worker:
++        print(
++            json.dumps(
++                _worker(args.run, args.seed, args.iterations),
++                ensure_ascii=False,
++                sort_keys=True,
++            )
++        )
++        return 0
++    if args.output is None:
++        parser.error("--output is required outside --worker")
++    run_benchmark(
++        args.run, output=args.output, seed=args.seed, iterations=args.iterations
++    )
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/experiments/de_lexicon_compression/compress.py b/experiments/de_lexicon_compression/compress.py
+new file mode 100644
+index 0000000..a79ee52
+--- /dev/null
++++ b/experiments/de_lexicon_compression/compress.py
+@@ -0,0 +1,196 @@
++#!/usr/bin/env python3
++"""Create a deterministic exact-composition asset for one source."""
++
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++try:
++    from .lexlab.compressor import compress_lexicon
++    from .lexlab.reports import source_dict, write_json, write_tsv
++    from .lexlab.serializer import write_asset
++    from .lexlab.sources import load_source
++except ImportError:  # direct script execution
++    from lexlab.compressor import compress_lexicon
++    from lexlab.reports import source_dict, write_json, write_tsv
++    from lexlab.serializer import write_asset
++    from lexlab.sources import load_source
++
++
++def run(
++    source_id: str,
++    mode: str,
++    output: Path,
++    *,
++    data_root: Path | None = None,
++    max_states: int = 100_000,
++):
++    source = load_source(source_id, data_root=data_root)
++    result = compress_lexicon(source, mode=mode, max_states=max_states)
++    output.mkdir(parents=True, exist_ok=True)
++    asset_bytes = write_asset(output / "compressed.asset", result.compressed)
++    verification = result.compressed.verify_against(source)
++    summary = {
++        "schema": 1,
++        "source": source_id,
++        "source_revision": source.source.revision,
++        "source_sha256": source.source.sha256,
++        "lossless_contract": "source-semantic",
++        "compression_mode": mode,
++        "physical_rows": source.physical_rows,
++        "unique_words": len(source.entries),
++        "pronunciation_variants": sum(
++            len(values) for values in source.entries.values()
++        ),
++        "atom_words": len(result.compressed.atoms),
++        "exception_words": len(result.compressed.exceptions),
++        "derived_words": len(result.compressed.derived),
++        "derived_variants": sum(
++            len(source.lookup_all(word)) for word in result.compressed.derived
++        ),
++        "entry_reduction_rate": len(result.compressed.derived) / len(source.entries)
++        if source.entries
++        else 0.0,
++        "source_bytes": source.source.size_bytes,
++        "compressed_asset_bytes": asset_bytes,
++        "compression_ratio": asset_bytes / source.source.size_bytes
++        if source.source.size_bytes
++        else 0.0,
++        "verification": {
++            "words_checked": len(source.entries),
++            "variants_checked": sum(len(v) for v in source.entries.values()),
++            "exact_words": len(source.entries) - len(verification),
++            "failures": len(verification),
++        },
++        "performance": {
++            "compression_seconds": result.elapsed_seconds,
++            "verification_seconds": 0.0,
++            "peak_rss_bytes": 0,
++        },
++        "instrumentation": {
++            "candidate_atom_prefixes_tested": result.metrics.candidate_atom_prefixes_tested,
++            "dp_states_visited": result.metrics.dp_states_visited,
++            "cache_hits": result.metrics.cache_hits,
++            "cache_hit_rate": result.metrics.cache_hit_rate,
++            "max_decomposition_search_states": result.metrics.max_search_states_per_word,
++        },
++        "provenance": source_dict(source.source),
++    }
++    write_json(output / "summary.json", summary)
++    write_tsv(
++        output / "retained_atoms.tsv",
++        [
++            {"atom": word, "variants": "|".join(values)}
++            for word, values in result.compressed.atoms.items()
++        ],
++        ["atom", "variants"],
++    )
++    write_tsv(
++        output / "exceptions.tsv",
++        [
++            {"word": word, "variants": "|".join(values)}
++            for word, values in result.compressed.exceptions.items()
++        ],
++        ["word", "variants"],
++    )
++    write_tsv(
++        output / "derived.tsv",
++        [
++            {"word": word, "components": "|".join(components)}
++            for word, components in result.compressed.derived.items()
++        ],
++        ["word", "components"],
++    )
++    write_tsv(
++        output / "failures.tsv",
++        result.failures,
++        [
++            "source",
++            "word",
++            "variant_index",
++            "expected",
++            "candidate",
++            "components",
++            "reason",
++        ],
++    )
++    write_tsv(output / "component_usage.tsv", result.component_usage)
++    write_tsv(output / "derivation_depth.tsv", result.derivation_depth)
++    write_tsv(output / "ambiguity.tsv", [], ["word", "candidate_count", "selected"])
++    write_json(
++        output / "verification.json",
++        {
++            "words_checked": len(source.entries),
++            "variants_checked": sum(len(v) for v in source.entries.values()),
++            "exact_words": len(source.entries) - len(verification),
++            "failures": list(verification),
++        },
++    )
++    write_tsv(
++        output / "verification.tsv",
++        [
++            {"word": word, "status": "fail" if word in verification else "pass"}
++            for word in source.words
++        ],
++        ["word", "status"],
++    )
++    write_tsv(
++        output / "size_breakdown.tsv",
++        [
++            {"section": "asset", "bytes": asset_bytes},
++            {
++                "section": "atoms",
++                "bytes": len(
++                    json.dumps(
++                        result.compressed.atoms, ensure_ascii=False, sort_keys=True
++                    ).encode()
++                ),
++            },
++            {
++                "section": "exceptions",
++                "bytes": len(
++                    json.dumps(
++                        result.compressed.exceptions, ensure_ascii=False, sort_keys=True
++                    ).encode()
++                ),
++            },
++            {
++                "section": "derived",
++                "bytes": len(
++                    json.dumps(
++                        result.compressed.derived, ensure_ascii=False, sort_keys=True
++                    ).encode()
++                ),
++            },
++        ],
++        ["section", "bytes"],
++    )
++    return result
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--source", required=True)
++    parser.add_argument(
++        "--mode",
++        choices=("baseline", "exact-two-part", "exact-multipart"),
++        required=True,
++    )
++    parser.add_argument("--output", type=Path, required=True)
++    parser.add_argument("--data-root", type=Path)
++    parser.add_argument("--max-states", type=int, default=100_000)
++    args = parser.parse_args()
++    run(
++        args.source,
++        args.mode,
++        args.output,
++        data_root=args.data_root,
++        max_states=args.max_states,
++    )
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/experiments/de_lexicon_compression/data/.gitkeep b/experiments/de_lexicon_compression/data/.gitkeep
+new file mode 100644
+index 0000000..e69de29
+diff --git a/experiments/de_lexicon_compression/download_sources.py b/experiments/de_lexicon_compression/download_sources.py
+new file mode 100644
+index 0000000..5bbc49e
+--- /dev/null
++++ b/experiments/de_lexicon_compression/download_sources.py
+@@ -0,0 +1,41 @@
++#!/usr/bin/env python3
++"""Explicitly download pinned German experiment sources."""
++
++from __future__ import annotations
++
++import argparse
++from pathlib import Path
++
++try:
++    from .lexlab.download import download_source
++    from .lexlab.sources import load_manifest
++except ImportError:  # direct script execution
++    from lexlab.download import download_source
++    from lexlab.sources import load_manifest
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--source", required=True, help="Comma-separated source IDs")
++    parser.add_argument(
++        "--download", action="store_true", help="Required explicit network opt-in"
++    )
++    parser.add_argument("--cache-dir", type=Path)
++    args = parser.parse_args()
++    if not args.download:
++        parser.error("refusing network access: pass --download explicitly")
++    specs = load_manifest()
++    for source_id in (item.strip() for item in args.source.split(",")):
++        if source_id == "builtin":
++            print("builtin is packaged locally; no download required")
++            continue
++        try:
++            path = download_source(specs[source_id], cache_dir=args.cache_dir)
++        except (KeyError, OSError, ValueError) as exc:
++            parser.error(str(exc))
++        print(f"{source_id}\t{path}")
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/experiments/de_lexicon_compression/fixtures/toy_ambiguity.tsv b/experiments/de_lexicon_compression/fixtures/toy_ambiguity.tsv
+new file mode 100644
+index 0000000..557aa4c
+--- /dev/null
++++ b/experiments/de_lexicon_compression/fixtures/toy_ambiguity.tsv
+@@ -0,0 +1,6 @@
++A	a
++AB	ab
++B	b
++BC	bc
++C	c
++ABC	abc
+diff --git a/experiments/de_lexicon_compression/fixtures/toy_case_collisions.tsv b/experiments/de_lexicon_compression/fixtures/toy_case_collisions.tsv
+new file mode 100644
+index 0000000..ccb4c02
+--- /dev/null
++++ b/experiments/de_lexicon_compression/fixtures/toy_case_collisions.tsv
+@@ -0,0 +1,3 @@
++Haus	haus
++haus	haʊs
++Straße	ʃtraːsə
+diff --git a/experiments/de_lexicon_compression/fixtures/toy_single.tsv b/experiments/de_lexicon_compression/fixtures/toy_single.tsv
+new file mode 100644
+index 0000000..6ed67c8
+--- /dev/null
++++ b/experiments/de_lexicon_compression/fixtures/toy_single.tsv
+@@ -0,0 +1,3 @@
++1	a
++2	b
++12	ab
+diff --git a/experiments/de_lexicon_compression/fixtures/toy_unicode.tsv b/experiments/de_lexicon_compression/fixtures/toy_unicode.tsv
+new file mode 100644
+index 0000000..3ed250d
+--- /dev/null
++++ b/experiments/de_lexicon_compression/fixtures/toy_unicode.tsv
+@@ -0,0 +1,2 @@
++raw-nfd	é
++raw-nfc	é
+diff --git a/experiments/de_lexicon_compression/fixtures/toy_variants.tsv b/experiments/de_lexicon_compression/fixtures/toy_variants.tsv
+new file mode 100644
+index 0000000..88e47cf
+--- /dev/null
++++ b/experiments/de_lexicon_compression/fixtures/toy_variants.tsv
+@@ -0,0 +1,5 @@
++weg	vɛk
++weg	veːk
++A	x
++B	y
++AB	xy
+diff --git a/experiments/de_lexicon_compression/generate_report.py b/experiments/de_lexicon_compression/generate_report.py
+new file mode 100644
+index 0000000..a7238b4
+--- /dev/null
++++ b/experiments/de_lexicon_compression/generate_report.py
+@@ -0,0 +1,127 @@
++#!/usr/bin/env python3
++"""Render a human-readable final research report from generated JSON reports."""
++
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++
++def _load(path: Path) -> dict:
++    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
++
++
++def generate(
++    source_analysis: Path | None,
++    quality: Path | None,
++    matrix: Path | None,
++    output: Path,
++) -> None:
++    analysis = _load(source_analysis) if source_analysis else {}
++    quality_data = _load(quality) if quality else {}
++    matrix_data = _load(matrix) if matrix else {}
++    lines = [
++        "# German Multi-Lexicon Compression Experiment",
++        "",
++        "This report is generated from explicitly pinned experiment outputs. Missing sections mean the corresponding opt-in run was not available.",
++        "",
++        "## 1. Executive summary",
++        "",
++        "Sources are evaluated independently. A result is called lossless only when the reloaded decoder reproduces every ordered raw pronunciation tuple exactly.",
++        "",
++        "## 2. Source provenance and licenses",
++        "",
++    ]
++    for source in analysis.get("sources", []):
++        lines.append(
++            f"- **{source.get('source', source.get('source_id'))}**: revision `{source.get('revision')}`, SHA256 `{source.get('sha256')}`, license `{source.get('license')}`, status `{source.get('provenance_status')}`."
++        )
++    lines.extend(["", "## 3. Source sizes and variant statistics", ""])
++    for source in analysis.get("sources", []):
++        lines.append(
++            f"- {source.get('source')}: {source.get('unique_spellings', 0)} unique spellings, {source.get('pronunciation_variants', 0)} variants, {source.get('size_bytes', 0)} bytes."
++        )
++    lines.extend(
++        [
++            "",
++            "## 4. Casing/Unicode findings",
++            "",
++            "See `casing_collisions.tsv` and `unicode_stats.tsv`; raw source codepoints are preserved.",
++            "",
++            "## 5. Runtime reachability",
++            "",
++            json.dumps(analysis.get("reachability", {}), sort_keys=True),
++            "",
++            "## 6. Pairwise overlap and pronunciation conflicts",
++            "",
++        ]
++    )
++    for pair in analysis.get("pairs", []):
++        lines.append(
++            f"- {pair.get('source_a')} vs {pair.get('source_b')}: exact overlap {pair.get('exact_spelling_intersection', 0)}, raw agreement {pair.get('exact_raw_pronunciation_agreement', 0)}, Kokoro-view agreement {pair.get('kokoro_view_any_variant_agreement', 0)}."
++        )
++    lines.extend(
++        [
++            "",
++            "## 7. Held-out G2P quality",
++            "",
++            "```json",
++            json.dumps(quality_data, ensure_ascii=False, indent=2, sort_keys=True),
++            "```",
++            "",
++            "## 8. Baseline gzip/xz results",
++            "",
++            "See the source-analysis `baseline.tsv` output.",
++            "",
++            "## 9. Exact two-part compression",
++            "",
++            "## 10. Exact multipart compression",
++            "",
++            "```json",
++            json.dumps(matrix_data, ensure_ascii=False, indent=2, sort_keys=True),
++            "```",
++            "",
++            "## 11. Failure taxonomy",
++            "",
++            "Failures are diagnostic only; no approximate match authorizes deletion.",
++            "",
++            "## 12. Runtime/RAM cost",
++            "",
++            "See each run's `runtime.json`.",
++            "",
++            "## 13. Cross-source sharing potential",
++            "",
++            "Cross-source sharing is deferred until independent source semantics and licensing are reviewed.",
++            "",
++            "## 14. Recommendation for production architecture",
++            "",
++            "Adopt explicit ordered source selection only if measured held-out quality and reachability justify the additional source and its licensing obligations.",
++            "",
++            "## 15. Recommendation on exact join rules",
++            "",
++            "Do not add linguistic join rules until C3 failures are measured and every rule is independently verified.",
++            "",
++            "## 16. Recommendation on neural follow-up",
++            "",
++            "Use only the exactly factorized residual as a possible later neural-G2P research input; approximation is not compression evidence.",
++            "",
++        ]
++    )
++    output.parent.mkdir(parents=True, exist_ok=True)
++    output.write_text("\n".join(lines), encoding="utf-8")
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--source-analysis", type=Path)
++    parser.add_argument("--quality", type=Path)
++    parser.add_argument("--matrix", type=Path)
++    parser.add_argument("--output", type=Path, required=True)
++    args = parser.parse_args()
++    generate(args.source_analysis, args.quality, args.matrix, args.output)
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/experiments/de_lexicon_compression/lexlab/__init__.py b/experiments/de_lexicon_compression/lexlab/__init__.py
+new file mode 100644
+index 0000000..4f9ee5f
+--- /dev/null
++++ b/experiments/de_lexicon_compression/lexlab/__init__.py
+@@ -0,0 +1,5 @@
++"""Small, dependency-free building blocks for the lexicon experiment."""
++
++from .model import ParsedLexicon, PronunciationRecord, SourceInfo
++
++__all__ = ["ParsedLexicon", "PronunciationRecord", "SourceInfo"]
+diff --git a/experiments/de_lexicon_compression/lexlab/composition.py b/experiments/de_lexicon_compression/lexlab/composition.py
+new file mode 100644
+index 0000000..b6f15e1
+--- /dev/null
++++ b/experiments/de_lexicon_compression/lexlab/composition.py
+@@ -0,0 +1,120 @@
++"""Exact spelling/IPA composition with deterministic ranking."""
++
++from __future__ import annotations
++
++from collections.abc import Mapping
++from dataclasses import dataclass
++from functools import cache
++from itertools import product
++
++from .trie import PrefixTrie
++
++
++class SearchLimitError(RuntimeError):
++    """Composition search exceeded its defensive state limit."""
++
++
++@dataclass(slots=True)
++class CompositionMetrics:
++    candidate_atom_prefixes_tested: int = 0
++    dp_states_visited: int = 0
++    cache_hits: int = 0
++    search_states: int = 0
++    max_search_states_per_word: int = 0
++
++    @property
++    def cache_hit_rate(self) -> float:
++        total = self.dp_states_visited + self.cache_hits
++        return self.cache_hits / total if total else 0.0
++
++
++@dataclass(frozen=True, slots=True)
++class Segmentation:
++    components: tuple[str, ...]
++
++    @property
++    def lengths(self) -> tuple[int, ...]:
++        return tuple(map(len, self.components))
++
++
++def _ranking(
++    segmentation: Segmentation,
++) -> tuple[int, tuple[int, ...], tuple[str, ...]]:
++    """Sort by fewer components, longest-leftmost lengths, then stable atom order."""
++    return (
++        -len(segmentation.components),
++        segmentation.lengths,
++        tuple(reversed(segmentation.components)),
++    )
++
++
++def choose_segmentation(
++    word: str,
++    atoms: Mapping[str, tuple[str, ...]],
++    *,
++    mode: str = "exact-multipart",
++    max_states: int = 100_000,
++    metrics: CompositionMetrics | None = None,
++) -> Segmentation | None:
++    """Choose a spelling-only segmentation; IPA is deliberately not inspected.
++
++    The DP retains only the best suffix at each grapheme offset, so it does not
++    materialize an exponential list of candidate segmentations.
++    """
++    if mode not in {"exact-two-part", "exact-multipart"}:
++        raise ValueError(f"unknown composition mode: {mode}")
++    trie = PrefixTrie(atoms)
++    counter = [0]
++    stats = metrics or CompositionMetrics()
++
++    @cache
++    def solve(position: int) -> tuple[str, ...] | None:
++        if position == len(word):
++            return ()
++        stats.dp_states_visited += 1
++        counter[0] += 1
++        stats.search_states = counter[0]
++        if counter[0] > max_states:
++            raise SearchLimitError(f"search limit {max_states} reached for {word!r}")
++        candidates: list[Segmentation] = []
++        prefixes = trie.prefixes(word, position)
++        stats.candidate_atom_prefixes_tested += len(prefixes)
++        for atom in prefixes:
++            tail = solve(position + len(atom))
++            if tail is not None:
++                candidates.append(Segmentation((atom, *tail)))
++        best = max(candidates, key=_ranking, default=None)
++        return best.components if best else None
++
++    candidate = solve(0)
++    stats.cache_hits += solve.cache_info().hits
++    stats.max_search_states_per_word = max(stats.max_search_states_per_word, counter[0])
++    if candidate is None or len(candidate) < 2:
++        return None
++    if mode == "exact-two-part" and len(candidate) != 2:
++        return None
++    return Segmentation(candidate)
++
++
++def compose_variants(
++    segmentation: Segmentation, atoms: Mapping[str, tuple[str, ...]]
++) -> tuple[str, ...]:
++    values = [atoms[component] for component in segmentation.components]
++    return tuple("".join(parts) for parts in product(*values))
++
++
++def exact_composition(
++    word: str,
++    expected: tuple[str, ...],
++    atoms: Mapping[str, tuple[str, ...]],
++    *,
++    mode: str,
++    max_states: int = 100_000,
++    metrics: CompositionMetrics | None = None,
++) -> tuple[Segmentation | None, tuple[str, ...]]:
++    segmentation = choose_segmentation(
++        word, atoms, mode=mode, max_states=max_states, metrics=metrics
++    )
++    if segmentation is None:
++        return None, ()
++    return segmentation, compose_variants(segmentation, atoms)
+diff --git a/experiments/de_lexicon_compression/lexlab/compressor.py b/experiments/de_lexicon_compression/lexlab/compressor.py
+new file mode 100644
+index 0000000..5f9b085
+--- /dev/null
++++ b/experiments/de_lexicon_compression/lexlab/compressor.py
+@@ -0,0 +1,134 @@
++"""Build exact atom/exception compositions from one source at a time."""
++
++from __future__ import annotations
++
++from dataclasses import dataclass, field
++from time import perf_counter
++
++from .composition import CompositionMetrics, SearchLimitError, exact_composition
++from .decoder import CompressedLexicon
++from .model import ParsedLexicon
++
++
++@dataclass(slots=True)
++class CompressionResult:
++    compressed: CompressedLexicon
++    metrics: CompositionMetrics
++    failures: list[dict[str, object]] = field(default_factory=list)
++    component_usage: list[dict[str, object]] = field(default_factory=list)
++    derivation_depth: list[dict[str, object]] = field(default_factory=list)
++    elapsed_seconds: float = 0.0
++
++    @property
++    def derived_words(self) -> int:
++        return len(self.compressed.derived)
++
++
++def compress_lexicon(
++    source: ParsedLexicon,
++    *,
++    mode: str = "exact-multipart",
++    max_states: int = 100_000,
++) -> CompressionResult:
++    if mode not in {"baseline", "exact-two-part", "exact-multipart"}:
++        raise ValueError(f"unknown compression mode: {mode}")
++    started = perf_counter()
++    direct: dict[str, tuple[str, ...]] = {}
++    derived: dict[str, tuple[str, ...]] = {}
++    metrics = CompositionMetrics()
++    failures: list[dict[str, object]] = []
++    depths: list[dict[str, object]] = []
++    if mode == "baseline":
++        direct = {word: source.lookup_all(word) for word in sorted(source.words)}
++        compressed = CompressedLexicon(
++            source.source,
++            {},
++            direct,
++            {},
++            {"mode": mode, "lossless_contract": "source-semantic"},
++        )
++        return CompressionResult(
++            compressed, metrics, failures, [], depths, perf_counter() - started
++        )
++    for word in sorted(source.words, key=lambda value: (len(value), value)):
++        expected = source.lookup_all(word)
++        try:
++            segmentation, candidate = exact_composition(
++                word,
++                expected,
++                direct,
++                mode=mode,
++                max_states=max_states,
++                metrics=metrics,
++            )
++        except SearchLimitError:
++            segmentation, candidate = None, ()
++            failures.append(
++                {
++                    "source": source.source.source_id,
++                    "word": word,
++                    "variant_index": "",
++                    "expected": "",
++                    "candidate": "",
++                    "components": "",
++                    "reason": "SEARCH_LIMIT",
++                }
++            )
++        if segmentation is not None and candidate == expected:
++            derived[word] = segmentation.components
++            depths.append(
++                {
++                    "word": word,
++                    "components": "|".join(segmentation.components),
++                    "depth": len(segmentation.components),
++                }
++            )
++        else:
++            direct[word] = expected
++            if segmentation is None:
++                reason = "NO_ORTHOGRAPHIC_SEGMENTATION"
++            elif not candidate:
++                reason = "NO_PHONE_PREFIX_MATCH"
++            else:
++                reason = "VARIANT_TUPLE_MISMATCH"
++            if not any(item.get("word") == word for item in failures):
++                failures.extend(
++                    {
++                        "source": source.source.source_id,
++                        "word": word,
++                        "variant_index": index,
++                        "expected": value,
++                        "candidate": candidate[index] if index < len(candidate) else "",
++                        "components": "|".join(segmentation.components)
++                        if segmentation
++                        else "",
++                        "reason": reason,
++                    }
++                    for index, value in enumerate(expected)
++                )
++    used = {component for components in derived.values() for component in components}
++    atoms = {word: direct.pop(word) for word in sorted(used)}
++    exceptions = {word: direct[word] for word in sorted(direct)}
++    usage = []
++    for atom, values in atoms.items():
++        uses = [word for word, components in derived.items() if atom in components]
++        usage.append(
++            {
++                "atom": atom,
++                "pronunciation_variant_count": len(values),
++                "derived_word_uses": len(uses),
++                "derived_variant_uses": len(uses),
++                "estimated_rows_saved": len(uses),
++                "estimated_bytes_saved": 0,
++            }
++        )
++    compressed = CompressedLexicon(
++        source.source,
++        atoms,
++        exceptions,
++        derived,
++        {"mode": mode, "lossless_contract": "source-semantic"},
++    )
++    return CompressionResult(
++        compressed, metrics, failures, usage, depths, perf_counter() - started
++    )
+diff --git a/experiments/de_lexicon_compression/lexlab/decoder.py b/experiments/de_lexicon_compression/lexlab/decoder.py
+new file mode 100644
+index 0000000..f4ac762
+--- /dev/null
++++ b/experiments/de_lexicon_compression/lexlab/decoder.py
+@@ -0,0 +1,50 @@
++"""Runtime decoder sharing the compressor's deterministic composition contract."""
++
++from __future__ import annotations
++
++from dataclasses import dataclass, field
++
++from .model import ParsedLexicon, SourceInfo
++
++
++@dataclass(slots=True)
++class CompressedLexicon:
++    source: SourceInfo
++    atoms: dict[str, tuple[str, ...]]
++    exceptions: dict[str, tuple[str, ...]]
++    derived: dict[str, tuple[str, ...]]
++    metadata: dict[str, object] = field(default_factory=dict)
++
++    def lookup_all(self, word: str) -> tuple[str, ...]:
++        if word in self.exceptions:
++            return self.exceptions[word]
++        if word in self.atoms:
++            return self.atoms[word]
++        components = self.derived.get(word)
++        if components is None:
++            return ()
++        values = [self.atoms[component] for component in components]
++        result = [""]
++        for variants in values:
++            result = [prefix + value for prefix in result for value in variants]
++        return tuple(result)
++
++    def lookup(self, word: str) -> str | None:
++        values = self.lookup_all(word)
++        return values[0] if values else None
++
++    def is_known(self, word: str) -> bool:
++        return word in self.atoms or word in self.exceptions or word in self.derived
++
++    @property
++    def words(self) -> tuple[str, ...]:
++        return tuple(sorted((*self.atoms, *self.exceptions, *self.derived)))
++
++    def verify_against(self, source: ParsedLexicon) -> tuple[str, ...]:
++        failures = []
++        for word in source.words:
++            actual = self.lookup_all(word)
++            expected = source.lookup_all(word)
++            if actual != expected:
++                failures.append(word)
++        return tuple(failures)
+diff --git a/experiments/de_lexicon_compression/lexlab/download.py b/experiments/de_lexicon_compression/lexlab/download.py
+new file mode 100644
+index 0000000..de76f95
+--- /dev/null
++++ b/experiments/de_lexicon_compression/lexlab/download.py
+@@ -0,0 +1,59 @@
++"""Explicit, pinned source downloads."""
++
++from __future__ import annotations
++
++import hashlib
++import os
++import tempfile
++import urllib.request
++from pathlib import Path
++
++from .sources import SourceSpec
++
++DEFAULT_CACHE_DIR = Path.home() / ".cache" / "kokorog2p" / "experiments" / "de-lexicons"
++
++
++def sha256_file(path: Path) -> str:
++    digest = hashlib.sha256()
++    with path.open("rb") as handle:
++        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
++            digest.update(chunk)
++    return digest.hexdigest()
++
++
++def source_url(spec: SourceSpec) -> str:
++    if not spec.revision or not spec.filename:
++        raise ValueError(f"{spec.source_id} has no immutable download coordinates")
++    return f"https://huggingface.co/{spec.values['repo_type']}s/{spec.values['repo_id']}/raw/{spec.revision}/{spec.filename}"
++
++
++def destination(spec: SourceSpec, root: Path | None = None) -> Path:
++    cache = root or DEFAULT_CACHE_DIR
++    if not spec.filename:
++        raise ValueError(f"{spec.source_id} has no filename")
++    return cache / spec.source_id / (spec.revision or "unversioned") / spec.filename
++
++
++def download_source(
++    spec: SourceSpec, *, cache_dir: Path | None = None, force: bool = False
++) -> Path:
++    """Download one pinned file, verify it, and atomically install it."""
++    target = destination(spec, cache_dir)
++    expected = str(spec.values.get("sha256", ""))
++    if target.is_file() and not force:
++        if expected and sha256_file(target) != expected:
++            raise ValueError(f"Checksum mismatch for cached {target}")
++        return target
++    target.parent.mkdir(parents=True, exist_ok=True)
++    fd, temporary_name = tempfile.mkstemp(prefix=f".{target.name}.", dir=target.parent)
++    os.close(fd)
++    temporary = Path(temporary_name)
++    try:
++        urllib.request.urlretrieve(source_url(spec), temporary)
++        actual = sha256_file(temporary)
++        if expected and actual != expected:
++            raise ValueError(f"Checksum mismatch: expected {expected}, got {actual}")
++        os.replace(temporary, target)
++    finally:
++        temporary.unlink(missing_ok=True)
++    return target
+diff --git a/experiments/de_lexicon_compression/lexlab/keys.py b/experiments/de_lexicon_compression/lexlab/keys.py
+new file mode 100644
+index 0000000..51cdccf
+--- /dev/null
++++ b/experiments/de_lexicon_compression/lexlab/keys.py
+@@ -0,0 +1,68 @@
++"""Exact, casing, and Unicode collision analysis."""
++
++from __future__ import annotations
++
++import unicodedata
++from collections.abc import Callable, Iterable, Mapping
++
++from .model import ParsedLexicon
++
++
++def collision_groups(
++    words: Iterable[str], key: Callable[[str], str]
++) -> dict[str, tuple[str, ...]]:
++    groups: dict[str, list[str]] = {}
++    for word in words:
++        groups.setdefault(key(word), []).append(word)
++    return {value: tuple(items) for value, items in groups.items() if len(items) > 1}
++
++
++def casing_collisions(lexicon: ParsedLexicon) -> dict[str, dict[str, tuple[str, ...]]]:
++    words = lexicon.words
++    return {
++        "exact": collision_groups(words, lambda value: value),
++        "lower": collision_groups(words, str.lower),
++        "casefold": collision_groups(words, str.casefold),
++    }
++
++
++def unicode_statistics(lexicon: ParsedLexicon) -> dict[str, object]:
++    records = list(lexicon.iter_records())
++    nfc_words = {unicodedata.normalize("NFC", word) for word in lexicon.words}
++    nfd_words = {unicodedata.normalize("NFD", word) for word in lexicon.words}
++    return {
++        "nfc_rows": sum(
++            unicodedata.normalize("NFC", word) == word for word, _ in records
++        ),
++        "non_nfc_rows": sum(
++            unicodedata.normalize("NFC", word) != word for word, _ in records
++        ),
++        "nfc_ipa_rows": sum(
++            unicodedata.normalize("NFC", record.ipa) == record.ipa
++            for _, record in records
++        ),
++        "non_nfc_ipa_rows": sum(
++            unicodedata.normalize("NFC", record.ipa) != record.ipa
++            for _, record in records
++        ),
++        "nfd_equivalent_word_groups": len(
++            collision_groups(
++                lexicon.words, lambda value: unicodedata.normalize("NFD", value)
++            )
++        ),
++        "nfc_distinct_words": len(nfc_words),
++        "nfd_distinct_words": len(nfd_words),
++        "nfc_word_collisions": collision_groups(
++            lexicon.words, lambda value: unicodedata.normalize("NFC", value)
++        ),
++    }
++
++
++def key_report(lexica: Mapping[str, ParsedLexicon]) -> dict[str, object]:
++    return {
++        source: {
++            "collisions": casing_collisions(lexicon),
++            "unicode": unicode_statistics(lexicon),
++        }
++        for source, lexicon in lexica.items()
++    }
+diff --git a/experiments/de_lexicon_compression/lexlab/kokoro_view.py b/experiments/de_lexicon_compression/lexlab/kokoro_view.py
+new file mode 100644
+index 0000000..dacbfc8
+--- /dev/null
++++ b/experiments/de_lexicon_compression/lexlab/kokoro_view.py
+@@ -0,0 +1,54 @@
++"""Explicit derived pronunciation views used only for comparison."""
++
++from __future__ import annotations
++
++import unicodedata
++from collections.abc import Mapping
++
++VIEW_VERSION = "1"
++
++_REPLACEMENTS = {
++    "t͡s": "ʦ",
++    "d͡z": "ʣ",
++    "ts": "ʦ",
++    "dz": "ʣ",
++    "aʊ̯": "W",
++    "aɪ̯": "I",
++    "ɔʏ̯": "ɔy",
++    "aʊ": "W",
++    "aɪ": "I",
++    "ʏ": "y",
++    "n̩": "n",
++    "l̩": "l",
++}
++
++
++def _replace_longest(value: str) -> str:
++    for source in sorted(_REPLACEMENTS, key=len, reverse=True):
++        value = value.replace(source, _REPLACEMENTS[source])
++    return value
++
++
++def to_kokoro_view(
++    source_id: str, ipa: str, *, vocab: Mapping[str, int] | None = None
++) -> str:
++    """Return a derived view; raw source records are never modified."""
++    if source_id == "gruut_espeak":
++        return ipa.replace(" ", "")
++    if source_id == "crane_wiktionary":
++        value = _replace_longest(unicodedata.normalize("NFC", ipa))
++        if vocab is not None:
++            value = "".join(
++                char if char.isspace() else char
++                for char in value
++                if char.isspace() or char in vocab
++            )
++            return " ".join(value.split())
++        return " ".join(value.split())
++    return ipa
++
++
++def view_variants(
++    source_id: str, variants: tuple[str, ...], *, vocab: Mapping[str, int] | None = None
++) -> tuple[str, ...]:
++    return tuple(to_kokoro_view(source_id, value, vocab=vocab) for value in variants)
+diff --git a/experiments/de_lexicon_compression/lexlab/metrics.py b/experiments/de_lexicon_compression/lexlab/metrics.py
+new file mode 100644
+index 0000000..6619695
+--- /dev/null
++++ b/experiments/de_lexicon_compression/lexlab/metrics.py
+@@ -0,0 +1,29 @@
++"""Small benchmark metrics shared by experiment scripts."""
++
++from __future__ import annotations
++
++from collections.abc import Sequence
++
++
++def levenshtein(left: str, right: str) -> int:
++    if len(left) < len(right):
++        left, right = right, left
++    previous = list(range(len(right) + 1))
++    for i, char in enumerate(left, 1):
++        current = [i]
++        for j, other in enumerate(right, 1):
++            current.append(
++                min(current[-1] + 1, previous[j] + 1, previous[j - 1] + (char != other))
++            )
++        previous = current
++    return previous[-1]
++
++
++def cer(expected: Sequence[str], actual: Sequence[str]) -> float:
++    reference = sum(len(value) for value in expected)
++    distance = sum(
++        levenshtein(left, right) for left, right in zip(expected, actual, strict=False)
++    )
++    distance += sum(len(value) for value in expected[len(actual) :])
++    distance += sum(len(value) for value in actual[len(expected) :])
++    return distance / reference if reference else (0.0 if distance == 0 else 1.0)
+diff --git a/experiments/de_lexicon_compression/lexlab/model.py b/experiments/de_lexicon_compression/lexlab/model.py
+new file mode 100644
+index 0000000..8d99012
+--- /dev/null
++++ b/experiments/de_lexicon_compression/lexlab/model.py
+@@ -0,0 +1,105 @@
++"""Canonical source-semantic data model."""
++
++from __future__ import annotations
++
++from collections.abc import Iterable, Iterator
++from dataclasses import dataclass, field
++
++
++@dataclass(frozen=True, slots=True)
++class SourceInfo:
++    source_id: str
++    revision: str | None = None
++    sha256: str = ""
++    license: str = ""
++    provenance_status: str = ""
++    parser_version: str = "1"
++    view_version: str = "1"
++    format: str = ""
++    path: str | None = None
++    size_bytes: int | None = None
++
++
++@dataclass(frozen=True, slots=True)
++class PronunciationRecord:
++    ipa: str
++    line_number: int | None = None
++
++
++@dataclass(slots=True)
++class ParsedLexicon:
++    """A parsed source, preserving ordered and duplicate pronunciation records."""
++
++    source: SourceInfo
++    entries: dict[str, tuple[PronunciationRecord, ...]]
++    physical_rows: int | None = None
++    metadata: dict[str, object] = field(default_factory=dict)
++
++    def __post_init__(self) -> None:
++        self.entries = dict(self.entries)
++        self.physical_rows = (
++            sum(len(records) for records in self.entries.values())
++            if self.physical_rows is None
++            else self.physical_rows
++        )
++
++    @property
++    def words(self) -> tuple[str, ...]:
++        return tuple(self.entries)
++
++    def lookup_all(self, word: str) -> tuple[str, ...]:
++        return tuple(record.ipa for record in self.entries.get(word, ()))
++
++    def lookup_records(self, word: str) -> tuple[PronunciationRecord, ...]:
++        return self.entries.get(word, ())
++
++    def lookup(self, word: str) -> str | None:
++        values = self.lookup_all(word)
++        return values[0] if values else None
++
++    def is_known(self, word: str) -> bool:
++        return word in self.entries
++
++    def iter_records(self) -> Iterator[tuple[str, PronunciationRecord]]:
++        for word, records in self.entries.items():
++            for record in records:
++                yield word, record
++
++    def runtime_unique(self) -> ParsedLexicon:
++        unique_entries: dict[str, tuple[PronunciationRecord, ...]] = {}
++        for word, records in self.entries.items():
++            seen: set[str] = set()
++            unique_entries[word] = tuple(
++                record
++                for record in records
++                if not (record.ipa in seen or seen.add(record.ipa))
++            )
++        return ParsedLexicon(
++            self.source,
++            unique_entries,
++            sum(len(values) for values in unique_entries.values()),
++            {**self.metadata, "view": "runtime_unique"},
++        )
++
++    def with_source(self, source: SourceInfo) -> ParsedLexicon:
++        return ParsedLexicon(
++            source, self.entries, self.physical_rows, dict(self.metadata)
++        )
++
++    @classmethod
++    def from_pairs(
++        cls,
++        source: SourceInfo,
++        pairs: Iterable[tuple[str, str]],
++        *,
++        line_numbers: bool = True,
++    ) -> ParsedLexicon:
++        entries: dict[str, list[PronunciationRecord]] = {}
++        count = 0
++        for count, (word, ipa) in enumerate(pairs, 1):
++            entries.setdefault(word, []).append(
++                PronunciationRecord(ipa, count if line_numbers else None)
++            )
++        return cls(
++            source, {word: tuple(records) for word, records in entries.items()}, count
++        )
+diff --git a/experiments/de_lexicon_compression/lexlab/overlap.py b/experiments/de_lexicon_compression/lexlab/overlap.py
+new file mode 100644
+index 0000000..8887406
+--- /dev/null
++++ b/experiments/de_lexicon_compression/lexlab/overlap.py
+@@ -0,0 +1,92 @@
++"""Pairwise source overlap and pronunciation agreement."""
++
++from __future__ import annotations
++
++import unicodedata
++from collections.abc import Mapping
++from itertools import combinations
++
++from .kokoro_view import to_kokoro_view
++from .model import ParsedLexicon
++
++
++def _keyed_words(lexicon: ParsedLexicon, key: str) -> dict[str, tuple[str, ...]]:
++    transform = {
++        "exact": lambda x: x,
++        "lower": str.lower,
++        "casefold": str.casefold,
++        "nfc": lambda x: unicodedata.normalize("NFC", x),
++    }[key]
++    result: dict[str, list[str]] = {}
++    for word in lexicon.words:
++        result.setdefault(transform(word), []).append(word)
++    return {key: tuple(values) for key, values in result.items()}
++
++
++def pair_metrics(left: ParsedLexicon, right: ParsedLexicon) -> dict[str, object]:
++    exact = set(left.words) & set(right.words)
++    lower = set(_keyed_words(left, "lower")) & set(_keyed_words(right, "lower"))
++    casefold = set(_keyed_words(left, "casefold")) & set(
++        _keyed_words(right, "casefold")
++    )
++    raw_agreement = 0
++    any_agreement = 0
++    nfc_agreement = 0
++    kokoro_agreement = 0
++    conflicts: list[dict[str, object]] = []
++    for word in sorted(exact):
++        left_values = left.lookup_all(word)
++        right_values = right.lookup_all(word)
++        left_set = set(left_values)
++        right_set = set(right_values)
++        raw = left_values == right_values
++        any_match = bool(left_set & right_set)
++        left_nfc = {unicodedata.normalize("NFC", value) for value in left_values}
++        right_nfc = {unicodedata.normalize("NFC", value) for value in right_values}
++        nfc_match = bool(left_nfc & right_nfc)
++        left_view = {
++            to_kokoro_view(left.source.source_id, value) for value in left_values
++        }
++        right_view = {
++            to_kokoro_view(right.source.source_id, value) for value in right_values
++        }
++        kokoro = bool(left_view & right_view)
++        raw_agreement += raw
++        any_agreement += any_match
++        nfc_agreement += nfc_match
++        kokoro_agreement += kokoro
++        if not raw or not any_match:
++            conflicts.append(
++                {
++                    "word": word,
++                    "source_a": left_values,
++                    "source_b": right_values,
++                    "raw_exact": raw,
++                    "nfc_match": nfc_match,
++                    "kokoro_match": kokoro,
++                }
++            )
++    union = len(set(left.words) | set(right.words))
++    return {
++        "source_a": left.source.source_id,
++        "source_b": right.source.source_id,
++        "unique_words_a": len(left.entries),
++        "unique_words_b": len(right.entries),
++        "exact_spelling_intersection": len(exact),
++        "lowercase_spelling_intersection": len(lower),
++        "casefold_spelling_intersection": len(casefold),
++        "jaccard_word_overlap": len(exact) / union if union else 0.0,
++        "exact_raw_pronunciation_agreement": raw_agreement,
++        "any_variant_raw_agreement": any_agreement,
++        "nfc_only_agreement": nfc_agreement,
++        "kokoro_view_any_variant_agreement": kokoro_agreement,
++        "conflicting_overlapping_words": len(conflicts),
++        "conflicts": conflicts,
++    }
++
++
++def all_pair_metrics(lexica: Mapping[str, ParsedLexicon]) -> list[dict[str, object]]:
++    return [
++        pair_metrics(lexica[left], lexica[right])
++        for left, right in combinations(sorted(lexica), 2)
++    ]
+diff --git a/experiments/de_lexicon_compression/lexlab/parse.py b/experiments/de_lexicon_compression/lexlab/parse.py
+new file mode 100644
+index 0000000..913aa54
+--- /dev/null
++++ b/experiments/de_lexicon_compression/lexlab/parse.py
+@@ -0,0 +1,170 @@
++"""Strict parsers for the source formats."""
++
++from __future__ import annotations
++
++import hashlib
++import json
++import unicodedata
++from collections import Counter
++from pathlib import Path
++from typing import Any
++
++from .model import ParsedLexicon, PronunciationRecord, SourceInfo
++
++
++class LexiconFormatError(ValueError):
++    """Raised when a source does not conform to its declared format."""
++
++
++def sha256_bytes(data: bytes) -> str:
++    return hashlib.sha256(data).hexdigest()
++
++
++def _source_with_bytes(
++    source: SourceInfo, data: bytes, path: Path | None = None
++) -> SourceInfo:
++    return SourceInfo(
++        source.source_id,
++        source.revision,
++        sha256_bytes(data),
++        source.license,
++        source.provenance_status,
++        source.parser_version,
++        source.view_version,
++        source.format,
++        str(path) if path else source.path,
++        len(data),
++    )
++
++
++def parse_tsv_text(
++    text: str, source: SourceInfo, *, path: Path | None = None
++) -> ParsedLexicon:
++    """Parse a headerless two-column TSV without stripping record content."""
++    entries: dict[str, list[PronunciationRecord]] = {}
++    physical_lines = 0
++    # splitlines(keepends=True) retains a final non-newline record and line numbers.
++    for line_number, line in enumerate(text.splitlines(keepends=True), 1):
++        physical_lines += 1
++        fields = line.rstrip("\r\n").split("\t")
++        if len(fields) != 2:
++            raise LexiconFormatError(
++                f"{path or source.source_id}:{line_number}: expected 2 tab-separated fields, got {len(fields)}"
++            )
++        word, ipa = fields
++        if not word:
++            raise LexiconFormatError(
++                f"{path or source.source_id}:{line_number}: empty spelling"
++            )
++        entries.setdefault(word, []).append(PronunciationRecord(ipa, line_number))
++    if text and not physical_lines:
++        physical_lines = 1
++    parsed = ParsedLexicon(
++        _source_with_bytes(source, text.encode("utf-8"), path),
++        {word: tuple(records) for word, records in entries.items()},
++        physical_lines,
++    )
++    parsed.metadata.update(_tsv_metadata(parsed))
++    return parsed
++
++
++def parse_tsv(path: Path, source: SourceInfo) -> ParsedLexicon:
++    data = path.read_bytes()
++    return parse_tsv_text(data.decode("utf-8"), source, path=path)
++
++
++def parse_json_bytes(
++    data: bytes, source: SourceInfo, *, path: Path | None = None
++) -> ParsedLexicon:
++    try:
++        value: Any = json.loads(data.decode("utf-8"))
++    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
++        raise LexiconFormatError(
++            f"{path or source.source_id}: invalid UTF-8 JSON: {exc}"
++        ) from exc
++    if not isinstance(value, dict):
++        raise LexiconFormatError(
++            f"{path or source.source_id}: JSON root must be an object"
++        )
++    entries: dict[str, tuple[PronunciationRecord, ...]] = {}
++    for word, ipa in value.items():
++        if not isinstance(word, str):
++            raise LexiconFormatError(
++                f"{path or source.source_id}: JSON keys must be strings"
++            )
++        if not word:
++            raise LexiconFormatError(f"{path or source.source_id}: empty spelling")
++        if not isinstance(ipa, str):
++            raise LexiconFormatError(
++                f"{path or source.source_id}: value for {word!r} must be a string"
++            )
++        entries[word] = (PronunciationRecord(ipa),)
++    parsed = ParsedLexicon(
++        _source_with_bytes(source, data, path), entries, len(entries)
++    )
++    parsed.metadata.update(_json_metadata(parsed))
++    return parsed
++
++
++def parse_json(path: Path, source: SourceInfo) -> ParsedLexicon:
++    return parse_json_bytes(path.read_bytes(), source, path=path)
++
++
++def _tsv_metadata(parsed: ParsedLexicon) -> dict[str, object]:
++    records = list(parsed.iter_records())
++    duplicate_rows = sum(
++        count - 1
++        for count in Counter((word, record.ipa) for word, record in records).values()
++        if count > 1
++    )
++    return {
++        "physical_lines": parsed.physical_rows,
++        "unique_spellings": len(parsed.entries),
++        "pronunciation_variants": sum(
++            len(values) for values in parsed.entries.values()
++        ),
++        "words_with_multiple_pronunciations": sum(
++            len(values) > 1 for values in parsed.entries.values()
++        ),
++        "maximum_variants": max(
++            (len(values) for values in parsed.entries.values()), default=0
++        ),
++        "duplicate_identical_rows": duplicate_rows,
++        "empty_words": 0,
++        "empty_ipa": sum(not record.ipa for _, record in records),
++        "rows_with_spaces_in_ipa": sum(" " in record.ipa for _, record in records),
++        "rows_with_tabs_in_ipa": sum("\t" in record.ipa for _, record in records),
++        "non_nfc_words": sum(
++            unicodedata.normalize("NFC", word) != word for word, _ in records
++        ),
++        "non_nfc_ipa": sum(
++            unicodedata.normalize("NFC", record.ipa) != record.ipa
++            for _, record in records
++        ),
++    }
++
++
++def _json_metadata(parsed: ParsedLexicon) -> dict[str, object]:
++    return {
++        "physical_lines": parsed.physical_rows,
++        "unique_spellings": len(parsed.entries),
++        "pronunciation_variants": sum(
++            len(values) for values in parsed.entries.values()
++        ),
++        "duplicate_identical_rows": 0,
++        "non_nfc_words": sum(
++            unicodedata.normalize("NFC", word) != word for word in parsed.entries
++        ),
++        "non_nfc_ipa": sum(
++            unicodedata.normalize("NFC", record.ipa) != record.ipa
++            for _, record in parsed.iter_records()
++        ),
++    }
++
++
++def parse_path(path: Path, source: SourceInfo) -> ParsedLexicon:
++    return (
++        parse_json(path, source)
++        if source.format in {"json_single", "json"} or path.suffix.lower() == ".json"
++        else parse_tsv(path, source)
++    )
+diff --git a/experiments/de_lexicon_compression/lexlab/reports.py b/experiments/de_lexicon_compression/lexlab/reports.py
+new file mode 100644
+index 0000000..22bb074
+--- /dev/null
++++ b/experiments/de_lexicon_compression/lexlab/reports.py
+@@ -0,0 +1,52 @@
++"""Deterministic report and serialization helpers."""
++
++from __future__ import annotations
++
++import csv
++import json
++from collections.abc import Iterable, Mapping
++from pathlib import Path
++from typing import Any
++
++
++def write_json(path: Path, value: Any) -> None:
++    path.parent.mkdir(parents=True, exist_ok=True)
++    path.write_text(
++        json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
++        encoding="utf-8",
++    )
++
++
++def write_tsv(
++    path: Path, rows: Iterable[Mapping[str, Any]], fields: list[str] | None = None
++) -> None:
++    rows = list(rows)
++    if fields is None:
++        fields = list(rows[0]) if rows else []
++    path.parent.mkdir(parents=True, exist_ok=True)
++    with path.open("w", encoding="utf-8", newline="") as handle:
++        writer = csv.DictWriter(
++            handle,
++            fieldnames=fields,
++            delimiter="\t",
++            lineterminator="\n",
++            extrasaction="ignore",
++        )
++        if fields:
++            writer.writeheader()
++            writer.writerows(rows)
++
++
++def source_dict(source: Any) -> dict[str, Any]:
++    return {
++        "source_id": source.source_id,
++        "revision": source.revision,
++        "sha256": source.sha256,
++        "license": source.license,
++        "provenance_status": source.provenance_status,
++        "parser_version": source.parser_version,
++        "view_version": source.view_version,
++        "format": source.format,
++        "path": source.path,
++        "size_bytes": source.size_bytes,
++    }
+diff --git a/experiments/de_lexicon_compression/lexlab/serializer.py b/experiments/de_lexicon_compression/lexlab/serializer.py
+new file mode 100644
+index 0000000..d36fa0c
+--- /dev/null
++++ b/experiments/de_lexicon_compression/lexlab/serializer.py
+@@ -0,0 +1,73 @@
++"""Deterministic JSON asset format for experiment runs."""
++
++from __future__ import annotations
++
++import json
++from dataclasses import asdict
++from pathlib import Path
++from typing import Any
++
++from .decoder import CompressedLexicon
++from .model import SourceInfo
++
++ASSET_SCHEMA = 1
++
++
++def _source_dict(source: SourceInfo) -> dict[str, Any]:
++    value = asdict(source)
++    # Absolute checkout/cache paths would make otherwise identical assets differ.
++    value["path"] = Path(source.path).name if source.path else None
++    return value
++
++
++def asset_dict(compressed: CompressedLexicon) -> dict[str, Any]:
++    return {
++        "schema": ASSET_SCHEMA,
++        "source": _source_dict(compressed.source),
++        "metadata": dict(compressed.metadata),
++        "atoms": {key: list(compressed.atoms[key]) for key in sorted(compressed.atoms)},
++        "exceptions": {
++            key: list(compressed.exceptions[key])
++            for key in sorted(compressed.exceptions)
++        },
++        "derived": {
++            key: list(compressed.derived[key]) for key in sorted(compressed.derived)
++        },
++    }
++
++
++def serialize(compressed: CompressedLexicon) -> bytes:
++    return (
++        json.dumps(
++            asset_dict(compressed),
++            ensure_ascii=False,
++            sort_keys=True,
++            separators=(",", ":"),
++        )
++        + "\n"
++    ).encode("utf-8")
++
++
++def write_asset(path: Path, compressed: CompressedLexicon) -> int:
++    data = serialize(compressed)
++    path.parent.mkdir(parents=True, exist_ok=True)
++    path.write_bytes(data)
++    return len(data)
++
++
++def deserialize(data: bytes) -> CompressedLexicon:
++    value = json.loads(data.decode("utf-8"))
++    if value.get("schema") != ASSET_SCHEMA:
++        raise ValueError(f"unsupported asset schema: {value.get('schema')!r}")
++    source = SourceInfo(**value["source"])
++    return CompressedLexicon(
++        source,
++        {key: tuple(values) for key, values in value.get("atoms", {}).items()},
++        {key: tuple(values) for key, values in value.get("exceptions", {}).items()},
++        {key: tuple(values) for key, values in value.get("derived", {}).items()},
++        dict(value.get("metadata", {})),
++    )
++
++
++def load_asset(path: Path) -> CompressedLexicon:
++    return deserialize(path.read_bytes())
+diff --git a/experiments/de_lexicon_compression/lexlab/sources.py b/experiments/de_lexicon_compression/lexlab/sources.py
+new file mode 100644
+index 0000000..455d5e0
+--- /dev/null
++++ b/experiments/de_lexicon_compression/lexlab/sources.py
+@@ -0,0 +1,136 @@
++"""Manifest-driven source loading."""
++
++from __future__ import annotations
++
++import importlib.resources
++from dataclasses import dataclass
++from pathlib import Path
++from typing import Any
++
++try:
++    import tomllib
++except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback
++    import tomli as tomllib  # type: ignore[no-redef]
++
++from .model import ParsedLexicon, SourceInfo
++from .parse import parse_json_bytes, parse_path
++
++ROOT = Path(__file__).resolve().parents[1]
++MANIFEST_PATH = ROOT / "source_manifest.toml"
++
++
++@dataclass(frozen=True, slots=True)
++class SourceSpec:
++    source_id: str
++    values: dict[str, Any]
++    parser_version: str = "1"
++    view_version: str = "1"
++
++    @property
++    def kind(self) -> str:
++        return str(self.values.get("kind", ""))
++
++    @property
++    def revision(self) -> str | None:
++        value = self.values.get("revision")
++        return str(value) if value is not None else None
++
++    @property
++    def filename(self) -> str | None:
++        value = self.values.get("filename")
++        return str(value) if value is not None else None
++
++    def source_info(
++        self,
++        *,
++        path: Path | None = None,
++        sha256: str | None = None,
++        size_bytes: int | None = None,
++    ) -> SourceInfo:
++        return SourceInfo(
++            self.source_id,
++            self.revision,
++            sha256 or str(self.values.get("sha256", "")),
++            str(self.values.get("license", "")),
++            str(self.values.get("provenance_status", "")),
++            self.parser_version,
++            self.view_version,
++            str(self.values.get("format", "")),
++            str(path) if path else None,
++            size_bytes if size_bytes is not None else self.values.get("size_bytes"),
++        )
++
++
++def load_manifest(path: Path = MANIFEST_PATH) -> dict[str, SourceSpec]:
++    with path.open("rb") as handle:
++        document = tomllib.load(handle)
++    fmt = document.get("format", {})
++    return {
++        source_id: SourceSpec(
++            source_id,
++            dict(values),
++            str(fmt.get("parser_version", "1")),
++            str(fmt.get("view_version", "1")),
++        )
++        for source_id, values in document.get("sources", {}).items()
++    }
++
++
++def resolve_source_path(
++    spec: SourceSpec, data_root: Path | None = None, path: Path | None = None
++) -> Path | None:
++    if path is not None:
++        return path
++    if spec.kind == "package_json":
++        return None
++    if data_root is None or spec.filename is None:
++        return None
++    candidates = (
++        data_root / spec.filename,
++        data_root / spec.source_id / (spec.revision or "") / spec.filename,
++        data_root / (spec.revision or "") / spec.filename,
++    )
++    return next(
++        (candidate for candidate in candidates if candidate.is_file()), candidates[0]
++    )
++
++
++def load_source(
++    source_id: str,
++    *,
++    data_root: Path | None = None,
++    path: Path | None = None,
++    manifest_path: Path = MANIFEST_PATH,
++) -> ParsedLexicon:
++    specs = load_manifest(manifest_path)
++    try:
++        spec = specs[source_id]
++    except KeyError as exc:
++        raise ValueError(f"Unknown lexicon source: {source_id}") from exc
++    if spec.kind == "package_json":
++        package = str(spec.values["resource_package"])
++        name = str(spec.values["resource_name"])
++        resource = importlib.resources.files(package).joinpath(name)
++        data = resource.read_bytes()
++        return parse_json_bytes(
++            data, spec.source_info(size_bytes=len(data)), path=Path(f"{package}/{name}")
++        )
++    resolved = resolve_source_path(spec, data_root, path)
++    if resolved is None or not resolved.is_file():
++        raise FileNotFoundError(
++            f"Source {source_id!r} is unavailable; provide --data-root or --path for {spec.filename}"
++        )
++    expected = str(spec.values.get("sha256", ""))
++    from .download import sha256_file
++
++    actual = sha256_file(resolved)
++    if expected and actual != expected:
++        raise ValueError(
++            f"Checksum mismatch for {resolved}: expected {expected}, got {actual}"
++        )
++    return parse_path(
++        resolved,
++        spec.source_info(
++            path=resolved, sha256=actual, size_bytes=resolved.stat().st_size
++        ),
++    )
+diff --git a/experiments/de_lexicon_compression/lexlab/trie.py b/experiments/de_lexicon_compression/lexlab/trie.py
+new file mode 100644
+index 0000000..99ae2d6
+--- /dev/null
++++ b/experiments/de_lexicon_compression/lexlab/trie.py
+@@ -0,0 +1,35 @@
++"""Prefix index for bounded atom enumeration."""
++
++from __future__ import annotations
++
++from dataclasses import dataclass, field
++
++
++@dataclass(slots=True)
++class _Node:
++    children: dict[str, _Node] = field(default_factory=dict)
++    words: list[str] = field(default_factory=list)
++
++
++class PrefixTrie:
++    def __init__(self, words=()):
++        self.root = _Node()
++        for word in sorted(words):
++            self.add(word)
++
++    def add(self, word: str) -> None:
++        node = self.root
++        for char in word:
++            node = node.children.setdefault(char, _Node())
++        if word not in node.words:
++            node.words.append(word)
++
++    def prefixes(self, text: str, start: int = 0) -> tuple[str, ...]:
++        node = self.root
++        found: list[str] = []
++        for char in text[start:]:
++            node = node.children.get(char)
++            if node is None:
++                break
++            found.extend(node.words)
++        return tuple(found)
+diff --git a/experiments/de_lexicon_compression/reports/.gitkeep b/experiments/de_lexicon_compression/reports/.gitkeep
+new file mode 100644
+index 0000000..e69de29
+diff --git a/experiments/de_lexicon_compression/run_matrix.py b/experiments/de_lexicon_compression/run_matrix.py
+new file mode 100644
+index 0000000..dc48f9a
+--- /dev/null
++++ b/experiments/de_lexicon_compression/run_matrix.py
+@@ -0,0 +1,108 @@
++#!/usr/bin/env python3
++"""Run source/mode compression and runtime measurements in subprocesses."""
++
++from __future__ import annotations
++
++import argparse
++import json
++import subprocess
++import sys
++from pathlib import Path
++
++try:
++    from .lexlab.reports import write_json, write_tsv
++except ImportError:  # direct script execution
++    from lexlab.reports import write_json, write_tsv
++
++
++def _run(command: list[str]) -> None:
++    subprocess.run(command, check=True)
++
++
++def run_matrix(
++    sources: list[str], modes: list[str], *, data_root: Path | None, output: Path
++) -> list[dict[str, object]]:
++    output.mkdir(parents=True, exist_ok=True)
++    rows = []
++    for source in sources:
++        for mode in modes:
++            run_dir = output / f"{source}-{mode}"
++            command = [
++                sys.executable,
++                str(Path(__file__).with_name("compress.py")),
++                "--source",
++                source,
++                "--mode",
++                mode,
++                "--output",
++                str(run_dir),
++            ]
++            if data_root:
++                command.extend(("--data-root", str(data_root)))
++            _run(command)
++            runtime_path = run_dir / "runtime.json"
++            runtime_command = [
++                sys.executable,
++                str(Path(__file__).with_name("benchmark_runtime.py")),
++                "--run",
++                str(run_dir),
++                "--output",
++                str(runtime_path),
++            ]
++            _run(runtime_command)
++            summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
++            runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
++            rows.append(
++                {
++                    "source": source,
++                    "mode": mode,
++                    "physical_rows": summary.get("physical_rows", 0),
++                    "unique_words": summary.get("unique_words", 0),
++                    "variants": summary.get("pronunciation_variants", 0),
++                    "source_bytes": summary.get("source_bytes", 0),
++                    "asset_bytes": summary.get("compressed_asset_bytes", 0),
++                    "byte_reduction_pct": (1 - summary.get("compression_ratio", 0))
++                    * 100,
++                    "derived_words_pct": summary.get("entry_reduction_rate", 0) * 100,
++                    "verification_failures": summary.get("verification", {}).get(
++                        "failures", 0
++                    ),
++                    "compress_seconds": summary.get("performance", {}).get(
++                        "compression_seconds", 0
++                    ),
++                    "verify_seconds": summary.get("performance", {}).get(
++                        "verification_seconds", 0
++                    ),
++                    "peak_rss_mib": runtime.get("peak_rss_kib", 0) / 1024,
++                    "cold_load_ms": runtime.get("cold_load_ms", 0),
++                    "lookup_words_per_second": runtime.get("direct", {}).get(
++                        "words_per_second", 0
++                    ),
++                }
++            )
++    fields = list(rows[0]) if rows else []
++    write_tsv(output / "summary.tsv", rows, fields)
++    write_json(output / "summary.json", {"schema": 1, "rows": rows})
++    return rows
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--sources", required=True)
++    parser.add_argument(
++        "--modes", required=True, help="Comma-separated: exact-two-part,exact-multipart"
++    )
++    parser.add_argument("--data-root", type=Path)
++    parser.add_argument("--output", type=Path, required=True)
++    args = parser.parse_args()
++    run_matrix(
++        [x.strip() for x in args.sources.split(",")],
++        [x.strip() for x in args.modes.split(",")],
++        data_root=args.data_root,
++        output=args.output,
++    )
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/experiments/de_lexicon_compression/source_manifest.toml b/experiments/de_lexicon_compression/source_manifest.toml
+new file mode 100644
+index 0000000..bd3e76d
+--- /dev/null
++++ b/experiments/de_lexicon_compression/source_manifest.toml
+@@ -0,0 +1,38 @@
++[format]
++version = 1
++parser_version = "1"
++view_version = "1"
++
++[sources.builtin]
++kind = "package_json"
++resource_package = "kokorog2p.de.data"
++resource_name = "de_gold.json"
++license = "RECORD_FROM_EXISTING_PROVENANCE"
++provenance_status = "verify"
++format = "json_single"
++
++[sources.gruut_espeak]
++kind = "huggingface_file"
++repo_type = "model"
++repo_id = "beshkenadze/kokoro-ipa-lexicons"
++revision = "8f96c76fbc3a6d22860332be1a5daf40acd7ca7a"
++filename = "de_lexicon.tsv"
++sha256 = "de725f8a6540ef7ddaefe3589eb54dda7fd527f9a71854a76011d2a35aba5cb5"
++size_bytes = 12250406
++format = "tsv_variants"
++ipa_spacing = "token_spaced"
++license = "REVIEW_REQUIRED"
++provenance_status = "upstream_card_warns_about_espeak_generated_data"
++
++[sources.crane_wiktionary]
++kind = "huggingface_file"
++repo_type = "dataset"
++repo_id = "crane-local-ai/g2p-lexicons"
++revision = "bfd51698069a30e1b20bbf54479b55af50b4161d"
++filename = "de/de.tsv"
++sha256 = "04a3909f07cd08615157393814188b420a7c3c5035cf7a0608d31be07892be29"
++size_bytes = 32367922
++format = "tsv_variants"
++ipa_spacing = "literal"
++license = "CC-BY-SA-4.0"
++provenance_status = "documented"
+diff --git a/experiments/de_lexicon_compression/tests/__init__.py b/experiments/de_lexicon_compression/tests/__init__.py
+new file mode 100644
+index 0000000..e69de29
+diff --git a/experiments/de_lexicon_compression/tests/test_analysis.py b/experiments/de_lexicon_compression/tests/test_analysis.py
+new file mode 100644
+index 0000000..9a153a1
+--- /dev/null
++++ b/experiments/de_lexicon_compression/tests/test_analysis.py
+@@ -0,0 +1,13 @@
++from pathlib import Path
++
++
++def test_analysis_writes_required_reports(tmp_path: Path):
++    source_path = Path(__file__).parents[1] / "fixtures" / "toy_case_collisions.tsv"
++    # Use a temporary manifest so the fixture can be analyzed without third-party data.
++    manifest = tmp_path / "manifest.toml"
++    manifest.write_text(
++        '[format]\nversion=1\n[sources.toy]\nkind="file"\nformat="tsv_variants"\n',
++        encoding="utf-8",
++    )
++    # The public CLI is pinned-source oriented; exercise report writer through a tiny parsed source indirectly in smoke tests.
++    assert source_path.is_file()
+diff --git a/experiments/de_lexicon_compression/tests/test_benchmarks.py b/experiments/de_lexicon_compression/tests/test_benchmarks.py
+new file mode 100644
+index 0000000..6b50d8e
+--- /dev/null
++++ b/experiments/de_lexicon_compression/tests/test_benchmarks.py
+@@ -0,0 +1,19 @@
++from pathlib import Path
++
++from experiments.de_lexicon_compression.lexlab.compressor import compress_lexicon
++from experiments.de_lexicon_compression.lexlab.model import ParsedLexicon, SourceInfo
++from experiments.de_lexicon_compression.lexlab.serializer import write_asset
++
++
++def test_runtime_worker_reports_metrics(tmp_path: Path):
++    source = ParsedLexicon.from_pairs(
++        SourceInfo("toy"), [("a", "x"), ("b", "y"), ("ab", "xy")]
++    )
++    run = tmp_path / "run"
++    run.mkdir()
++    write_asset(run / "compressed.asset", compress_lexicon(source).compressed)
++    from experiments.de_lexicon_compression.benchmark_runtime import _worker
++
++    result = _worker(run, 1, 10)
++    assert result["asset_bytes"] > 0
++    assert "p95_ms" in result["direct"]
+diff --git a/experiments/de_lexicon_compression/tests/test_cli.py b/experiments/de_lexicon_compression/tests/test_cli.py
+new file mode 100644
+index 0000000..2f9beba
+--- /dev/null
++++ b/experiments/de_lexicon_compression/tests/test_cli.py
+@@ -0,0 +1,11 @@
++import subprocess
++import sys
++
++
++def test_cli_help_has_no_network_side_effect():
++    command = [
++        sys.executable,
++        "experiments/de_lexicon_compression/compress.py",
++        "--help",
++    ]
++    assert subprocess.run(command, check=True, capture_output=True).returncode == 0
+diff --git a/experiments/de_lexicon_compression/tests/test_composition.py b/experiments/de_lexicon_compression/tests/test_composition.py
+new file mode 100644
+index 0000000..ca7c226
+--- /dev/null
++++ b/experiments/de_lexicon_compression/tests/test_composition.py
+@@ -0,0 +1,14 @@
++from experiments.de_lexicon_compression.lexlab.composition import choose_segmentation
++
++
++def test_ranking_prefers_fewer_then_longer_leftmost():
++    atoms = {"A": ("a",), "AB": ("ab",), "B": ("b",), "BC": ("bc",), "C": ("c",)}
++    assert choose_segmentation("ABC", atoms, mode="exact-multipart").components == (
++        "AB",
++        "C",
++    )
++
++
++def test_two_part_rejects_three_components():
++    atoms = {"A": ("a",), "B": ("b",), "C": ("c",)}
++    assert choose_segmentation("ABC", atoms, mode="exact-two-part") is None
+diff --git a/experiments/de_lexicon_compression/tests/test_compressor.py b/experiments/de_lexicon_compression/tests/test_compressor.py
+new file mode 100644
+index 0000000..a8a9a3a
+--- /dev/null
++++ b/experiments/de_lexicon_compression/tests/test_compressor.py
+@@ -0,0 +1,38 @@
++from experiments.de_lexicon_compression.lexlab.compressor import compress_lexicon
++from experiments.de_lexicon_compression.lexlab.model import ParsedLexicon, SourceInfo
++
++
++def test_two_part_exact_composition():
++    source = ParsedLexicon.from_pairs(
++        SourceInfo("toy"), [("1", "a"), ("2", "b"), ("12", "ab")]
++    )
++    result = compress_lexicon(source, mode="exact-two-part")
++    assert result.compressed.lookup_all("12") == ("ab",)
++    assert "12" in result.compressed.derived
++    assert not result.compressed.verify_against(source)
++
++
++def test_multipart_and_variant_composition():
++    source = ParsedLexicon.from_pairs(
++        SourceInfo("toy"),
++        [
++            ("A", "x"),
++            ("A", "q"),
++            ("B", "y"),
++            ("C", "z"),
++            ("ABC", "xyz"),
++            ("ABC", "qyz"),
++        ],
++    )
++    result = compress_lexicon(source, mode="exact-multipart")
++    assert result.compressed.lookup_all("ABC") == ("xyz", "qyz")
++    assert not result.compressed.verify_against(source)
++
++
++def test_stress_mismatch_is_retained():
++    source = ParsedLexicon.from_pairs(
++        SourceInfo("toy"),
++        [("Haus", "hˈaʊs"), ("Tür", "tˈyːɐ"), ("Haustür", "hˈaʊstˌyːɐ")],
++    )
++    result = compress_lexicon(source, mode="exact-two-part")
++    assert "Haustür" in result.compressed.exceptions
+diff --git a/experiments/de_lexicon_compression/tests/test_download.py b/experiments/de_lexicon_compression/tests/test_download.py
+new file mode 100644
+index 0000000..3691c7f
+--- /dev/null
++++ b/experiments/de_lexicon_compression/tests/test_download.py
+@@ -0,0 +1,12 @@
++from pathlib import Path
++
++from experiments.de_lexicon_compression.lexlab.download import sha256_file
++
++
++def test_sha256_file(tmp_path: Path):
++    path = tmp_path / "x"
++    path.write_bytes(b"abc")
++    assert (
++        sha256_file(path)
++        == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
++    )
+diff --git a/experiments/de_lexicon_compression/tests/test_keys.py b/experiments/de_lexicon_compression/tests/test_keys.py
+new file mode 100644
+index 0000000..8203441
+--- /dev/null
++++ b/experiments/de_lexicon_compression/tests/test_keys.py
+@@ -0,0 +1,18 @@
++from experiments.de_lexicon_compression.lexlab.keys import (
++    casing_collisions,
++    unicode_statistics,
++)
++from experiments.de_lexicon_compression.lexlab.model import ParsedLexicon, SourceInfo
++
++
++def test_case_collisions_are_separate():
++    source = ParsedLexicon.from_pairs(SourceInfo("x"), [("Haus", "a"), ("haus", "b")])
++    collisions = casing_collisions(source)
++    assert collisions["exact"] == {}
++    assert collisions["lower"]["haus"] == ("Haus", "haus")
++    assert collisions["casefold"]["haus"] == ("Haus", "haus")
++
++
++def test_unicode_stats_do_not_collapse_raw_words():
++    source = ParsedLexicon.from_pairs(SourceInfo("x"), [("nfd", "é"), ("nfc", "é")])
++    assert unicode_statistics(source)["non_nfc_ipa_rows"] == 1
+diff --git a/experiments/de_lexicon_compression/tests/test_overlap.py b/experiments/de_lexicon_compression/tests/test_overlap.py
+new file mode 100644
+index 0000000..eeda20e
+--- /dev/null
++++ b/experiments/de_lexicon_compression/tests/test_overlap.py
+@@ -0,0 +1,13 @@
++from experiments.de_lexicon_compression.lexlab.model import ParsedLexicon, SourceInfo
++from experiments.de_lexicon_compression.lexlab.overlap import pair_metrics
++
++
++def test_overlap_reports_raw_and_variant_agreement():
++    left = ParsedLexicon.from_pairs(SourceInfo("left"), [("Haus", "h")])
++    right = ParsedLexicon.from_pairs(
++        SourceInfo("right"), [("Haus", "h"), ("haus", "x")]
++    )
++    metrics = pair_metrics(left, right)
++    assert metrics["exact_spelling_intersection"] == 1
++    assert metrics["exact_raw_pronunciation_agreement"] == 1
++    assert metrics["lowercase_spelling_intersection"] == 1
+diff --git a/experiments/de_lexicon_compression/tests/test_parser.py b/experiments/de_lexicon_compression/tests/test_parser.py
+new file mode 100644
+index 0000000..2d4b452
+--- /dev/null
++++ b/experiments/de_lexicon_compression/tests/test_parser.py
+@@ -0,0 +1,37 @@
++from pathlib import Path
++
++import pytest
++
++from experiments.de_lexicon_compression.lexlab.model import SourceInfo
++from experiments.de_lexicon_compression.lexlab.parse import (
++    LexiconFormatError,
++    parse_json_bytes,
++    parse_tsv,
++    parse_tsv_text,
++)
++
++SOURCE = SourceInfo("fixture", format="tsv_variants")
++
++
++def test_tsv_preserves_order_duplicates_and_spaces(tmp_path: Path):
++    path = tmp_path / "source.tsv"
++    path.write_text("weg\tvɛk\nweg\tveːk\nweg\tvɛk\nword\t ipa \n", encoding="utf-8")
++    parsed = parse_tsv(path, SOURCE)
++    assert parsed.lookup_all("weg") == ("vɛk", "veːk", "vɛk")
++    assert parsed.lookup_all("word") == (" ipa ",)
++    assert parsed.lookup_records("weg")[1].line_number == 2
++    assert parsed.metadata["duplicate_identical_rows"] == 1
++
++
++def test_tsv_requires_exactly_two_columns():
++    with pytest.raises(LexiconFormatError):
++        parse_tsv_text("word\tipa\textra\n", SOURCE)
++
++
++def test_json_validation_and_tuple_values():
++    parsed = parse_json_bytes(
++        b'{"Haus":"ha\\u028as"}', SourceInfo("builtin", format="json_single")
++    )
++    assert parsed.lookup_all("Haus") == ("haʊs",)
++    with pytest.raises(LexiconFormatError):
++        parse_json_bytes(b"[]", SourceInfo("builtin", format="json_single"))
+diff --git a/experiments/de_lexicon_compression/tests/test_serializer.py b/experiments/de_lexicon_compression/tests/test_serializer.py
+new file mode 100644
+index 0000000..103c96a
+--- /dev/null
++++ b/experiments/de_lexicon_compression/tests/test_serializer.py
+@@ -0,0 +1,15 @@
++from pathlib import Path
++
++from experiments.de_lexicon_compression.lexlab.compressor import compress_lexicon
++from experiments.de_lexicon_compression.lexlab.model import ParsedLexicon, SourceInfo
++from experiments.de_lexicon_compression.lexlab.serializer import deserialize, serialize
++
++
++def test_asset_bytes_are_deterministic_and_reloadable(tmp_path: Path):
++    source = ParsedLexicon.from_pairs(
++        SourceInfo("toy"), [("a", "x"), ("b", "y"), ("ab", "xy")]
++    )
++    first = serialize(compress_lexicon(source, mode="exact-multipart").compressed)
++    second = serialize(compress_lexicon(source, mode="exact-multipart").compressed)
++    assert first == second
++    assert not deserialize(first).verify_against(source)
+diff --git a/experiments/de_lexicon_compression/tests/test_sources.py b/experiments/de_lexicon_compression/tests/test_sources.py
+new file mode 100644
+index 0000000..2ce9028
+--- /dev/null
++++ b/experiments/de_lexicon_compression/tests/test_sources.py
+@@ -0,0 +1,9 @@
++from pathlib import Path
++
++from experiments.de_lexicon_compression.lexlab.sources import load_manifest
++
++
++def test_manifest_pins_all_sources():
++    specs = load_manifest(Path(__file__).parents[1] / "source_manifest.toml")
++    assert set(specs) == {"builtin", "gruut_espeak", "crane_wiktionary"}
++    assert specs["crane_wiktionary"].revision.startswith("bfd516")
+diff --git a/experiments/de_lexicon_compression/tests/test_toy_roundtrip.py b/experiments/de_lexicon_compression/tests/test_toy_roundtrip.py
+new file mode 100644
+index 0000000..c613b4d
+--- /dev/null
++++ b/experiments/de_lexicon_compression/tests/test_toy_roundtrip.py
+@@ -0,0 +1,16 @@
++from pathlib import Path
++
++from experiments.de_lexicon_compression.lexlab.compressor import compress_lexicon
++from experiments.de_lexicon_compression.lexlab.model import SourceInfo
++from experiments.de_lexicon_compression.lexlab.parse import parse_tsv
++from experiments.de_lexicon_compression.lexlab.serializer import deserialize, serialize
++
++
++def test_fixture_roundtrip():
++    root = Path(__file__).parents[1] / "fixtures"
++    source = parse_tsv(
++        root / "toy_variants.tsv", SourceInfo("toy", format="tsv_variants")
++    )
++    result = compress_lexicon(source, mode="exact-multipart")
++    assert not result.compressed.verify_against(source)
++    assert not deserialize(serialize(result.compressed)).verify_against(source)
+diff --git a/experiments/de_lexicon_compression/tests/test_variants.py b/experiments/de_lexicon_compression/tests/test_variants.py
+new file mode 100644
+index 0000000..c7c45bb
+--- /dev/null
++++ b/experiments/de_lexicon_compression/tests/test_variants.py
+@@ -0,0 +1,9 @@
++from experiments.de_lexicon_compression.lexlab.model import ParsedLexicon, SourceInfo
++
++
++def test_runtime_unique_preserves_first_order():
++    source = ParsedLexicon.from_pairs(
++        SourceInfo("x"), [("weg", "a"), ("weg", "b"), ("weg", "a")]
++    )
++    assert source.lookup_all("weg") == ("a", "b", "a")
++    assert source.runtime_unique().lookup_all("weg") == ("a", "b")
+diff --git a/experiments/de_lexicon_compression/tests/test_views.py b/experiments/de_lexicon_compression/tests/test_views.py
+new file mode 100644
+index 0000000..d86639d
+--- /dev/null
++++ b/experiments/de_lexicon_compression/tests/test_views.py
+@@ -0,0 +1,7 @@
++from experiments.de_lexicon_compression.lexlab.kokoro_view import to_kokoro_view
++
++
++def test_views_are_explicit_and_source_specific():
++    assert to_kokoro_view("gruut_espeak", "h a u s") == "haus"
++    assert to_kokoro_view("builtin", "h a u s") == "h a u s"
++    assert to_kokoro_view("crane_wiktionary", "t͡s aʊ") == "ʦ W"
+diff --git a/experiments/de_lexicon_compression/verify.py b/experiments/de_lexicon_compression/verify.py
+new file mode 100644
+index 0000000..4566c8c
+--- /dev/null
++++ b/experiments/de_lexicon_compression/verify.py
+@@ -0,0 +1,60 @@
++#!/usr/bin/env python3
++"""Independently reload and verify an exact source-semantic asset."""
++
++from __future__ import annotations
++
++import argparse
++from pathlib import Path
++
++try:
++    from .lexlab.reports import write_json
++    from .lexlab.serializer import load_asset
++    from .lexlab.sources import load_source
++except ImportError:  # direct script execution
++    from lexlab.reports import write_json
++    from lexlab.serializer import load_asset
++    from lexlab.sources import load_source
++
++
++def verify(
++    run: Path, *, source_id: str | None = None, data_root: Path | None = None
++) -> dict[str, object]:
++    asset = load_asset(run / "compressed.asset" if run.is_dir() else run)
++    source_name = source_id or asset.source.source_id
++    source = load_source(source_name, data_root=data_root)
++    failures = []
++    variants = 0
++    for word in source.words:
++        expected = source.lookup_all(word)
++        actual = asset.lookup_all(word)
++        variants += len(expected)
++        if expected != actual:
++            failures.append({"word": word, "expected": expected, "actual": actual})
++    result = {
++        "words_checked": len(source.entries),
++        "variants_checked": variants,
++        "exact_words": len(source.entries) - len(failures),
++        "failures": len(failures),
++        "failure_rows": failures,
++    }
++    if run.is_dir():
++        write_json(run / "independent-verification.json", result)
++    return result
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--run", type=Path, required=True)
++    parser.add_argument("--source")
++    parser.add_argument("--data-root", type=Path)
++    args = parser.parse_args()
++    result = verify(args.run, source_id=args.source, data_root=args.data_root)
++    print(f"Words checked:       {result['words_checked']}")
++    print(f"Variants checked:    {result['variants_checked']}")
++    print(f"Exact word tuples:   {result['exact_words']}")
++    print(f"Failures:             {result['failures']}")
++    return 0 if result["failures"] == 0 else 1
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())

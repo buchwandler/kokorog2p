@@ -1,0 +1,2210 @@
+ README.md                               |   8 +-
+ benchmarks/VIETNAMESE_DATASET.md        |  13 ++
+ benchmarks/benchmark_vi_differential.py |  51 ++++++
+ benchmarks/benchmark_vi_g2p.py          |  43 +++++
+ docs/api/vietnamese.md                  |  35 ++++
+ docs/index.md                           |   5 +-
+ docs/installation.md                    |  11 ++
+ docs/languages.md                       |  21 +++
+ docs/quickstart.md                      |   4 +
+ docs/vi/PROVENANCE.md                   |  57 +++++++
+ kokorog2p/__init__.py                   |  19 ++-
+ kokorog2p/multilang.py                  |   3 +
+ kokorog2p/tokenization.py               |   5 +-
+ kokorog2p/vi/__init__.py                |  43 +++++
+ kokorog2p/vi/g2p.py                     | 282 +++++++++++++++++++++++++++++++
+ kokorog2p/vi/model_profile.py           |  73 ++++++++
+ kokorog2p/vi/phonology.py               | 194 +++++++++++++++++++++
+ kokorog2p/vi/render.py                  |  49 ++++++
+ kokorog2p/vi/syllable.py                | 271 +++++++++++++++++++++++++++++
+ kokorog2p/vi/unicode.py                 | 136 +++++++++++++++
+ tests/data/vi_gold.json                 | 290 ++++++++++++++++++++++++++++++++
+ tests/test_vi_g2p.py                    | 102 +++++++++++
+ tests/test_vi_phonology.py              |  76 +++++++++
+ tests/test_vi_syllable.py               |  85 ++++++++++
+ tests/test_vi_unicode.py                |  59 +++++++
+ 25 files changed, 1931 insertions(+), 4 deletions(-)
+
+diff --git a/README.md b/README.md
+index 0ad8d6e..dbbf981 100644
+--- a/README.md
++++ b/README.md
+@@ -11,7 +11,9 @@ kokorog2p converts text to phonemes optimized for the Kokoro text-to-speech syst
+ provides:
+
+ - **Multi-language support**: English (US/GB), German, French, Italian, Spanish,
+-  Portuguese (Brazilian), Czech, Chinese, Japanese, Korean, Hebrew
++  Portuguese (Brazilian), Czech, Chinese, Japanese, Korean, Hebrew, Vietnamese
++- **Native Vietnamese frontend**: Pure-Python Northern/Hanoi `vi-vn` profile with six
++  named tones
+ - **Mixed-language preprocessing**: Detect languages for per-word language switching
+ - **Dictionary-based lookup** with comprehensive lexicons
+   - English: 179k+ entries (gold tier), 187k+ silver tier (both loaded by default)
+@@ -135,6 +137,9 @@ print(phonemes)
+ phonemes = phonemize("안녕하세요", language="ko").phonemes
+ print(phonemes)
+
++
++- **Vietnamese** (native Northern/Hanoi profile)
++
+ # Hebrew (requires phonikud package)
+ phonemes = phonemize("שָׁלוֹם", language="he").phonemes
+ print(phonemes)
+@@ -500,6 +505,7 @@ print(result.phonemes)
+ | Chinese      | `zh`    | pypinyin + ZHFrontend             | ✓              | Zhuyin   | Production |
+ | Japanese     | `ja`    | pyopenjtalk                       | -              | IPA      | Production |
+ | Korean       | `ko`    | g2pK rule-based                   | ✓              | IPA      | Production |
++| Vietnamese   | `vi-vn` | Native rule-based Northern/Hanoi  | -              | IPA-like | Production |
+ | Hebrew       | `he`    | phonikud-based (requires nikud)   | -              | IPA      | Production |
+
+ **Note:** Both gold and silver dictionaries are loaded by default for English. You can:
+diff --git a/benchmarks/VIETNAMESE_DATASET.md b/benchmarks/VIETNAMESE_DATASET.md
+new file mode 100644
+index 0000000..3d09139
+--- /dev/null
++++ b/benchmarks/VIETNAMESE_DATASET.md
+@@ -0,0 +1,13 @@
++# Vietnamese benchmark dataset
++
++The benchmark uses the independently authored cases in `tests/data/vi_gold.json`. The
++target is broad Northern/Hanoi Vietnamese (`vi-vn-north`). The cases cover named tones,
++onset families, principal nuclei, medial and off-glides, nasal and stop codas, NFC/NFD
++input, punctuation, and ASCII-only syllables.
++
++The expected values are human-reviewable structural outputs and are not copied from a
++legacy engine. External engines, when installed, are diagnostic comparisons only.
++Disagreements are classified as orthography, dialect, tone, vowel, coda, routing,
++normalization, punctuation, or model-rendering issues. The current fixture is a seed
++corpus for the first implementation; expanding it toward the 200-500-case release
++recommendation requires additional native speaker review.
+diff --git a/benchmarks/benchmark_vi_differential.py b/benchmarks/benchmark_vi_differential.py
+new file mode 100644
+index 0000000..c0fff7d
+--- /dev/null
++++ b/benchmarks/benchmark_vi_differential.py
+@@ -0,0 +1,51 @@
++"""Manifest-only differential benchmark for Vietnamese frontends.
++
++External systems are optional and diagnostic. They never replace curated gold.
++"""
++
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++from kokorog2p.vi import VietnameseG2P
++
++
++def main() -> None:
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--json", action="store_true")
++    args = parser.parse_args()
++    path = Path(__file__).parent.parent / "tests" / "data" / "vi_gold.json"
++    cases = json.loads(path.read_text(encoding="utf-8"))
++    g2p = VietnameseG2P(foreign_fallback="none", strict=True)
++    rows = []
++    for case in cases:
++        clean = g2p.phonemize(str(case["text"]))
++        rows.append(
++            {
++                "input": case["text"],
++                "clean_room": clean,
++                "gold": case["expected"],
++                "decision": clean == case["expected"],
++                "notes": (
++                    "Curated gold is authoritative; external engines are "
++                    "diagnostic only."
++                ),
++            }
++        )
++    result = {
++        "dialect": "vi-vn-north",
++        "cases": rows,
++        "comparators": [],
++        "gold_source": "tests/data/vi_gold.json",
++    }
++    if args.json:
++        print(json.dumps(result, ensure_ascii=False, indent=2))
++    else:
++        print(f"Vietnamese differential cases: {len(rows)}")
++        print(f"Curated matches: {sum(row['decision'] for row in rows)}/{len(rows)}")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/benchmarks/benchmark_vi_g2p.py b/benchmarks/benchmark_vi_g2p.py
+new file mode 100644
+index 0000000..9b74775
+--- /dev/null
++++ b/benchmarks/benchmark_vi_g2p.py
+@@ -0,0 +1,43 @@
++"""Reproducible smoke benchmark for native Vietnamese G2P."""
++
++from __future__ import annotations
++
++import argparse
++import json
++import time
++from pathlib import Path
++
++from kokorog2p.vi import VietnameseG2P
++
++
++def load_cases() -> list[dict[str, object]]:
++    path = Path(__file__).parent.parent / "tests" / "data" / "vi_gold.json"
++    return json.loads(path.read_text(encoding="utf-8"))
++
++
++def main() -> None:
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--repeat", type=int, default=100)
++    args = parser.parse_args()
++    cases = load_cases()
++    g2p = VietnameseG2P(foreign_fallback="none", strict=True)
++    words = [str(case["text"]) for case in cases]
++    start = time.perf_counter()
++    for _ in range(args.repeat):
++        for word in words:
++            g2p.phonemize(word)
++    elapsed = time.perf_counter() - start
++    count = len(words) * args.repeat
++    print(
++        json.dumps(
++            {
++                "syllables": count,
++                "seconds": elapsed,
++                "syllables_per_second": count / elapsed,
++            }
++        )
++    )
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/docs/api/vietnamese.md b/docs/api/vietnamese.md
+new file mode 100644
+index 0000000..db624dc
+--- /dev/null
++++ b/docs/api/vietnamese.md
+@@ -0,0 +1,35 @@
++# Vietnamese API
++
++`kokorog2p` provides a native pure-Python Vietnamese frontend under the canonical
++language code `vi-vn`. The aliases `vi`, `vie`, and `vietnamese` resolve to the same
++frontend.
++
++```python
++from kokorog2p import get_g2p, phonemize
++
++g2p = get_g2p("vi", foreign_fallback="english")
++print(g2p.phonemize("Xin chào!"))
++result = phonemize("Xin chào!", language="vi", return_ids=True)
++print(result.phonemes, result.token_ids)
++```
++
++The first profile is broad Northern/Hanoi Vietnamese. Each whitespace-separated syllable
++is parsed as onset, optional medial `/w/`, nucleus, coda or off-glide, and one named
++tone. The six tones are `ngang`, `huyen`, `hoi`, `nga`, `sac`, and `nang`.
++
++Input is normalized to NFC for rule processing while source text and token positions
++remain source-oriented. NFC and NFD spellings have identical pronunciation. Vietnamese
++vowel-quality marks are retained during tone extraction.
++
++Invalid Vietnamese spellings are not guessed. With `foreign_fallback="english"` (the
++default), tokens that fail structural Vietnamese parsing use the existing lazy English
++frontend. `"espeak"` and `"none"` are also supported. Use `strict=True` to raise when no
++fallback pronunciation is available.
++
++The model profile uses Kokoro's supported characters and tone arrows directly.
++`validate_output()` and `encode_output()` in `kokorog2p.vi.model_profile` expose
++explicit model checks. The frontend does not add a `vig2p` dependency and does not
++implement a second semantic number, date, URL, or currency normalizer.
++
++See [Vietnamese provenance](../vi/PROVENANCE.md) for independent linguistic sources and
++clean-room boundaries.
+diff --git a/docs/index.md b/docs/index.md
+index af3bded..2e85182 100644
+--- a/docs/index.md
++++ b/docs/index.md
+@@ -16,7 +16,9 @@ high-quality text-to-phoneme conversion for multiple languages.
+ ## Features
+
+ - **Multi-language support**: English (US/GB), German, French, Czech, Spanish, Italian,
+-  Portuguese, Chinese, Japanese, Korean, Hebrew
++  Portuguese, Chinese, Japanese, Korean, Hebrew, Vietnamese
++- **Native Vietnamese**: Pure-Python Northern/Hanoi profile with NFC/NFD support and six
++  named tones
+ - **Mixed-language detection**: Automatic detection and handling of texts mixing
+   multiple languages
+ - **Dictionary-based lookup** with large gold/silver tier lexicons for select languages
+@@ -90,6 +92,7 @@ api/portuguese
+ api/chinese
+ api/japanese
+ api/korean
++api/vietnamese
+ api/hebrew
+ api/mixed
+ api/backends
+diff --git a/docs/installation.md b/docs/installation.md
+index 8f43520..d7be534 100644
+--- a/docs/installation.md
++++ b/docs/installation.md
+@@ -62,6 +62,17 @@ This includes:
+ - espeak-ng fallback
+ - Number and currency handling
+
++### Vietnamese
++
++Vietnamese is included in the core pure-Python installation. It uses the `vi-vn`
++Northern/Hanoi profile and does not require a Vietnamese-specific package or model
++download:
++
++```python
++from kokorog2p import phonemize
++print(phonemize("Xin chào!", language="vi").phonemes)
++```
++
+ ### Chinese
+
+ For Chinese support:
+diff --git a/docs/languages.md b/docs/languages.md
+index 31182fd..7b4efeb 100644
+--- a/docs/languages.md
++++ b/docs/languages.md
+@@ -588,6 +588,26 @@ markers. Use `output="jamo"` to inspect the g2pkc intermediate form. The model o
+ explicitly maps markers absent from Kokoro 82M v1.0 and rejects other unsupported
+ symbols.
+
++## Vietnamese (vi-vn)
++
++Vietnamese uses a native pure-Python broad Northern/Hanoi frontend. The aliases `vi`,
++`vie`, and `vietnamese` resolve to `vi-vn`. It parses each whitespace-separated syllable
++structurally, extracts six named tones, and renders directly with the Kokoro model
++profile.
++
++```python
++from kokorog2p import phonemize
++
++result = phonemize("Xin chào!", language="vi", return_ids=True)
++print(result.phonemes, result.token_ids)
++```
++
++No Vietnamese-specific extra or `vig2p` runtime dependency is required. Invalid or
++foreign tokens use the existing lazy English fallback by default; pass
++`foreign_fallback="none"` or `"espeak"` to `get_g2p`. Semantic number, date, URL, and
++currency normalization remains outside this phonology module. See {doc}`api/vietnamese`
++and `vi/PROVENANCE` for the model profile, limitations, and clean-room sources.
++
+ ### Examples
+
+ ```python
+@@ -667,6 +687,7 @@ each word to the appropriate G2P engine.
+ - Japanese (ja)
+ - Chinese (zh)
+ - Korean (ko)
++- Vietnamese (vi-vn, vi)
+ - Hebrew (he)
+ - Czech (cs)
+ - Dutch (nl)
+diff --git a/docs/quickstart.md b/docs/quickstart.md
+index dd316e0..d8c05a7 100644
+--- a/docs/quickstart.md
++++ b/docs/quickstart.md
+@@ -59,6 +59,10 @@ fr_phonemes = phonemize("Bonjour le monde", language="fr").phonemes
+ # Czech
+ cs_phonemes = phonemize("Dobrý den", language="cs").phonemes
+
++
++# Vietnamese native frontend
++vi_phonemes = phonemize("Xin chào!", language="vi").phonemes
++print(vi_phonemes)
+ # Mixed-language (German with English words)
+ from kokorog2p import phonemize
+ from kokorog2p.multilang import preprocess_multilang
+diff --git a/docs/vi/PROVENANCE.md b/docs/vi/PROVENANCE.md
+new file mode 100644
+index 0000000..b7faa62
+--- /dev/null
++++ b/docs/vi/PROVENANCE.md
+@@ -0,0 +1,57 @@
++# Vietnamese frontend provenance
++
++The Vietnamese frontend is a native clean-room implementation for the `vi-vn`
++Northern/Hanoi-oriented broad phonemic profile. The implementation did not inspect,
++copy, translate, or depend on `hoang1007/vig2p`. The gold cases are independently
++constructed from ordinary Vietnamese vocabulary and the sources below.
++
++## Unicode and tone extraction
++
++Sources:
++
++- Unicode Standard, Chapter 7:
++  <https://unicode.org/versions/Unicode16.0.0/core-spec/chapter-7/>
++- Vietnamese orthography uses U+0300 grave, U+0309 hook above, U+0303 tilde, U+0301
++  acute, and U+0323 dot below for the five marked tones.
++
++Reason: canonical NFC/NFD normalization and combining-mark classification.
++
++## Syllable structure
++
++Sources:
++
++- Vietnamese syllable structure summary:
++  <https://pmc.ncbi.nlm.nih.gov/articles/PMC9131412/>
++- Luong, Vietnamese Speech Synthesis:
++  <https://www.isca-archive.org/iscslp_2006/luong06_iscslp.pdf>
++
++Reason: optional onset, medial glide, obligatory nucleus, optional coda, and lexical
++tone represented as separate structural fields.
++
++## Inventory and tones
++
++Source:
++
++- ASHA Vietnamese phonology overview:
++  <https://pubs.asha.org/doi/10.1044/2023_JSLHR-21-00669>
++- Northern Vietnamese tone description:
++  <https://www.frontiersin.org/journals/education/articles/10.3389/feduc.2024.1411660/full>
++
++Reason: broad Northern onset, vowel, coda, glide, and six-tone categories. The output
++deliberately remains broad rather than claiming narrow allophonic accuracy.
++
++## Model adaptation
++
++Source:
++
++- Kokoro 82M vocabulary is read from this repository's existing
++  `kokorog2p/data/kokoro_config.json`.
++
++Reason: Vietnamese rendering is checked against the selected Kokoro model vocabulary.
++Unsupported characters are reported instead of silently removed.
++
++## Gold data
++
++`tests/data/vi_gold.json` contains independently selected, human-reviewable examples.
++Expected output is structural broad phonology rendered with the named tone markers.
++External G2P implementations are not used to generate the curated expected values.
+diff --git a/kokorog2p/__init__.py b/kokorog2p/__init__.py
+index d96150d..b4872e1 100644
+--- a/kokorog2p/__init__.py
++++ b/kokorog2p/__init__.py
+@@ -143,6 +143,10 @@ _LANGUAGE_ALIASES = {
+     "cs": "cs-cz",
+     "ces": "cs-cz",
+     "czech": "cs-cz",
++    "vi": "vi-vn",
++    "vi-vn": "vi-vn",
++    "vie": "vi-vn",
++    "vietnamese": "vi-vn",
+     "ko": "ko-kr",
+     "kor": "ko-kr",
+     "korean": "ko-kr",
+@@ -203,6 +207,7 @@ _FACTORY_KWARGS_BY_LANGUAGE = {
+             "model_profile",
+         }
+     ),
++    "vi": frozenset({"foreign_fallback"}),
+ }
+
+ _SPACY_DEFAULTS_BY_FAMILY = {
+@@ -334,7 +339,7 @@ def _stable_repr(value: Any) -> object:
+     return repr(value)
+
+
+-def get_g2p(
++def get_g2p(  # noqa: C901
+     language: str = "en-us",
+     use_espeak_fallback: bool = True,
+     use_goruut_fallback: bool = False,
+@@ -631,6 +636,18 @@ def get_g2p(
+             version=version,
+             **kwargs,
+         )
++    elif lang == "vi-vn":
++        from kokorog2p.vi import VietnameseG2P
++
++        g2p = VietnameseG2P(
++            language="vi-vn",
++            use_espeak_fallback=use_espeak_fallback,
++            use_goruut_fallback=use_goruut_fallback,
++            use_cli=use_cli,
++            strict=strict,
++            version=version,
++            **kwargs,
++        )
+     elif lang in ("ko", "ko-kr", "kor", "korean"):
+         from kokorog2p.ko import KoreanG2P
+
+diff --git a/kokorog2p/multilang.py b/kokorog2p/multilang.py
+index a3a6cc3..ad31b31 100644
+--- a/kokorog2p/multilang.py
++++ b/kokorog2p/multilang.py
+@@ -58,6 +58,8 @@ if LINGUA_AVAILABLE:
+             "zh-tw": Language.CHINESE,  # type: ignore
+             "ko": Language.KOREAN,  # type: ignore
+             "ko-kr": Language.KOREAN,  # type: ignore
++            "vi": Language.VIETNAMESE,  # type: ignore
++            "vi-vn": Language.VIETNAMESE,  # type: ignore
+             "he": Language.HEBREW,  # type: ignore
+             "he-il": Language.HEBREW,  # type: ignore
+             "cs": Language.CZECH,  # type: ignore
+@@ -82,6 +84,7 @@ if LINGUA_AVAILABLE:
+             Language.JAPANESE: "ja",  # type: ignore
+             Language.CHINESE: "zh",  # type: ignore
+             Language.KOREAN: "ko",  # type: ignore
++            Language.VIETNAMESE: "vi",  # type: ignore
+             Language.HEBREW: "he",  # type: ignore
+             Language.CZECH: "cs",  # type: ignore
+             Language.DUTCH: "nl",  # type: ignore
+diff --git a/kokorog2p/tokenization.py b/kokorog2p/tokenization.py
+index 070655c..5ed427d 100644
+--- a/kokorog2p/tokenization.py
++++ b/kokorog2p/tokenization.py
+@@ -186,9 +186,12 @@ def tokenize_with_offsets(
+     number = r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)+"
+     leading_decimal = r"(?<![\w.])\.\d+"
+     grouped_integer = r"\d{1,3}(?:,\d{3})+"
++    word_chars = r"\w\u0300-\u036f"
+     pattern = re.compile(
+         rf"({number}|{leading_decimal}|{grouped_integer}|"
+-        rf"\w+(?:-\w+)+|\w+(?:['\u2019]\w+)+|\w+|\.{{2,}}|…|[^\w\s]|\s+)"
++        rf"[{word_chars}]+(?:-[{word_chars}]+)+|"
++        rf"[{word_chars}]+(?:['\u2019][{word_chars}]+)+|"
++        rf"[{word_chars}]+|\.{{2,}}|…|[^\w\s\u0300-\u036f]|\s+)"
+     )
+     tokens: list[TokenSpan] = []
+
+diff --git a/kokorog2p/vi/__init__.py b/kokorog2p/vi/__init__.py
+new file mode 100644
+index 0000000..c7c4ff6
+--- /dev/null
++++ b/kokorog2p/vi/__init__.py
+@@ -0,0 +1,43 @@
++"""Native Northern Vietnamese G2P frontend."""
++
++from .g2p import VietnameseAnalysis, VietnameseG2P
++from .phonology import Phone
++from .syllable import (
++    InvalidVietnameseSyllable,
++    VietnameseG2PError,
++    VietnameseSyllable,
++    VietnameseTone,
++    is_vietnamese_syllable,
++    parse_syllable,
++)
++from .unicode import (
++    ToneExtraction,
++    decompose_vietnamese,
++    extract_tone,
++    normalize_vietnamese,
++    remove_tone_marks,
++)
++
++
++def phonemize_vi(text: str, **kwargs: object) -> str:
++    """Phonemize Vietnamese text with a fresh native frontend."""
++    return VietnameseG2P(**kwargs).phonemize(text)
++
++
++__all__ = [
++    "InvalidVietnameseSyllable",
++    "Phone",
++    "ToneExtraction",
++    "VietnameseAnalysis",
++    "VietnameseG2P",
++    "VietnameseG2PError",
++    "VietnameseSyllable",
++    "VietnameseTone",
++    "decompose_vietnamese",
++    "extract_tone",
++    "is_vietnamese_syllable",
++    "normalize_vietnamese",
++    "parse_syllable",
++    "phonemize_vi",
++    "remove_tone_marks",
++]
+diff --git a/kokorog2p/vi/g2p.py b/kokorog2p/vi/g2p.py
+new file mode 100644
+index 0000000..0b9457d
+--- /dev/null
++++ b/kokorog2p/vi/g2p.py
+@@ -0,0 +1,282 @@
++"""Native Northern Vietnamese G2P integrated with KokoroG2P."""
++
++from __future__ import annotations
++
++import re
++from dataclasses import dataclass
++from functools import lru_cache
++from typing import Any, Literal
++
++from kokorog2p.base import G2PBase
++from kokorog2p.espeak_g2p import EspeakOnlyG2P
++from kokorog2p.punctuation import normalize_punctuation
++from kokorog2p.token import GToken
++from kokorog2p.tokenization import ensure_gtoken_positions
++
++from .model_profile import PROFILE_NAME, TARGET_MODEL, validate_output
++from .phonology import syllable_to_phones
++from .render import render_syllable
++from .syllable import (
++    InvalidVietnameseSyllable,
++    VietnameseG2PError,
++    VietnameseSyllable,
++    try_parse_syllable,
++)
++from .unicode import normalize_vietnamese
++
++ForeignFallback = Literal["english", "espeak", "none"]
++
++
++@dataclass(frozen=True)
++class VietnameseAnalysis:
++    """Inspectable result for one Vietnamese frontend token."""
++
++    source: str
++    normalized: str
++    classification: str
++    syllable: VietnameseSyllable | None
++    phones: tuple[str, ...]
++    rendered: str
++    fallback: str | None = None
++
++
++_WORD_RE = re.compile(r"(?:[\w\u0300-\u036f]+|[^\w\s\u0300-\u036f]+|\s+)", re.UNICODE)
++
++
++@lru_cache(maxsize=4096)
++def _cached_syllable(text: str) -> VietnameseSyllable | None:
++    return try_parse_syllable(text)
++
++
++@lru_cache(maxsize=4096)
++def _cached_render(syllable: VietnameseSyllable) -> str:
++    return render_syllable(syllable)
++
++
++class VietnameseG2P(G2PBase):
++    """Rule-based broad Northern/Hanoi Vietnamese frontend.
++
++    Vietnamese orthography separates syllables with spaces. Each legal
++    syllable is parsed structurally and rendered with named-tone prosody. A
++    non-Vietnamese token is delegated to the configured lazy foreign backend.
++    """
++
++    profile = PROFILE_NAME
++    aliases = frozenset(("vi", "vi-vn", "vie", "vietnamese"))
++
++    def __init__(
++        self,
++        language: str = "vi-vn",
++        *,
++        version: str = TARGET_MODEL,
++        foreign_fallback: ForeignFallback = "english",
++        strict: bool = False,
++        use_espeak_fallback: bool = True,
++        use_goruut_fallback: bool = False,
++        use_cli: bool = False,
++        **kwargs: Any,
++    ) -> None:
++        if kwargs:
++            names = ", ".join(sorted(kwargs))
++            raise TypeError(f"Unsupported VietnameseG2P options: {names}")
++        if version not in ("1.0", "1.1"):
++            raise ValueError(f"Unsupported Vietnamese model version: {version!r}")
++        normalized_language = language.lower().replace("_", "-")
++        if normalized_language not in self.aliases:
++            raise ValueError(f"Unsupported Vietnamese language code: {language!r}")
++        if foreign_fallback not in ("english", "espeak", "none"):
++            raise ValueError(
++                "foreign_fallback must be 'english', 'espeak', or 'none', "
++                f"got {foreign_fallback!r}"
++            )
++        if (
++            use_espeak_fallback
++            and use_goruut_fallback
++            and foreign_fallback == "english"
++        ):
++            raise ValueError("English fallback cannot enable both espeak and goruut")
++
++        super().__init__(
++            language="vi-vn",
++            use_espeak_fallback=use_espeak_fallback,
++            use_goruut_fallback=use_goruut_fallback,
++            use_cli=use_cli,
++            strict=strict,
++        )
++        self.version = version
++        self.foreign_fallback = foreign_fallback
++        self.use_espeak_fallback = use_espeak_fallback
++        self.use_goruut_fallback = use_goruut_fallback
++        self.use_cli = use_cli
++        self._foreign_g2p: G2PBase | None = None
++
++    def get_target_model(self) -> str:
++        """Return the model profile used for output validation."""
++        return self.version
++
++    @property
++    def foreign_g2p(self) -> G2PBase | None:
++        """Lazily create the configured foreign-token frontend."""
++        if self.foreign_fallback == "none":
++            return None
++        if self._foreign_g2p is None:
++            if self.foreign_fallback == "espeak":
++                self._foreign_g2p = EspeakOnlyG2P(
++                    language="en-us", strict=self.strict, use_cli=self.use_cli
++                )
++            else:
++                # Import the concrete class instead of the public factory. This
++                # avoids rebuilding the factory while processing a foreign word.
++                from kokorog2p.en import EnglishG2P
++
++                self._foreign_g2p = EnglishG2P(
++                    language="en-us",
++                    use_espeak_fallback=self.use_espeak_fallback,
++                    use_goruut_fallback=self.use_goruut_fallback,
++                    use_cli=self.use_cli,
++                    use_spacy=False,
++                    load_silver=False,
++                    load_gold=True,
++                    strict=self.strict,
++                )
++        return self._foreign_g2p
++
++    def _foreign_word(self, word: str) -> str | None:
++        backend = self.foreign_g2p
++        if backend is None:
++            return None
++        try:
++            return backend.lookup(word)
++        except Exception as exc:
++            if self.strict:
++                raise VietnameseG2PError(
++                    f"foreign fallback failed for Vietnamese token {word!r}: {exc}"
++                ) from exc
++            return None
++
++    def analyze(self, text: str) -> VietnameseAnalysis:
++        """Analyze one token without changing the caller's source text."""
++        normalized = normalize_vietnamese(text)
++        syllable = _cached_syllable(normalized)
++        if syllable is not None:
++            phones = syllable_to_phones(syllable)
++            rendered = _cached_render(syllable)
++            valid, invalid = validate_output(rendered, model=self.version)
++            if not valid:
++                raise VietnameseG2PError(
++                    f"Vietnamese output is not valid for Kokoro {self.version}: "
++                    + "".join(invalid)
++                )
++            return VietnameseAnalysis(
++                source=text,
++                normalized=normalized,
++                classification="VI_SYLLABLE",
++                syllable=syllable,
++                phones=phones,
++                rendered=rendered,
++            )
++
++        foreign = self._foreign_word(normalized)
++        if foreign:
++            return VietnameseAnalysis(
++                source=text,
++                normalized=normalized,
++                classification="FOREIGN_WORD",
++                syllable=None,
++                phones=tuple(foreign),
++                rendered=foreign,
++                fallback=self.foreign_fallback,
++            )
++        if self.strict:
++            raise InvalidVietnameseSyllable(
++                "cannot parse Vietnamese token and no foreign pronunciation exists: "
++                f"{text!r}"
++            )
++        return VietnameseAnalysis(
++            source=text,
++            normalized=normalized,
++            classification="UNKNOWN",
++            syllable=None,
++            phones=(),
++            rendered="",
++            fallback=self.foreign_fallback,
++        )
++
++    @staticmethod
++    def _is_punctuation(text: str) -> bool:
++        return bool(text) and not any(char.isalnum() for char in text)
++
++    def __call__(self, text: str) -> list[GToken]:
++        """Convert text to offset-aware :class:`GToken` objects."""
++        if not text or not text.strip():
++            return []
++
++        matches = [
++            match for match in _WORD_RE.finditer(text) if not match.group().isspace()
++        ]
++        tokens: list[GToken] = []
++        for index, match in enumerate(matches):
++            part = match.group()
++            next_start = (
++                matches[index + 1].start() if index + 1 < len(matches) else len(text)
++            )
++            whitespace = text[match.end() : next_start]
++            if self._is_punctuation(part):
++                punctuation = normalize_punctuation(part)
++                token = GToken(
++                    text=part,
++                    tag="PUNCT",
++                    whitespace=whitespace,
++                    phonemes=punctuation if punctuation else None,
++                )
++                token.rating = "4"
++            else:
++                analysis = self.analyze(part)
++                token = GToken(
++                    text=part,
++                    tag="X",
++                    whitespace=whitespace,
++                    phonemes=analysis.rendered or None,
++                )
++                token.rating = "4" if analysis.syllable is not None else "1"
++                token.set("classification", analysis.classification)
++                token.set("fallback", analysis.fallback)
++                if analysis.syllable is not None:
++                    token.set("tone", analysis.syllable.tone.value)
++                    token.set("syllable", analysis.syllable)
++            token.set("char_start", match.start())
++            token.set("char_end", match.end())
++            tokens.append(token)
++
++        ensure_gtoken_positions(tokens, text)
++        return tokens
++
++    def lookup(self, word: str, tag: str | None = None) -> str | None:
++        """Look up a legal Vietnamese syllable or configured foreign word."""
++        analysis = self.analyze(word)
++        return analysis.rendered or None
++
++    def phonemize(self, text: str) -> str:
++        """Return the model-ready phoneme string for *text*."""
++        return super().phonemize(text)
++
++    def capabilities(self) -> dict[str, object]:
++        """Return stable metadata for clients inspecting this frontend."""
++        return {
++            "language": "vi-vn",
++            "profile": self.profile,
++            "dialect": "Northern/Hanoi",
++            "tones": 6,
++            "native": True,
++            "foreign_fallback": self.foreign_fallback,
++            "model": self.version,
++        }
++
++    def __repr__(self) -> str:
++        return (
++            f"VietnameseG2P(language={self.language!r}, version={self.version!r}, "
++            f"foreign_fallback={self.foreign_fallback!r})"
++        )
++
++
++__all__ = ["ForeignFallback", "VietnameseAnalysis", "VietnameseG2P"]
+diff --git a/kokorog2p/vi/model_profile.py b/kokorog2p/vi/model_profile.py
+new file mode 100644
+index 0000000..f9deee7
+--- /dev/null
++++ b/kokorog2p/vi/model_profile.py
+@@ -0,0 +1,73 @@
++"""Kokoro model-facing policy for Vietnamese output."""
++
++from __future__ import annotations
++
++from collections.abc import Iterable
++from typing import Final
++
++from kokorog2p.vocab import get_vocab, phonemes_to_ids, validate_for_kokoro
++
++from .render import TONE_RENDER, render_segments, render_tone
++from .syllable import VietnameseTone
++
++TARGET_MODEL: Final[str] = "1.0"
++PROFILE_NAME: Final[str] = "VietnameseNorthern"
++TONE_RENDER_KOKORO_10: Final[dict[VietnameseTone, str]] = TONE_RENDER
++
++
++def model_vocabulary(model: str = TARGET_MODEL) -> frozenset[str]:
++    """Return the verified Kokoro character vocabulary for *model*."""
++    return frozenset(get_vocab(model=model))
++
++
++def adapt_segment(segment: str, model: str = TARGET_MODEL) -> str:
++    """Validate one abstract rendered segment without silently deleting it."""
++    invalid = sorted({char for char in segment if char not in model_vocabulary(model)})
++    if invalid:
++        raise ValueError(
++            "Kokoro model "
++            f"{model} does not support Vietnamese segment(s): {''.join(invalid)}"
++        )
++    return segment
++
++
++def render_for_kokoro(
++    segments: Iterable[str], tone: VietnameseTone, model: str = TARGET_MODEL
++) -> str:
++    """Render and validate one syllable for the selected Kokoro model."""
++    rendered = render_segments(segments) + render_tone(tone)
++    return "".join(adapt_segment(char, model=model) for char in rendered)
++
++
++def validate_output(text: str, model: str = TARGET_MODEL) -> tuple[bool, list[str]]:
++    """Validate all output symbols against the selected Kokoro vocabulary."""
++    return validate_for_kokoro(text, model=model)
++
++
++def encode_output(text: str, model: str = TARGET_MODEL) -> list[int]:
++    """Encode validated Vietnamese output as Kokoro IDs."""
++    valid, invalid = validate_output(text, model=model)
++    if not valid:
++        raise ValueError(
++            f"Kokoro model {model} cannot encode Vietnamese output: {''.join(invalid)}"
++        )
++    return phonemes_to_ids(text, model=model)
++
++
++# Public spelling matching the shared vocabulary API, kept here for callers that
++# work with the Vietnamese profile directly.
++validate_for_model = validate_output
++
++__all__ = [
++    "PROFILE_NAME",
++    "TARGET_MODEL",
++    "TONE_RENDER",
++    "TONE_RENDER_KOKORO_10",
++    "adapt_segment",
++    "encode_output",
++    "model_vocabulary",
++    "render_for_kokoro",
++    "render_tone",
++    "validate_for_model",
++    "validate_output",
++]
+diff --git a/kokorog2p/vi/phonology.py b/kokorog2p/vi/phonology.py
+new file mode 100644
+index 0000000..be604cd
+--- /dev/null
++++ b/kokorog2p/vi/phonology.py
+@@ -0,0 +1,194 @@
++"""Broad Northern/Hanoi Vietnamese phonology mappings.
++
++The parser exposes orthographic structure; this module maps that structure to
++stable abstract segments before any Kokoro-specific rendering occurs.
++"""
++
++from __future__ import annotations
++
++from enum import Enum
++
++from .syllable import VietnameseSyllable
++
++
++class Phone(str, Enum):
++    """Abstract segments used by the initial Northern profile."""
++
++    B = "b"
++    D = "d"
++    T = "t"
++    T_ASP = "tʰ"
++    K = "k"
++    P = "p"
++    M = "m"
++    N = "n"
++    NY = "ɲ"
++    NG = "ŋ"
++    F = "f"
++    V = "v"
++    S = "s"
++    Z = "z"
++    X = "x"
++    GH = "ɣ"
++    H = "h"
++    L = "l"
++    R = "ɹ"
++    J = "j"
++    W = "w"
++    I = "i"
++    E = "e"
++    OPEN_E = "ɛ"
++    U_BACK_UNROUNDED = "ɯ"
++    MID_BACK_UNROUNDED = "ɤ"
++    A = "a"
++    SHORT_A = "ɐ"
++    U = "u"
++    O = "o"
++    OPEN_O = "ɔ"
++    SCHWA = "ə"
++    AFFRICATE = "ʨ"
++    RETROFLEX = "ʈ"
++
++
++ONSET_PHONES: dict[str, tuple[str, ...]] = {
++    "b": (Phone.B.value,),
++    "đ": (Phone.D.value,),
++    "d": (Phone.Z.value,),
++    "gi": (Phone.Z.value,),
++    "g": (Phone.GH.value,),
++    "gh": (Phone.GH.value,),
++    "h": (Phone.H.value,),
++    "k": (Phone.K.value,),
++    "c": (Phone.K.value,),
++    "q": (Phone.K.value,),
++    "qu": (Phone.K.value, Phone.W.value),
++    "m": (Phone.M.value,),
++    "n": (Phone.N.value,),
++    "ng": (Phone.NG.value,),
++    "ngh": (Phone.NG.value,),
++    "nh": (Phone.NY.value,),
++    "ph": (Phone.F.value,),
++    "r": (Phone.R.value,),
++    "s": (Phone.S.value,),
++    "x": (Phone.S.value,),
++    "t": (Phone.T.value,),
++    "th": (Phone.T_ASP.value,),
++    "tr": (Phone.RETROFLEX.value,),
++    "ch": (Phone.AFFRICATE.value,),
++    "v": (Phone.V.value,),
++    "l": (Phone.L.value,),
++    "kh": (Phone.X.value,),
++}
++
++NUCLEUS_PHONES: dict[str, tuple[str, ...]] = {
++    "a": (Phone.A.value,),
++    "ă": (Phone.SHORT_A.value,),
++    "â": (Phone.MID_BACK_UNROUNDED.value,),
++    "e": (Phone.OPEN_E.value,),
++    "ê": (Phone.E.value,),
++    "i": (Phone.I.value,),
++    "y": (Phone.I.value,),
++    "o": (Phone.OPEN_O.value,),
++    "ô": (Phone.O.value,),
++    "ơ": (Phone.MID_BACK_UNROUNDED.value,),
++    "u": (Phone.U.value,),
++    "ư": (Phone.U_BACK_UNROUNDED.value,),
++    "ia": (Phone.I.value, Phone.SCHWA.value),
++    "iê": (Phone.I.value, Phone.SCHWA.value),
++    "ya": (Phone.I.value, Phone.SCHWA.value),
++    "yê": (Phone.I.value, Phone.SCHWA.value),
++    "ua": (Phone.U.value, Phone.SCHWA.value),
++    "uô": (Phone.U.value, Phone.SCHWA.value),
++    "ưa": (Phone.U_BACK_UNROUNDED.value, Phone.SCHWA.value),
++    "ươ": (Phone.U_BACK_UNROUNDED.value, Phone.SCHWA.value),
++    "oa": (Phone.W.value, Phone.A.value),
++    "oe": (Phone.W.value, Phone.OPEN_E.value),
++    "uê": (Phone.W.value, Phone.E.value),
++    "uy": (Phone.W.value, Phone.I.value),
++    "uâ": (Phone.W.value, Phone.MID_BACK_UNROUNDED.value),
++    "eo": (Phone.E.value, Phone.OPEN_O.value),
++    "êu": (Phone.E.value, Phone.U.value),
++    "oi": (Phone.O.value, Phone.J.value),
++    "ôi": (Phone.O.value, Phone.J.value),
++    "ơi": (Phone.MID_BACK_UNROUNDED.value, Phone.J.value),
++    "ui": (Phone.U.value, Phone.J.value),
++    "ưi": (Phone.U_BACK_UNROUNDED.value, Phone.J.value),
++    "ưu": (Phone.U_BACK_UNROUNDED.value, Phone.W.value),
++    "iu": (Phone.I.value, Phone.W.value),
++}
++
++CODA_PHONES: dict[str, tuple[str, ...]] = {
++    "p": (Phone.P.value,),
++    "t": (Phone.T.value,),
++    "c": (Phone.K.value,),
++    "k": (Phone.K.value,),
++    "m": (Phone.M.value,),
++    "n": (Phone.N.value,),
++    "ng": (Phone.NG.value,),
++    "nh": (Phone.NG.value,),
++    "ch": (Phone.K.value,),
++    "i": (Phone.J.value,),
++    "y": (Phone.J.value,),
++    "o": (Phone.W.value,),
++    "u": (Phone.W.value,),
++}
++MEDIAL_PHONES: dict[str, tuple[str, ...]] = {
++    "u": (Phone.W.value,),
++    "o": (Phone.W.value,),
++}
++
++
++def map_onset(onset: str | None) -> tuple[str, ...]:
++    """Map an orthographic onset to broad abstract segments."""
++    return ONSET_PHONES.get(onset or "", ())
++
++
++def map_medial(medial: str | None) -> tuple[str, ...]:
++    """Map an orthographic medial glide to abstract segments."""
++    if medial is None:
++        return ()
++    try:
++        return MEDIAL_PHONES[medial]
++    except KeyError as exc:
++        raise ValueError(f"unsupported Vietnamese medial: {medial!r}") from exc
++
++
++def map_nucleus(nucleus: str) -> tuple[str, ...]:
++    """Map an orthographic nucleus to broad abstract segments."""
++    try:
++        return NUCLEUS_PHONES[nucleus]
++    except KeyError as exc:
++        raise ValueError(f"unsupported Vietnamese nucleus: {nucleus!r}") from exc
++
++
++def map_coda(coda: str | None) -> tuple[str, ...]:
++    """Map an orthographic coda or off-glide to abstract segments."""
++    if coda is None:
++        return ()
++    try:
++        return CODA_PHONES[coda]
++    except KeyError as exc:
++        raise ValueError(f"unsupported Vietnamese coda: {coda!r}") from exc
++
++
++def syllable_to_phones(syllable: VietnameseSyllable) -> tuple[str, ...]:
++    """Render a parsed syllable as abstract segment strings without tone."""
++    return (
++        map_onset(syllable.onset)
++        + map_medial(syllable.medial)
++        + map_nucleus(syllable.nucleus)
++        + map_coda(syllable.coda)
++    )
++
++
++__all__ = [
++    "CODA_PHONES",
++    "NUCLEUS_PHONES",
++    "ONSET_PHONES",
++    "Phone",
++    "map_coda",
++    "map_medial",
++    "map_nucleus",
++    "map_onset",
++    "syllable_to_phones",
++]
+diff --git a/kokorog2p/vi/render.py b/kokorog2p/vi/render.py
+new file mode 100644
+index 0000000..da64264
+--- /dev/null
++++ b/kokorog2p/vi/render.py
+@@ -0,0 +1,49 @@
++"""Model-independent Vietnamese phoneme rendering."""
++
++from __future__ import annotations
++
++from collections.abc import Iterable
++
++from .phonology import syllable_to_phones
++from .syllable import VietnameseSyllable, VietnameseTone
++
++TONE_RENDER: dict[VietnameseTone, str] = {
++    VietnameseTone.NGANG: "→",
++    VietnameseTone.HUYEN: "↘",
++    VietnameseTone.HOI: "↘↗",
++    VietnameseTone.NGA: "ʔ↗",
++    VietnameseTone.SAC: "↗",
++    VietnameseTone.NANG: "ʔ↓",
++}
++
++
++def render_segments(segments: Iterable[str]) -> str:
++    """Join abstract segment strings into a model-independent sequence."""
++    return "".join(segments)
++
++
++def render_tone(tone: VietnameseTone) -> str:
++    """Render a named tone using the initial broad Kokoro prosody profile."""
++    try:
++        return TONE_RENDER[tone]
++    except KeyError as exc:
++        raise ValueError(f"unsupported Vietnamese tone: {tone!r}") from exc
++
++
++def render_syllable(syllable: VietnameseSyllable) -> str:
++    """Render segmental phones followed by the named tone marker."""
++    return render_segments(syllable_to_phones(syllable)) + render_tone(syllable.tone)
++
++
++def render_syllables(syllables: Iterable[VietnameseSyllable]) -> str:
++    """Render syllables with model word boundaries."""
++    return " ".join(render_syllable(syllable) for syllable in syllables)
++
++
++__all__ = [
++    "TONE_RENDER",
++    "render_segments",
++    "render_syllable",
++    "render_syllables",
++    "render_tone",
++]
+diff --git a/kokorog2p/vi/syllable.py b/kokorog2p/vi/syllable.py
+new file mode 100644
+index 0000000..422e197
+--- /dev/null
++++ b/kokorog2p/vi/syllable.py
+@@ -0,0 +1,271 @@
++"""Structural parsing for one Vietnamese orthographic syllable."""
++
++from __future__ import annotations
++
++from dataclasses import dataclass
++from enum import Enum
++
++from .unicode import (
++    InvalidVietnameseSyllable,
++    VietnameseG2PError,
++    extract_tone,
++    normalize_vietnamese,
++)
++
++
++class VietnameseTone(str, Enum):
++    """The six lexical tones used by the Northern profile."""
++
++    NGANG = "ngang"
++    HUYEN = "huyen"
++    HOI = "hoi"
++    NGA = "nga"
++    SAC = "sac"
++    NANG = "nang"
++
++
++@dataclass(frozen=True)
++class VietnameseSyllable:
++    """A parsed Vietnamese syllable independent of model rendering."""
++
++    source: str
++    onset: str | None
++    medial: str | None
++    nucleus: str
++    coda: str | None
++    tone: VietnameseTone
++
++    @property
++    def rime(self) -> str:
++        """Return the parsed orthographic rime."""
++        return (self.medial or "") + self.nucleus + (self.coda or "")
++
++
++# Longest spellings are always considered first. ``gi`` is handled specially
++# because ``gi`` can also be the onset g followed by nucleus i.
++ONSET_SPELLINGS = (
++    "ngh",
++    "ng",
++    "gh",
++    "gi",
++    "kh",
++    "nh",
++    "ph",
++    "th",
++    "tr",
++    "ch",
++    "qu",
++    "b",
++    "c",
++    "d",
++    "đ",
++    "g",
++    "h",
++    "k",
++    "l",
++    "m",
++    "n",
++    "p",
++    "q",
++    "r",
++    "s",
++    "t",
++    "v",
++    "x",
++)
++CODA_SPELLINGS = ("ch", "nh", "ng", "p", "t", "c", "k", "m", "n")
++
++# Nuclei are kept as orthographic identities. The phonology module owns their
++# broad phonetic realization.
++NUCLEI = frozenset(
++    {
++        "a",
++        "ă",
++        "â",
++        "e",
++        "ê",
++        "i",
++        "o",
++        "ô",
++        "ơ",
++        "u",
++        "ư",
++        "y",
++        "ia",
++        "iê",
++        "ya",
++        "yê",
++        "ua",
++        "uô",
++        "ưa",
++        "ươ",
++        "oa",
++        "oe",
++        "uê",
++        "uy",
++        "uâ",
++        "eo",
++        "êu",
++        "oi",
++        "ôi",
++        "ơi",
++        "ui",
++        "ưi",
++        "ưu",
++        "iu",
++    }
++)
++MEDIAL_NUCLEI = {
++    "uyê": ("u", "yê", None),
++    "uya": ("u", "ya", None),
++    "uê": ("u", "ê", None),
++    "uâ": ("u", "â", None),
++    "oa": ("o", "a", None),
++    "oă": ("o", "ă", None),
++    "oe": ("o", "e", None),
++}
++
++
++def _select_onset(text: str) -> tuple[str | None, str]:
++    for candidate in ONSET_SPELLINGS:
++        if not text.startswith(candidate):
++            continue
++        remainder = text[len(candidate) :]
++        if not remainder:
++            continue
++        if candidate == "gi" and remainder.startswith("i"):
++            continue
++        if candidate == "q":
++            continue
++        return candidate, remainder
++    return None, text
++
++
++def _parse_rime(text: str) -> tuple[str | None, str, str | None] | None:
++    if not text:
++        return None
++
++    for spelling, shape in sorted(
++        MEDIAL_NUCLEI.items(), key=lambda item: -len(item[0])
++    ):
++        if text == spelling:
++            return shape
++
++    if text in NUCLEI:
++        return None, text, None
++
++    # Final i/y and o/u are off-glides. Require a complete nucleus before them
++    # so arbitrary consonant strings cannot become Vietnamese by accident.
++    if len(text) > 1 and text[-1] in "iyou":
++        base = text[:-1]
++        parsed = _parse_rime(base)
++        if parsed is not None:
++            return parsed[0], parsed[1], text[-1]
++
++    for spelling in sorted(NUCLEI, key=len, reverse=True):
++        if text == spelling:
++            return None, spelling, None
++    return None
++
++
++def _validate_spelling(onset: str | None, rime: str) -> None:
++    if onset == "q":
++        raise InvalidVietnameseSyllable("q must be part of the qu onset")
++    first = rime[0] if rime else ""
++    if onset == "c" and first not in "aăâouôơư":
++        raise InvalidVietnameseSyllable("c is not legal before this Vietnamese vowel")
++    if onset == "k" and first not in "eêiy":
++        raise InvalidVietnameseSyllable("k is not legal before this Vietnamese vowel")
++    if onset == "gh" and first not in "eêi":
++        raise InvalidVietnameseSyllable("gh is only legal before e, ê, or i")
++    if onset == "ngh" and first not in "eêi":
++        raise InvalidVietnameseSyllable("ngh is only legal before e, ê, or i")
++    if onset == "g" and first in "eê":
++        raise InvalidVietnameseSyllable("g is written gh before e or ê")
++    if onset == "g" and first == "i" and rime != "i":
++        raise InvalidVietnameseSyllable("g is written gi before a non-i rhyme")
++    if onset == "ng" and first in "eêi":
++        raise InvalidVietnameseSyllable("ng is written ngh before e, ê, or i")
++    if onset == "qu" and not first:
++        raise InvalidVietnameseSyllable("qu requires a following nucleus")
++
++
++def parse_syllable(text: str, *, strict: bool = True) -> VietnameseSyllable | None:
++    """Parse one Vietnamese syllable into onset, rime, coda, and tone."""
++    try:
++        if not isinstance(text, str):
++            raise TypeError(
++                f"Vietnamese syllable must be str, got {type(text).__name__}"
++            )
++        if not text or any(char.isspace() for char in text):
++            raise InvalidVietnameseSyllable(
++                "expected exactly one non-whitespace syllable"
++            )
++        extraction = extract_tone(text)
++        normalized = normalize_vietnamese(extraction.normalized).casefold()
++        if not normalized or not all(char.isalpha() for char in normalized):
++            raise InvalidVietnameseSyllable(f"invalid Vietnamese orthography: {text!r}")
++
++        onset, rime = _select_onset(normalized)
++        if onset == "qu" or onset == "gi" and rime:
++            _validate_spelling(onset, rime)
++
++        coda: str | None = None
++        rime_without_coda = rime
++        for candidate in CODA_SPELLINGS:
++            if not rime.endswith(candidate) or len(rime) == len(candidate):
++                continue
++            candidate_rime = rime[: -len(candidate)]
++            if _parse_rime(candidate_rime) is not None:
++                coda = candidate
++                rime_without_coda = candidate_rime
++                break
++
++        parsed = _parse_rime(rime_without_coda)
++        if parsed is None:
++            raise InvalidVietnameseSyllable(f"unsupported Vietnamese rime: {rime!r}")
++        medial, nucleus, offglide = parsed
++        if offglide is not None:
++            if coda is not None:
++                raise InvalidVietnameseSyllable("a syllable cannot have two codas")
++            coda = offglide
++
++        _validate_spelling(onset, rime_without_coda)
++        tone = VietnameseTone(extraction.tone_name)
++        if coda in {"p", "t", "c", "k", "ch"} and tone not in {
++            VietnameseTone.NGANG,
++            VietnameseTone.SAC,
++            VietnameseTone.NANG,
++        }:
++            raise InvalidVietnameseSyllable(
++                f"tone {tone.value} is not legal on checked coda {coda!r}"
++            )
++        return VietnameseSyllable(text, onset, medial, nucleus, coda, tone)
++    except (InvalidVietnameseSyllable, TypeError):
++        if strict:
++            raise
++        return None
++
++
++def try_parse_syllable(text: str) -> VietnameseSyllable | None:
++    """Return a parsed syllable or ``None`` for invalid orthography."""
++    return parse_syllable(text, strict=False)
++
++
++def is_vietnamese_syllable(text: str) -> bool:
++    """Return true only when *text* passes structural and tone validation."""
++    return try_parse_syllable(text) is not None
++
++
++__all__ = [
++    "CODA_SPELLINGS",
++    "NUCLEI",
++    "ONSET_SPELLINGS",
++    "InvalidVietnameseSyllable",
++    "VietnameseG2PError",
++    "VietnameseSyllable",
++    "VietnameseTone",
++    "is_vietnamese_syllable",
++    "parse_syllable",
++    "try_parse_syllable",
++]
+diff --git a/kokorog2p/vi/unicode.py b/kokorog2p/vi/unicode.py
+new file mode 100644
+index 0000000..fc0c082
+--- /dev/null
++++ b/kokorog2p/vi/unicode.py
+@@ -0,0 +1,136 @@
++"""Unicode-safe Vietnamese orthography helpers.
++
++Vietnamese tones are combining marks, so extraction is intentionally performed
++on NFD text and all public orthography is returned in NFC.
++"""
++
++from __future__ import annotations
++
++import unicodedata
++from dataclasses import dataclass
++from typing import TYPE_CHECKING
++
++if TYPE_CHECKING:
++    from .syllable import VietnameseTone
++
++TONE_MARKS: dict[str, str] = {
++    "\u0300": "huyen",
++    "\u0309": "hoi",
++    "\u0303": "nga",
++    "\u0301": "sac",
++    "\u0323": "nang",
++}
++QUALITY_MARKS = frozenset(("\u0306", "\u0302", "\u031b"))
++VIETNAMESE_LETTERS = frozenset("aăâbcdđeêghiklmnoôơpqrstuvwxyz")
++VIETNAMESE_VOWELS = frozenset("aăâeêioôơuưy")
++
++
++class VietnameseG2PError(Exception):
++    """Base exception for Vietnamese frontend errors."""
++
++
++class InvalidVietnameseSyllable(VietnameseG2PError, ValueError):
++    """Raised when Vietnamese orthography cannot be parsed safely."""
++
++
++@dataclass(frozen=True)
++class ToneExtraction:
++    """Tone-less NFC orthography and its named lexical tone."""
++
++    normalized: str
++    tone_name: str
++    mark: str | None = None
++
++    @property
++    def tone(self) -> VietnameseTone:
++        """Return the public named tone enum lazily to avoid an import cycle."""
++        from .syllable import VietnameseTone
++
++        return VietnameseTone(self.tone_name)
++
++    def __iter__(self):
++        """Allow ``orthography, tone = extract_tone(...)`` for convenience."""
++        yield self.normalized
++        yield self.tone
++
++
++def normalize_vietnamese(text: str) -> str:
++    """Normalize Vietnamese text to NFC without changing its source offsets."""
++    if not isinstance(text, str):
++        raise TypeError(f"Vietnamese text must be str, got {type(text).__name__}")
++    if any(unicodedata.category(char) == "Cs" for char in text):
++        raise InvalidVietnameseSyllable("Vietnamese text contains an invalid surrogate")
++    return unicodedata.normalize("NFC", text)
++
++
++def decompose_vietnamese(text: str) -> str:
++    """Return the canonical NFD representation used for mark inspection."""
++    return unicodedata.normalize("NFD", normalize_vietnamese(text))
++
++
++def extract_tone(text: str) -> ToneExtraction:
++    """Extract one lexical tone mark while retaining vowel-quality marks.
++
++    The input may be NFC or NFD. More than one lexical mark is malformed and
++    raises instead of selecting an arbitrary tone.
++    """
++    nfd = decompose_vietnamese(text)
++    marks = [char for char in nfd if char in TONE_MARKS]
++    if len(marks) > 1:
++        raise InvalidVietnameseSyllable(
++            f"Vietnamese syllable has multiple lexical tone marks: {''.join(marks)!r}"
++        )
++    if marks:
++        mark_index = next(index for index, char in enumerate(nfd) if char in TONE_MARKS)
++        base_index = mark_index - 1
++        while base_index >= 0 and nfd[base_index] in QUALITY_MARKS:
++            base_index -= 1
++        if base_index < 0 or nfd[base_index].casefold() not in VIETNAMESE_VOWELS:
++            raise InvalidVietnameseSyllable(
++                "Vietnamese lexical tone mark must attach to a vowel"
++            )
++    tone_name = TONE_MARKS[marks[0]] if marks else "ngang"
++    without_tone = "".join(char for char in nfd if char not in TONE_MARKS)
++    return ToneExtraction(
++        normalized=unicodedata.normalize("NFC", without_tone),
++        tone_name=tone_name,
++        mark=marks[0] if marks else None,
++    )
++
++
++def remove_tone_marks(text: str) -> str:
++    """Return NFC Vietnamese orthography without lexical tone marks."""
++    return extract_tone(text).normalized
++
++
++def tone_name(text: str) -> str:
++    """Return the named tone value for one orthographic unit."""
++    return extract_tone(text).tone_name
++
++
++def is_vietnamese_letter(char: str) -> bool:
++    """Return whether a character belongs to the Vietnamese alphabet."""
++    if len(char) != 1:
++        return False
++    return char.casefold() in VIETNAMESE_LETTERS
++
++
++def is_vietnamese_combining_mark(char: str) -> bool:
++    """Return whether a mark is a Vietnamese quality or lexical mark."""
++    return char in TONE_MARKS or char in QUALITY_MARKS
++
++
++__all__ = [
++    "QUALITY_MARKS",
++    "TONE_MARKS",
++    "InvalidVietnameseSyllable",
++    "ToneExtraction",
++    "VietnameseG2PError",
++    "decompose_vietnamese",
++    "extract_tone",
++    "is_vietnamese_combining_mark",
++    "is_vietnamese_letter",
++    "normalize_vietnamese",
++    "remove_tone_marks",
++    "tone_name",
++]
+diff --git a/tests/data/vi_gold.json b/tests/data/vi_gold.json
+new file mode 100644
+index 0000000..c8188bd
+--- /dev/null
++++ b/tests/data/vi_gold.json
+@@ -0,0 +1,290 @@
++[
++  {
++    "text": "ba",
++    "dialect": "vi-vn-north",
++    "segments": ["b", "a"],
++    "tone": "ngang",
++    "expected": "ba→",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "bà",
++    "dialect": "vi-vn-north",
++    "segments": ["b", "a"],
++    "tone": "huyen",
++    "expected": "ba↘",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "bả",
++    "dialect": "vi-vn-north",
++    "segments": ["b", "a"],
++    "tone": "hoi",
++    "expected": "ba↘↗",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "bã",
++    "dialect": "vi-vn-north",
++    "segments": ["b", "a"],
++    "tone": "nga",
++    "expected": "baʔ↗",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "bá",
++    "dialect": "vi-vn-north",
++    "segments": ["b", "a"],
++    "tone": "sac",
++    "expected": "ba↗",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "bạ",
++    "dialect": "vi-vn-north",
++    "segments": ["b", "a"],
++    "tone": "nang",
++    "expected": "baʔ↓",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "ăn",
++    "dialect": "vi-vn-north",
++    "segments": ["ɐ", "n"],
++    "tone": "ngang",
++    "expected": "ɐn→",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "âm",
++    "dialect": "vi-vn-north",
++    "segments": ["ɤ", "m"],
++    "tone": "ngang",
++    "expected": "ɤm→",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "tiếng",
++    "dialect": "vi-vn-north",
++    "segments": ["t", "i", "ə", "ŋ"],
++    "tone": "sac",
++    "expected": "tiəŋ↗",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "mưa",
++    "dialect": "vi-vn-north",
++    "segments": ["m", "ɯ", "ə"],
++    "tone": "ngang",
++    "expected": "mɯə→",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "người",
++    "dialect": "vi-vn-north",
++    "segments": ["ŋ", "ɯ", "ə", "j"],
++    "tone": "huyen",
++    "expected": "ŋɯəj↘",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "muốn",
++    "dialect": "vi-vn-north",
++    "segments": ["m", "u", "ə", "n"],
++    "tone": "sac",
++    "expected": "muən↗",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "hoa",
++    "dialect": "vi-vn-north",
++    "segments": ["h", "w", "a"],
++    "tone": "ngang",
++    "expected": "hwa→",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "quê",
++    "dialect": "vi-vn-north",
++    "segments": ["k", "w", "e"],
++    "tone": "ngang",
++    "expected": "kwe→",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "quá",
++    "dialect": "vi-vn-north",
++    "segments": ["k", "w", "a"],
++    "tone": "sac",
++    "expected": "kwa↗",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "nghệ",
++    "dialect": "vi-vn-north",
++    "segments": ["ŋ", "e"],
++    "tone": "nang",
++    "expected": "ŋeʔ↓",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "ghê",
++    "dialect": "vi-vn-north",
++    "segments": ["ɣ", "e"],
++    "tone": "ngang",
++    "expected": "ɣe→",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "cá",
++    "dialect": "vi-vn-north",
++    "segments": ["k", "a"],
++    "tone": "sac",
++    "expected": "ka↗",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "mai",
++    "dialect": "vi-vn-north",
++    "segments": ["m", "a", "j"],
++    "tone": "ngang",
++    "expected": "maj→",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "sao",
++    "dialect": "vi-vn-north",
++    "segments": ["s", "a", "w"],
++    "tone": "ngang",
++    "expected": "saw→",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "cháu",
++    "dialect": "vi-vn-north",
++    "segments": ["ʨ", "a", "w"],
++    "tone": "sac",
++    "expected": "ʨaw↗",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "tôi",
++    "dialect": "vi-vn-north",
++    "segments": ["t", "o", "j"],
++    "tone": "ngang",
++    "expected": "toj→",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "anh",
++    "dialect": "vi-vn-north",
++    "segments": ["a", "ŋ"],
++    "tone": "ngang",
++    "expected": "aŋ→",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "học",
++    "dialect": "vi-vn-north",
++    "segments": ["h", "ɔ", "k"],
++    "tone": "nang",
++    "expected": "hɔkʔ↓",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "một",
++    "dialect": "vi-vn-north",
++    "segments": ["m", "o", "t"],
++    "tone": "nang",
++    "expected": "motʔ↓",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "không",
++    "dialect": "vi-vn-north",
++    "segments": ["x", "o", "ŋ"],
++    "tone": "ngang",
++    "expected": "xoŋ→",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "xanh",
++    "dialect": "vi-vn-north",
++    "segments": ["s", "a", "ŋ"],
++    "tone": "ngang",
++    "expected": "saŋ→",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "đi",
++    "dialect": "vi-vn-north",
++    "segments": ["d", "i"],
++    "tone": "ngang",
++    "expected": "di→",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "già",
++    "dialect": "vi-vn-north",
++    "segments": ["z", "a"],
++    "tone": "huyen",
++    "expected": "za↘",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "tra",
++    "dialect": "vi-vn-north",
++    "segments": ["ʈ", "a"],
++    "tone": "ngang",
++    "expected": "ʈa→",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "chào",
++    "dialect": "vi-vn-north",
++    "segments": ["ʨ", "a", "w"],
++    "tone": "huyen",
++    "expected": "ʨaw↘",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "xin",
++    "dialect": "vi-vn-north",
++    "segments": ["s", "i", "n"],
++    "tone": "ngang",
++    "expected": "sin→",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "Việt",
++    "dialect": "vi-vn-north",
++    "segments": ["v", "i", "ə", "t"],
++    "tone": "nang",
++    "expected": "viətʔ↓",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "nước",
++    "dialect": "vi-vn-north",
++    "segments": ["n", "ɯ", "ə", "k"],
++    "tone": "sac",
++    "expected": "nɯək↗",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "sống",
++    "dialect": "vi-vn-north",
++    "segments": ["s", "o", "ŋ"],
++    "tone": "sac",
++    "expected": "soŋ↗",
++    "source": "independently constructed and reviewed"
++  },
++  {
++    "text": "ngày",
++    "dialect": "vi-vn-north",
++    "segments": ["ŋ", "a", "j"],
++    "tone": "huyen",
++    "expected": "ŋaj↘",
++    "source": "independently constructed and reviewed"
++  }
++]
+diff --git a/tests/test_vi_g2p.py b/tests/test_vi_g2p.py
+new file mode 100644
+index 0000000..1d2f53a
+--- /dev/null
++++ b/tests/test_vi_g2p.py
+@@ -0,0 +1,102 @@
++"""End-to-end Vietnamese G2P and shared pipeline tests."""
++
++import unicodedata
++
++import pytest
++
++from kokorog2p import get_g2p, phonemize
++from kokorog2p.token import GToken
++from kokorog2p.types import OverrideSpan
++from kokorog2p.vi import VietnameseG2P
++from kokorog2p.vi.syllable import InvalidVietnameseSyllable
++
++
++@pytest.fixture
++def native() -> VietnameseG2P:
++    return VietnameseG2P(foreign_fallback="none", strict=False)
++
++
++def test_native_call_returns_offset_aware_gtokens(native: VietnameseG2P) -> None:
++    tokens = native("Tôi là ba.")
++    assert all(isinstance(token, GToken) for token in tokens)
++    assert [
++        (token.text, token.get("char_start"), token.get("char_end")) for token in tokens
++    ] == [
++        ("Tôi", 0, 3),
++        ("là", 4, 6),
++        ("ba", 7, 9),
++        (".", 9, 10),
++    ]
++    assert tokens[-1].is_punctuation
++
++
++def test_nfc_and_nfd_have_identical_phonemes(native: VietnameseG2P) -> None:
++    source = "Tôi thấy tiếng Việt."
++    assert native.phonemize(source) == native.phonemize(
++        unicodedata.normalize("NFD", source)
++    )
++
++
++def test_ascii_only_vietnamese_is_not_sent_to_english(native: VietnameseG2P) -> None:
++    result = native("ba ban mai nam lan")
++    assert all(token.get("classification") == "VI_SYLLABLE" for token in result)
++    assert all(token.phonemes for token in result)
++
++
++def test_invalid_token_can_use_explicit_non_strict_no_fallback() -> None:
++    g2p = VietnameseG2P(foreign_fallback="none", strict=False)
++    assert g2p.phonemize("Python") == ""
++
++
++def test_strict_none_fallback_reports_invalid_token() -> None:
++    with pytest.raises(InvalidVietnameseSyllable):
++        VietnameseG2P(foreign_fallback="none", strict=True).phonemize("Python")
++
++
++def test_existing_english_frontend_is_lazy_foreign_fallback() -> None:
++    g2p = VietnameseG2P(foreign_fallback="english", strict=True)
++    assert g2p._foreign_g2p is None
++    assert g2p.lookup("Python")
++    assert g2p._foreign_g2p is not None
++
++
++@pytest.mark.parametrize("alias", ["vi", "vi-vn", "vie", "vietnamese"])
++def test_factory_aliases(alias: str) -> None:
++    g2p = get_g2p(alias, use_spacy=False, foreign_fallback="none", strict=False)
++    assert isinstance(g2p, VietnameseG2P)
++    assert g2p.language == "vi-vn"
++
++
++def test_top_level_ids_and_model_validation() -> None:
++    result = phonemize(
++        "Xin chào!", language="vi", return_ids=True, return_phonemes=True
++    )
++    assert result.phonemes
++    assert result.token_ids
++    assert not result.warnings
++
++
++def test_vietnamese_language_override_preserves_offsets() -> None:
++    result = phonemize(
++        "Hello xin chào!",
++        language="en-us",
++        overrides=[OverrideSpan(6, 14, {"lang": "vi"})],
++        return_ids=False,
++    )
++    switched = [
++        token
++        for token in result.tokens
++        if token.char_start >= 6 and token.char_end <= 14
++    ]
++    assert switched
++    assert all(token.lang == "vi" for token in switched)
++    assert all(token.meta.get("phonemes") for token in switched)
++
++
++def test_top_level_nfd_span_alignment_matches_nfc() -> None:
++    source = "Tôi thấy tiếng Việt."
++    nfd = unicodedata.normalize("NFD", source)
++    assert (
++        phonemize(source, language="vi").phonemes
++        == phonemize(nfd, language="vi").phonemes
++    )
+diff --git a/tests/test_vi_phonology.py b/tests/test_vi_phonology.py
+new file mode 100644
+index 0000000..6759058
+--- /dev/null
++++ b/tests/test_vi_phonology.py
+@@ -0,0 +1,76 @@
++"""Broad Northern Vietnamese phonology tests."""
++
++import pytest
++
++from kokorog2p.vi.model_profile import validate_output
++from kokorog2p.vi.phonology import map_coda, map_nucleus, map_onset, syllable_to_phones
++from kokorog2p.vi.render import TONE_RENDER, render_syllable
++from kokorog2p.vi.syllable import VietnameseTone, parse_syllable
++
++
++@pytest.mark.parametrize(
++    "onset", ["b", "ch", "đ", "gh", "kh", "ng", "nh", "ph", "qu", "th", "tr", "x"]
++)
++def test_onset_maps_to_supported_abstract_phones(onset: str) -> None:
++    word = onset + ("e" if onset in {"gh", "ngh"} else "a")
++    syllable = parse_syllable(word)
++    phones = map_onset(syllable.onset)
++    assert phones
++    assert all(isinstance(phone, str) for phone in phones)
++
++
++@pytest.mark.parametrize(
++    "nucleus", ["a", "ă", "â", "e", "ê", "i", "o", "ô", "ơ", "u", "ư", "iê", "uô", "ươ"]
++)
++def test_nuclei_have_independent_mappings(nucleus: str) -> None:
++    assert map_nucleus(nucleus)
++
++
++def test_medial_and_offglide_are_structural() -> None:
++    hoa = parse_syllable("hoa")
++    mai = parse_syllable("mai")
++    assert hoa.medial == "o"
++    assert mai.coda == "i"
++    assert "w" in syllable_to_phones(hoa)
++    assert "j" in syllable_to_phones(mai)
++    assert map_coda("ng") == ("ŋ",)
++
++
++def test_all_tone_renderings_are_distinct_and_model_valid() -> None:
++    rendered = {
++        tone: render_syllable(
++            parse_syllable(
++                {
++                    VietnameseTone.NGANG: "ba",
++                    VietnameseTone.HUYEN: "bà",
++                    VietnameseTone.HOI: "bả",
++                    VietnameseTone.NGA: "bã",
++                    VietnameseTone.SAC: "bá",
++                    VietnameseTone.NANG: "bạ",
++                }[tone]
++            )
++        )
++        for tone in VietnameseTone
++    }
++    assert set(rendered.values()) == {
++        "ba" + TONE_RENDER[tone] for tone in VietnameseTone
++    }
++    for text in rendered.values():
++        assert validate_output(text) == (True, [])
++
++
++def test_curated_gold_cases_match_structural_renderer() -> None:
++    import json
++    from pathlib import Path
++
++    from kokorog2p.vi.render import render_syllable
++
++    data_path = Path(__file__).parent / "data" / "vi_gold.json"
++    cases = json.loads(data_path.read_text(encoding="utf-8"))
++    assert len(cases) >= 30
++    for case in cases:
++        syllable = parse_syllable(case["text"])
++        assert syllable.tone.value == case["tone"]
++        assert list(syllable_to_phones(syllable)) == case["segments"]
++        assert render_syllable(syllable) == case["expected"]
++        assert validate_output(case["expected"]) == (True, [])
+diff --git a/tests/test_vi_syllable.py b/tests/test_vi_syllable.py
+new file mode 100644
+index 0000000..1dda564
+--- /dev/null
++++ b/tests/test_vi_syllable.py
+@@ -0,0 +1,85 @@
++"""Structural Vietnamese syllable parser tests."""
++
++import pytest
++
++from kokorog2p.vi.syllable import (
++    InvalidVietnameseSyllable,
++    VietnameseTone,
++    is_vietnamese_syllable,
++    parse_syllable,
++)
++
++
++@pytest.mark.parametrize(
++    "word",
++    [
++        "ba",
++        "cha",
++        "da",
++        "đa",
++        "ga",
++        "ghê",
++        "gia",
++        "ha",
++        "kê",
++        "kha",
++        "la",
++        "ma",
++        "na",
++        "nga",
++        "nghe",
++        "nha",
++        "pha",
++        "qua",
++        "ra",
++        "sa",
++        "ta",
++        "tha",
++        "tra",
++        "va",
++        "xa",
++    ],
++)
++def test_supported_onset_families(word: str) -> None:
++    assert is_vietnamese_syllable(word)
++    assert parse_syllable(word).nucleus
++
++
++@pytest.mark.parametrize("word", ["ba", "bà", "bả", "bã", "bá", "bạ"])
++def test_six_named_tones(word: str) -> None:
++    assert parse_syllable(word).tone in set(VietnameseTone)
++
++
++@pytest.mark.parametrize(
++    ("word", "nucleus", "coda"),
++    [
++        ("ăn", "ă", "n"),
++        ("âm", "â", "m"),
++        ("tiếng", "iê", "ng"),
++        ("mưa", "ưa", None),
++        ("người", "ươ", "i"),
++        ("muốn", "uô", "n"),
++        ("hoa", "a", None),
++        ("mai", "a", "i"),
++        ("sao", "a", "o"),
++        ("anh", "a", "nh"),
++        ("học", "o", "c"),
++    ],
++)
++def test_rime_and_coda_structure(word: str, nucleus: str, coda: str | None) -> None:
++    syllable = parse_syllable(word)
++    assert syllable.nucleus == nucleus
++    assert syllable.coda == coda
++
++
++@pytest.mark.parametrize("word", ["qá", "cê", "kà", "ghá", "ngha", "bànn", "bà́"])
++def test_invalid_conditioned_spellings_are_rejected(word: str) -> None:
++    assert not is_vietnamese_syllable(word)
++    with pytest.raises((InvalidVietnameseSyllable, ValueError)):
++        parse_syllable(word)
++
++
++def test_checked_codas_restrict_tones() -> None:
++    assert is_vietnamese_syllable("bác")
++    assert is_vietnamese_syllable("bạc")
++    assert not is_vietnamese_syllable("bàc")
+diff --git a/tests/test_vi_unicode.py b/tests/test_vi_unicode.py
+new file mode 100644
+index 0000000..4c2186d
+--- /dev/null
++++ b/tests/test_vi_unicode.py
+@@ -0,0 +1,59 @@
++"""Unicode and tone invariants for the native Vietnamese frontend."""
++
++import unicodedata
++
++import pytest
++
++from kokorog2p.vi.syllable import VietnameseTone, parse_syllable
++from kokorog2p.vi.unicode import (
++    InvalidVietnameseSyllable,
++    decompose_vietnamese,
++    extract_tone,
++    normalize_vietnamese,
++    remove_tone_marks,
++)
++
++
++@pytest.mark.parametrize(
++    ("word", "tone"),
++    [
++        ("ba", VietnameseTone.NGANG),
++        ("bà", VietnameseTone.HUYEN),
++        ("bả", VietnameseTone.HOI),
++        ("bã", VietnameseTone.NGA),
++        ("bá", VietnameseTone.SAC),
++        ("bạ", VietnameseTone.NANG),
++    ],
++)
++def test_named_tone_extraction(word: str, tone: VietnameseTone) -> None:
++    extracted = extract_tone(word)
++    assert extracted.tone is tone
++    assert extracted.normalized == "ba"
++    assert remove_tone_marks(word) == "ba"
++
++
++def test_nfc_and_nfd_are_canonically_equivalent() -> None:
++    word = "tiếng"
++    assert normalize_vietnamese(word) == normalize_vietnamese(
++        unicodedata.normalize("NFD", word)
++    )
++    assert decompose_vietnamese(word) == unicodedata.normalize("NFD", word)
++    assert parse_syllable(word).tone is VietnameseTone.SAC
++
++
++def test_quality_marks_survive_tone_extraction() -> None:
++    assert extract_tone("ắ").normalized == "ă"
++    assert extract_tone("ế").normalized == "ê"
++    assert extract_tone("ở").normalized == "ơ"
++
++
++def test_uppercase_and_d_handling() -> None:
++    assert parse_syllable("ĐI").onset == "đ"
++    assert parse_syllable("ĐI").nucleus == "i"
++
++
++def test_multiple_or_misplaced_tone_marks_are_rejected() -> None:
++    with pytest.raises(InvalidVietnameseSyllable):
++        extract_tone("ba\u0301\u0300")
++    with pytest.raises(InvalidVietnameseSyllable):
++        extract_tone("b\u0301a")

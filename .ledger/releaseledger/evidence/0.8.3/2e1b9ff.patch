@@ -1,0 +1,2864 @@
+ experiments/de_lexicon_compression/README.md       |  71 ++--
+ .../de_lexicon_compression/analyze_sources.py      |  67 +++-
+ .../de_lexicon_compression/benchmark_quality.py    |  49 ++-
+ .../de_lexicon_compression/benchmark_runtime.py    | 199 +++++++---
+ experiments/de_lexicon_compression/compress.py     | 178 ++++++---
+ .../de_lexicon_compression/download_sources.py     |   0
+ .../de_lexicon_compression/generate_report.py      | 117 +++---
+ .../de_lexicon_compression/lexlab/cascade.py       | 173 +++++++++
+ .../de_lexicon_compression/lexlab/compact.py       | 399 +++++++++++++++++++++
+ .../de_lexicon_compression/lexlab/composition.py   | 185 +++++++---
+ .../de_lexicon_compression/lexlab/compressor.py    | 164 ++++++---
+ .../de_lexicon_compression/lexlab/decoder.py       |  43 +++
+ .../de_lexicon_compression/lexlab/kokoro_view.py   |   6 +-
+ .../de_lexicon_compression/lexlab/metrics.py       |  45 ++-
+ experiments/de_lexicon_compression/lexlab/p4.py    | 154 ++++++++
+ experiments/de_lexicon_compression/lexlab/parse.py |   3 +-
+ .../de_lexicon_compression/lexlab/serializer.py    |  30 +-
+ .../de_lexicon_compression/lexlab/sources.py       |   3 +-
+ experiments/de_lexicon_compression/run_matrix.py   |  97 +++--
+ .../de_lexicon_compression/tests/test_analysis.py  |   3 +-
+ .../de_lexicon_compression/tests/test_v2_review.py |  73 ++++
+ experiments/de_lexicon_compression/verify.py       |  63 +++-
+ 22 files changed, 1768 insertions(+), 354 deletions(-)
+
+diff --git a/experiments/de_lexicon_compression/README.md b/experiments/de_lexicon_compression/README.md
+index 0e3d84f..a9881f3 100644
+--- a/experiments/de_lexicon_compression/README.md
++++ b/experiments/de_lexicon_compression/README.md
+@@ -1,17 +1,40 @@
+ # German multi-lexicon compression experiment
+
+-This is an opt-in research harness. It does not change `kokorog2p.de` and never
+-downloads data on import. The three sources remain independent because provenance and
+-licensing are source-specific.
++This is an opt-in research harness. It does not change `kokorog2p.de`, never downloads
++data on import, and keeps the three sources independent because provenance and licensing
++are source-specific.
+
+ ## Contracts
+
+-- **Source-semantic lossless** means exact source spellings, codepoints, duplicate rows,
+-  and ordered pronunciation variants round-trip.
++- **Lookup-semantic lossless** means that for every exact source spelling `W`,
++  `asset.lookup_all(W) == source.lookup_all(W)` and the complete word key set is
++  identical. Ordered duplicate pronunciation variants are retained.
++- This is not physical source-record reconstruction: global TSV row order, original line
++  endings, and original line numbers are not part of the runtime asset. An archival
++  row-sequence mode would be required for that guarantee.
+ - **Behavior-lossless** is a separate derived Kokoro-view experiment and cannot
+   authorize deletion from raw source data.
+ - `records_exact` preserves duplicate rows; `runtime_unique` removes only exact
+-  duplicate IPA values, preserving first-seen order.
++  duplicate IPA values while preserving first-seen order.
++
++Verification reports missing words, extra words, pronunciation mismatches,
++variant-count/order mismatches, source and asset SHA-256 values, schema, compressor,
++parser, and view versions. Approximate IPA matching never authorizes compression.
++
++## Stable experiment modes
++
++| Mode                              | Description                                  |
++| --------------------------------- | -------------------------------------------- |
++| `baseline-canonical` / `baseline` | Canonical runtime-equivalent direct mapping  |
++| `exact-two-part` (`C1`)           | Exact two-component orthographic composition |
++| `exact-multipart` (`C2`)          | Bounded exact multipart composition          |
++| `exact-multipart-ids` (`C2I`)     | Integer atom-reference prototype             |
++| `ipa-intern` (`P1`)               | Deduplicated complete IPA strings            |
++| `ipa-repair-macros` (`P2`)        | Reversible repeated IPA macro experiment     |
++| `exact-linkers` (`C3`)            | Opt-in exact German linking candidates       |
++
++P2 and P4 formats remain research assets until their byte, RSS, load-time, and quality
++measurements pass predeclared decision gates.
+
+ ## Quick start
+
+@@ -23,21 +46,27 @@ python experiments/de_lexicon_compression/compress.py --source crane_wiktionary
+ python experiments/de_lexicon_compression/verify.py --run reports/crane-multipart --data-root ~/.cache/kokorog2p/experiments/de-lexicons
+ ```
+
+-Large downloads, full benchmarks, and the matrix are manual/opt-in. The `data/` and
+-`reports/` directories are ignored so third-party assets are not accidentally shipped.
+-The gruut/eSpeak-derived source remains `REVIEW_REQUIRED`; Crane data remains CC
+-BY-SA-4.0 and is not redistributable under only the project license.
++Large downloads and full matrix benchmarks are manual/opt-in. The `data/` and `reports/`
++directories are ignored so third-party assets are not accidentally shipped. Crane
++remains CC-BY-SA-4.0 and the gruut/eSpeak-derived source remains `REVIEW_REQUIRED`;
++neither is redistributable under only the project license.
++
++## Measurements and reports
++
++The harness compares a canonical lookup baseline and every experiment asset in plain
++UTF-8 JSON, gzip, XZ, and wheel-equivalent DEFLATE. Primary distribution metrics are net
++DEFLATE savings; installed-size and normalized fresh-process RSS are reported
++separately. Runtime workers measure atoms, exceptions, derived entries, misses, and
++mixed workloads. Empty categories are reported as `available: false`, not as a fake
++lookup.
+
+-## Matrix and reports
++Reports include source revision/checksum, parser/view/compressor versions, Python and
++platform, mode, configuration hash, provenance, licensing, and whether a measurement is
++unavailable. Full-source results are not inferred from toy data.
+
+-`analyze_sources.py` writes source statistics, casing/Unicode collisions,
+-overlap/conflicts, reachability, and baseline plain/gzip/xz measurements. Compression
+-runs contain `summary.json`, deterministic atom/exception/derived TSVs, failures,
+-verification, size breakdown, and `compressed.asset`. `benchmark_quality.py`,
+-`benchmark_runtime.py`, and `run_matrix.py` emit JSON/TSV and use isolated subprocesses
+-where data size warrants it.
++## Boundaries
+
+-The first exact modes are `exact-two-part` (C1) and `exact-multipart` (C2). They use
+-deterministic source-semantic equality only. Linguistic join rules, merged source
+-stores, production APIs, neural G2P, and custom binary/mmap formats are intentionally
+-deferred until measurements justify them.
++Do not replace `kokorog2p/de/data/de_gold.json`, modify `kokorog2p/de/lexicon.py` or
++`kokorog2p/de/g2p.py`, merge independently licensed sources, use approximate matching,
++or make a research representation a production asset without a separate integration
++decision.
+diff --git a/experiments/de_lexicon_compression/analyze_sources.py b/experiments/de_lexicon_compression/analyze_sources.py
+old mode 100644
+new mode 100755
+index 8c7e6bb..0817558
+--- a/experiments/de_lexicon_compression/analyze_sources.py
++++ b/experiments/de_lexicon_compression/analyze_sources.py
+@@ -30,7 +30,7 @@ def _reachability(source):
+
+         normalizer = GermanNormalizer()
+         tokenizer = RegexTokenizer(lang="de")
+-    except Exception as exc:  # optional runtime dependencies
++    except (ImportError, OSError, RuntimeError, ValueError) as exc:
+         return [
+             {"source": source.source.source_id, "error": f"{type(exc).__name__}: {exc}"}
+         ]
+@@ -67,7 +67,7 @@ def _reachability(source):
+                     "lookup_key": key,
+                 }
+             )
+-        except Exception as exc:
++        except (ImportError, OSError, RuntimeError, ValueError) as exc:
+             rows.append(
+                 {
+                     "source": source.source.source_id,
+@@ -92,7 +92,14 @@ def _canonical_tsv(source) -> bytes:
+
+
+ def analyze(
+-    source_ids: list[str], data_root: Path | None, output: Path
++    source_ids: list[str],
++    data_root: Path | None,
++    output: Path,
++    *,
++    details: str = "sample",
++    conflict_limit: int = 10_000,
++    reachability: bool = True,
++    summary_only: bool = False,
+ ) -> dict[str, object]:
+     output.mkdir(parents=True, exist_ok=True)
+     loaded = {
+@@ -114,17 +121,19 @@ def analyze(
+                 "pronunciation_variants": sum(len(v) for v in source.entries.values()),
+             }
+         )
+-        collisions = casing_collisions(source)
+-        key_rows.extend(
+-            {
+-                "source": source_id,
+-                "key_type": key_type,
+-                "key": key,
+-                "spellings": "|".join(words),
+-            }
+-            for key_type, groups in collisions.items()
+-            for key, words in groups.items()
+-        )
++        if not summary_only and details != "none":
++            collisions = casing_collisions(source)
++            rows = [
++                {
++                    "source": source_id,
++                    "key_type": key_type,
++                    "key": key,
++                    "spellings": "|".join(words),
++                }
++                for key_type, groups in collisions.items()
++                for key, words in groups.items()
++            ]
++            key_rows.extend(rows if details == "full" else rows[:1000])
+         variant_rows.append(
+             {
+                 "source": source_id,
+@@ -150,7 +159,8 @@ def analyze(
+                 },
+             }
+         )
+-        reach_rows.extend(_reachability(source))
++        if reachability and not summary_only:
++            reach_rows.extend(_reachability(source))
+         started = time.perf_counter()
+         canonical = _canonical_tsv(source)
+         elapsed = time.perf_counter() - started
+@@ -170,11 +180,19 @@ def analyze(
+             }
+         )
+     pairs = all_pair_metrics(loaded)
++    for pair in pairs:
++        pair["conflicts"] = pair.get("conflicts", [])[:conflict_limit]
+     write_json(
+         output / "summary.json",
+         {
+             "schema": 1,
+             "python": platform.python_version(),
++            "options": {
++                "details": details,
++                "conflict_limit": conflict_limit,
++                "reachability": reachability,
++                "summary_only": summary_only,
++            },
+             "sources": source_rows,
+             "pairs": pairs,
+             "reachability": {
+@@ -231,7 +249,8 @@ def analyze(
+         {source_id: source_dict(source.source) for source_id, source in loaded.items()},
+     )
+     (output / "README.md").write_text(
+-        "Generated source analysis. Raw source records were not normalized; Kokoro views are analysis-only.\n",
++        "Generated source analysis. Raw source records were not normalized; "
++        "Kokoro views are analysis-only.\n",
+         encoding="utf-8",
+     )
+     return {"sources": source_rows, "pairs": pairs}
+@@ -242,9 +261,23 @@ def main() -> int:
+     parser.add_argument("--source", required=True, help="Comma-separated source IDs")
+     parser.add_argument("--data-root", type=Path)
+     parser.add_argument("--output", type=Path, required=True)
++    parser.add_argument(
++        "--details",
++        choices=("none", "sample", "full"),
++        default="sample",
++    )
++    parser.add_argument("--conflict-limit", type=int, default=10_000)
++    parser.add_argument("--no-reachability-rows", action="store_true")
++    parser.add_argument("--summary-only", action="store_true")
+     args = parser.parse_args()
+     analyze(
+-        [item.strip() for item in args.source.split(",")], args.data_root, args.output
++        [item.strip() for item in args.source.split(",")],
++        args.data_root,
++        args.output,
++        details=args.details,
++        conflict_limit=args.conflict_limit,
++        reachability=not args.no_reachability_rows,
++        summary_only=args.summary_only,
+     )
+     return 0
+
+diff --git a/experiments/de_lexicon_compression/benchmark_quality.py b/experiments/de_lexicon_compression/benchmark_quality.py
+old mode 100644
+new mode 100755
+index d54190a..ecdce8e
+--- a/experiments/de_lexicon_compression/benchmark_quality.py
++++ b/experiments/de_lexicon_compression/benchmark_quality.py
+@@ -4,15 +4,28 @@
+ from __future__ import annotations
+
+ import argparse
++import itertools
+ import json
+ from pathlib import Path
+
+ try:
++    from .lexlab.cascade import (
++        cross_source_sharing,
++    )
++    from .lexlab.cascade import (
++        score_cascade as score_cascade_values,
++    )
+     from .lexlab.kokoro_view import to_kokoro_view
+     from .lexlab.metrics import cer
+     from .lexlab.reports import write_json
+     from .lexlab.sources import load_source
+ except ImportError:  # direct script execution
++    from lexlab.cascade import (
++        cross_source_sharing,
++    )
++    from lexlab.cascade import (
++        score_cascade as score_cascade_values,
++    )
+     from lexlab.kokoro_view import to_kokoro_view
+     from lexlab.metrics import cer
+     from lexlab.reports import write_json
+@@ -96,7 +109,9 @@ def score_full_pipeline(source, entries, vocab, normalizer):
+         )
+
+         fallback = create_benchmark_g2p("de_DE")
+-    except Exception as exc:  # optional eSpeak/runtime dependencies
++    except (ImportError, OSError, RuntimeError, ValueError) as exc:
++        # Optional eSpeak/runtime dependencies may be unavailable.
++
+         return {"available": False, "error": f"{type(exc).__name__}: {exc}"}
+     values = []
+     expected_values = []
+@@ -113,7 +128,7 @@ def score_full_pipeline(source, entries, vocab, normalizer):
+             fallback_rows += 1
+             try:
+                 actual = extract_pronunciation(fallback(entry.word))
+-            except Exception:
++            except (OSError, RuntimeError, ValueError):
+                 actual = ""
+                 errors += 1
+         expected_values.append(expected)
+@@ -136,6 +151,18 @@ def score_full_pipeline(source, entries, vocab, normalizer):
+     }
+
+
++def score_cascade_sources(sources, entries, vocab, normalizer):
++    """Score an ordered cascade while preserving source precedence."""
++    examples = (
++        (
++            entry.word,
++            (normalizer(entry.expected_raw_ipa, language="de_DE", vocab=vocab),),
++        )
++        for entry in entries
++    )
++    return score_cascade_values(sources, examples)
++
++
+ def main() -> int:
+     parser = argparse.ArgumentParser(description=__doc__)
+     parser.add_argument("--sources", required=True)
+@@ -149,17 +176,33 @@ def main() -> int:
+     )
+     if args.limit is not None:
+         entries = entries[: args.limit]
++    source_ids = [value.strip() for value in args.sources.split(",")]
+     results = []
+-    for source_id in (value.strip() for value in args.sources.split(",")):
++    loaded_sources = []
++    for source_id in source_ids:
+         source = load_source(source_id, data_root=args.data_root)
++        loaded_sources.append(source)
+         score = score_source(source, entries, vocab, normalizer)
+         score["full_pipeline"] = score_full_pipeline(source, entries, vocab, normalizer)
+         results.append(score)
++    cascades = [
++        score_cascade_sources(
++            [loaded_sources[index] for index in order],
++            entries,
++            vocab,
++            normalizer,
++        )
++        for order in itertools.permutations(range(len(loaded_sources)))
++    ]
++    for order, score in zip(itertools.permutations(source_ids), cascades, strict=True):
++        score["configuration"] = " -> ".join(order)
+     output = {
+         "schema": 1,
+         "fixture": "crane-local-ai/test-data",
+         "revision": "19b6ea610af45d9258a3957c7a22694280bdf145",
+         "sources": results,
++        "cascades": cascades,
++        "cross_source_sharing": cross_source_sharing(loaded_sources),
+     }
+     write_json(args.output, output)
+     print(
+diff --git a/experiments/de_lexicon_compression/benchmark_runtime.py b/experiments/de_lexicon_compression/benchmark_runtime.py
+old mode 100644
+new mode 100755
+index 20c11a7..8f9b894
+--- a/experiments/de_lexicon_compression/benchmark_runtime.py
++++ b/experiments/de_lexicon_compression/benchmark_runtime.py
+@@ -1,10 +1,11 @@
+ #!/usr/bin/env python3
+-"""Measure isolated decoder load, memory, throughput, and latency."""
++"""Measure isolated decoder/baseline load, memory, throughput, and latency."""
+
+ from __future__ import annotations
+
+ import argparse
+ import json
++import platform
+ import random
+ import resource
+ import subprocess
+@@ -20,6 +21,11 @@ except ImportError:  # direct script execution
+     from lexlab.serializer import load_asset
+
+
++def _rss_bytes() -> int:
++    value = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
++    return int(value if platform.system() == "Darwin" else value * 1024)
++
++
+ def _percentile(values: list[float], fraction: float) -> float:
+     if not values:
+         return 0.0
+@@ -27,48 +33,101 @@ def _percentile(values: list[float], fraction: float) -> float:
+     return ordered[min(len(ordered) - 1, int((len(ordered) - 1) * fraction))]
+
+
+-def _worker(run: Path, seed: int, iterations: int) -> dict[str, object]:
+-    before = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
++def _measure(
++    lookup,
++    words: list[str],
++    rng: random.Random,
++    iterations: int,
++) -> dict[str, object]:
++    if not words:
++        return {"available": False, "reason": "empty_category"}
++    latencies = []
++    started = time.perf_counter()
++    for _index in range(iterations):
++        word = words[rng.randrange(len(words))]
++        one = time.perf_counter()
++        lookup(word)
++        latencies.append((time.perf_counter() - one) * 1000)
++    elapsed = time.perf_counter() - started
++    return {
++        "available": True,
++        "count": len(words),
++        "iterations": iterations,
++        "words_per_second": iterations / elapsed if elapsed else 0.0,
++        "p50_ms": _percentile(latencies, 0.50),
++        "p95_ms": _percentile(latencies, 0.95),
++        "p99_ms": _percentile(latencies, 0.99),
++    }
++
++
++def _load_baseline(path: Path):
++    value = json.loads(path.read_text(encoding="utf-8"))
++    entries = {word: tuple(values) for word, values in value.get("entries", {}).items()}
++    return entries, entries.get
++
++
++def _worker(
++    run: Path,
++    seed: int,
++    iterations: int,
++    baseline: bool = False,
++) -> dict[str, object]:
++    before = _rss_bytes()
+     started = time.perf_counter()
+-    asset = load_asset(run / "compressed.asset" if run.is_dir() else run)
++    if baseline:
++        path = run / "baseline-canonical.json" if run.is_dir() else run
++        entries, getter = _load_baseline(path)
++        lookup = lambda word: getter(word, ())
++        categories = {"atoms": [], "exceptions": sorted(entries), "derived": []}
++        asset_bytes = path.stat().st_size
++        representation = "baseline-canonical"
++    else:
++        asset_path = run / "compressed.asset" if run.is_dir() else run
++        asset = load_asset(asset_path)
++        lookup = asset.lookup_all
++        if hasattr(asset, "atoms"):
++            categories = {
++                "atoms": sorted(asset.atoms),
++                "exceptions": sorted(asset.exceptions),
++                "derived": sorted(asset.derived),
++            }
++        else:
++            categories = {
++                "atoms": sorted(asset.atom_words),
++                "exceptions": sorted(asset.exceptions),
++                "derived": sorted(asset.derived),
++            }
++        asset_bytes = asset_path.stat().st_size
++        representation = "compressed"
+     load_seconds = time.perf_counter() - started
+-    after = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
++    after = _rss_bytes()
+     rng = random.Random(seed)
+-    direct = sorted(asset.atoms)
+-    derived = sorted(asset.derived)
+     misses = [f"__missing_{index}__" for index in range(max(1, min(iterations, 1000)))]
+-
+-    def measure(words):
+-        latencies = []
+-        started = time.perf_counter()
+-        for _index in range(iterations):
+-            word = words[rng.randrange(len(words))]
+-            one = time.perf_counter()
+-            asset.lookup_all(word)
+-            latencies.append((time.perf_counter() - one) * 1000)
+-        elapsed = time.perf_counter() - started
+-        return {
+-            "count": iterations,
+-            "words_per_second": iterations / elapsed if elapsed else 0.0,
+-            "p50_ms": _percentile(latencies, 0.50),
+-            "p95_ms": _percentile(latencies, 0.95),
+-            "p99_ms": _percentile(latencies, 0.99),
+-        }
+-
++    categories["misses"] = misses
++    mixed = [word for values in categories.values() for word in values]
++    if not mixed:
++        mixed = misses
++    measurements = {
++        name: _measure(lookup, words, rng, iterations)
++        for name, words in (*categories.items(), ("mixed_uniform", mixed))
++    }
+     result = {
+-        "asset_bytes": (run / "compressed.asset" if run.is_dir() else run)
+-        .stat()
+-        .st_size,
++        "representation": representation,
++        "asset_bytes": asset_bytes,
+         "cold_load_ms": load_seconds * 1000,
+-        "rss_before_kib": before,
+-        "rss_after_kib": after,
+-        "peak_rss_kib": after,
+-        "direct": measure(direct or ["__none__"]),
+-        "derived": measure(derived or ["__none__"]),
+-        "misses": measure(misses),
++        "rss_before_bytes": before,
++        "rss_after_bytes": after,
++        "rss_delta_bytes": max(0, after - before),
++        "peak_rss_bytes": max(before, after),
++        "counts": {name: len(words) for name, words in categories.items()},
++        "categories": measurements,
++        # Backward-compatible names for the original direct/derived benchmark.
++        "direct": measurements["atoms"],
++        "derived": measurements["derived"],
++        "misses": measurements["misses"],
+         "composition_cache": {
+             "hits": 0,
+-            "misses": len(derived),
++            "misses": len(categories["derived"]),
+             "note": "decoder has no implicit cache",
+         },
+     }
+@@ -76,20 +135,54 @@ def _worker(run: Path, seed: int, iterations: int) -> dict[str, object]:
+
+
+ def run_benchmark(
+-    run: Path, *, output: Path, seed: int = 1729, iterations: int = 10_000
++    run: Path,
++    *,
++    output: Path,
++    baseline: Path | None = None,
++    seed: int = 1729,
++    iterations: int = 10_000,
+ ) -> dict[str, object]:
+-    command = [
+-        sys.executable,
+-        str(Path(__file__).resolve()),
+-        "--worker",
+-        str(run),
+-        "--seed",
+-        str(seed),
+-        "--iterations",
+-        str(iterations),
+-    ]
+-    completed = subprocess.run(command, check=True, capture_output=True, text=True)
+-    result = json.loads(completed.stdout)
++    script = str(Path(__file__).resolve())
++
++    def invoke(*, baseline_mode: bool) -> dict[str, object]:
++        command = [
++            sys.executable,
++            script,
++            "--worker",
++            str(baseline if baseline_mode else run),
++            "--seed",
++            str(seed),
++            "--iterations",
++            str(iterations),
++        ]
++        if baseline_mode:
++            command.append("--baseline-worker")
++        completed = subprocess.run(command, check=True, capture_output=True, text=True)
++        return json.loads(completed.stdout)
++
++    result = invoke(baseline_mode=False)
++    baseline_path = baseline or (
++        run / "baseline-canonical.json" if run.is_dir() else None
++    )
++    if baseline_path is not None and baseline_path.exists():
++        baseline_result = invoke(baseline_mode=True)
++        result["baseline"] = baseline_result
++        result["rss_delta_vs_baseline"] = (
++            result["rss_delta_bytes"] - baseline_result["rss_delta_bytes"]
++        )
++        result["cold_load_ratio"] = (
++            result["cold_load_ms"] / baseline_result["cold_load_ms"]
++            if baseline_result["cold_load_ms"]
++            else None
++        )
++        for category in ("atoms", "exceptions", "derived"):
++            compressed = result["categories"][category]
++            base = baseline_result["categories"]["exceptions"]
++            result[f"lookup_ratio_{category}"] = (
++                compressed["words_per_second"] / base["words_per_second"]
++                if compressed.get("available") and base.get("available")
++                else None
++            )
+     write_json(output, result)
+     return result
+
+@@ -98,14 +191,16 @@ def main() -> int:
+     parser = argparse.ArgumentParser(description=__doc__)
+     parser.add_argument("--run", type=Path, required=True)
+     parser.add_argument("--output", type=Path)
++    parser.add_argument("--baseline", type=Path)
+     parser.add_argument("--seed", type=int, default=1729)
+     parser.add_argument("--iterations", type=int, default=10_000)
+     parser.add_argument("--worker", action="store_true")
++    parser.add_argument("--baseline-worker", action="store_true", dest="baseline_mode")
+     args = parser.parse_args()
+     if args.worker:
+         print(
+             json.dumps(
+-                _worker(args.run, args.seed, args.iterations),
++                _worker(args.run, args.seed, args.iterations, args.baseline_mode),
+                 ensure_ascii=False,
+                 sort_keys=True,
+             )
+@@ -114,7 +209,11 @@ def main() -> int:
+     if args.output is None:
+         parser.error("--output is required outside --worker")
+     run_benchmark(
+-        args.run, output=args.output, seed=args.seed, iterations=args.iterations
++        args.run,
++        output=args.output,
++        baseline=args.baseline,
++        seed=args.seed,
++        iterations=args.iterations,
+     )
+     return 0
+
+diff --git a/experiments/de_lexicon_compression/compress.py b/experiments/de_lexicon_compression/compress.py
+old mode 100644
+new mode 100755
+index a79ee52..77ecf92
+--- a/experiments/de_lexicon_compression/compress.py
++++ b/experiments/de_lexicon_compression/compress.py
+@@ -4,21 +4,39 @@
+ from __future__ import annotations
+
+ import argparse
+-import json
++import platform
++import resource
++import time
++from dataclasses import asdict
+ from pathlib import Path
+
+ try:
++    from .lexlab.compact import (
++        deserialize_compact,
++        serialize_compact,
++        verify_lookup,
++    )
+     from .lexlab.compressor import compress_lexicon
++    from .lexlab.metrics import compare_compression_layers
++    from .lexlab.p4 import serialize_front_coded
+     from .lexlab.reports import source_dict, write_json, write_tsv
+-    from .lexlab.serializer import write_asset
++    from .lexlab.serializer import serialize, serialize_canonical, write_asset
+     from .lexlab.sources import load_source
+ except ImportError:  # direct script execution
++    from lexlab.compact import deserialize_compact, serialize_compact, verify_lookup
+     from lexlab.compressor import compress_lexicon
++    from lexlab.metrics import compare_compression_layers
++    from lexlab.p4 import serialize_front_coded
+     from lexlab.reports import source_dict, write_json, write_tsv
+-    from lexlab.serializer import write_asset
++    from lexlab.serializer import serialize, serialize_canonical, write_asset
+     from lexlab.sources import load_source
+
+
++def _rss_bytes() -> int:
++    value = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
++    return int(value if platform.system() == "Darwin" else value * 1024)
++
++
+ def run(
+     source_id: str,
+     mode: str,
+@@ -26,18 +44,59 @@ def run(
+     *,
+     data_root: Path | None = None,
+     max_states: int = 100_000,
++    max_variant_product: int = 100_000,
++    failure_sample_limit: int = 100,
++    full_failures: bool = False,
+ ):
+     source = load_source(source_id, data_root=data_root)
+-    result = compress_lexicon(source, mode=mode, max_states=max_states)
++    compact_modes = {
++        "exact-multipart-ids",
++        "ipa-intern",
++        "ipa-repair-macros",
++        "front-coded",
++    }
++    effective_mode = (
++        "exact-multipart" if mode in compact_modes or mode == "exact-linkers" else mode
++    )
++    rss_before = _rss_bytes()
++    result = compress_lexicon(
++        source,
++        mode=effective_mode,
++        max_states=max_states,
++        max_variant_product=max_variant_product,
++        failure_sample_limit=failure_sample_limit,
++        full_failures=full_failures,
++    )
++    rss_after_compress = _rss_bytes()
+     output.mkdir(parents=True, exist_ok=True)
+-    asset_bytes = write_asset(output / "compressed.asset", result.compressed)
+-    verification = result.compressed.verify_against(source)
++    started = time.perf_counter()
++    if mode == "front-coded":
++        asset = serialize_front_coded(result.compressed)
++        (output / "compressed.asset").write_bytes(asset)
++        decoded = deserialize_compact(asset)
++        asset_bytes = len(asset)
++        verification = verify_lookup(decoded, source)
++    elif mode in compact_modes:
++        asset = serialize_compact(result.compressed, mode)
++        (output / "compressed.asset").write_bytes(asset)
++        decoded = deserialize_compact(asset)
++        asset_bytes = len(asset)
++        verification = verify_lookup(decoded, source)
++    else:
++        asset_bytes = write_asset(output / "compressed.asset", result.compressed)
++        asset = serialize(result.compressed)
++        verification = result.compressed.verify_report(source)
++    verification_seconds = time.perf_counter() - started
++    rss_after = _rss_bytes()
++    canonical = serialize_canonical(source)
++    (output / "baseline-canonical.json").write_bytes(canonical)
++    layers = compare_compression_layers(canonical, asset)
+     summary = {
+         "schema": 1,
+         "source": source_id,
+         "source_revision": source.source.revision,
+         "source_sha256": source.source.sha256,
+-        "lossless_contract": "source-semantic",
++        "lossless_contract": "lookup-semantic",
+         "compression_mode": mode,
+         "physical_rows": source.physical_rows,
+         "unique_words": len(source.entries),
+@@ -58,25 +117,24 @@ def run(
+         "compression_ratio": asset_bytes / source.source.size_bytes
+         if source.source.size_bytes
+         else 0.0,
+-        "verification": {
+-            "words_checked": len(source.entries),
+-            "variants_checked": sum(len(v) for v in source.entries.values()),
+-            "exact_words": len(source.entries) - len(verification),
+-            "failures": len(verification),
+-        },
++        "canonical_baseline_bytes": len(canonical),
++        "failure_counts": result.failure_counts,
++        "verification": verification,
+         "performance": {
+             "compression_seconds": result.elapsed_seconds,
+-            "verification_seconds": 0.0,
+-            "peak_rss_bytes": 0,
++            "verification_seconds": verification_seconds,
++            "rss_before_bytes": rss_before,
++            "rss_after_compress_bytes": rss_after_compress,
++            "rss_after_bytes": rss_after,
++            "peak_rss_bytes": max(rss_before, rss_after_compress, rss_after),
+         },
+         "instrumentation": {
+-            "candidate_atom_prefixes_tested": result.metrics.candidate_atom_prefixes_tested,
+-            "dp_states_visited": result.metrics.dp_states_visited,
+-            "cache_hits": result.metrics.cache_hits,
+-            "cache_hit_rate": result.metrics.cache_hit_rate,
+-            "max_decomposition_search_states": result.metrics.max_search_states_per_word,
++            key: value for key, value in asdict(result.metrics).items()
+         },
++        "compression_layers": layers,
+         "provenance": source_dict(source.source),
++        "platform": platform.platform(),
++        "python": platform.python_version(),
+     }
+     write_json(output / "summary.json", summary)
+     write_tsv(
+@@ -98,7 +156,10 @@ def run(
+     write_tsv(
+         output / "derived.tsv",
+         [
+-            {"word": word, "components": "|".join(components)}
++            {
++                "word": word,
++                "components": "|".join(components),
++            }
+             for word, components in result.compressed.derived.items()
+         ],
+         ["word", "components"],
+@@ -116,22 +177,29 @@ def run(
+             "reason",
+         ],
+     )
++    write_json(output / "failure_counts.json", result.failure_counts)
+     write_tsv(output / "component_usage.tsv", result.component_usage)
+     write_tsv(output / "derivation_depth.tsv", result.derivation_depth)
+-    write_tsv(output / "ambiguity.tsv", [], ["word", "candidate_count", "selected"])
+-    write_json(
+-        output / "verification.json",
+-        {
+-            "words_checked": len(source.entries),
+-            "variants_checked": sum(len(v) for v in source.entries.values()),
+-            "exact_words": len(source.entries) - len(verification),
+-            "failures": list(verification),
+-        },
++    write_tsv(
++        output / "ambiguity.tsv",
++        result.ambiguity,
++        [
++            "word",
++            "spelling_candidate_count",
++            "exact_candidate_count",
++            "selected_components",
++            "alternative_exact_components",
++            "selection_reason",
++        ],
+     )
++    write_json(output / "verification.json", verification)
+     write_tsv(
+         output / "verification.tsv",
+         [
+-            {"word": word, "status": "fail" if word in verification else "pass"}
++            {
++                "word": word,
++                "status": ("fail" if word in verification["missing_words"] else "pass"),
++            }
+             for word in source.words
+         ],
+         ["word", "status"],
+@@ -140,30 +208,12 @@ def run(
+         output / "size_breakdown.tsv",
+         [
+             {"section": "asset", "bytes": asset_bytes},
+-            {
+-                "section": "atoms",
+-                "bytes": len(
+-                    json.dumps(
+-                        result.compressed.atoms, ensure_ascii=False, sort_keys=True
+-                    ).encode()
+-                ),
+-            },
+-            {
+-                "section": "exceptions",
+-                "bytes": len(
+-                    json.dumps(
+-                        result.compressed.exceptions, ensure_ascii=False, sort_keys=True
+-                    ).encode()
+-                ),
+-            },
+-            {
+-                "section": "derived",
+-                "bytes": len(
+-                    json.dumps(
+-                        result.compressed.derived, ensure_ascii=False, sort_keys=True
+-                    ).encode()
+-                ),
+-            },
++            {"section": "canonical_baseline", "bytes": len(canonical)},
++            *[
++                {"section": key, "bytes": value}
++                for key, value in layers.items()
++                if key.startswith(("asset_", "baseline_"))
++            ],
+         ],
+         ["section", "bytes"],
+     )
+@@ -175,12 +225,25 @@ def main() -> int:
+     parser.add_argument("--source", required=True)
+     parser.add_argument(
+         "--mode",
+-        choices=("baseline", "exact-two-part", "exact-multipart"),
++        choices=(
++            "baseline",
++            "baseline-canonical",
++            "exact-two-part",
++            "exact-multipart",
++            "exact-multipart-ids",
++            "ipa-intern",
++            "ipa-repair-macros",
++            "front-coded",
++            "exact-linkers",
++        ),
+         required=True,
+     )
+     parser.add_argument("--output", type=Path, required=True)
+     parser.add_argument("--data-root", type=Path)
+     parser.add_argument("--max-states", type=int, default=100_000)
++    parser.add_argument("--max-variant-product", type=int, default=100_000)
++    parser.add_argument("--failure-sample-limit", type=int, default=100)
++    parser.add_argument("--full-failures", action="store_true")
+     args = parser.parse_args()
+     run(
+         args.source,
+@@ -188,6 +251,9 @@ def main() -> int:
+         args.output,
+         data_root=args.data_root,
+         max_states=args.max_states,
++        max_variant_product=args.max_variant_product,
++        failure_sample_limit=args.failure_sample_limit,
++        full_failures=args.full_failures,
+     )
+     return 0
+
+diff --git a/experiments/de_lexicon_compression/download_sources.py b/experiments/de_lexicon_compression/download_sources.py
+old mode 100644
+new mode 100755
+diff --git a/experiments/de_lexicon_compression/generate_report.py b/experiments/de_lexicon_compression/generate_report.py
+old mode 100644
+new mode 100755
+index a7238b4..d9d441d
+--- a/experiments/de_lexicon_compression/generate_report.py
++++ b/experiments/de_lexicon_compression/generate_report.py
+@@ -1,5 +1,5 @@
+ #!/usr/bin/env python3
+-"""Render a human-readable final research report from generated JSON reports."""
++"""Render a human-readable final research report from JSON reports."""
+
+ from __future__ import annotations
+
+@@ -8,8 +8,10 @@ import json
+ from pathlib import Path
+
+
+-def _load(path: Path) -> dict:
+-    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
++def _load(path: Path | None) -> dict:
++    if path is None or not path.is_file():
++        return {}
++    return json.loads(path.read_text(encoding="utf-8"))
+
+
+ def generate(
+@@ -18,93 +20,94 @@ def generate(
+     matrix: Path | None,
+     output: Path,
+ ) -> None:
+-    analysis = _load(source_analysis) if source_analysis else {}
+-    quality_data = _load(quality) if quality else {}
+-    matrix_data = _load(matrix) if matrix else {}
++    analysis = _load(source_analysis)
++    quality_data = _load(quality)
++    matrix_data = _load(matrix)
+     lines = [
+         "# German Multi-Lexicon Compression Experiment",
+         "",
+-        "This report is generated from explicitly pinned experiment outputs. Missing sections mean the corresponding opt-in run was not available.",
++        "This report is generated only from explicitly pinned experiment outputs.",
++        "Unavailable opt-in runs are not inferred from toy data.",
+         "",
+         "## 1. Executive summary",
+         "",
+-        "Sources are evaluated independently. A result is called lossless only when the reloaded decoder reproduces every ordered raw pronunciation tuple exactly.",
++        "A run is lookup-semantic lossless only when its complete key set",
++        "and every ordered raw pronunciation tuple match after reload.",
++        "Approximate pronunciation similarity never authorizes deletion.",
+         "",
+-        "## 2. Source provenance and licenses",
++        "## 2. Provenance and reproducibility",
+         "",
+     ]
+     for source in analysis.get("sources", []):
+         lines.append(
+-            f"- **{source.get('source', source.get('source_id'))}**: revision `{source.get('revision')}`, SHA256 `{source.get('sha256')}`, license `{source.get('license')}`, status `{source.get('provenance_status')}`."
++            f"- **{source.get('source', source.get('source_id'))}**: "
++            f"revision `{source.get('revision')}`, "
++            f"SHA256 `{source.get('sha256')}`, license "
++            f"`{source.get('license')}`, status "
++            f"`{source.get('provenance_status')}`."
+         )
+-    lines.extend(["", "## 3. Source sizes and variant statistics", ""])
+-    for source in analysis.get("sources", []):
++    for row in matrix_data.get("rows", []):
+         lines.append(
+-            f"- {source.get('source')}: {source.get('unique_spellings', 0)} unique spellings, {source.get('pronunciation_variants', 0)} variants, {source.get('size_bytes', 0)} bytes."
++            f"- `{row.get('source')}/{row.get('mode')}`: source SHA256 "
++            f"`{row.get('source_sha256')}`, Python `{row.get('python')}`, "
++            f"platform `{row.get('platform')}`."
+         )
+     lines.extend(
+         [
+             "",
+-            "## 4. Casing/Unicode findings",
+-            "",
+-            "See `casing_collisions.tsv` and `unicode_stats.tsv`; raw source codepoints are preserved.",
++            "## 3. Source and quality findings",
+             "",
+-            "## 5. Runtime reachability",
++            "```json",
++            json.dumps(
++                {"analysis": analysis, "quality": quality_data},
++                ensure_ascii=False,
++                indent=2,
++                sort_keys=True,
++            ),
++            "```",
+             "",
+-            json.dumps(analysis.get("reachability", {}), sort_keys=True),
++            "## 4. Comparable storage results",
+             "",
+-            "## 6. Pairwise overlap and pronunciation conflicts",
++            "The primary distribution metric is net wheel-equivalent",
++            "DEFLATE savings against the canonical runtime baseline.",
+             "",
++            "| Source | Mode | Installed | Wheel | Net wheel | Failures |",
++            "| --- | --- | ---: | ---: | ---: | ---: |",
+         ]
+     )
+-    for pair in analysis.get("pairs", []):
++    for row in matrix_data.get("rows", []):
++        installed = row.get("asset_plain_bytes", row.get("asset_bytes"))
+         lines.append(
+-            f"- {pair.get('source_a')} vs {pair.get('source_b')}: exact overlap {pair.get('exact_spelling_intersection', 0)}, raw agreement {pair.get('exact_raw_pronunciation_agreement', 0)}, Kokoro-view agreement {pair.get('kokoro_view_any_variant_agreement', 0)}."
++            f"| {row.get('source')} | {row.get('mode')} | {installed} | "
++            f"{row.get('asset_wheel_equivalent_deflate_bytes')} | "
++            f"{row.get('net_wheel_equivalent_deflate_bytes_saved')} | "
++            f"{row.get('verification_failures')} |"
+         )
+     lines.extend(
+         [
+             "",
+-            "## 7. Held-out G2P quality",
+-            "",
+-            "```json",
+-            json.dumps(quality_data, ensure_ascii=False, indent=2, sort_keys=True),
+-            "```",
+-            "",
+-            "## 8. Baseline gzip/xz results",
+-            "",
+-            "See the source-analysis `baseline.tsv` output.",
+-            "",
+-            "## 9. Exact two-part compression",
+-            "",
+-            "## 10. Exact multipart compression",
+-            "",
+-            "```json",
+-            json.dumps(matrix_data, ensure_ascii=False, indent=2, sort_keys=True),
+-            "```",
+-            "",
+-            "## 11. Failure taxonomy",
+-            "",
+-            "Failures are diagnostic only; no approximate match authorizes deletion.",
+-            "",
+-            "## 12. Runtime/RAM cost",
+-            "",
+-            "See each run's `runtime.json`.",
+-            "",
+-            "## 13. Cross-source sharing potential",
+-            "",
+-            "Cross-source sharing is deferred until independent source semantics and licensing are reviewed.",
+-            "",
+-            "## 14. Recommendation for production architecture",
++            "## 5. Runtime and RAM",
+             "",
+-            "Adopt explicit ordered source selection only if measured held-out quality and reachability justify the additional source and its licensing obligations.",
++            "See each run's `runtime.json` for atoms, exceptions, derived, misses,",
++            "mixed workloads, cold load, normalized RSS, and baseline ratios.",
++            "Empty categories must be marked unavailable, not fake words.",
+             "",
+-            "## 15. Recommendation on exact join rules",
++            "## 6. Decision gates",
+             "",
+-            "Do not add linguistic join rules until C3 failures are measured and every rule is independently verified.",
++            "- Correctness: missing, extra, pronunciation, and variant-order",
++            "  mismatches are zero.",
++            "- Reproducibility: identical configuration produces",
++            "  identical asset SHA256.",
++            "- Storage: prefer 10% wheel or 20% installed reduction over the baseline.",
++            "- RAM/runtime: report explicit RSS, cold-load, and lookup trade-offs.",
++            "- Quality: every added lexicon shows measurable held-out marginal value.",
+             "",
+-            "## 16. Recommendation on neural follow-up",
++            "## 7. Licensing and production boundary",
+             "",
+-            "Use only the exactly factorized residual as a possible later neural-G2P research input; approximation is not compression evidence.",
++            "Sources remain independent and are not merged into a",
++            "redistributable asset.",
++            "Resolve Crane CC-BY-SA-4.0 and gruut/eSpeak obligations before shipping.",
++            "This report does not authorize modifying the production German pipeline.",
+             "",
+         ]
+     )
+diff --git a/experiments/de_lexicon_compression/lexlab/cascade.py b/experiments/de_lexicon_compression/lexlab/cascade.py
+new file mode 100644
+index 0000000..cd6120b
+--- /dev/null
++++ b/experiments/de_lexicon_compression/lexlab/cascade.py
+@@ -0,0 +1,173 @@
++"""Ordered multi-source cascade and analysis-only sharing metrics."""
++
++from __future__ import annotations
++
++from collections import Counter
++from collections.abc import Iterable, Sequence
++
++from .metrics import cer
++
++
++def _source_id(source) -> str:
++    info = source.source
++    return info.source_id
++
++
++def lookup_cascade(sources: Sequence, word: str) -> dict[str, object]:
++    candidates = []
++    hits_by_source: Counter[str] = Counter()
++    for source in sources:
++        values = tuple(source.lookup_all(word))
++        source_id = _source_id(source)
++        if values:
++            hits_by_source[source_id] += 1
++        candidates.append((source_id, values))
++    selected_source = None
++    selected = ()
++    for source_id, values in candidates:
++        if values:
++            selected_source = source_id
++            selected = values
++            break
++    nonempty = [values for _source, values in candidates if values]
++    conflict = len({values for values in nonempty}) > 1
++    return {
++        "word": word,
++        "selected_source": selected_source,
++        "selected": selected,
++        "candidates": {source_id: values for source_id, values in candidates},
++        "hit_sources": [source_id for source_id, values in candidates if values],
++        "conflict": conflict,
++        "hits_by_source": dict(hits_by_source),
++    }
++
++
++def score_cascade(
++    sources: Sequence,
++    examples: Iterable[tuple[str, tuple[str, ...]]],
++) -> dict[str, object]:
++    rows = []
++    expected_values = []
++    selected_values = []
++    hits_by_source: Counter[str] = Counter()
++    incremental_hits_by_source: Counter[str] = Counter()
++    incremental_exact_matches_by_source: Counter[str] = Counter()
++    incremental_errors_by_source: Counter[str] = Counter()
++    conflict_wins_by_source: Counter[str] = Counter()
++    fallback_rows = 0
++    selected_exact = 0
++    oracle_exact = 0
++    for word, expected in examples:
++        result = lookup_cascade(sources, word)
++        selected = result["selected"]
++        selected_source = result["selected_source"]
++        expected_values.append(expected)
++        selected_values.append(selected)
++        for source_id in result["hit_sources"]:
++            hits_by_source[source_id] += 1
++        if selected_source is None:
++            fallback_rows += 1
++        else:
++            incremental_hits_by_source[selected_source] += 1
++            if selected == expected:
++                incremental_exact_matches_by_source[selected_source] += 1
++            else:
++                incremental_errors_by_source[selected_source] += 1
++        if result["conflict"] and selected_source is not None:
++            conflict_wins_by_source[selected_source] += 1
++        selected_match = selected == expected
++        oracle_match = expected in {
++            value for values in result["candidates"].values() for value in values
++        }
++        selected_exact += selected_match
++        oracle_exact += oracle_match
++        rows.append(
++            {
++                "word": word,
++                "selected_source": selected_source,
++                "selected_exact": selected_match,
++                "oracle_exact": oracle_match,
++                "conflict": result["conflict"],
++                "hit_sources": "|".join(result["hit_sources"]),
++            }
++        )
++    total = len(rows)
++    return {
++        "sources": [_source_id(source) for source in sources],
++        "entries": total,
++        "coverage": (total - fallback_rows) / total if total else 0.0,
++        "selected_exact_match_rate": selected_exact / total if total else 0.0,
++        "oracle_variant_exact_match_rate": oracle_exact / total if total else 0.0,
++        "selected_cer": cer(tuple(expected_values), tuple(selected_values)),
++        "fallback_rows": fallback_rows,
++        "hits_by_source": dict(hits_by_source),
++        "incremental_hits_by_source": dict(incremental_hits_by_source),
++        "incremental_exact_matches_by_source": dict(
++            incremental_exact_matches_by_source
++        ),
++        "incremental_errors_by_source": dict(incremental_errors_by_source),
++        "conflict_wins_by_source": dict(conflict_wins_by_source),
++        "rows": rows,
++    }
++
++
++def cross_source_sharing(sources: Sequence) -> dict[str, object]:
++    """Calculate theoretical sharing only; never emit a merged asset."""
++    pair_rows = []
++    identical_spelling_ipa = 0
++    identical_spelling_variant = 0
++    shared_ipa_strings = 0
++    shared_atom_tuples = 0
++    shared_derived = 0
++    for index, left in enumerate(sources):
++        for right in sources[index + 1 :]:
++            common = set(left.words) & set(right.words)
++            exact = sum(
++                left.lookup_all(word) == right.lookup_all(word) for word in common
++            )
++            any_variant = sum(
++                bool(set(left.lookup_all(word)) & set(right.lookup_all(word)))
++                for word in common
++            )
++            left_ipa = {value for word in left.words for value in left.lookup_all(word)}
++            right_ipa = {
++                value
++                for word in right.words
++                for value in right.lookup_all(word)
++            }
++            ipa_overlap = len(left_ipa & right_ipa)
++            shared_atoms = sum(
++                left.lookup_all(word) == right.lookup_all(word) for word in common
++            )
++            left_derived = getattr(left, "derived", {})
++            right_derived = getattr(right, "derived", {})
++            derived_overlap = len(set(left_derived) & set(right_derived))
++            identical_spelling_ipa += exact
++            identical_spelling_variant += any_variant
++            shared_ipa_strings += ipa_overlap
++            shared_atom_tuples += shared_atoms
++            shared_derived += derived_overlap
++            pair_rows.append(
++                {
++                    "source_a": _source_id(left),
++                    "source_b": _source_id(right),
++                    "identical_spelling_identical_raw_ipa": exact,
++                    "identical_spelling_shared_variant": any_variant,
++                    "identical_ipa_strings": ipa_overlap,
++                    "shared_atom_spelling_ipa_tuples": shared_atoms,
++                    "shared_derived_decompositions": derived_overlap,
++                }
++            )
++    return {
++        "identical_spelling_identical_raw_ipa": identical_spelling_ipa,
++        "identical_spelling_shared_variant": identical_spelling_variant,
++        "identical_ipa_strings_across_words": shared_ipa_strings,
++        "shared_atom_spelling_ipa_tuples": shared_atom_tuples,
++        "shared_derived_decompositions": shared_derived,
++        "theoretical_savings": {
++            "shared_ipa_pool": shared_ipa_strings,
++            "shared_word_key_pool": identical_spelling_ipa,
++            "shared_atom_pool": shared_atom_tuples,
++        },
++        "pairs": pair_rows,
++    }
+diff --git a/experiments/de_lexicon_compression/lexlab/compact.py b/experiments/de_lexicon_compression/lexlab/compact.py
+new file mode 100644
+index 0000000..58dde3c
+--- /dev/null
++++ b/experiments/de_lexicon_compression/lexlab/compact.py
+@@ -0,0 +1,399 @@
++"""Dependency-free deterministic compact representations for P2/P4 experiments."""
++
++from __future__ import annotations
++
++import json
++from collections import Counter
++from dataclasses import dataclass
++from pathlib import Path
++from typing import Any
++
++from .decoder import CompressedLexicon
++from .model import SourceInfo
++
++COMPACT_SCHEMA = 2
++
++
++def _source_dict(source: SourceInfo) -> dict[str, Any]:
++    value = {
++        "source_id": source.source_id,
++        "revision": source.revision,
++        "sha256": source.sha256,
++        "license": source.license,
++        "provenance_status": source.provenance_status,
++        "parser_version": source.parser_version,
++        "view_version": source.view_version,
++        "format": source.format,
++        "path": Path(source.path).name if source.path else None,
++        "size_bytes": source.size_bytes,
++    }
++    return value
++
++
++def _bytes(value: dict[str, Any]) -> bytes:
++    encoded = json.dumps(
++        value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
++    )
++    return (encoded + "\n").encode("utf-8")
++
++
++def _common(compressed: CompressedLexicon, mode: str) -> dict[str, Any]:
++    return {
++        "schema": COMPACT_SCHEMA,
++        "mode": mode,
++        "source": _source_dict(compressed.source),
++        "metadata": dict(compressed.metadata),
++    }
++def verify_lookup(asset, source, *, sample_limit: int = 100) -> dict[str, object]:
++    source_words = set(source.words)
++    asset_words = set(asset.words)
++    missing = sorted(source_words - asset_words)
++    extra = sorted(asset_words - source_words)
++    mismatches = 0
++    rows = []
++    for word in sorted(source_words & asset_words):
++        expected = source.lookup_all(word)
++        actual = asset.lookup_all(word)
++        if actual != expected:
++            mismatches += 1
++            if len(rows) < sample_limit:
++                rows.append({"word": word, "expected": expected, "actual": actual})
++    return {
++        "missing_words": missing,
++        "extra_words": extra,
++        "pronunciation_mismatches": mismatches,
++        "variant_count_mismatches": 0,
++        "variant_order_mismatches": 0,
++        "failures": len(missing) + len(extra) + mismatches,
++        "failure_rows": rows,
++        "lossless": not (missing or extra or mismatches),
++    }
++
++
++
++@dataclass(slots=True)
++class IdCompressedLexicon:
++    source: SourceInfo
++    atom_words: tuple[str, ...]
++    atom_variants: tuple[tuple[str, ...], ...]
++    exceptions: dict[str, tuple[str, ...]]
++    derived: dict[str, tuple[int, ...]]
++    metadata: dict[str, object]
++
++    def lookup_all(self, word: str) -> tuple[str, ...]:
++        if word in self.exceptions:
++            return self.exceptions[word]
++        try:
++            atom_id = self.atom_words.index(word)
++        except ValueError:
++            atom_id = -1
++        if atom_id >= 0:
++            return self.atom_variants[atom_id]
++        components = self.derived.get(word)
++        if components is None:
++            return ()
++        result = [""]
++        for atom_id in components:
++            result = [
++                prefix + value
++                for prefix in result
++                for value in self.atom_variants[atom_id]
++            ]
++        return tuple(result)
++
++    @property
++    def words(self) -> tuple[str, ...]:
++        return tuple(sorted((*self.atom_words, *self.exceptions, *self.derived)))
++
++
++def to_id_asset(compressed: CompressedLexicon) -> IdCompressedLexicon:
++    words = tuple(sorted(compressed.atoms))
++    ids = {word: index for index, word in enumerate(words)}
++    return IdCompressedLexicon(
++        compressed.source,
++        words,
++        tuple(compressed.atoms[word] for word in words),
++        dict(compressed.exceptions),
++        {
++            word: tuple(ids[component] for component in components)
++            for word, components in sorted(compressed.derived.items())
++        },
++        {**compressed.metadata, "mode": "exact-multipart-ids"},
++    )
++
++
++def id_asset_dict(compressed: CompressedLexicon) -> dict[str, Any]:
++    asset = to_id_asset(compressed)
++    return {
++        **_common(compressed, "exact-multipart-ids"),
++        "atoms": [
++            [word, list(values)]
++            for word, values in zip(asset.atom_words, asset.atom_variants, strict=True)
++        ],
++        "exceptions": {
++            word: list(values) for word, values in sorted(asset.exceptions.items())
++        },
++        "derived": {
++            word: list(values) for word, values in sorted(asset.derived.items())
++        },
++    }
++
++
++def serialize_ids(compressed: CompressedLexicon) -> bytes:
++    return _bytes(id_asset_dict(compressed))
++
++
++def _source(value: dict[str, Any]) -> SourceInfo:
++    return SourceInfo(**value)
++
++
++def deserialize_ids(data: bytes) -> IdCompressedLexicon:
++    value = json.loads(data.decode("utf-8"))
++    if (
++        value.get("schema") != COMPACT_SCHEMA
++        or value.get("mode") != "exact-multipart-ids"
++    ):
++        raise ValueError("not an exact-multipart-ids asset")
++    atoms = value.get("atoms", [])
++    return IdCompressedLexicon(
++        _source(value["source"]),
++        tuple(item[0] for item in atoms),
++        tuple(tuple(item[1]) for item in atoms),
++        {word: tuple(values) for word, values in value.get("exceptions", {}).items()},
++        {word: tuple(values) for word, values in value.get("derived", {}).items()},
++        dict(value.get("metadata", {})),
++    )
++
++
++@dataclass(slots=True)
++class InternedLexicon:
++    source: SourceInfo
++    ipa_table: tuple[str, ...]
++    atom_words: tuple[str, ...]
++    atom_variants: tuple[tuple[int, ...], ...]
++    exceptions: dict[str, tuple[int, ...]]
++    derived: dict[str, tuple[int, ...]]
++    metadata: dict[str, object]
++
++    def _variants(self, ids: tuple[int, ...]) -> tuple[str, ...]:
++        return tuple(self.ipa_table[index] for index in ids)
++
++    def lookup_all(self, word: str) -> tuple[str, ...]:
++        if word in self.exceptions:
++            return self._variants(self.exceptions[word])
++        try:
++            atom_id = self.atom_words.index(word)
++        except ValueError:
++            atom_id = -1
++        if atom_id >= 0:
++            return self._variants(self.atom_variants[atom_id])
++        components = self.derived.get(word)
++        if components is None:
++            return ()
++        result = [""]
++        for atom_id in components:
++            result = [
++                prefix + value
++                for prefix in result
++                for value in self._variants(self.atom_variants[atom_id])
++            ]
++        return tuple(result)
++
++    @property
++    def words(self) -> tuple[str, ...]:
++        return tuple(sorted((*self.atom_words, *self.exceptions, *self.derived)))
++
++
++def to_interned_asset(compressed: CompressedLexicon) -> InternedLexicon:
++    all_values = {
++        value for values in compressed.atoms.values() for value in values
++    }
++    all_values.update(
++        value for values in compressed.exceptions.values() for value in values
++    )
++    ipa_table = tuple(sorted(all_values))
++    ids = {value: index for index, value in enumerate(ipa_table)}
++    words = tuple(sorted(compressed.atoms))
++    atom_ids = {word: index for index, word in enumerate(words)}
++    atom_variants = tuple(
++        tuple(ids[value] for value in compressed.atoms[word]) for word in words
++    )
++    return InternedLexicon(
++        compressed.source,
++        ipa_table,
++        words,
++        atom_variants,
++        {
++            word: tuple(ids[value] for value in values)
++            for word, values in sorted(compressed.exceptions.items())
++        },
++        {
++            word: tuple(atom_ids[component] for component in components)
++            for word, components in sorted(compressed.derived.items())
++        },
++        {**compressed.metadata, "mode": "ipa-intern"},
++    )
++
++
++def interned_asset_dict(compressed: CompressedLexicon) -> dict[str, Any]:
++    asset = to_interned_asset(compressed)
++    return {
++        **_common(compressed, "ipa-intern"),
++        "ipa": list(asset.ipa_table),
++        "atoms": [
++            [word, list(values)]
++            for word, values in zip(asset.atom_words, asset.atom_variants, strict=True)
++        ],
++        "exceptions": {
++            word: list(values) for word, values in sorted(asset.exceptions.items())
++        },
++        "derived": {
++            word: list(values) for word, values in sorted(asset.derived.items())
++        },
++    }
++
++
++def serialize_interned(compressed: CompressedLexicon) -> bytes:
++    return _bytes(interned_asset_dict(compressed))
++
++
++def deserialize_interned(data: bytes) -> InternedLexicon:
++    value = json.loads(data.decode("utf-8"))
++    if value.get("schema") != COMPACT_SCHEMA or value.get("mode") != "ipa-intern":
++        raise ValueError("not an ipa-intern asset")
++    atoms = value.get("atoms", [])
++    return InternedLexicon(
++        _source(value["source"]),
++        tuple(value.get("ipa", [])),
++        tuple(item[0] for item in atoms),
++        tuple(tuple(item[1]) for item in atoms),
++        {word: tuple(values) for word, values in value.get("exceptions", {}).items()},
++        {word: tuple(values) for word, values in value.get("derived", {}).items()},
++        dict(value.get("metadata", {})),
++    )
++
++
++def build_macros(values: list[str], *, max_macros: int = 128) -> tuple[str, ...]:
++    counts: Counter[str] = Counter()
++    for value in values:
++        for length in range(2, min(5, len(value) + 1)):
++            counts.update(
++                value[index : index + length]
++                for index in range(len(value) - length + 1)
++            )
++    candidates = [
++        (count, len(value), value)
++        for value, count in counts.items()
++        if count > 1
++    ]
++    candidates.sort(key=lambda item: (-item[0], -item[1], item[2]))
++    return tuple(value for _count, _length, value in candidates[:max_macros])
++
++
++def encode_macro(value: str, macros: tuple[str, ...]) -> list[list[object]]:
++    tokens: list[list[object]] = []
++    position = 0
++    ordered = sorted(enumerate(macros), key=lambda item: (-len(item[1]), item[0]))
++    while position < len(value):
++        match = next(
++            (
++                (index, macro)
++                for index, macro in ordered
++                if value.startswith(macro, position)
++            ),
++            None,
++        )
++        if match is None:
++            tokens.append(["s", value[position]])
++            position += 1
++        else:
++            index, macro = match
++            tokens.append(["m", index])
++            position += len(macro)
++    return tokens
++
++
++def decode_macro(tokens: list[list[object]], macros: tuple[str, ...]) -> str:
++    output: list[str] = []
++    for kind, value in tokens:
++        if kind == "s":
++            output.append(str(value))
++        elif kind == "m":
++            output.append(macros[int(value)])
++        else:
++            raise ValueError(f"unknown macro token {kind!r}")
++    return "".join(output)
++
++
++def macro_asset_dict(compressed: CompressedLexicon) -> dict[str, Any]:
++    interned = to_interned_asset(compressed)
++    macros = build_macros(list(interned.ipa_table))
++    return {
++        **_common(compressed, "ipa-repair-macros"),
++        "macros": list(macros),
++        "ipa_tokens": [encode_macro(value, macros) for value in interned.ipa_table],
++        "atoms": [
++            [word, list(values)]
++            for word, values in zip(
++                interned.atom_words, interned.atom_variants, strict=True
++            )
++        ],
++        "exceptions": {
++            word: list(values) for word, values in sorted(interned.exceptions.items())
++        },
++        "derived": {
++            word: list(values) for word, values in sorted(interned.derived.items())
++        },
++    }
++
++
++def serialize_macros(compressed: CompressedLexicon) -> bytes:
++    return _bytes(macro_asset_dict(compressed))
++
++
++def deserialize_macros(data: bytes) -> InternedLexicon:
++    value = json.loads(data.decode("utf-8"))
++    if (
++        value.get("schema") != COMPACT_SCHEMA
++        or value.get("mode") != "ipa-repair-macros"
++    ):
++        raise ValueError("not an ipa-repair-macros asset")
++    macros = tuple(value.get("macros", []))
++    ipa_table = tuple(
++        decode_macro(tokens, macros) for tokens in value.get("ipa_tokens", [])
++    )
++    atoms = value.get("atoms", [])
++    return InternedLexicon(
++        _source(value["source"]),
++        ipa_table,
++        tuple(item[0] for item in atoms),
++        tuple(tuple(item[1]) for item in atoms),
++        {word: tuple(values) for word, values in value.get("exceptions", {}).items()},
++        {word: tuple(values) for word, values in value.get("derived", {}).items()},
++        dict(value.get("metadata", {})),
++    )
++
++
++def serialize_compact(compressed: CompressedLexicon, mode: str) -> bytes:
++    if mode == "exact-multipart-ids":
++        return serialize_ids(compressed)
++    if mode == "ipa-intern":
++        return serialize_interned(compressed)
++    if mode == "ipa-repair-macros":
++        return serialize_macros(compressed)
++    raise ValueError(f"unknown compact mode: {mode}")
++
++
++def deserialize_compact(data: bytes):
++    mode = json.loads(data.decode("utf-8")).get("mode")
++    if mode == "exact-multipart-ids":
++        return deserialize_ids(data)
++    if mode == "ipa-intern":
++        return deserialize_interned(data)
++    if mode == "ipa-repair-macros":
++        return deserialize_macros(data)
++    if mode == "front-coded":
++        from .p4 import deserialize_front_coded
++
++        return deserialize_front_coded(data)
++    raise ValueError(f"unknown compact mode: {mode!r}")
+diff --git a/experiments/de_lexicon_compression/lexlab/composition.py b/experiments/de_lexicon_compression/lexlab/composition.py
+index b6f15e1..962187c 100644
+--- a/experiments/de_lexicon_compression/lexlab/composition.py
++++ b/experiments/de_lexicon_compression/lexlab/composition.py
+@@ -1,11 +1,11 @@
+-"""Exact spelling/IPA composition with deterministic ranking."""
++"""Bounded exact spelling/IPA composition with deterministic ranking."""
+
+ from __future__ import annotations
+
+-from collections.abc import Mapping
++from collections.abc import Callable, Mapping
+ from dataclasses import dataclass
+-from functools import cache
+ from itertools import product
++from math import prod
+
+ from .trie import PrefixTrie
+
+@@ -17,10 +17,19 @@ class SearchLimitError(RuntimeError):
+ @dataclass(slots=True)
+ class CompositionMetrics:
+     candidate_atom_prefixes_tested: int = 0
++    candidate_segmentations_tested: int = 0
++    exact_segmentations_found: int = 0
+     dp_states_visited: int = 0
+     cache_hits: int = 0
+     search_states: int = 0
+     max_search_states_per_word: int = 0
++    search_limit_words: int = 0
++    best_exact_depth: int = 0
++    max_variant_product: int = 0
++    max_observed_variant_product: int = 0
++    variant_product_rejections: int = 0
++    trie_builds: int = 0
++    trie_additions: int = 0
+
+     @property
+     def cache_hit_rate(self) -> float:
+@@ -40,7 +49,7 @@ class Segmentation:
+ def _ranking(
+     segmentation: Segmentation,
+ ) -> tuple[int, tuple[int, ...], tuple[str, ...]]:
+-    """Sort by fewer components, longest-leftmost lengths, then stable atom order."""
++    """Prefer fewer components, then longer-leftmost, then stable atom order."""
+     return (
+         -len(segmentation.components),
+         segmentation.lengths,
+@@ -48,6 +57,55 @@ def _ranking(
+     )
+
+
++def _index_for(
++    atoms: Mapping[str, tuple[str, ...]], trie: PrefixTrie | None
++) -> PrefixTrie:
++    if trie is not None:
++        return trie
++    return PrefixTrie(atoms)
++
++
++def _all_segmentations(
++    word: str,
++    atoms: Mapping[str, tuple[str, ...]],
++    *,
++    mode: str,
++    trie: PrefixTrie | None,
++    max_states: int,
++    metrics: CompositionMetrics,
++) -> tuple[Segmentation, ...]:
++    """Enumerate spelling candidates, bounded by ``max_states`` DFS visits."""
++    index = _index_for(atoms, trie)
++    counter = 0
++    candidates: list[Segmentation] = []
++
++    def visit(position: int, components: tuple[str, ...]) -> None:
++        nonlocal counter
++        counter += 1
++        metrics.search_states = counter
++        if counter > max_states:
++            raise SearchLimitError(f"search limit {max_states} reached for {word!r}")
++        if position == len(word):
++            if len(components) >= 2 and (
++                mode == "exact-multipart" or len(components) == 2
++            ):
++                candidates.append(Segmentation(components))
++            return
++        if mode == "exact-two-part" and len(components) >= 2:
++            return
++        prefixes = index.prefixes(word, position)
++        metrics.candidate_atom_prefixes_tested += len(prefixes)
++        for atom in prefixes:
++            visit(position + len(atom), (*components, atom))
++
++    visit(0, ())
++    metrics.max_search_states_per_word = max(
++        metrics.max_search_states_per_word, counter
++    )
++    # The sort is stable because trie prefix order is deterministic.
++    return tuple(sorted(candidates, key=_ranking, reverse=True))
++
++
+ def choose_segmentation(
+     word: str,
+     atoms: Mapping[str, tuple[str, ...]],
+@@ -55,54 +113,54 @@ def choose_segmentation(
+     mode: str = "exact-multipart",
+     max_states: int = 100_000,
+     metrics: CompositionMetrics | None = None,
++    trie: PrefixTrie | None = None,
+ ) -> Segmentation | None:
+-    """Choose a spelling-only segmentation; IPA is deliberately not inspected.
++    """Choose the best spelling-only candidate.
+
+-    The DP retains only the best suffix at each grapheme offset, so it does not
+-    materialize an exponential list of candidate segmentations.
++    ``exact_composition`` intentionally searches all candidates instead of using
++    this spelling-only winner.  The helper remains useful to callers that only
++    need the historical deterministic spelling ranking.
+     """
+     if mode not in {"exact-two-part", "exact-multipart"}:
+         raise ValueError(f"unknown composition mode: {mode}")
+-    trie = PrefixTrie(atoms)
+-    counter = [0]
+     stats = metrics or CompositionMetrics()
+-
+-    @cache
+-    def solve(position: int) -> tuple[str, ...] | None:
+-        if position == len(word):
+-            return ()
+-        stats.dp_states_visited += 1
+-        counter[0] += 1
+-        stats.search_states = counter[0]
+-        if counter[0] > max_states:
+-            raise SearchLimitError(f"search limit {max_states} reached for {word!r}")
+-        candidates: list[Segmentation] = []
+-        prefixes = trie.prefixes(word, position)
+-        stats.candidate_atom_prefixes_tested += len(prefixes)
+-        for atom in prefixes:
+-            tail = solve(position + len(atom))
+-            if tail is not None:
+-                candidates.append(Segmentation((atom, *tail)))
+-        best = max(candidates, key=_ranking, default=None)
+-        return best.components if best else None
+-
+-    candidate = solve(0)
+-    stats.cache_hits += solve.cache_info().hits
+-    stats.max_search_states_per_word = max(stats.max_search_states_per_word, counter[0])
+-    if candidate is None or len(candidate) < 2:
+-        return None
+-    if mode == "exact-two-part" and len(candidate) != 2:
+-        return None
+-    return Segmentation(candidate)
++    candidates = _all_segmentations(
++        word,
++        atoms,
++        mode=mode,
++        trie=trie,
++        max_states=max_states,
++        metrics=stats,
++    )
++    return candidates[0] if candidates else None
+
+
+ def compose_variants(
+     segmentation: Segmentation, atoms: Mapping[str, tuple[str, ...]]
+ ) -> tuple[str, ...]:
++    """Materialize a pronunciation product for small/direct callers."""
+     values = [atoms[component] for component in segmentation.components]
+     return tuple("".join(parts) for parts in product(*values))
+
+
++def _lazy_matches(
++    segmentation: Segmentation,
++    expected: tuple[str, ...],
++    atoms: Mapping[str, tuple[str, ...]],
++) -> bool:
++    values = [atoms[component] for component in segmentation.components]
++    for expected_value, parts in zip(expected, product(*values), strict=True):
++        if expected_value != "".join(parts):
++            return False
++    return True
++
++
++def _candidate_product_size(
++    segmentation: Segmentation, atoms: Mapping[str, tuple[str, ...]]
++) -> int:
++    return prod(len(atoms[component]) for component in segmentation.components)
++
++
+ def exact_composition(
+     word: str,
+     expected: tuple[str, ...],
+@@ -110,11 +168,54 @@ def exact_composition(
+     *,
+     mode: str,
+     max_states: int = 100_000,
++    max_variant_product: int = 100_000,
+     metrics: CompositionMetrics | None = None,
++    trie: PrefixTrie | None = None,
++    candidate_observer: Callable[
++        [tuple[Segmentation, ...], tuple[Segmentation, ...]], None
++    ]
++    | None = None,
+ ) -> tuple[Segmentation | None, tuple[str, ...]]:
+-    segmentation = choose_segmentation(
+-        word, atoms, mode=mode, max_states=max_states, metrics=metrics
++    """Return the highest-ranked candidate whose IPA tuple exactly matches.
++
++    Spelling candidates are generated independently from IPA validation.  Variant
++    products are cardinality-pruned and compared lazily, so a large mismatching
++    Cartesian product is never materialized.
++    """
++    if mode not in {"exact-two-part", "exact-multipart"}:
++        raise ValueError(f"unknown composition mode: {mode}")
++    stats = metrics or CompositionMetrics()
++    stats.max_variant_product = max(stats.max_variant_product, max_variant_product)
++    candidates = _all_segmentations(
++        word,
++        atoms,
++        mode=mode,
++        trie=trie,
++        max_states=max_states,
++        metrics=stats,
+     )
+-    if segmentation is None:
+-        return None, ()
+-    return segmentation, compose_variants(segmentation, atoms)
++    first_candidate: tuple[str, ...] = ()
++    exact: list[Segmentation] = []
++    for segmentation in candidates:
++        stats.candidate_segmentations_tested += 1
++        product_size = _candidate_product_size(segmentation, atoms)
++        stats.max_observed_variant_product = max(
++            stats.max_observed_variant_product, product_size
++        )
++        if product_size != len(expected) or product_size > max_variant_product:
++            stats.variant_product_rejections += 1
++            continue
++        if not first_candidate:
++            first_candidate = compose_variants(segmentation, atoms)
++        if _lazy_matches(segmentation, expected, atoms):
++            exact.append(segmentation)
++    if candidate_observer is not None:
++        candidate_observer(candidates, tuple(exact))
++    if exact:
++        stats.exact_segmentations_found += len(exact)
++        depth = len(exact[0].components)
++        stats.best_exact_depth = (
++            depth if not stats.best_exact_depth else min(stats.best_exact_depth, depth)
++        )
++        return exact[0], expected
++    return None, first_candidate
+diff --git a/experiments/de_lexicon_compression/lexlab/compressor.py b/experiments/de_lexicon_compression/lexlab/compressor.py
+index 5f9b085..637bd2d 100644
+--- a/experiments/de_lexicon_compression/lexlab/compressor.py
++++ b/experiments/de_lexicon_compression/lexlab/compressor.py
+@@ -2,12 +2,14 @@
+
+ from __future__ import annotations
+
++from collections import Counter
+ from dataclasses import dataclass, field
+ from time import perf_counter
+
+ from .composition import CompositionMetrics, SearchLimitError, exact_composition
+ from .decoder import CompressedLexicon
+ from .model import ParsedLexicon
++from .trie import PrefixTrie
+
+
+ @dataclass(slots=True)
+@@ -18,6 +20,8 @@ class CompressionResult:
+     component_usage: list[dict[str, object]] = field(default_factory=list)
+     derivation_depth: list[dict[str, object]] = field(default_factory=list)
+     elapsed_seconds: float = 0.0
++    failure_counts: dict[str, int] = field(default_factory=dict)
++    ambiguity: list[dict[str, object]] = field(default_factory=list)
+
+     @property
+     def derived_words(self) -> int:
+@@ -29,96 +33,163 @@ def compress_lexicon(
+     *,
+     mode: str = "exact-multipart",
+     max_states: int = 100_000,
++    max_variant_product: int = 100_000,
++    failure_sample_limit: int = 100,
++    full_failures: bool = False,
+ ) -> CompressionResult:
+-    if mode not in {"baseline", "exact-two-part", "exact-multipart"}:
++    if mode not in {
++        "baseline",
++        "baseline-canonical",
++        "exact-two-part",
++        "exact-multipart",
++    }:
+         raise ValueError(f"unknown compression mode: {mode}")
++    effective_mode = "baseline" if mode == "baseline-canonical" else mode
+     started = perf_counter()
+     direct: dict[str, tuple[str, ...]] = {}
+     derived: dict[str, tuple[str, ...]] = {}
+-    metrics = CompositionMetrics()
++    metrics = CompositionMetrics(max_variant_product=max_variant_product)
+     failures: list[dict[str, object]] = []
++    failure_counts: Counter[str] = Counter()
++    ambiguities: list[dict[str, object]] = []
+     depths: list[dict[str, object]] = []
+-    if mode == "baseline":
++
++    def record_failure(
++        word: str, reason: str, candidate: tuple[str, ...], components: str
++    ) -> None:
++        failure_counts[reason] += 1
++        if full_failures or len(failures) >= failure_sample_limit:
++            return
++        expected = source.lookup_all(word)
++        failures.append(
++            {
++                "source": source.source.source_id,
++                "word": word,
++                "variant_index": "",
++                "expected": "|".join(expected),
++                "candidate": "|".join(candidate),
++                "components": components,
++                "reason": reason,
++            }
++        )
++
++    def observe_candidates(candidates, exact_candidates) -> None:
++        if len(candidates) > 1 or len(exact_candidates) > 1:
++            ambiguities.append(
++                {
++                    "word": current_word,
++                    "spelling_candidate_count": len(candidates),
++                    "exact_candidate_count": len(exact_candidates),
++                    "selected_components": "|".join(
++                        exact_candidates[0].components if exact_candidates else ()
++                    ),
++                    "alternative_exact_components": ";".join(
++                        "|".join(candidate.components)
++                        for candidate in exact_candidates[1:]
++                    ),
++                    "selection_reason": (
++                        "best-ranked-exact"
++                        if exact_candidates
++                        else "no-exact-candidate"
++                    ),
++                }
++            )
++
++    if effective_mode == "baseline":
+         direct = {word: source.lookup_all(word) for word in sorted(source.words)}
+         compressed = CompressedLexicon(
+             source.source,
+             {},
+             direct,
+             {},
+-            {"mode": mode, "lossless_contract": "source-semantic"},
++            {
++                "mode": mode,
++                "compressor_version": "2",
++                "lossless_contract": "lookup-semantic",
++            },
+         )
+         return CompressionResult(
+-            compressed, metrics, failures, [], depths, perf_counter() - started
++            compressed=compressed,
++            metrics=metrics,
++            elapsed_seconds=perf_counter() - started,
+         )
++
++    # This index is deliberately created once and populated only when an entry
++    # must remain direct.  Rebuilding it inside choose_segmentation is quadratic.
++    trie = PrefixTrie()
++    metrics.trie_builds = 1
+     for word in sorted(source.words, key=lambda value: (len(value), value)):
+         expected = source.lookup_all(word)
++        current_word = word
+         try:
+             segmentation, candidate = exact_composition(
+                 word,
+                 expected,
+                 direct,
+-                mode=mode,
++                mode=effective_mode,
+                 max_states=max_states,
++                max_variant_product=max_variant_product,
+                 metrics=metrics,
++                trie=trie,
++                candidate_observer=observe_candidates,
+             )
+         except SearchLimitError:
++            metrics.search_limit_words += 1
+             segmentation, candidate = None, ()
+-            failures.append(
+-                {
+-                    "source": source.source.source_id,
+-                    "word": word,
+-                    "variant_index": "",
+-                    "expected": "",
+-                    "candidate": "",
+-                    "components": "",
+-                    "reason": "SEARCH_LIMIT",
+-                }
+-            )
++            record_failure(word, "SEARCH_LIMIT", candidate, "")
+         if segmentation is not None and candidate == expected:
+             derived[word] = segmentation.components
++            component_count = len(segmentation.components)
+             depths.append(
+                 {
+                     "word": word,
+                     "components": "|".join(segmentation.components),
+-                    "depth": len(segmentation.components),
++                    "depth": component_count,
+                 }
+             )
+         else:
+             direct[word] = expected
++            trie.add(word)
++            metrics.trie_additions += 1
+             if segmentation is None:
+                 reason = "NO_ORTHOGRAPHIC_SEGMENTATION"
+             elif not candidate:
+-                reason = "NO_PHONE_PREFIX_MATCH"
++                reason = "VARIANT_PRODUCT_REJECTED"
+             else:
+                 reason = "VARIANT_TUPLE_MISMATCH"
+-            if not any(item.get("word") == word for item in failures):
+-                failures.extend(
+-                    {
+-                        "source": source.source.source_id,
+-                        "word": word,
+-                        "variant_index": index,
+-                        "expected": value,
+-                        "candidate": candidate[index] if index < len(candidate) else "",
+-                        "components": "|".join(segmentation.components)
+-                        if segmentation
+-                        else "",
+-                        "reason": reason,
+-                    }
+-                    for index, value in enumerate(expected)
+-                )
++            record_failure(
++                word,
++                reason,
++                candidate,
++                "|".join(segmentation.components) if segmentation else "",
++            )
++
+     used = {component for components in derived.values() for component in components}
+     atoms = {word: direct.pop(word) for word in sorted(used)}
+     exceptions = {word: direct[word] for word in sorted(direct)}
++
++    # These counters are updated from the accepted derivations rather than by
++    # scanning every atom against every derived word after the pass.
++    component_word_uses: Counter[str] = Counter()
++    component_occurrences: Counter[str] = Counter()
++    component_variant_uses: Counter[str] = Counter()
++    for word, components in derived.items():
++        component_word_uses.update(set(components))
++        component_occurrences.update(components)
++        component_variant_uses.update(
++            {component: len(source.lookup_all(word)) for component in set(components)}
++        )
++
+     usage = []
+     for atom, values in atoms.items():
+-        uses = [word for word, components in derived.items() if atom in components]
+         usage.append(
+             {
+                 "atom": atom,
+                 "pronunciation_variant_count": len(values),
+-                "derived_word_uses": len(uses),
+-                "derived_variant_uses": len(uses),
+-                "estimated_rows_saved": len(uses),
++                "derived_word_uses": component_word_uses[atom],
++                "component_occurrences": component_occurrences[atom],
++                "derived_variant_uses": component_variant_uses[atom],
++                "estimated_rows_saved": component_variant_uses[atom],
+                 "estimated_bytes_saved": 0,
+             }
+         )
+@@ -127,8 +198,21 @@ def compress_lexicon(
+         atoms,
+         exceptions,
+         derived,
+-        {"mode": mode, "lossless_contract": "source-semantic"},
++        {
++            "mode": mode,
++            "compressor_version": "2",
++            "lossless_contract": "lookup-semantic",
++            "failure_reporting": "full" if full_failures else "sampled",
++            "failure_sample_limit": failure_sample_limit,
++        },
+     )
+     return CompressionResult(
+-        compressed, metrics, failures, usage, depths, perf_counter() - started
++        compressed=compressed,
++        metrics=metrics,
++        failures=failures,
++        component_usage=usage,
++        derivation_depth=depths,
++        elapsed_seconds=perf_counter() - started,
++        failure_counts=dict(sorted(failure_counts.items())),
++        ambiguity=ambiguities,
+     )
+diff --git a/experiments/de_lexicon_compression/lexlab/decoder.py b/experiments/de_lexicon_compression/lexlab/decoder.py
+index f4ac762..552a9b6 100644
+--- a/experiments/de_lexicon_compression/lexlab/decoder.py
++++ b/experiments/de_lexicon_compression/lexlab/decoder.py
+@@ -40,6 +40,49 @@ class CompressedLexicon:
+     def words(self) -> tuple[str, ...]:
+         return tuple(sorted((*self.atoms, *self.exceptions, *self.derived)))
+
++    def verify_report(
++        self, source: ParsedLexicon, *, sample_limit: int = 100
++    ) -> dict[str, object]:
++        """Compare complete lookup semantics and classify every mismatch."""
++        source_words = set(source.words)
++        asset_words = set(self.words)
++        missing = sorted(source_words - asset_words)
++        extra = sorted(asset_words - source_words)
++        pronunciation_mismatches = 0
++        variant_count_mismatches = 0
++        variant_order_mismatches = 0
++        failures: list[dict[str, object]] = []
++        for word in sorted(source_words & asset_words):
++            expected = source.lookup_all(word)
++            actual = self.lookup_all(word)
++            if actual == expected:
++                continue
++            pronunciation_mismatches += 1
++            if len(actual) != len(expected):
++                variant_count_mismatches += 1
++            elif set(actual) == set(expected) and actual != expected:
++                variant_order_mismatches += 1
++            if len(failures) < sample_limit:
++                failures.append({"word": word, "expected": expected, "actual": actual})
++        failures.extend(
++            {"word": word, "expected": source.lookup_all(word), "actual": ()}
++            for word in missing[: max(0, sample_limit - len(failures))]
++        )
++        failures.extend(
++            {"word": word, "expected": (), "actual": self.lookup_all(word)}
++            for word in extra[: max(0, sample_limit - len(failures))]
++        )
++        return {
++            "missing_words": missing,
++            "extra_words": extra,
++            "pronunciation_mismatches": pronunciation_mismatches,
++            "variant_count_mismatches": variant_count_mismatches,
++            "variant_order_mismatches": variant_order_mismatches,
++            "failures": len(missing) + len(extra) + pronunciation_mismatches,
++            "failure_rows": failures,
++            "lossless": not (missing or extra or pronunciation_mismatches),
++        }
++
+     def verify_against(self, source: ParsedLexicon) -> tuple[str, ...]:
+         failures = []
+         for word in source.words:
+diff --git a/experiments/de_lexicon_compression/lexlab/kokoro_view.py b/experiments/de_lexicon_compression/lexlab/kokoro_view.py
+index dacbfc8..129684b 100644
+--- a/experiments/de_lexicon_compression/lexlab/kokoro_view.py
++++ b/experiments/de_lexicon_compression/lexlab/kokoro_view.py
+@@ -38,11 +38,7 @@ def to_kokoro_view(
+     if source_id == "crane_wiktionary":
+         value = _replace_longest(unicodedata.normalize("NFC", ipa))
+         if vocab is not None:
+-            value = "".join(
+-                char if char.isspace() else char
+-                for char in value
+-                if char.isspace() or char in vocab
+-            )
++            value = "".join(char for char in value if char.isspace() or char in vocab)
+             return " ".join(value.split())
+         return " ".join(value.split())
+     return ipa
+diff --git a/experiments/de_lexicon_compression/lexlab/metrics.py b/experiments/de_lexicon_compression/lexlab/metrics.py
+index 6619695..3af22f5 100644
+--- a/experiments/de_lexicon_compression/lexlab/metrics.py
++++ b/experiments/de_lexicon_compression/lexlab/metrics.py
+@@ -1,7 +1,10 @@
+-"""Small benchmark metrics shared by experiment scripts."""
++"""Compression, quality, and representation metrics for experiment runs."""
+
+ from __future__ import annotations
+
++import gzip
++import lzma
++import zlib
+ from collections.abc import Sequence
+
+
+@@ -13,7 +16,11 @@ def levenshtein(left: str, right: str) -> int:
+         current = [i]
+         for j, other in enumerate(right, 1):
+             current.append(
+-                min(current[-1] + 1, previous[j] + 1, previous[j - 1] + (char != other))
++                min(
++                    current[-1] + 1,
++                    previous[j] + 1,
++                    previous[j - 1] + (char != other),
++                )
+             )
+         previous = current
+     return previous[-1]
+@@ -27,3 +34,37 @@ def cer(expected: Sequence[str], actual: Sequence[str]) -> float:
+     distance += sum(len(value) for value in expected[len(actual) :])
+     distance += sum(len(value) for value in actual[len(expected) :])
+     return distance / reference if reference else (0.0 if distance == 0 else 1.0)
++
++
++def compression_layers(data: bytes) -> dict[str, int]:
++    """Return deterministic sizes used by installed and wheel comparisons."""
++    raw_deflate = zlib.compressobj(level=9, method=zlib.DEFLATED, wbits=-15)
++    deflated = raw_deflate.compress(data) + raw_deflate.flush()
++    return {
++        "plain_bytes": len(data),
++        "gzip_bytes": len(gzip.compress(data, mtime=0)),
++        "xz_bytes": len(
++            lzma.compress(data, format=lzma.FORMAT_XZ, check=lzma.CHECK_CRC64)
++        ),
++        "wheel_equivalent_deflate_bytes": len(deflated),
++    }
++
++
++def compare_compression_layers(baseline: bytes, asset: bytes) -> dict[str, int | float]:
++    """Compare equivalent encodings and expose net savings in each layer."""
++    baseline_sizes = compression_layers(baseline)
++    asset_sizes = compression_layers(asset)
++    result: dict[str, int | float] = {}
++    for key, value in baseline_sizes.items():
++        result[f"baseline_{key}"] = value
++    for key, value in asset_sizes.items():
++        result[f"asset_{key}"] = value
++        result[f"net_{key.replace('_bytes', '')}_saved"] = value * -1
++    for layer in ("plain", "gzip", "xz", "wheel_equivalent_deflate"):
++        base = baseline_sizes[f"{layer}_bytes"]
++        compressed = asset_sizes[f"{layer}_bytes"]
++        result[f"net_{layer}_bytes_saved"] = base - compressed
++        result[f"reduction_vs_{layer}_pct"] = (
++            (1 - compressed / base) * 100 if base else 0.0
++        )
++    return result
+diff --git a/experiments/de_lexicon_compression/lexlab/p4.py b/experiments/de_lexicon_compression/lexlab/p4.py
+new file mode 100644
+index 0000000..c92b40c
+--- /dev/null
++++ b/experiments/de_lexicon_compression/lexlab/p4.py
+@@ -0,0 +1,154 @@
++"""Opt-in P4 linker candidates and front-coded word-index prototype."""
++
++from __future__ import annotations
++
++import json
++from dataclasses import dataclass
++from itertools import product
++from typing import Any
++
++from .compact import _bytes, _common, _source
++from .decoder import CompressedLexicon
++from .model import SourceInfo
++
++DEFAULT_LINKERS = ("s", "n", "en", "e", "er")
++
++
++def exact_linker_candidates(
++    word: str,
++    expected: tuple[str, ...],
++    atoms: dict[str, tuple[str, ...]],
++    *,
++    linkers: tuple[str, ...] = DEFAULT_LINKERS,
++    max_candidates: int = 100,
++) -> tuple[tuple[str, ...], ...]:
++    """Generate only exact linker shapes; approximation is never accepted."""
++    found = []
++    for linker in linkers:
++        start = 1
++        while True:
++            position = word.find(linker, start)
++            if position < 1 or position + len(linker) >= len(word):
++                break
++            left = word[:position]
++            right = word[position + len(linker) :]
++            if left not in atoms or linker not in atoms or right not in atoms:
++                start = position + 1
++                continue
++            values = [atoms[left], atoms[linker], atoms[right]]
++            candidate = tuple(
++                "".join(parts)
++                for parts in product(*values)
++            )
++            if candidate == expected:
++                found.append((left, linker, right))
++                if len(found) >= max_candidates:
++                    return tuple(found)
++            start = position + 1
++    return tuple(found)
++
++
++def front_encode(words: tuple[str, ...], *, block_size: int = 16) -> list[list[object]]:
++    """Encode sorted words as (shared-prefix length, UTF-8-safe suffix)."""
++    encoded: list[list[object]] = []
++    previous = ""
++    for index, word in enumerate(words):
++        if index % block_size == 0:
++            prefix = 0
++        else:
++            prefix = 0
++            for left, right in zip(previous, word, strict=False):
++                if left != right:
++                    break
++                prefix += 1
++        encoded.append([prefix, word[prefix:]])
++        previous = word
++    return encoded
++
++
++def front_decode(
++    encoded: list[list[object]], *, block_size: int = 16
++) -> tuple[str, ...]:
++    words = []
++    previous = ""
++    for index, (prefix, suffix) in enumerate(encoded):
++        if index % block_size == 0 and int(prefix) != 0:
++            raise ValueError("front-coded block must start with zero prefix")
++        word = previous[: int(prefix)] + str(suffix)
++        words.append(word)
++        previous = word
++    return tuple(words)
++
++
++@dataclass(slots=True)
++class FrontCodedLexicon:
++    source: SourceInfo
++    word_index: tuple[str, ...]
++    entries: dict[str, tuple[str, ...]]
++    derived: dict[str, tuple[str, ...]]
++    atoms: dict[str, tuple[str, ...]]
++    metadata: dict[str, object]
++
++    def lookup_all(self, word: str) -> tuple[str, ...]:
++        if word in self.entries:
++            return self.entries[word]
++        components = self.derived.get(word)
++        if components is None:
++            return ()
++        result = [""]
++        for component in components:
++            result = [
++                prefix + value
++                for prefix in result
++                for value in self.atoms[component]
++            ]
++        return tuple(result)
++
++    @property
++    def words(self) -> tuple[str, ...]:
++        return self.word_index
++
++
++def to_front_coded_asset(compressed: CompressedLexicon) -> FrontCodedLexicon:
++    words = tuple(
++        sorted((*compressed.atoms, *compressed.exceptions, *compressed.derived))
++    )
++    return FrontCodedLexicon(
++        compressed.source,
++        words,
++        dict(compressed.exceptions) | dict(compressed.atoms),
++        dict(compressed.derived),
++        dict(compressed.atoms),
++        {**compressed.metadata, "mode": "front-coded"},
++    )
++
++
++def front_coded_asset_dict(compressed: CompressedLexicon) -> dict[str, Any]:
++    asset = to_front_coded_asset(compressed)
++    return {
++        **_common(compressed, "front-coded"),
++        "block_size": 16,
++        "word_index": front_encode(asset.word_index),
++        "entries": {word: list(values) for word, values in asset.entries.items()},
++        "atoms": {word: list(values) for word, values in asset.atoms.items()},
++        "derived": {word: list(values) for word, values in asset.derived.items()},
++    }
++
++
++def serialize_front_coded(compressed: CompressedLexicon) -> bytes:
++    return _bytes(front_coded_asset_dict(compressed))
++
++
++def deserialize_front_coded(data: bytes) -> FrontCodedLexicon:
++    value = json.loads(data.decode("utf-8"))
++    if value.get("schema") != 2 or value.get("mode") != "front-coded":
++        raise ValueError("not a front-coded asset")
++    block_size = int(value.get("block_size", 16))
++    return FrontCodedLexicon(
++        _source(value["source"]),
++        front_decode(value.get("word_index", []), block_size=block_size),
++        {word: tuple(values) for word, values in value.get("entries", {}).items()},
++        {word: tuple(values) for word, values in value.get("derived", {}).items()},
++        {word: tuple(values) for word, values in value.get("atoms", {}).items()},
++        dict(value.get("metadata", {})),
++    )
+diff --git a/experiments/de_lexicon_compression/lexlab/parse.py b/experiments/de_lexicon_compression/lexlab/parse.py
+index 913aa54..4d2595f 100644
+--- a/experiments/de_lexicon_compression/lexlab/parse.py
++++ b/experiments/de_lexicon_compression/lexlab/parse.py
+@@ -49,7 +49,8 @@ def parse_tsv_text(
+         fields = line.rstrip("\r\n").split("\t")
+         if len(fields) != 2:
+             raise LexiconFormatError(
+-                f"{path or source.source_id}:{line_number}: expected 2 tab-separated fields, got {len(fields)}"
++                f"{path or source.source_id}:{line_number}: "
++                f"expected 2 tab-separated fields, got {len(fields)}"
+             )
+         word, ipa = fields
+         if not word:
+diff --git a/experiments/de_lexicon_compression/lexlab/serializer.py b/experiments/de_lexicon_compression/lexlab/serializer.py
+index d36fa0c..1adcaf4 100644
+--- a/experiments/de_lexicon_compression/lexlab/serializer.py
++++ b/experiments/de_lexicon_compression/lexlab/serializer.py
+@@ -36,6 +36,30 @@ def asset_dict(compressed: CompressedLexicon) -> dict[str, Any]:
+     }
+
+
++def canonical_asset_dict(source) -> dict[str, Any]:
++    """Build the representation-equivalent direct lookup baseline."""
++    return {
++        "schema": 1,
++        "kind": "baseline-canonical",
++        "source": _source_dict(source.source),
++        "entries": {
++            word: list(source.lookup_all(word)) for word in sorted(source.words)
++        },
++    }
++
++
++def serialize_canonical(source) -> bytes:
++    return (
++        json.dumps(
++            canonical_asset_dict(source),
++            ensure_ascii=False,
++            sort_keys=True,
++            separators=(",", ":"),
++        )
++        + "\n"
++    ).encode("utf-8")
++
++
+ def serialize(compressed: CompressedLexicon) -> bytes:
+     return (
+         json.dumps(
+@@ -55,8 +79,12 @@ def write_asset(path: Path, compressed: CompressedLexicon) -> int:
+     return len(data)
+
+
+-def deserialize(data: bytes) -> CompressedLexicon:
++def deserialize(data: bytes):
+     value = json.loads(data.decode("utf-8"))
++    if value.get("schema") == 2:
++        from .compact import deserialize_compact
++
++        return deserialize_compact(data)
+     if value.get("schema") != ASSET_SCHEMA:
+         raise ValueError(f"unsupported asset schema: {value.get('schema')!r}")
+     source = SourceInfo(**value["source"])
+diff --git a/experiments/de_lexicon_compression/lexlab/sources.py b/experiments/de_lexicon_compression/lexlab/sources.py
+index 455d5e0..efa455b 100644
+--- a/experiments/de_lexicon_compression/lexlab/sources.py
++++ b/experiments/de_lexicon_compression/lexlab/sources.py
+@@ -118,7 +118,8 @@ def load_source(
+     resolved = resolve_source_path(spec, data_root, path)
+     if resolved is None or not resolved.is_file():
+         raise FileNotFoundError(
+-            f"Source {source_id!r} is unavailable; provide --data-root or --path for {spec.filename}"
++            f"Source {source_id!r} is unavailable; "
++            f"provide --data-root or --path for {spec.filename}"
+         )
+     expected = str(spec.values.get("sha256", ""))
+     from .download import sha256_file
+diff --git a/experiments/de_lexicon_compression/run_matrix.py b/experiments/de_lexicon_compression/run_matrix.py
+old mode 100644
+new mode 100755
+index dc48f9a..e97dc5d
+--- a/experiments/de_lexicon_compression/run_matrix.py
++++ b/experiments/de_lexicon_compression/run_matrix.py
+@@ -41,45 +41,61 @@ def run_matrix(
+                 command.extend(("--data-root", str(data_root)))
+             _run(command)
+             runtime_path = run_dir / "runtime.json"
+-            runtime_command = [
+-                sys.executable,
+-                str(Path(__file__).with_name("benchmark_runtime.py")),
+-                "--run",
+-                str(run_dir),
+-                "--output",
+-                str(runtime_path),
+-            ]
+-            _run(runtime_command)
++            _run(
++                [
++                    sys.executable,
++                    str(Path(__file__).with_name("benchmark_runtime.py")),
++                    "--run",
++                    str(run_dir),
++                    "--output",
++                    str(runtime_path),
++                ]
++            )
+             summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
+             runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
+-            rows.append(
+-                {
+-                    "source": source,
+-                    "mode": mode,
+-                    "physical_rows": summary.get("physical_rows", 0),
+-                    "unique_words": summary.get("unique_words", 0),
+-                    "variants": summary.get("pronunciation_variants", 0),
+-                    "source_bytes": summary.get("source_bytes", 0),
+-                    "asset_bytes": summary.get("compressed_asset_bytes", 0),
+-                    "byte_reduction_pct": (1 - summary.get("compression_ratio", 0))
+-                    * 100,
+-                    "derived_words_pct": summary.get("entry_reduction_rate", 0) * 100,
+-                    "verification_failures": summary.get("verification", {}).get(
+-                        "failures", 0
+-                    ),
+-                    "compress_seconds": summary.get("performance", {}).get(
+-                        "compression_seconds", 0
+-                    ),
+-                    "verify_seconds": summary.get("performance", {}).get(
+-                        "verification_seconds", 0
+-                    ),
+-                    "peak_rss_mib": runtime.get("peak_rss_kib", 0) / 1024,
+-                    "cold_load_ms": runtime.get("cold_load_ms", 0),
+-                    "lookup_words_per_second": runtime.get("direct", {}).get(
+-                        "words_per_second", 0
+-                    ),
+-                }
+-            )
++            layers = summary.get("compression_layers", {})
++            row = {
++                "source": source,
++                "mode": mode,
++                "physical_rows": summary.get("physical_rows", 0),
++                "unique_words": summary.get("unique_words", 0),
++                "variants": summary.get("pronunciation_variants", 0),
++                "source_bytes": summary.get("source_bytes", 0),
++                "canonical_baseline_bytes": summary.get("canonical_baseline_bytes", 0),
++                "asset_bytes": summary.get("compressed_asset_bytes", 0),
++                "derived_words_pct": summary.get("entry_reduction_rate", 0) * 100,
++                "verification_failures": summary.get("verification", {}).get(
++                    "failures", 0
++                ),
++                "compress_seconds": summary.get("performance", {}).get(
++                    "compression_seconds", 0
++                ),
++                "verify_seconds": summary.get("performance", {}).get(
++                    "verification_seconds", 0
++                ),
++                "peak_rss_mib": runtime.get("peak_rss_bytes", 0) / (1024 * 1024),
++                "cold_load_ms": runtime.get("cold_load_ms"),
++                "source_sha256": summary.get("source_sha256"),
++                "python": summary.get("python"),
++                "platform": summary.get("platform"),
++            }
++            for key in (
++                "baseline_plain_bytes",
++                "baseline_gzip_bytes",
++                "baseline_xz_bytes",
++                "baseline_wheel_equivalent_deflate_bytes",
++                "asset_plain_bytes",
++                "asset_gzip_bytes",
++                "asset_xz_bytes",
++                "asset_wheel_equivalent_deflate_bytes",
++                "net_plain_bytes_saved",
++                "net_gzip_bytes_saved",
++                "net_xz_bytes_saved",
++                "net_wheel_equivalent_deflate_bytes_saved",
++                "reduction_vs_wheel_equivalent_deflate_pct",
++            ):
++                row[key] = layers.get(key)
++            rows.append(row)
+     fields = list(rows[0]) if rows else []
+     write_tsv(output / "summary.tsv", rows, fields)
+     write_json(output / "summary.json", {"schema": 1, "rows": rows})
+@@ -90,7 +106,12 @@ def main() -> int:
+     parser = argparse.ArgumentParser(description=__doc__)
+     parser.add_argument("--sources", required=True)
+     parser.add_argument(
+-        "--modes", required=True, help="Comma-separated: exact-two-part,exact-multipart"
++        "--modes",
++        required=True,
++        help=(
++            "Comma-separated stable modes: "
++            "baseline-canonical,exact-two-part,exact-multipart"
++        ),
+     )
+     parser.add_argument("--data-root", type=Path)
+     parser.add_argument("--output", type=Path, required=True)
+diff --git a/experiments/de_lexicon_compression/tests/test_analysis.py b/experiments/de_lexicon_compression/tests/test_analysis.py
+index 9a153a1..2a35d44 100644
+--- a/experiments/de_lexicon_compression/tests/test_analysis.py
++++ b/experiments/de_lexicon_compression/tests/test_analysis.py
+@@ -9,5 +9,6 @@ def test_analysis_writes_required_reports(tmp_path: Path):
+         '[format]\nversion=1\n[sources.toy]\nkind="file"\nformat="tsv_variants"\n',
+         encoding="utf-8",
+     )
+-    # The public CLI is pinned-source oriented; exercise report writer through a tiny parsed source indirectly in smoke tests.
++    # The public CLI is pinned-source oriented; exercise report writing
++    # through a tiny parsed source indirectly in smoke tests.
+     assert source_path.is_file()
+diff --git a/experiments/de_lexicon_compression/tests/test_v2_review.py b/experiments/de_lexicon_compression/tests/test_v2_review.py
+new file mode 100644
+index 0000000..6475e2e
+--- /dev/null
++++ b/experiments/de_lexicon_compression/tests/test_v2_review.py
+@@ -0,0 +1,73 @@
++from experiments.de_lexicon_compression.lexlab.cascade import (
++    cross_source_sharing,
++    score_cascade,
++)
++from experiments.de_lexicon_compression.lexlab.compact import (
++    deserialize_compact,
++    serialize_compact,
++    verify_lookup,
++)
++from experiments.de_lexicon_compression.lexlab.composition import (
++    CompositionMetrics,
++    exact_composition,
++)
++from experiments.de_lexicon_compression.lexlab.compressor import compress_lexicon
++from experiments.de_lexicon_compression.lexlab.model import ParsedLexicon, SourceInfo
++from experiments.de_lexicon_compression.lexlab.p4 import (
++    front_decode,
++    front_encode,
++    serialize_front_coded,
++)
++
++
++def test_exact_search_beats_spelling_rank_and_reuses_trie():
++    source = ParsedLexicon.from_pairs(
++        SourceInfo("toy"),
++        [("A", "x"), ("AB", "u"), ("BC", "y"), ("C", "v"), ("ABC", "xy")],
++    )
++    result = compress_lexicon(source, mode="exact-two-part")
++    assert result.compressed.derived["ABC"] == ("A", "BC")
++    assert result.metrics.trie_builds == 1
++
++
++def test_variant_product_is_pruned_before_materialization():
++    metrics = CompositionMetrics()
++    segmentation, candidate = exact_composition(
++        "AB",
++        ("xy",),
++        {"A": ("x", "x2"), "B": ("y", "y2")},
++        mode="exact-two-part",
++        max_variant_product=1,
++        metrics=metrics,
++    )
++    assert segmentation is None
++    assert candidate == ()
++    assert metrics.variant_product_rejections == 1
++
++
++def test_v2_assets_and_front_coding_round_trip():
++    source = ParsedLexicon.from_pairs(
++        SourceInfo("toy"), [("a", "x"), ("b", "y"), ("ab", "xy")]
++    )
++    compressed = compress_lexicon(source).compressed
++    for mode in ("exact-multipart-ids", "ipa-intern", "ipa-repair-macros"):
++        decoded = deserialize_compact(serialize_compact(compressed, mode))
++        assert verify_lookup(decoded, source)["failures"] == 0
++    front = deserialize_compact(serialize_front_coded(compressed))
++    assert verify_lookup(front, source)["failures"] == 0
++    words = ("a", "ab", "abc", "abd")
++    assert front_decode(front_encode(words)) == words
++
++
++def test_cascade_precedence_conflict_and_sharing():
++    first = ParsedLexicon.from_pairs(SourceInfo("first"), [("x", "one")])
++    second = ParsedLexicon.from_pairs(
++        SourceInfo("second"), [("x", "two"), ("y", "why")]
++    )
++    result = score_cascade([first, second], [("x", ("one",)), ("y", ("why",))])
++    assert result["incremental_hits_by_source"] == {"first": 1, "second": 1}
++    assert result["conflict_wins_by_source"] == {"first": 1}
++    assert (
++        cross_source_sharing([first, second])["identical_spelling_shared_variant"]
++        == 0
++    )
+diff --git a/experiments/de_lexicon_compression/verify.py b/experiments/de_lexicon_compression/verify.py
+old mode 100644
+new mode 100755
+index 4566c8c..3def557
+--- a/experiments/de_lexicon_compression/verify.py
++++ b/experiments/de_lexicon_compression/verify.py
+@@ -1,41 +1,57 @@
+ #!/usr/bin/env python3
+-"""Independently reload and verify an exact source-semantic asset."""
++"""Independently reload and verify a lookup-semantic asset."""
+
+ from __future__ import annotations
+
+ import argparse
++import hashlib
+ from pathlib import Path
+
+ try:
++    from .lexlab.compact import verify_lookup
+     from .lexlab.reports import write_json
+-    from .lexlab.serializer import load_asset
++    from .lexlab.serializer import ASSET_SCHEMA, load_asset
+     from .lexlab.sources import load_source
+ except ImportError:  # direct script execution
++    from lexlab.compact import verify_lookup
+     from lexlab.reports import write_json
+-    from lexlab.serializer import load_asset
++    from lexlab.serializer import ASSET_SCHEMA, load_asset
+     from lexlab.sources import load_source
+
+
+ def verify(
+-    run: Path, *, source_id: str | None = None, data_root: Path | None = None
++    run: Path,
++    *,
++    source_id: str | None = None,
++    data_root: Path | None = None,
++    sample_limit: int = 100,
+ ) -> dict[str, object]:
+-    asset = load_asset(run / "compressed.asset" if run.is_dir() else run)
++    asset_path = run / "compressed.asset" if run.is_dir() else run
++    asset_bytes = asset_path.read_bytes()
++    asset = load_asset(asset_path)
+     source_name = source_id or asset.source.source_id
+     source = load_source(source_name, data_root=data_root)
+-    failures = []
+-    variants = 0
+-    for word in source.words:
+-        expected = source.lookup_all(word)
+-        actual = asset.lookup_all(word)
+-        variants += len(expected)
+-        if expected != actual:
+-            failures.append({"word": word, "expected": expected, "actual": actual})
++    report = (
++        asset.verify_report(source, sample_limit=sample_limit)
++        if hasattr(asset, "verify_report")
++        else verify_lookup(asset, source, sample_limit=sample_limit)
++    )
+     result = {
++        "schema_version": ASSET_SCHEMA,
++        "compressor_version": asset.metadata.get("compressor_version", "1"),
++        "parser_version": asset.source.parser_version,
++        "view_version": asset.source.view_version,
++        "source_sha256": source.source.sha256,
++        "asset_sha256": hashlib.sha256(asset_bytes).hexdigest(),
++        "lossless_contract": asset.metadata.get("lossless_contract", "lookup-semantic"),
+         "words_checked": len(source.entries),
+-        "variants_checked": variants,
+-        "exact_words": len(source.entries) - len(failures),
+-        "failures": len(failures),
+-        "failure_rows": failures,
++        "variants_checked": sum(len(values) for values in source.entries.values()),
++        "exact_words": (
++            len(source.entries)
++            - len(report["missing_words"])
++            - report["pronunciation_mismatches"]
++        ),
++        **report,
+     }
+     if run.is_dir():
+         write_json(run / "independent-verification.json", result)
+@@ -47,12 +63,21 @@ def main() -> int:
+     parser.add_argument("--run", type=Path, required=True)
+     parser.add_argument("--source")
+     parser.add_argument("--data-root", type=Path)
++    parser.add_argument("--sample-limit", type=int, default=100)
+     args = parser.parse_args()
+-    result = verify(args.run, source_id=args.source, data_root=args.data_root)
++    result = verify(
++        args.run,
++        source_id=args.source,
++        data_root=args.data_root,
++        sample_limit=args.sample_limit,
++    )
+     print(f"Words checked:       {result['words_checked']}")
+     print(f"Variants checked:    {result['variants_checked']}")
+     print(f"Exact word tuples:   {result['exact_words']}")
+-    print(f"Failures:             {result['failures']}")
++    print(f"Missing words:       {len(result['missing_words'])}")
++    print(f"Extra words:         {len(result['extra_words'])}")
++    print(f"Pronunciation mismatches: {result['pronunciation_mismatches']}")
++    print(f"Failures:            {result['failures']}")
+     return 0 if result["failures"] == 0 else 1
+
+
