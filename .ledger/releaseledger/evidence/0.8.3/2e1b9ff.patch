@@ -2860,5 +2860,3 @@ index 4566c8c..3def557
 +    print(f"Pronunciation mismatches: {result['pronunciation_mismatches']}")
 +    print(f"Failures:            {result['failures']}")
      return 0 if result["failures"] == 0 else 1
-
-

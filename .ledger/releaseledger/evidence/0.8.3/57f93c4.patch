@@ -70,4 +70,3 @@ index 82ce910..221fd93 100644
 +    assert clean_espeak_output("a.b̪ˤ͡ [ʕ] {ħ} .") == "ab ʕ ħ ."
      assert validate_nabra_symbols("ʕ ħ")[0]
      assert encode_output("ʕħ") == [7, 8]
-

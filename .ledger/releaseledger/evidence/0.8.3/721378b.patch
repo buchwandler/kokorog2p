@@ -786,4 +786,3 @@ index b2b986d..48bbae7 100644
 +            path for path in selected if matcher.search(_relative_test_path(path, root))
          ]
      return selected
-
