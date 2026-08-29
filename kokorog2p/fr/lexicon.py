@@ -222,15 +222,13 @@ class FrenchLexicon:
         """
         word_lower = word.lower()
 
-        # Check built-in fixes first (highest priority after gold)
-        if word_lower in self.builtin:
-            return (self.builtin[word_lower], 4)
-
-        # Check gold dictionary
+        # The explicit selected stack has precedence over compatibility fixes.
         hit = self._selected.get_hit(word)
         if hit is None:
             hit = self._selected.get_hit(word_lower)
         if hit is None:
+            if word_lower in self.builtin:
+                return (self.builtin[word_lower], 4)
             return (None, None)
         ps = hit.value
         rating = hit.rating

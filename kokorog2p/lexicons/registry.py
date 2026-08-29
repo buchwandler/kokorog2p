@@ -1,10 +1,13 @@
-"""Named packaged lexicon registry."""
+"""Manifest-generated named lexicon registry."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Literal
+
+from ._generated_registry import GENERATED_LEXICONS
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,79 +20,24 @@ class LexiconSpec:
     case_aliases: bool
     phoneme_encoding: str
     metadata: Mapping[str, object]
+    id: str
+    default_priority: int | None
 
 
-_SPECS: tuple[LexiconSpec, ...] = (
+_SPECS: tuple[LexiconSpec, ...] = tuple(
     LexiconSpec(
-        "en-us",
-        "gold",
-        "en_us_gold.g2lex",
-        "pronunciation",
-        4,
-        True,
-        "kokoro-v1",
-        {"id": "en-us:gold"},
-    ),
-    LexiconSpec(
-        "en-us",
-        "silver",
-        "en_us_silver.g2lex",
-        "pronunciation",
-        3,
-        True,
-        "kokoro-v1",
-        {"id": "en-us:silver"},
-    ),
-    LexiconSpec(
-        "en-gb",
-        "gold",
-        "en_gb_gold.g2lex",
-        "pronunciation",
-        4,
-        True,
-        "kokoro-v1",
-        {"id": "en-gb:gold"},
-    ),
-    LexiconSpec(
-        "en-gb",
-        "silver",
-        "en_gb_silver.g2lex",
-        "pronunciation",
-        3,
-        True,
-        "kokoro-v1",
-        {"id": "en-gb:silver"},
-    ),
-    LexiconSpec(
-        "de-de",
-        "gold",
-        "de_gold.g2lex",
-        "pronunciation",
-        4,
-        False,
-        "ipa",
-        {"id": "de-de:gold"},
-    ),
-    LexiconSpec(
-        "fr-fr",
-        "gold",
-        "fr_gold.g2lex",
-        "pronunciation",
-        4,
-        True,
-        "kokoro-v1",
-        {"id": "fr-fr:gold"},
-    ),
-    LexiconSpec(
-        "ja-jp",
-        "words",
-        "ja_words.g2lex",
-        "membership",
-        None,
-        False,
-        "none",
-        {"id": "ja-jp:words"},
-    ),
+        language=str(record["language"]),
+        name=str(record["name"]),
+        resource=str(record["resource"]),
+        kind=record["kind"],
+        rating=record.get("rating"),
+        case_aliases=bool(record["case_aliases"]),
+        phoneme_encoding=str(record["phoneme_encoding"]),
+        metadata=MappingProxyType(dict(record)),
+        id=str(record["id"]),
+        default_priority=record.get("default_priority"),
+    )
+    for record in GENERATED_LEXICONS
 )
 
 _LANGUAGE_ALIASES = {
@@ -124,7 +72,7 @@ def _specs_for(language: str) -> tuple[LexiconSpec, ...]:
 
 
 def available_lexicons(language: str) -> tuple[str, ...]:
-    """Return registered lexicon names in deterministic precedence order."""
+    """Return all registered lexicon names in manifest order."""
     return tuple(spec.name for spec in _specs_for(language))
 
 
@@ -140,49 +88,75 @@ def get_lexicon_spec(language: str, name: str) -> LexiconSpec:
     )
 
 
+def _legacy_enabled(spec: LexiconSpec, *, load_gold: bool, load_silver: bool) -> bool:
+    if spec.name == "gold":
+        return load_gold
+    if spec.name == "silver":
+        return load_silver
+    return load_gold
+
+
 def normalize_lexicon_selection(
     language: str,
     lexicons: str | Sequence[str] | None,
     *,
-    load_gold: bool = True,
-    load_silver: bool = True,
+    load_gold: bool | None = None,
+    load_silver: bool | None = None,
 ) -> tuple[str, ...]:
-    """Normalize an explicit or legacy lexicon selection."""
+    """Normalize explicit selections and backwards-compatible legacy flags."""
     canonical = normalize_language(language)
-    available = available_lexicons(canonical)
+    specs = _specs_for(canonical)
     if lexicons is None:
-        if canonical.startswith("en-"):
-            return (
-                ("gold", "silver")
-                if load_gold and load_silver
-                else ("gold",)
-                if load_gold
-                else ("silver",)
-                if load_silver
-                else ()
-            )
-        if "gold" in available:
-            return ("gold",) if load_gold else ()
-        if "words" in available:
-            return ("words",) if load_gold else ()
-        return ()
+        gold = True if load_gold is None else load_gold
+        silver = True if load_silver is None else load_silver
+        selected = [
+            spec
+            for spec in specs
+            if spec.default_priority is not None
+            and _legacy_enabled(spec, load_gold=gold, load_silver=silver)
+        ]
+        selected.sort(key=lambda spec: (spec.default_priority, specs.index(spec)))
+        return tuple(spec.name for spec in selected)
+
     names = (lexicons,) if isinstance(lexicons, str) else tuple(lexicons)
     if len(names) != len(set(names)):
         raise ValueError("lexicons selection must not contain duplicate names")
     for name in names:
         get_lexicon_spec(canonical, name)
-    if (load_gold, load_silver) != (True, True):
-        expected = ("gold" in names, "silver" in names)
-        if (load_gold, load_silver) != expected:
-            raise ValueError(
-                "Explicit lexicons selection contradicts load_gold/load_silver: "
-                f"selection={names!r}, flags={(load_gold, load_silver)!r}"
-            )
+    if load_gold is not None and ("gold" in names) != load_gold:
+        raise ValueError(
+            "Explicit lexicons selection contradicts load_gold: "
+            f"selection={names!r}, load_gold={load_gold!r}"
+        )
+    if load_silver is not None and ("silver" in names) != load_silver:
+        raise ValueError(
+            "Explicit lexicons selection contradicts load_silver: "
+            f"selection={names!r}, load_silver={load_silver!r}"
+        )
     return names
 
 
+def lexicon_info(language: str, name: str) -> Mapping[str, object]:
+    """Return immutable public metadata for a named lexicon."""
+    spec = get_lexicon_spec(language, name)
+    return MappingProxyType(
+        {
+            **dict(spec.metadata),
+            "id": spec.id,
+            "language": spec.language,
+            "name": spec.name,
+            "resource": spec.resource,
+            "kind": spec.kind,
+            "rating": spec.rating,
+            "case_aliases": spec.case_aliases,
+            "phoneme_encoding": spec.phoneme_encoding,
+            "default_priority": spec.default_priority,
+        }
+    )
+
+
 def iter_lexicon_specs() -> tuple[LexiconSpec, ...]:
-    """Return all registry specifications in manifest order."""
+    """Return all registry specifications in generated manifest order."""
     return _SPECS
 
 
@@ -191,6 +165,7 @@ __all__ = [
     "available_lexicons",
     "get_lexicon_spec",
     "iter_lexicon_specs",
+    "lexicon_info",
     "normalize_language",
     "normalize_lexicon_selection",
 ]

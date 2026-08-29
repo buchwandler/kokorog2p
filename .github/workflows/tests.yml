@@ -215,7 +215,7 @@ jobs:
       - name: Check deterministic lexicon assets
         run: python scripts/build_g2lex_assets.py --check
       - name: Validate lexicon assets
-        run: python scripts/validate_g2lex_assets.py --all
+        run: python scripts/validate_g2lex_assets.py --all --runtime-parity
       - name: Run focused lexicon tests
         run: |
           python -m pytest -q \
@@ -223,4 +223,8 @@ jobs:
             tests/test_g2lex_assets.py \
             tests/test_lexicon_selection.py \
             tests/test_g2lex_runtime_lifetime.py \
-            tests/test_legacy_lexicon_parity.py
+            tests/test_legacy_lexicon_parity.py \
+            tests/test_lexicon_precedence.py \
+            tests/test_lexicon_manifest_generation.py \
+            tests/test_en_arpabet.py \
+            tests/test_cmudict_lexicon.py

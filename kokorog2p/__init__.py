@@ -44,6 +44,7 @@ from kokorog2p.base import G2PBase
 from kokorog2p.lexicons.registry import (
     available_lexicons,
     get_lexicon_spec,
+    lexicon_info,
     normalize_lexicon_selection,
 )
 from kokorog2p.markers import apply_marker_overrides, parse_delimited
@@ -397,8 +398,8 @@ def get_g2p(  # noqa: C901
     use_cli: bool = False,
     use_spacy: bool | None = None,
     backend: BackendType = "kokorog2p",
-    load_silver: bool = True,
-    load_gold: bool = True,
+    load_silver: bool | None = None,
+    load_gold: bool | None = None,
     lexicons: str | Sequence[str] | None = None,
     version: str = "1.0",
     phoneme_quotes: str = "curly",
@@ -491,6 +492,8 @@ def get_g2p(  # noqa: C901
     selected_lexicons = normalize_lexicon_selection(
         lang, lexicons, load_gold=load_gold, load_silver=load_silver
     )
+    effective_load_silver = True if load_silver is None else load_silver
+    effective_load_gold = True if load_gold is None else load_gold
     if use_espeak_fallback is None:
         use_espeak_fallback = lang != "sv-se"
     # Validate version parameter
@@ -543,8 +546,6 @@ def get_g2p(  # noqa: C901
         effective_use_spacy,
         forwarded_spacy_model,
         backend,
-        load_silver,
-        load_gold,
         selected_lexicons,
         version,
         phoneme_quotes,
@@ -616,8 +617,8 @@ def get_g2p(  # noqa: C901
             use_cli=use_cli,
             use_spacy=effective_use_spacy,
             **extra_kwargs,
-            load_silver=load_silver,
-            load_gold=load_gold,
+            load_silver=effective_load_silver,
+            load_gold=effective_load_gold,
             lexicons=selected_lexicons,
             strict=strict,
             version=version,
@@ -631,8 +632,8 @@ def get_g2p(  # noqa: C901
             language=implementation_language,
             use_spacy=effective_use_spacy,
             **extra_kwargs,
-            load_silver=load_silver,
-            load_gold=load_gold,
+            load_silver=effective_load_silver,
+            load_gold=effective_load_gold,
             version=version,
             **kwargs,
         )
@@ -643,8 +644,8 @@ def get_g2p(  # noqa: C901
             language=implementation_language,
             use_spacy=effective_use_spacy,
             **extra_kwargs,
-            load_silver=load_silver,
-            load_gold=load_gold,
+            load_silver=effective_load_silver,
+            load_gold=effective_load_gold,
             lexicons=selected_lexicons,
             version=version,
             **kwargs,
@@ -659,8 +660,8 @@ def get_g2p(  # noqa: C901
             use_cli=use_cli,
             use_spacy=effective_use_spacy,
             **extra_kwargs,
-            load_silver=load_silver,
-            load_gold=load_gold,
+            load_silver=effective_load_silver,
+            load_gold=effective_load_gold,
             lexicons=selected_lexicons,
             version=version,
             **kwargs,
@@ -705,8 +706,8 @@ def get_g2p(  # noqa: C901
 
         g2p = CzechG2P(
             language=implementation_language,
-            load_silver=load_silver,
-            load_gold=load_gold,
+            load_silver=effective_load_silver,
+            load_gold=effective_load_gold,
             version=version,
             **kwargs,
         )
@@ -719,8 +720,8 @@ def get_g2p(  # noqa: C901
             use_goruut_fallback=use_goruut_fallback,
             use_spacy=effective_use_spacy,
             **extra_kwargs,
-            load_silver=load_silver,
-            load_gold=load_gold,
+            load_silver=effective_load_silver,
+            load_gold=effective_load_gold,
             lexicons=selected_lexicons,
             version=version,
             **kwargs,
@@ -790,8 +791,8 @@ def get_g2p(  # noqa: C901
             use_goruut_fallback=use_goruut_fallback,
             use_spacy=effective_use_spacy,
             **extra_kwargs,
-            load_silver=load_silver,
-            load_gold=load_gold,
+            load_silver=effective_load_silver,
+            load_gold=effective_load_gold,
             version=version,
             **kwargs,
         )
@@ -802,8 +803,8 @@ def get_g2p(  # noqa: C901
             language=implementation_language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
-            load_silver=load_silver,
-            load_gold=load_gold,
+            load_silver=effective_load_silver,
+            load_gold=effective_load_gold,
             version=version,
             **kwargs,
         )
@@ -843,8 +844,8 @@ def phonemize(
     use_spacy: bool | None = None,
     spacy_model: str | None = None,
     spacy_model_size: SpacyModelSize | None = None,
-    load_silver: bool = True,
-    load_gold: bool = True,
+    load_silver: bool | None = None,
+    load_gold: bool | None = None,
     lexicons: str | Sequence[str] | None = None,
     backend: "BackendType" = "kokorog2p",
     g2p: "G2PBase | None" = None,
@@ -1144,6 +1145,7 @@ __all__ = [
     "get_vocab",
     "ids_to_phonemes",
     "is_kokoro_punctuation",
+    "lexicon_info",
     "normalize_punctuation",
     "normalize_spacy_language",
     "overrides_for_segment",

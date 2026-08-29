@@ -65,7 +65,7 @@ class GermanLexicon:
         return word.lower() in self._selected
 
     def __len__(self) -> int:
-        return len(self._gold)
+        return len(self._selected)
 
     def close(self) -> None:
         self._selected.close()

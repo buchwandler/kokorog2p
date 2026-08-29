@@ -1,52 +1,66 @@
 {
   "assets": {
     "de-de:gold": {
-      "asset_bytes": 8551852,
-      "asset_sha256": "9d18eed229eee0c1abc46793889bca7b6b0cf8ed7f48f1885e390818312f9b75",
+      "asset_bytes": 8551860,
+      "asset_sha256": "615ce626dca42bc39ebcca9caea2f6fb943be4fc366fdef4b81a840a7404c8d6",
       "entry_count": 738427,
+      "generator": "g2lex 0.1.0",
       "logical_sha256": "530f4787a2accd9824526749b90f43d4edaf2506f0aa385056a83913cb6ee48a",
+      "phoneme_encoding": "ipa",
       "source_sha256": "2c30bcbb0a9a4fa172943026eea572f1e4ba82a799920b9d96e6ace59d273639"
     },
     "en-gb:gold": {
-      "asset_bytes": 1212532,
-      "asset_sha256": "d656386da9773da7a240a5f1eb4714118ef0dc9a0b65cda6f35f4978f7610c5c",
+      "asset_bytes": 1212540,
+      "asset_sha256": "d500f813993673b4c677c9f98fdfb294cb96fc7de3680fa9f5146f60fb2bbe95",
       "entry_count": 87364,
+      "generator": "g2lex 0.1.0",
       "logical_sha256": "39ffb8e4f5706c287039dca34952e2c342c24ab3f0e56b0f814784a0338aa6eb",
+      "phoneme_encoding": "kokoro-v1",
       "source_sha256": "bcbc593a5fe247d92ee584ffb6302d326b4f99f652c634991206e3f848d36cac"
     },
     "en-gb:silver": {
-      "asset_bytes": 1476452,
-      "asset_sha256": "9a5242a8230afd6c54a03ae6d6b12024f63323961fe36a86fe4ed69807e8061d",
+      "asset_bytes": 1476460,
+      "asset_sha256": "78d480c57c47be0a8c098836f5df9fad7e7395b7dd212920cf1454645f7ffdec",
       "entry_count": 109766,
+      "generator": "g2lex 0.1.0",
       "logical_sha256": "d531b4031a4baf0a23f238c443356f7d941e24aa53982f406fd35439c0f521fd",
+      "phoneme_encoding": "kokoro-v1",
       "source_sha256": "6c062fa3dcab1a949855ff9350bd327335cb3c501218180e052d0e3e4faf5883"
     },
     "en-us:gold": {
-      "asset_bytes": 1257900,
-      "asset_sha256": "7b7caa1485539740c96821292470c79ec01e850d4561db2b3a4cff5a0c0aab63",
+      "asset_bytes": 1257908,
+      "asset_sha256": "a0c2bdd4574aa59cd695b3b962ac7381834050a4394d25c7e1e9c63af5953729",
       "entry_count": 90213,
+      "generator": "g2lex 0.1.0",
       "logical_sha256": "272cea0f8255d1187b7152a5b796b13d1ce16619eca24c638809288a412330df",
+      "phoneme_encoding": "kokoro-v1",
       "source_sha256": "50a8a07a5d5054c25cac1f4e2f0efc31a0a104e0d92c6ddc599772c183e1a86d"
     },
     "en-us:silver": {
-      "asset_bytes": 1254444,
-      "asset_sha256": "b271e5f09e99e02241e8d92a9e5e9ed03be4866858474c7f51c55189550abd8c",
+      "asset_bytes": 1254452,
+      "asset_sha256": "875cb173f7399f437f991852f766d727ff3ebb80b62b50be468a7e93f8d82ff1",
       "entry_count": 93361,
+      "generator": "g2lex 0.1.0",
       "logical_sha256": "7c400c45f8d16bfa14abd35be6527a598f6bffe2d6b85c8da21de565cc5523cb",
+      "phoneme_encoding": "kokoro-v1",
       "source_sha256": "067c30f29524585b479affdef2823d6c1e27c59d6d6dfb1694be676bba1185f1"
     },
     "fr-fr:gold": {
-      "asset_bytes": 159556,
-      "asset_sha256": "30be0a9ae42973d6d7c9a2f1f45193d0d80d000efb954accbb0af83946d9cfe7",
+      "asset_bytes": 159564,
+      "asset_sha256": "b75a2bfb8ee5fbf88e384351443bd9f66acc2eca1ca0bc70c4de0ddb26b07823",
       "entry_count": 15011,
+      "generator": "g2lex 0.1.0",
       "logical_sha256": "103d5ad4108cc987b36a71b64feefa54adc0ed47e2d6b884258538502bdd1683",
+      "phoneme_encoding": "kokoro-v1",
       "source_sha256": "0d5dcd4a6fec8c8decde6403880e41c7b8d6f6c300928eb81f2edc42f811e081"
     },
     "ja-jp:words": {
-      "asset_bytes": 1087588,
-      "asset_sha256": "03af00fdd6800c80c5433b68db2ebb69487d3b52c432035ad101fa4c7b367d09",
+      "asset_bytes": 1087596,
+      "asset_sha256": "ab3295a031baaf06969cf206b67a9da4d474cf4a4c3c6f4a2753bbe929cc03c4",
       "entry_count": 147571,
+      "generator": "g2lex 0.1.0",
       "logical_sha256": "06626c41087fd7d441ce3241b3b4ecb39236d970d9cb69824756d6a26bc60dca",
+      "phoneme_encoding": "none",
       "source_sha256": "f4a05f1b1473f4b3797e9149e472c9343d5ad43093cbce83fe01e96dacfae334"
     }
   },

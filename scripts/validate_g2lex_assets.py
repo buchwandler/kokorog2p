@@ -7,11 +7,13 @@ import argparse
 import hashlib
 import json
 from collections.abc import Mapping
+from importlib.metadata import version as distribution_version
 from pathlib import Path
 from typing import Any
 
 import g2lex
 
+G2LEX_VERSION = distribution_version("g2lex")
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "lexicons" / "manifest.toml"
 LOCK_PATH = ROOT / "lexicons" / "lock.json"
@@ -154,22 +156,31 @@ def runtime_parity(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
         "--all",
         action="store_true",
-        required=True,
         help="validate every manifest record",
     )
+    group.add_argument("--id", help="validate one manifest record")
     parser.add_argument("--runtime-parity", action="store_true")
     parser.add_argument("--json", type=Path, dest="json_path")
     args = parser.parse_args()
     if not MANIFEST_PATH.is_file() or not LOCK_PATH.is_file():
         raise SystemExit("manifest.toml and lock.json are required")
-    records = load_manifest()
+    all_records = load_manifest()
+    records = (
+        all_records
+        if args.all
+        else [record for record in all_records if record["id"] == args.id]
+    )
+    if not records:
+        valid = ", ".join(str(record["id"]) for record in all_records)
+        raise SystemExit(f"unknown lexicon id {args.id!r}; valid ids: {valid}")
     lock = json.loads(LOCK_PATH.read_text(encoding="utf-8"))
     result: dict[str, Any] = {
         "schema_version": 1,
-        "g2lex_version": g2lex.__version__,
+        "g2lex_version": G2LEX_VERSION,
         "assets": [validate_record(record, lock) for record in records],
     }
     if args.runtime_parity:

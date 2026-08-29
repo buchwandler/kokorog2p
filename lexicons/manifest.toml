@@ -11,6 +11,7 @@ asset = "kokorog2p/lexicons/data/en_us_gold.g2lex"
 rating = 4
 case_aliases = true
 phoneme_encoding = "kokoro-v1"
+default_priority = 10
 
 [[lexicon]]
 id = "en-us:silver"
@@ -23,6 +24,7 @@ asset = "kokorog2p/lexicons/data/en_us_silver.g2lex"
 rating = 3
 case_aliases = true
 phoneme_encoding = "kokoro-v1"
+default_priority = 20
 
 [[lexicon]]
 id = "en-gb:gold"
@@ -35,6 +37,7 @@ asset = "kokorog2p/lexicons/data/en_gb_gold.g2lex"
 rating = 4
 case_aliases = true
 phoneme_encoding = "kokoro-v1"
+default_priority = 10
 
 [[lexicon]]
 id = "en-gb:silver"
@@ -47,6 +50,7 @@ asset = "kokorog2p/lexicons/data/en_gb_silver.g2lex"
 rating = 3
 case_aliases = true
 phoneme_encoding = "kokoro-v1"
+default_priority = 20
 
 [[lexicon]]
 id = "de-de:gold"
@@ -59,6 +63,7 @@ asset = "kokorog2p/lexicons/data/de_gold.g2lex"
 rating = 4
 case_aliases = false
 phoneme_encoding = "ipa"
+default_priority = 10
 
 [[lexicon]]
 id = "fr-fr:gold"
@@ -71,6 +76,7 @@ asset = "kokorog2p/lexicons/data/fr_gold.g2lex"
 rating = 4
 case_aliases = true
 phoneme_encoding = "kokoro-v1"
+default_priority = 10
 
 [[lexicon]]
 id = "ja-jp:words"
@@ -82,3 +88,4 @@ source_format = "words"
 asset = "kokorog2p/lexicons/data/ja_words.g2lex"
 case_aliases = false
 phoneme_encoding = "none"
+default_priority = 10

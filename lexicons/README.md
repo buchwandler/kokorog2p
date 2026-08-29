@@ -21,3 +21,7 @@ Validate source-to-asset equality without modifying files with:
 ```bash
 python scripts/validate_g2lex_assets.py --all
 ```
+
+Use `--id LANGUAGE:NAME` for a focused build or validation. Runtime code imports generated metadata from `kokorog2p/lexicons/_generated_registry.py`; it never parses this TOML file or reads `lexicons/sources`.
+
+The first name in an explicit `lexicons=(...)` selection wins collisions. Missing `default_priority` means a lexicon is opt-in rather than part of the default stack. Third-party records must include a pinned revision, source URL, license expression/URL, and attribution before they can be shipped.

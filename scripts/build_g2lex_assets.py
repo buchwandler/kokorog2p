@@ -8,11 +8,13 @@ import hashlib
 import json
 import os
 import tempfile
+from importlib.metadata import version as distribution_version
 from pathlib import Path
 from typing import Any
 
 import g2lex
 
+G2LEX_VERSION = distribution_version("g2lex")
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "lexicons" / "manifest.toml"
 LOCK_PATH = ROOT / "lexicons" / "lock.json"
@@ -37,6 +39,7 @@ def load_manifest() -> list[dict[str, Any]]:
         "source_format",
         "asset",
         "case_aliases",
+        "default_priority",
         "phoneme_encoding",
     }
     result = []
@@ -73,6 +76,59 @@ def asset_path(record: dict[str, Any]) -> Path:
     return ROOT / str(record["asset"])
 
 
+REGISTRY_PATH = ROOT / "kokorog2p" / "lexicons" / "_generated_registry.py"
+
+
+def python_literal(value: object) -> str:
+    return json.dumps(value) if isinstance(value, str) else repr(value)
+
+
+def registry_text(records: list[dict[str, Any]]) -> str:
+    """Render manifest metadata as deterministic importable Python."""
+    fields = (
+        "id",
+        "language",
+        "name",
+        "resource",
+        "kind",
+        "rating",
+        "case_aliases",
+        "phoneme_encoding",
+        "default_priority",
+        "provider",
+        "revision",
+        "source_url",
+        "license_expression",
+        "license_url",
+        "attribution",
+    )
+    lines = [
+        '"""Generated from lexicons/manifest.toml; do not edit manually."""',
+        "",
+        "from __future__ import annotations",
+        "",
+        "GENERATED_LEXICONS = (",
+    ]
+    for record in records:
+        lines.append("    {")
+        for field in fields:
+            if field == "resource" and "asset" in record:
+                value = Path(str(record["asset"])).name
+            elif field in record:
+                value = record[field]
+            else:
+                continue
+            lines.append(f"        {python_literal(field)}: {python_literal(value)},")
+        lines.append("    },")
+    lines.extend((")", ""))
+    return "\n".join(lines)
+
+
+def write_registry(records: list[dict[str, Any]], path: Path = REGISTRY_PATH) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(registry_text(records), encoding="utf-8")
+
+
 def validate_source(record: dict[str, Any]) -> tuple[Any, Path]:
     path = source_path(record)
     parsed = g2lex.read_typed_lexicon(
@@ -101,6 +157,18 @@ def build_record(record: dict[str, Any], output: Path) -> dict[str, Any]:
             "kind": str(record["kind"]),
             "case_aliases": bool(record["case_aliases"]),
             "phoneme_encoding": str(record["phoneme_encoding"]),
+            **{
+                key: record[key]
+                for key in (
+                    "provider",
+                    "revision",
+                    "source_url",
+                    "license_expression",
+                    "license_url",
+                    "attribution",
+                )
+                if key in record
+            },
         },
     )
     verification = g2lex.verify_file(
@@ -116,6 +184,19 @@ def build_record(record: dict[str, Any], output: Path) -> dict[str, Any]:
         "asset_sha256": sha256(output),
         "entry_count": int(packed["asset_entry_count"]),
         "asset_bytes": output.stat().st_size,
+        "generator": f"g2lex {G2LEX_VERSION}",
+        "phoneme_encoding": str(record["phoneme_encoding"]),
+        **{
+            key: record[key]
+            for key in (
+                "revision",
+                "source_url",
+                "license_expression",
+                "license_url",
+                "attribution",
+            )
+            if key in record
+        },
     }
     print(
         f"{record['id']}: source={source} source_bytes={source.stat().st_size} "
@@ -145,7 +226,7 @@ def build_all(
 ) -> dict[str, Any]:
     lock: dict[str, Any] = {
         "schema_version": 1,
-        "g2lex_version": g2lex.__version__,
+        "g2lex_version": G2LEX_VERSION,
         "assets": {},
     }
     existing = {}
@@ -169,6 +250,7 @@ def build_all(
         LOCK_PATH.write_text(
             json.dumps(lock, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
+        write_registry(records)
     return lock
 
 
@@ -178,9 +260,19 @@ def check(records: list[dict[str, Any]]) -> None:
     expected = json.loads(LOCK_PATH.read_text(encoding="utf-8"))
     if (
         expected.get("schema_version") != 1
-        or expected.get("g2lex_version") != g2lex.__version__
+        or expected.get("g2lex_version") != G2LEX_VERSION
     ):
         raise ValueError("lock schema or G2Lex version does not match the build")
+    with tempfile.TemporaryDirectory(prefix=".generated-registry.") as temp:
+        generated = Path(temp) / REGISTRY_PATH.name
+        write_registry(records, generated)
+        committed = (
+            REGISTRY_PATH.read_text(encoding="utf-8")
+            if REGISTRY_PATH.is_file()
+            else None
+        )
+        if committed != generated.read_text(encoding="utf-8"):
+            raise ValueError("generated runtime registry differs from manifest")
     actual_assets = expected.get("assets", {})
     if set(actual_assets) != {str(record["id"]) for record in records}:
         raise ValueError("lock assets do not match the manifest")

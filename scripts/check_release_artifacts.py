@@ -8,31 +8,30 @@ from email.parser import Parser
 from importlib.resources import files
 from pathlib import Path
 
-REQUIRED_WHEEL_FILES = {
+from kokorog2p.lexicons.registry import iter_lexicon_specs
+
+STATIC_REQUIRED_WHEEL_FILES = {
     "kokorog2p/data/kokoro_config.json",
     "kokorog2p/data/kokoro_config_v1.1_de.json",
     "kokorog2p/data/kokoro_config_v1.1_zh.json",
-    "kokorog2p/lexicons/data/en_us_gold.g2lex",
-    "kokorog2p/lexicons/data/en_us_silver.g2lex",
-    "kokorog2p/lexicons/data/en_gb_gold.g2lex",
-    "kokorog2p/lexicons/data/en_gb_silver.g2lex",
-    "kokorog2p/lexicons/data/de_gold.g2lex",
-    "kokorog2p/lexicons/data/fr_gold.g2lex",
-    "kokorog2p/lexicons/data/ja_words.g2lex",
     "kokorog2p/ko/data/table.csv",
 }
-FORBIDDEN_WHEEL_FILES = {
-    "kokorog2p/de/data/de_gold.json",
-    "kokorog2p/en/data/gb_gold.json",
-    "kokorog2p/en/data/gb_silver.json",
-    "kokorog2p/en/data/us_gold.json",
-    "kokorog2p/en/data/us_silver.json",
-    "kokorog2p/fr/data/fr_gold.json",
-    "kokorog2p/ja/data/ja_words.txt",
-}
-ASSET_NAMES = tuple(
-    path.split("/")[-1] for path in REQUIRED_WHEEL_FILES if path.endswith(".g2lex")
+LEGACY_SOURCE_ROOTS = (
+    "kokorog2p/de/data/",
+    "kokorog2p/en/data/",
+    "kokorog2p/fr/data/",
+    "kokorog2p/ja/data/",
 )
+
+
+def required_wheel_files() -> set[str]:
+    return STATIC_REQUIRED_WHEEL_FILES | {
+        f"kokorog2p/lexicons/data/{spec.resource}" for spec in iter_lexicon_specs()
+    }
+
+
+def asset_names() -> tuple[str, ...]:
+    return tuple(spec.resource for spec in iter_lexicon_specs())
 
 
 def check_wheel(path: Path, *, require_release_version: bool) -> None:
@@ -43,12 +42,27 @@ def check_wheel(path: Path, *, require_release_version: bool) -> None:
             name for name in members if name.endswith(".dist-info/METADATA")
         )
         metadata = Parser().parsestr(wheel.read(metadata_name).decode("utf-8"))
-    missing = sorted(REQUIRED_WHEEL_FILES - members)
-    forbidden = sorted(FORBIDDEN_WHEEL_FILES & members)
+    required = required_wheel_files()
+    missing = sorted(required - members)
+    forbidden = sorted(
+        member
+        for member in members
+        if any(member.startswith(root) for root in LEGACY_SOURCE_ROOTS)
+        and Path(member).suffix in {".json", ".txt", ".dict"}
+    )
+    unknown_assets = sorted(
+        member
+        for member in members
+        if member.startswith("kokorog2p/lexicons/data/")
+        and member.endswith(".g2lex")
+        and member not in required
+    )
     if missing:
         raise SystemExit(f"{path}: missing wheel resources: {', '.join(missing)}")
     if forbidden:
         raise SystemExit(f"{path}: forbidden source resources: {', '.join(forbidden)}")
+    if unknown_assets:
+        raise SystemExit(f"{path}: unknown lexicon assets: {', '.join(unknown_assets)}")
     if require_release_version and metadata.get("Version") == "0.0.0":
         raise SystemExit(f"{path}: release artifacts must not use version 0.0.0")
 
@@ -72,7 +86,7 @@ def check_installed(*, require_release_version: bool) -> None:
     assert load_kokoro_v11_zh_config()["vocab"]
     assert available_lexicons("en") == ("gold", "silver")
 
-    for asset_name in ASSET_NAMES:
+    for asset_name in asset_names():
         resource = files("kokorog2p.lexicons.data").joinpath(asset_name)
         lexicon = g2lex.open_traversable(resource)
         try:

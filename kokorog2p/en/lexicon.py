@@ -252,14 +252,16 @@ class Lexicon:
         self.golds: LexiconMapping = self._selected.layer("gold") or EMPTY_LEXICON
         self.silvers: LexiconMapping = self._selected.layer("silver") or EMPTY_LEXICON
 
-    def _get_hit(self, word: str) -> LexiconHit | None:
-        for name, mapping, rating in (
-            ("gold", self.golds, 4),
-            ("silver", self.silvers, 3),
-        ):
-            if word in mapping:
-                return LexiconHit(mapping[word], name, rating)
+    def _selected_hit(self, word: str) -> LexiconHit | None:
+        """Return the hit selected by the configured ordered stack."""
         return self._selected.get_hit(word)
+
+    def _contains_selected(self, word: str) -> bool:
+        """Check membership without assuming tier names."""
+        return self._selected_hit(word) is not None
+
+    def _get_hit(self, word: str) -> LexiconHit | None:
+        return self._selected_hit(word)
 
     @staticmethod
     def _grow_dictionary(d: dict[str, Any]) -> dict[str, Any]:
@@ -304,7 +306,9 @@ class Lexicon:
             return True
         elif not word.isalpha() or not all(ord(c) in LEXICON_ORDS for c in word):
             return False
-        elif len(word) == 1 or word == word.upper() and word.lower() in self.golds:
+        elif len(word) == 1 or (
+            word == word.upper() and self._contains_selected(word.lower())
+        ):
             return True
         return word[1:] == word[1:].upper()
 
@@ -597,12 +601,10 @@ class Lexicon:
             and word.replace("'", "").isalpha()
             and word != word.lower()
             and (tag != "NNP" or len(word) > 7)
-            and word not in self.golds
-            and word not in self.silvers
+            and not self._contains_selected(word)
             and (word == word.upper() or word[1:] == word[1:].lower())
             and (
-                wl in self.golds
-                or wl in self.silvers
+                self._contains_selected(wl)
                 or any(
                     fn(wl, tag, stress, ctx)[0]
                     for fn in (self.stem_s, self.stem_ed, self.stem_ing)

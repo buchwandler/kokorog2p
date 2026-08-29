@@ -666,13 +666,31 @@ kokorog2p consolidates functionality from:
 
 ## Named lexicons
 
-Pronunciation and membership sources are kept under `lexicons/sources` and packaged runtime lookups use verified G2Lex assets. List and select language lexicons with:
+Canonical sources stay outside the importable package; installed lookups use only generated, verified assets:
+
+```text
+lexicons/sources/                  # repository/release sources
+kokorog2p/lexicons/data/*.g2lex    # packaged runtime assets
+```
+
+List and select named lexicons with:
 
 ```python
-from kokorog2p import available_lexicons, get_g2p
+from kokorog2p import available_lexicons, get_g2p, lexicon_info
 
 available_lexicons("en-us")  # ("gold", "silver")
+lexicon_info("en-us", "gold")
 g2p = get_g2p("en-us", lexicons=("gold", "silver"))
 ```
 
-Maintainers rebuild and validate the committed assets with `python scripts/build_g2lex_assets.py --all` and `python scripts/validate_g2lex_assets.py --all`. CMUdict is not an executable option until a Kokoro-compatible conversion is shipped.
+The first lexicon in `lexicons=(...)` that contains a word wins. Explicit selections preserve caller order. If `lexicons` is omitted, manifest default priorities select the compatibility default; the `load_gold` and `load_silver` flags remain compatibility controls. With an explicit selection, only a legacy flag passed by the caller is checked for contradiction.
+
+Maintainers rebuild and validate committed assets with:
+
+```bash
+python scripts/build_g2lex_assets.py --all
+python scripts/build_g2lex_assets.py --check
+python scripts/validate_g2lex_assets.py --all --runtime-parity
+```
+
+CMUdict remains Scope A until a pinned, licensed source and a tested Kokoro-compatible ARPABET conversion are shipped. G2Lex may preserve raw ARPABET exactly, but KokoroG2P must convert it after lookup, preserve numbered variants deterministically, reject unknown symbols, and never download it at runtime.

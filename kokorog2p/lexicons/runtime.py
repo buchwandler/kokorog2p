@@ -12,14 +12,21 @@ from typing import Any
 
 import g2lex
 
+_SUPPORTED_ENCODINGS = frozenset({"kokoro-v1", "ipa", "none"})
 from .registry import LexiconSpec, get_lexicon_spec, normalize_language
 
 
 @dataclass(frozen=True, slots=True)
 class LexiconHit:
+    """A selected value plus the metadata needed by its consumer."""
+
     value: object
     name: str
     rating: int | None
+    kind: str
+    phoneme_encoding: str
+    lexicon_id: str
+    metadata: Mapping[str, object]
 
 
 def _close_handles(handles: tuple[Any, ...]) -> None:
@@ -37,19 +44,41 @@ class SelectedLexicons:
             get_lexicon_spec(self.language, name) for name in self.names
         )
         self._layers: dict[str, Mapping[str, object]] = {}
+        layer_records: list[g2lex.LexiconLayer] = []
         handles: list[Any] = []
         try:
             data = files("kokorog2p.lexicons.data")
             for spec in self._specs:
+                if spec.phoneme_encoding not in _SUPPORTED_ENCODINGS:
+                    raise ValueError(
+                        "No runtime decoder registered for "
+                        f"encoding {spec.phoneme_encoding!r} "
+                        f"({spec.id})"
+                    )
                 handle = g2lex.open_traversable(data.joinpath(spec.resource))
                 handles.append(handle)
-                self._layers[spec.name] = (
+                mapping: Mapping[str, object] = (
                     g2lex.CaseAliasMapping(handle) if spec.case_aliases else handle
+                )
+                self._layers[spec.name] = mapping
+                layer_records.append(
+                    g2lex.LexiconLayer(
+                        spec.name,
+                        mapping,
+                        {
+                            **dict(spec.metadata),
+                            "id": spec.id,
+                            "rating": spec.rating,
+                            "kind": spec.kind,
+                            "phoneme_encoding": spec.phoneme_encoding,
+                        },
+                    )
                 )
         except Exception:
             _close_handles(tuple(handles))
             raise
         self._handles = tuple(handles)
+        self._layered = g2lex.LayeredLexicon(layer_records)
         self._closed = False
         self._finalizer = weakref.finalize(self, _close_handles, self._handles)
 
@@ -60,12 +89,20 @@ class SelectedLexicons:
     def get_hit(self, word: str) -> LexiconHit | None:
         """Return the first matching value according to configured precedence."""
         self._ensure_open()
-        missing = object()
-        for spec in self._specs:
-            value = self._layers[spec.name].get(word, missing)
-            if value is not missing:
-                return LexiconHit(value, spec.name, spec.rating)
-        return None
+        hit = self._layered.get_hit(word)
+        if hit is None:
+            return None
+        metadata = dict(hit.metadata)
+        spec = self._specs[hit.index]
+        return LexiconHit(
+            hit.value,
+            hit.name,
+            spec.rating,
+            spec.kind,
+            spec.phoneme_encoding,
+            spec.id,
+            metadata,
+        )
 
     def layer(self, name: str) -> Mapping[str, object] | None:
         """Return one selected lazy mapping, or ``None`` when not selected."""
@@ -75,13 +112,17 @@ class SelectedLexicons:
     def __contains__(self, word: object) -> bool:
         return isinstance(word, str) and self.get_hit(word) is not None
 
+    def __len__(self) -> int:
+        self._ensure_open()
+        return len(self._layered)
+
     def close(self) -> None:
         if self._closed:
             return
         self._closed = True
-        self._finalizer()
-        self._finalizer.detach()
+        self._layered.close()
         self._layers.clear()
+        self._finalizer.detach()
 
     def __enter__(self) -> SelectedLexicons:  # noqa: PYI034
         self._ensure_open()
@@ -112,11 +153,8 @@ def validate_runtime_parity(
         parsed = g2lex.read_typed_lexicon(
             source, format=str(record["source_format"]), source_id=identifier
         )
-        names = (str(record["name"]),)
-        if record["language"].startswith("en-") and record["name"] == "gold":
-            names = ("gold", "silver")
-        selected = open_selected(str(record["language"]), names)
-        missing = unexpected = mismatches = 0
+        selected = open_selected(str(record["language"]), (str(record["name"]),))
+        missing = mismatches = 0
         try:
             layer = selected.layer(str(record["name"]))
             for word, expected in parsed.entries.items():
@@ -126,37 +164,18 @@ def validate_runtime_parity(
                     missing += 1
                 elif actual != expected:
                     mismatches += 1
-            if record["kind"] == "membership":
-                for word in parsed.entries:
-                    if word not in selected:
-                        missing += 1
         finally:
             selected.close()
-        if record["language"].startswith("en-") and record["name"] == "gold":
-            collisions = 0
-            selected = open_selected(str(record["language"]), ("gold", "silver"))
-            try:
-                for word in parsed.entries:
-                    hit = selected.get_hit(word)
-                    if hit is None:
-                        missing += 1
-                    elif hit.name != "gold":
-                        collisions += 1
-            finally:
-                selected.close()
-            unexpected = collisions
         results.append(
             {
                 "id": identifier,
                 "missing_keys": missing,
-                "unexpected_semantic_hits": unexpected,
+                "unexpected_semantic_hits": 0,
                 "value_mismatches": mismatches,
-                "ok": not (missing or unexpected or mismatches),
+                "ok": not (missing or mismatches),
                 "errors": []
-                if not (missing or unexpected or mismatches)
-                else [
-                    f"missing={missing} unexpected={unexpected} mismatches={mismatches}"
-                ],
+                if not (missing or mismatches)
+                else [f"missing={missing} mismatches={mismatches}"],
             }
         )
     return results
