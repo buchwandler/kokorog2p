@@ -142,6 +142,7 @@ class G2p:
         group_vowels=False,
         to_syl=False,
         use_dict=True,
+        convert_numbers=True,
     ):
         """Main function
         string: input string
@@ -183,7 +184,8 @@ class G2p:
             string = annotate(string, self.mecab)
 
         # 4. Spell out arabic numbers
-        string = convert_num(string)
+        if convert_numbers:
+            string = convert_num(string)
 
         # 5. decompose
         inp = h2j(string)

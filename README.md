@@ -64,18 +64,12 @@ cleanup, tokenization, G2P, and phoneme conversion. PolyNorm remains an upstream
 Spokenform benchmark, while kokorog2p verifies compact downstream handoffs rather than
 copying that corpus.
 
-German was the first migrated language, followed by French, Spanish, Italian,
-Portuguese, Czech, and English. For these seven languages, `abbr2words` recognizes
-lexical abbreviations and symbols, `spokenform` prepares written semantic forms, and
-kokorog2p keeps language routing, spans, overrides, typography, tokenization, G2P, and
-phonemes. Czech abbreviation and canonical quantity/currency recognition remains owned
-by `abbr2words`, while Czech numbers, dates, quantities, temperatures, and currencies
-are prepared by `spokenform`. Spanish keeps European/Latin-American dialect behavior in
-its G2P layer, while Portuguese keeps Brazilian/European semantic wording through its
-spokenform locale. English keeps G2P-specific handling only for spans that Spokenform
-leaves protected or unsupported; accepted Spokenform replacements are never rewritten
-downstream. Use `spokenform` for spoken text without phonemes and `abbr2words` for
-registry-only workflows.
+All 17 supported language families now use the same Spokenform preparation boundary:
+`en`, `de`, `fr`, `es`, `it`, `pt`, `cs`, `vi`, `ko`, `he`, `zh`, `ja`, `ar`, `sv`,
+`th`, `ru`, and `kk`. `abbr2words` remains the registry implementation behind the
+Spokenform customization facade; KokoroG2P retains language routing, spans, overrides,
+typography, tokenization, G2P, and phonemes. Prepared input is passed directly to the
+backend pronunciation layer, with only model-specific sanitation applied.
 
 For example, the released Spokenform 0.3.1 profile prepares a contextual countdown as
 `three - two - one`; KokoroG2P then maps that generic segment boundary to two model em
@@ -84,7 +78,7 @@ dashes. KokoroG2P does not recognize countdown semantics itself.
 ## Installation
 
 ```bash
-# Core package (includes abbr2words and spokenform)
+# Core package (includes Spokenform semantic preparation)
 pip install kokorog2p
 
 # With English support

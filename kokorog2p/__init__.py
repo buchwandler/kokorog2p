@@ -1168,10 +1168,9 @@ def clear_cache(*, deep: bool = False) -> None:
 
 
 def reset_abbreviations() -> None:
-    """Reset abbreviation expanders to their default state."""
-    from abbr2words import reset_expanders
-
-    reset_expanders()
+    """Reset Spokenform's shared abbreviation registry and caches."""
+    from spokenform import reset_abbreviations as reset_spokenform_abbreviations
+    reset_spokenform_abbreviations()
 
     clear_cache(deep=True)
 

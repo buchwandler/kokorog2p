@@ -149,7 +149,13 @@ class ThaiG2P(G2PBase):
         return runs
 
     def _thai_analysis(self, source: str) -> ThaiAnalysis:
-        normalized = self._normalizer.normalize(source)
+        # Spokenform owns semantic preparation for prepared input.  Keep the
+        # legacy normalizer on the raw convenience path only.
+        normalized = (
+            source
+            if getattr(self, "_kokorog2p_prepared_input", False)
+            else self._normalizer.normalize(source)
+        )
         result: EngineResult = self._engine.pronounce_thai_chunk(normalized)
         phonemes = result.phonemes
         valid, invalid = validate_output(phonemes)

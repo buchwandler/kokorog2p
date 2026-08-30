@@ -14,11 +14,9 @@ from spokenform import NumberPolicy, PreparationConfig, prepare_for_kokorog2p
 
 
 def _get_num2words():
-    try:
-        from num2words import num2words
-    except ImportError:
-        return None
-    return num2words
+    from spokenform.number_words import number_words
+
+    return number_words
 
 
 NUM2WORDS_AVAILABLE = _get_num2words() is not None

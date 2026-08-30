@@ -88,5 +88,4 @@ is_valid, invalid = validate_for_kokoro(phonemes, model="1.1")
 - Pypinyin for pinyin conversion to IPA (legacy version)
 - ZHFrontend with Zhuyin notation (version 1.1)
 - Tone sandhi rules
-- cn2an for number handling
 - Chinese to Western punctuation mapping

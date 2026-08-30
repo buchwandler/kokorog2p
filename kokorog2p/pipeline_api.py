@@ -14,9 +14,13 @@ from functools import cache
 from typing import TYPE_CHECKING, Any, Literal
 from weakref import WeakKeyDictionary
 
-from abbr2words import AbbreviationExpander, get_shared_expander, normalize_language
 from spokenform import SUPPORTED_BASE_LANGUAGES
 from spokenform import base_language as spokenform_base_language
+from spokenform.abbreviations import (
+    AbbreviationExpander,
+    get_shared_expander,
+    normalize_language,
+)
 
 from kokorog2p.integrations import coerce_override_spans
 from kokorog2p.punctuation import normalize_punctuation
@@ -65,19 +69,16 @@ class _SpokenformRunResult(list[TextReplacement]):
         super().__init__(replacements)
         self.warnings = list(warnings)
 
-
 def _uses_spokenform_semantics(lang: str | None) -> bool:
     """Return whether *lang* has migrated semantic preparation upstream."""
-
-    normalized = _normalize_lang(lang)
+    normalized = _spokenform_language(lang)
     if not normalized:
         return False
     try:
         base = spokenform_base_language(normalized)
     except (TypeError, ValueError):
         base = normalized.split("-", 1)[0]
-    return base in _SPOKENFORM_SEMANTIC_LANGUAGES or base == "ko"
-
+    return base in _SPOKENFORM_SEMANTIC_LANGUAGES
 
 def _get_g2p_lock(g2p: Any) -> threading.RLock:
     try:
@@ -225,6 +226,17 @@ def _normalize_lang(lang: str | None) -> str | None:
     return lang.lower().replace("_", "-")
 
 
+def _spokenform_language(lang: str | None) -> str | None:
+    """Adapt Kokoro product aliases to Spokenform locale identifiers."""
+    normalized = _normalize_lang(lang)
+    if not normalized:
+        return None
+    try:
+        from kokorog2p import _canonical_language
+        return _canonical_language(normalized)
+    except (ImportError, TypeError, ValueError):
+        return normalized
+
 @cache
 def _get_abbreviation_expander(lang: str | None) -> AbbreviationExpander | None:
     normalized = _normalize_lang(lang)
@@ -369,23 +381,12 @@ def _spokenform_replacements_for_run(
     expand_nums: bool = True,
 ) -> _SpokenformRunResult:
     """Adapt spokenform source replacements into kokorog2p's public type."""
-    normalized_language = (_normalize_lang(language) or "").split("-", 1)[0]
-    if normalized_language == "ko":
-        from kokorog2p.ko.semantic import replacements
-
-        return _SpokenformRunResult(
-            replacements(
-                text,
-                source_offset=source_offset,
-                protected_spans=tuple(protected_spans),
-            )
-        )
-
+    spokenform_language = _spokenform_language(language) or language
     from dataclasses import replace
 
     from spokenform import NumberPolicy, PreparationConfig, prepare_for_kokorog2p
 
-    config = PreparationConfig.for_kokorog2p(language)
+    config = PreparationConfig.for_kokorog2p(spokenform_language)
     if (_normalize_lang(language) or "").split("-", 1)[0] == "fr" and not expand_nums:
         config = replace(
             config,
@@ -395,7 +396,7 @@ def _spokenform_replacements_for_run(
 
     prepared = prepare_for_kokorog2p(
         text,
-        language=language,
+        language=spokenform_language,
         config=config,
         protected_spans=protected_spans,
     )
@@ -497,12 +498,9 @@ def _apply_structured_replacements_to_tokens(
 
 @cache
 def _get_num2words() -> Callable[..., str] | None:
-    try:
-        from num2words import num2words
+    from spokenform.number_words import number_words
 
-        return num2words
-    except ImportError:
-        return None
+    return number_words
 
 
 def _expand_number(token_text: str, lang: str | None) -> str | None:
@@ -951,7 +949,11 @@ def phonemize_to_result(
             )
         # Model punctuation remains a kokorog2p responsibility in both modes.
         if migrated_semantics or prepared_mode:
-            model_text = _normalize_punctuation_output(semantic_text)
+            model_text = (
+                semantic_text
+                if source_sensitive
+                else _normalize_punctuation_output(semantic_text)
+            )
         else:
             model_text = semantic_text
         normalized_text = _normalize_for_g2p_alignment(

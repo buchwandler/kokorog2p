@@ -258,7 +258,7 @@ class FrenchLexicon:
             DeprecationWarning,
             stacklevel=2,
         )
-        from abbr2words import get_shared_expander
+        from spokenform.abbreviations import get_shared_expander
 
         return get_shared_expander("fr", context=True).expand(text)
 

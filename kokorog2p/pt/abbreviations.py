@@ -1,13 +1,20 @@
-"""Deprecated Portuguese abbreviation compatibility shim.
+"""Deprecated Portuguese abbreviation compatibility shim backed by Spokenform."""
 
-The registry is owned by :mod:`abbr2words`; this import path remains available
-without an import-time warning during the transition release.
-"""
-
-from abbr2words.languages.pt import (
-    PortugueseAbbreviationExpander,
-    get_expander,
-    reset_expander,
+from spokenform.abbreviations import (
+    AbbreviationExpander,
+    get_shared_expander,
+    reset_expanders,
 )
+
+PortugueseAbbreviationExpander = AbbreviationExpander
+
+
+def get_expander(enable_context_detection: bool = True) -> AbbreviationExpander:
+    return get_shared_expander("pt", context=enable_context_detection)
+
+
+def reset_expander() -> None:
+    reset_expanders("pt")
+
 
 __all__ = ["PortugueseAbbreviationExpander", "get_expander", "reset_expander"]

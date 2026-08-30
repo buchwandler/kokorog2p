@@ -7,13 +7,12 @@ import argparse
 import hashlib
 import json
 from collections.abc import Mapping
-from importlib.metadata import version as distribution_version
 from pathlib import Path
 from typing import Any
 
 import g2lex
 
-G2LEX_VERSION = distribution_version("g2lex")
+G2LEX_VERSION = g2lex.__version__
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "lexicons" / "manifest.toml"
 LOCK_PATH = ROOT / "lexicons" / "lock.json"

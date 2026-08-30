@@ -6,16 +6,16 @@ from collections.abc import Iterable
 from dataclasses import replace
 from typing import cast
 
-from abbr2words import (
+from spokenform.abbreviations import (
     ExpansionResult,
     ProtectedSpan,
     TokenAnnotation,
+    get_expander_class,
     get_shared_expander,
     reset_expanders,
 )
-from abbr2words.languages.en import (
-    EnglishAbbreviationExpander as _EnglishAbbreviationExpander,
-)
+
+_EnglishAbbreviationExpander = get_expander_class("en")
 
 
 class EnglishAbbreviationExpander(_EnglishAbbreviationExpander):

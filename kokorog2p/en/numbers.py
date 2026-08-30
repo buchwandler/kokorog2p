@@ -179,11 +179,13 @@ class NumberConverter:
 
     @property
     def num2words(self) -> Callable:
-        """Lazily import num2words."""
+        """Return Spokenform's compatibility number renderer."""
         if self._num2words is None:
-            from num2words import num2words
+            from spokenform.number_words import number_words
 
-            self._num2words = num2words
+            self._num2words = lambda value, to="cardinal": number_words(
+                value, lang="en", to=to
+            )
         return self._num2words
 
     def _convert_roman_numeral(

@@ -434,6 +434,9 @@ class JapaneseG2P(G2PBase):
             Tuple of (phoneme_string, token_list).
         """
         if self.cutlet is not None:
+            self.cutlet.prepared_input = getattr(
+                self, "_kokorog2p_prepared_input", False
+            )
             return self.cutlet(text)
 
         # Use pyopenjtalk

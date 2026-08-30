@@ -158,6 +158,7 @@ class KoreanG2P(G2PBase):
             group_vowels=self.group_vowels,
             to_syl=self.to_syl,
             use_dict=self.use_dict,
+            convert_numbers=not getattr(self, "_kokorog2p_prepared_input", False),
         )
 
         # Convert jamo to IPA phonemes
@@ -196,6 +197,7 @@ class KoreanG2P(G2PBase):
             group_vowels=self.group_vowels,
             to_syl=self.to_syl,
             use_dict=self.use_dict,
+            convert_numbers=not getattr(self, "_kokorog2p_prepared_input", False),
         )
 
         # Convert to the requested linguistic or model representation
@@ -220,6 +222,7 @@ class KoreanG2P(G2PBase):
             group_vowels=self.group_vowels,
             to_syl=self.to_syl,
             use_dict=self.use_dict,
+            convert_numbers=not getattr(self, "_kokorog2p_prepared_input", False),
         )
 
         # Convert to the requested linguistic or model representation

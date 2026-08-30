@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from typing import Protocol, TypeVar
 
-from abbr2words import (
+from spokenform.abbreviations import (
     AbbreviationEntry,
     abbreviation_guards_match,
     get_shared_expander,

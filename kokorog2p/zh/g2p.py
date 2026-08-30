@@ -75,7 +75,6 @@ class ChineseG2P(G2PBase):
         self.load_gold = load_gold
         self._frontend = None
         self._jieba = None
-        self._cn2an = None
         self._pypinyin = None
         self._transcription = None
 
@@ -88,6 +87,7 @@ class ChineseG2P(G2PBase):
             self._frontend = ZHFrontend(unk=self.unk)
         return self._frontend
 
+
     @property
     def jieba(self):
         """Lazy import of jieba."""
@@ -97,14 +97,6 @@ class ChineseG2P(G2PBase):
             self._jieba = jieba
         return self._jieba
 
-    @property
-    def cn2an(self):
-        """Lazy import of cn2an."""
-        if self._cn2an is None:
-            import cn2an
-
-            self._cn2an = cn2an
-        return self._cn2an
 
     @property
     def pypinyin(self):
@@ -215,9 +207,6 @@ class ChineseG2P(G2PBase):
         """
         if not text.strip():
             return "", None
-
-        # Convert Arabic numerals to Chinese
-        text = self.cn2an.transform(text, "an2cn")
 
         # Map punctuation
         text = self.map_punctuation(text)

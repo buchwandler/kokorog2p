@@ -2,6 +2,24 @@
 
 kokorog2p supports multiple languages with varying levels of functionality.
 
+| `en` | Spokenform semantic preparation |
+| `de` | Spokenform semantic preparation |
+| `fr` | Spokenform semantic preparation |
+| `es` | Spokenform semantic preparation |
+| `it` | Spokenform semantic preparation |
+| `pt` | Spokenform semantic preparation |
+| `cs` | Spokenform semantic preparation |
+| `vi` | Spokenform semantic preparation |
+| `ko` | Spokenform semantic preparation |
+| `he` | Spokenform semantic preparation |
+| `zh` | Spokenform semantic preparation |
+| `ja` | Spokenform semantic preparation |
+| `ar` | Spokenform semantic preparation |
+| `sv` | Spokenform semantic preparation |
+| `th` | Spokenform semantic preparation |
+| `ru` | Spokenform semantic preparation |
+| `kk` | Spokenform semantic preparation |
+
 ```{eval-rst}
 .. list-table:: Language Support Overview
    :header-rows: 1
@@ -498,7 +516,7 @@ Chinese G2P uses jieba for tokenization and pypinyin for phoneme conversion.
 - **Jieba tokenization**: Chinese word segmentation
 - **Pypinyin conversion**: Pinyin to IPA
 - **Tone sandhi**: Automatic tone changes
-- **cn2an**: Number to Chinese conversion
+- **Written numbers**: Prepared by Spokenform before phoneme conversion
 - **Punctuation mapping**: Chinese to Western punctuation
 
 ### Usage

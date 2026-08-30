@@ -4,7 +4,7 @@ Abbreviation ownership moved to ``abbr2words``. This module remains importable
 for one transition release and intentionally emits no import-time warning.
 """
 
-from abbr2words import (
+from spokenform.abbreviations import (
     AbbreviationContext,
     AbbreviationEntry,
     AbbreviationExpander,

@@ -15,7 +15,6 @@ import jaconv
 import mojimoji
 from fugashi import Tagger
 
-from kokorog2p.ja.num2kana import Convert
 from kokorog2p.lexicons.runtime import SelectedLexicons, open_selected
 
 # Hiragana to IPA mapping
@@ -295,6 +294,7 @@ class Cutlet:
         self.lexicons = tuple(lexicons)
         self.exceptions = {}
         self._ja_words: SelectedLexicons | None = None
+        self.prepared_input = False
 
     @property
     def ja_words(self) -> SelectedLexicons:
@@ -338,10 +338,9 @@ class Cutlet:
         text = mojimoji.zen_to_han(text, kana=False)
         # replace half-width katakana with full-width
         text = mojimoji.han_to_zen(text, digit=False, ascii=False)
-        return "".join(
-            (" " + Convert(t)) if t.isdigit() else t
-            for t in re.findall(r"\d+|\D+", text)
-        )
+        # Spokenform owns digit-to-spoken conversion; retain only typography.
+        return "".join(re.findall(r"\d+|\D+", text))
+
 
     def _romaji_tokens(self, words: list[Word]) -> list[Token]:
         """Build a list of tokens from input nodes."""

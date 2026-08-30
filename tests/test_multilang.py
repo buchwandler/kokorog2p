@@ -195,7 +195,7 @@ class TestChineseG2P:
         assert "↘" in ChineseG2P.retone("ma˥˩")
 
     @pytest.mark.skipif(
-        not _can_import("jieba", "pypinyin", "cn2an"),
+        not _can_import("jieba", "pypinyin"),
         reason="Chinese dependencies not installed",
     )
     def test_phonemize(self):
@@ -208,7 +208,7 @@ class TestChineseG2P:
         assert isinstance(result, str)
 
     @pytest.mark.skipif(
-        not _can_import("jieba", "pypinyin", "cn2an"),
+        not _can_import("jieba", "pypinyin"),
         reason="Chinese dependencies not installed",
     )
     def test_call_returns_tokens(self):
@@ -267,7 +267,7 @@ class TestChineseG2P:
         assert g2p.spacy_model is None
 
     @pytest.mark.skipif(
-        not _can_import("jieba", "pypinyin", "cn2an"),
+        not _can_import("jieba", "pypinyin"),
         reason="Chinese dependencies not installed",
     )
     def test_chinese_v11_validation(self):

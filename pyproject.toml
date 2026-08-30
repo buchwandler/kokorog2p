@@ -22,7 +22,6 @@ authors = [
 ]
 keywords = ["g2p", "grapheme-to-phoneme", "tts", "text-to-speech", "kokoro", "phonemizer", "espeak"]
 dependencies = [
-    "abbr2words>=0.2.9,<0.3.0",
     "spokenform>=0.3.1,<0.4.0",
     "g2lex>=0.1.6,<0.2.0",
 ]
@@ -71,20 +70,16 @@ goruut = [
 ]
 en = [
     "spacy>=3.5.0",
-    "num2words>=0.5.14,<0.6",
 ]
 de = [
     "spacy>=3.5.0",
-    "num2words>=0.5.14,<0.6",
 ]
 fr = [
     "spacy>=3.5.0",
-    "num2words>=0.5.14,<0.6",
 ]
 zh = [
     "jieba>=0.42.1",
     "pypinyin>=0.49.0",
-    "cn2an>=0.5.22",
     "pypinyin-dict>=0.8.0",
     "ordered-set>=4.1.0",
 ]

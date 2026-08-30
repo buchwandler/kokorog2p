@@ -5,9 +5,9 @@ from __future__ import annotations
 from collections.abc import Iterator
 from dataclasses import replace
 
-from abbr2words import get_shared_expander
 from spokenform import PreparationConfig, prepare_for_kokorog2p
 from spokenform import iter_structured_replacements as spokenform_iter
+from spokenform.abbreviations import get_shared_expander
 
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
 from kokorog2p.types import TextReplacement

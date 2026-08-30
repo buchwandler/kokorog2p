@@ -1,0 +1,21 @@
+[
+  {"id": "en-identifiers-001", "source": "NASA / AAPL / A320 / H100", "language": "en-us", "aliases": ["en", "eng", "english"]},
+  {"id": "en-number-001", "source": "3.14 and 2 kg on 2026-08-30", "language": "en-us", "aliases": ["en-gb", "gb", "british"]},
+  {"id": "de-quantity-001", "source": "2 kg am 30.08.2026", "language": "de", "aliases": ["deu", "german"]},
+  {"id": "fr-quantity-001", "source": "2 kg le 30/08/2026", "language": "fr", "aliases": ["fra", "french"]},
+  {"id": "es-quantity-001", "source": "2 kg el 30/08/2026", "language": "es", "aliases": ["spa", "spanish"]},
+  {"id": "it-number-001", "source": "1½ kg il 30/08/2026", "language": "it", "aliases": ["ita", "italian"]},
+  {"id": "pt-br-quantity-001", "source": "R$ 500 e 2 kg", "language": "pt-br", "aliases": ["pt", "por", "portuguese"]},
+  {"id": "pt-pt-quantity-001", "source": "500 € e 2 kg", "language": "pt-pt", "aliases": []},
+  {"id": "cs-quantity-001", "source": "2 kg dne 30. 8. 2026", "language": "cs", "aliases": ["ces", "czech"]},
+  {"id": "vi-quantity-001", "source": "2 kg ngày 30/08/2026", "language": "vi", "aliases": ["vie", "vietnamese"]},
+  {"id": "ko-counter-001", "source": "사과 3개, 2명, 20살, 18시 20분", "language": "ko", "aliases": ["kor", "korean"]},
+  {"id": "he-conservative-001", "source": "שלום 123 NASA", "language": "he", "aliases": ["heb", "hebrew"]},
+  {"id": "zh-date-001", "source": "2026年8月30日 18点20分 ¥500", "language": "zh", "aliases": ["cmn", "chinese"]},
+  {"id": "ja-date-001", "source": "2026年8月30日 18時20分 ¥500", "language": "ja", "aliases": ["jpn", "japanese", "jp"]},
+  {"id": "ar-conservative-001", "source": "مرحبا 123 NASA", "language": "ar", "aliases": ["ara", "arabic", "msa"]},
+  {"id": "sv-quantity-001", "source": "2 kg den 30/08/2026", "language": "sv", "aliases": ["swe", "swedish"]},
+  {"id": "th-semantic-001", "source": "เวลา 12:30 ฿500 555 บาท", "language": "th", "aliases": ["tha", "thai"]},
+  {"id": "ru-quantity-001", "source": "2 кг 30.08.2026", "language": "ru", "aliases": ["rus", "russian"]},
+  {"id": "kk-conservative-001", "source": "Қазақстан 123 NASA", "language": "kk", "aliases": ["kk-kz", "kaz", "kazakh"]}
+]
