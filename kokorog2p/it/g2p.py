@@ -229,12 +229,13 @@ class ItalianG2P(G2PBase):
         # Normalize Unicode
         text = unicodedata.normalize("NFC", text)
 
-        # Delegate written-to-spoken semantic preparation to ItalianNormalizer,
-        # whose shared spokenform adapter owns numbers, quantities, dates,
-        # temperatures, currencies, and abbreviations.
-        # The remaining operations below are Italian G2P typography/phonology:
-        # punctuation, contractions, whitespace, stress, and gemination.
-        text = self._normalizer(text)
+        # Delegate written-to-spoken semantic preparation to ItalianNormalizer
+        # only for written input. Prepared input keeps its supplied semantics and
+        # applies the typography-only G2P layer.
+        if getattr(self, "_kokorog2p_prepared_input", False):
+            text = self._normalizer.normalize_for_g2p(text)
+        else:
+            text = self._normalizer(text)
 
         # Normalize punctuation (keep for legacy compatibility)
         for old, new in self._PUNCT_MAP.items():

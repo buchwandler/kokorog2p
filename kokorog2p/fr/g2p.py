@@ -237,8 +237,12 @@ class FrenchG2P(G2PBase):
         # Normalize Unicode
         text = unicodedata.normalize("NFC", text)
 
-        # Apply semantic preparation once, then retain only G2P typography.
-        text = self._normalizer(text)
+        # Prepared input already owns written-to-spoken semantics; retain only
+        # the G2P typography layer in that mode.
+        if getattr(self, "_kokorog2p_prepared_input", False):
+            text = self._normalizer.normalize_for_g2p(text)
+        else:
+            text = self._normalizer(text)
 
         # Normalize punctuation (keep for legacy compatibility)
         for old, new in self._PUNCT_MAP.items():

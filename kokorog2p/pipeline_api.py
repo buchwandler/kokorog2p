@@ -51,6 +51,8 @@ _G2P_LOCKS: "WeakKeyDictionary[object, threading.RLock]" = WeakKeyDictionary()
 # language set instead of maintaining a second upstream shortlist.
 _SPOKENFORM_SEMANTIC_LANGUAGES = frozenset(SUPPORTED_BASE_LANGUAGES)
 
+InputTextMode = Literal["written", "prepared"]
+
 
 class _SpokenformRunResult(list[TextReplacement]):
     """List-compatible replacement result carrying upstream diagnostics."""
@@ -617,19 +619,51 @@ def _apply_extended_text(
     return "".join(parts)
 
 
-def _call_g2p_without_abbreviations(g2p: "G2PBase", text: str) -> list["GToken"]:
+def _call_g2p_without_abbreviations(  # noqa: C901
+    g2p: "G2PBase",
+    text: str,
+    *,
+    prepared: bool = False,
+) -> list["GToken"]:
     original_expand = None
-    normalizer_states: list[tuple[object, bool | None, object | None]] = []
+    normalizer_states: list[tuple[Any, bool | None, object | None]] = []
+    prepared_states: list[tuple[Any, bool, object | None]] = []
+    semantic_states: list[tuple[Any, object]] = []
     g2p_any: Any = g2p
     lock = _get_g2p_lock(g2p_any)
-
     with lock:
+        if prepared:
+            # Let repository G2P frontends distinguish caller-prepared text
+            # from their ordinary written-text convenience path.
+            for target in (g2p_any, _get_g2p_normalizer(g2p_any)):
+                if target is None:
+                    continue
+                target_any: Any = target
+                try:
+                    old_prepared = target_any._kokorog2p_prepared_input
+                except AttributeError:
+                    try:
+                        target_any._kokorog2p_prepared_input = True
+                    except (AttributeError, TypeError):
+                        continue
+                    prepared_states.append((target_any, False, None))
+                else:
+                    try:
+                        target_any._kokorog2p_prepared_input = True
+                    except (AttributeError, TypeError):
+                        continue
+                    prepared_states.append((target_any, True, old_prepared))
+                if hasattr(target, "expand_nums"):
+                    try:
+                        old_expand_nums = target_any.expand_nums
+                        target_any.expand_nums = False
+                        semantic_states.append((target_any, old_expand_nums))
+                    except (AttributeError, TypeError):
+                        pass
         if hasattr(g2p_any, "expand_abbreviations"):
             original_expand = g2p_any.expand_abbreviations
             g2p_any.expand_abbreviations = False
-
         normalizer: Any = _get_g2p_normalizer(g2p_any)
-
         if normalizer is not None and hasattr(normalizer, "expand_abbreviations"):
             original_abbrev = getattr(normalizer, "abbrev_expander", None)
             normalizer_states.append(
@@ -638,7 +672,6 @@ def _call_g2p_without_abbreviations(g2p: "G2PBase", text: str) -> list["GToken"]
             normalizer.expand_abbreviations = False
             if hasattr(normalizer, "abbrev_expander"):
                 normalizer.abbrev_expander = None
-
         try:
             return g2p_any(text)
         finally:
@@ -650,6 +683,16 @@ def _call_g2p_without_abbreviations(g2p: "G2PBase", text: str) -> list["GToken"]
                     normalizer_any.expand_abbreviations = expand_value
                 if hasattr(normalizer_any, "abbrev_expander"):
                     normalizer_any.abbrev_expander = abbrev_expander
+            for target, existed, old_prepared in reversed(prepared_states):
+                if existed:
+                    target._kokorog2p_prepared_input = old_prepared
+                else:
+                    try:
+                        delattr(target, "_kokorog2p_prepared_input")
+                    except AttributeError:
+                        pass
+            for target, old_expand_nums in reversed(semantic_states):
+                target.expand_nums = old_expand_nums
 
 
 def _get_g2p_normalizer(g2p: Any) -> Any | None:
@@ -662,7 +705,12 @@ def _get_g2p_normalizer(g2p: Any) -> Any | None:
     return normalizer
 
 
-def _normalize_for_g2p_alignment(text: str, g2p: "G2PBase") -> str:
+def _normalize_for_g2p_alignment(
+    text: str,
+    g2p: "G2PBase",
+    *,
+    input_mode: InputTextMode = "written",
+) -> str:
     normalizer = _get_g2p_normalizer(g2p)
     if normalizer is None or not text:
         return text
@@ -683,6 +731,10 @@ def _normalize_for_g2p_alignment(text: str, g2p: "G2PBase") -> str:
             normalize_for_g2p = getattr(normalizer, "normalize_for_g2p", None)
             if callable(normalize_for_g2p):
                 return normalize_for_g2p(text)
+            if input_mode == "prepared":
+                # Unknown normalizers may combine typography with semantics;
+                # do not invoke that ambiguous fallback for prepared text.
+                return text
             return normalizer(text)
         finally:
             if original_expand is not None:
@@ -782,6 +834,7 @@ def phonemize_to_result(
     g2p: "G2PBase | None" = None,
     lexicons: str | Sequence[str] | None = None,
     g2p_options: dict[str, Any] | None = None,
+    input_mode: InputTextMode = "written",
 ) -> PhonemizeResult:
     """Phonemize text with span-based override application.
 
@@ -834,6 +887,9 @@ def phonemize_to_result(
     """
     from kokorog2p import get_g2p
 
+    if input_mode not in ("written", "prepared"):
+        raise ValueError(f"Unsupported input_mode: {input_mode!r}")
+    prepared_mode = input_mode == "prepared"
     lang = lang or "en-us"
     warnings: list[str] = []
     result_clean_text = clean_text
@@ -848,14 +904,12 @@ def phonemize_to_result(
         g2p_options = options
     source_sensitive = _preserves_source_punctuation(g2p)
 
-    # The original source is the coordinate authority for migrated runs.  In
-    # particular, do not remove or replace semantic punctuation before the
-    # run reaches Spokenform; model punctuation belongs after preparation.
-    migrated_semantics = _uses_spokenform_semantics(lang)
-    if not migrated_semantics and not source_sensitive:
+    # Written mode preserves the source for Spokenform before model punctuation
+    # cleanup. Prepared mode keeps the caller's text as the coordinate authority.
+    migrated_semantics = not prepared_mode and _uses_spokenform_semantics(lang)
+    if not prepared_mode and not migrated_semantics and not source_sensitive:
         clean_text = normalize_punctuation(clean_text)
         result_clean_text = clean_text
-
     g2p_token_spans: list[TokenSpan]
     extended_text: str = ""
 
@@ -869,44 +923,61 @@ def phonemize_to_result(
             )
             warnings.extend(override_warnings)
 
-        token_spans, replacement_warnings = _apply_structured_replacements_to_tokens(
-            token_spans,
-            clean_text,
-            lang,
-            overrides or (),
-            expand_nums=bool(getattr(g2p, "expand_nums", True)),
-        )
-        warnings.extend(replacement_warnings)
-
-        semantic_text = _apply_extended_text(
-            token_spans,
-            clean_text,
-            lang,
-            use_normalizer_rules=use_normalizer_rules,
-        )
-        # Spokenform has already produced the semantic text.  Only now may
-        # Kokorog2p discard punctuation that the target model cannot consume.
-        if migrated_semantics:
+        if prepared_mode:
+            # Prepared text is already speech-ready. Do not create replacement
+            # spans or run token-level written-form semantic rules.
+            semantic_text = _apply_extended_text(
+                token_spans,
+                clean_text,
+                lang,
+                use_normalizer_rules=False,
+            )
+        else:
+            token_spans, replacement_warnings = (
+                _apply_structured_replacements_to_tokens(
+                    token_spans,
+                    clean_text,
+                    lang,
+                    overrides or (),
+                    expand_nums=bool(getattr(g2p, "expand_nums", True)),
+                )
+            )
+            warnings.extend(replacement_warnings)
+            semantic_text = _apply_extended_text(
+                token_spans,
+                clean_text,
+                lang,
+                use_normalizer_rules=use_normalizer_rules,
+            )
+        # Model punctuation remains a kokorog2p responsibility in both modes.
+        if migrated_semantics or prepared_mode:
             model_text = _normalize_punctuation_output(semantic_text)
         else:
             model_text = semantic_text
-        normalized_text = _normalize_for_g2p_alignment(model_text, g2p)
+        normalized_text = _normalize_for_g2p_alignment(
+            model_text, g2p, input_mode=input_mode
+        )
         alignment_warnings = _align_tokens_to_normalized_text(
             token_spans, semantic_text, normalized_text
         )
         warnings.extend(alignment_warnings)
-        result_clean_text = _normalize_source_ellipsis(clean_text)
-        token_spans = _realign_source_punctuation_tokens(
-            token_spans, clean_text, result_clean_text
-        )
+        if migrated_semantics:
+            result_clean_text = _normalize_source_ellipsis(clean_text)
+            token_spans = _realign_source_punctuation_tokens(
+                token_spans, clean_text, result_clean_text
+            )
         extended_text = normalized_text
-        gtokens = _call_g2p_without_abbreviations(g2p, extended_text)
+        gtokens = _call_g2p_without_abbreviations(
+            g2p, extended_text, prepared=prepared_mode
+        )
         warnings.extend(str(warning) for warning in getattr(g2p, "warnings", ()))
         ensure_gtoken_positions(gtokens, extended_text)
         g2p_token_spans = gtokens_to_tokenspans(gtokens, extended_text)
     else:
         # Legacy: use G2P's tokenization and offsets
-        gtokens = g2p(clean_text)
+        gtokens = _call_g2p_without_abbreviations(
+            g2p, clean_text, prepared=prepared_mode
+        )
         ensure_gtoken_positions(gtokens, clean_text)
         g2p_token_spans = gtokens_to_tokenspans(gtokens, clean_text)
         token_spans = g2p_token_spans
@@ -921,7 +992,12 @@ def phonemize_to_result(
 
     # Phonemize tokens based on language and overrides
     phonemized_tokens, phonemize_warnings, target_model = _phonemize_token_spans(
-        token_spans, g2p_token_spans, g2p, lang, g2p_options=g2p_options
+        token_spans,
+        g2p_token_spans,
+        g2p,
+        lang,
+        g2p_options=g2p_options,
+        input_mode=input_mode,
     )
     warnings.extend(phonemize_warnings)
 
@@ -981,6 +1057,7 @@ def _phonemize_token_spans(  # noqa: C901
     default_lang: str,
     *,
     g2p_options: dict[str, Any] | None = None,
+    input_mode: InputTextMode = "written",
 ) -> tuple[list[TokenSpan], list[str], str]:
     """Phonemize token spans, handling per-span language switching.
 
@@ -1164,7 +1241,12 @@ def _phonemize_token_spans(  # noqa: C901
             # Re-phonemize using language-specific G2P
             try:
                 token_text = token.extended_text or token.text
-                gtokens = token_g2p(token_text)
+                if input_mode == "prepared":
+                    gtokens = _call_g2p_without_abbreviations(
+                        token_g2p, token_text, prepared=True
+                    )
+                else:
+                    gtokens = token_g2p(token_text)
                 phoneme_parts: list[str] = []
                 for gt in gtokens:
                     if gt.phonemes:

@@ -5,7 +5,7 @@ from importlib.util import find_spec
 
 import pytest
 
-from kokorog2p import phonemize
+from kokorog2p import phonemize, phonemize_prepared
 from kokorog2p.pipeline_api import (
     _build_phoneme_string,
     _phonemize_token_spans,
@@ -41,6 +41,20 @@ class _EchoG2P:
 
         self.calls.append(text)
         return [GToken(text=text, tag="WORD", whitespace="", phonemes=text.upper())]
+
+
+def test_prepared_pipeline_preserves_supplied_coordinate_space():
+    text = "already spoken"
+    result = phonemize_prepared(
+        text, g2p=_EchoG2P(), return_ids=False, return_phonemes=False
+    )
+
+    assert result.clean_text == text
+    assert result.extended_text == text
+    assert result.phonemes == ""
+    assert result.token_ids == []
+    for token in result.tokens:
+        assert result.clean_text[token.char_start : token.char_end] == token.text
 
 
 def test_coarse_g2p_span_is_consumed_once_across_domain_source_tokens():

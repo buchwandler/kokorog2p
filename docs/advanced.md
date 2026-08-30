@@ -914,12 +914,14 @@ g2p_dict = get_g2p(
 - Check {doc}`languages` for language-specific features
 - Read {doc}`phonemes` to understand the phoneme inventory
 
-
 ## Selecting named lexicons
 
-Use `available_lexicons(language)` to inspect registered names and pass `lexicons` to `get_g2p` or `phonemize`. A sequence is an ordered precedence stack, so `("gold", "silver")` retains the compatibility default. The legacy `load_gold` and `load_silver` flags remain supported.
+Use `available_lexicons(language)` to inspect registered names and pass `lexicons` to
+`get_g2p` or `phonemize`. A sequence is an ordered precedence stack, so
+`("gold", "silver")` retains the compatibility default. The legacy `load_gold` and
+`load_silver` flags remain supported.
 
-For German, `available_lexicons("de")` returns `("gold", "crane")`. `gold` remains
-the implicit default; `crane` is opt-in and uses the bundled CC BY-SA 4.0 German
+For German, `available_lexicons("de")` returns `("gold", "crane")`. `gold` remains the
+implicit default; `crane` is opt-in and uses the bundled CC BY-SA 4.0 German
 Wiktionary-derived asset. Explicit order controls collisions, German casing candidates
 are searched inside each layer, and all runtime pronunciation selection is offline.

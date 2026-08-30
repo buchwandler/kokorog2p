@@ -201,7 +201,6 @@ g2p("state-of-the-art")   # Multiple hyphens
 
 - Dashes (when spaced): `-` `--` `–` `―` `‒` `−` → `—`
 
-
 ## Named lexicon selection
 
 ```python
@@ -211,4 +210,5 @@ gold = get_g2p("en-us", lexicons="gold")
 default = get_g2p("en-us", lexicons=("gold", "silver"))
 ```
 
-The default selection remains gold before silver. CMUdict is not selectable because raw ARPAbet is not Kokoro phoneme encoding.
+The default selection remains gold before silver. CMUdict is not selectable because raw
+ARPAbet is not Kokoro phoneme encoding.

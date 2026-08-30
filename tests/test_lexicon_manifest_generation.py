@@ -30,15 +30,15 @@ def test_manifest_allows_opt_in_record_without_default_priority(
     manifest.write_text(
         """schema_version = 1\n\n"""
         "[[lexicon]]\n"
-        "id = \"xx-xx:local\"\n"
-        "language = \"xx-xx\"\n"
-        "name = \"local\"\n"
-        "kind = \"pronunciation\"\n"
-        "source = \"sources/words.tsv\"\n"
-        "source_format = \"tsv\"\n"
-        "asset = \"assets/words.g2lex\"\n"
+        'id = "xx-xx:local"\n'
+        'language = "xx-xx"\n'
+        'name = "local"\n'
+        'kind = "pronunciation"\n'
+        'source = "sources/words.tsv"\n'
+        'source_format = "tsv"\n'
+        'asset = "assets/words.g2lex"\n'
         "case_aliases = false\n"
-        "phoneme_encoding = \"ipa\"\n",
+        'phoneme_encoding = "ipa"\n',
         encoding="utf-8",
     )
     monkeypatch.setattr(build_assets, "MANIFEST_PATH", manifest)
@@ -52,16 +52,16 @@ def test_manifest_rejects_incomplete_third_party_provenance(
     manifest.write_text(
         """schema_version = 1\n\n"""
         "[[lexicon]]\n"
-        "id = \"xx-xx:third\"\n"
-        "language = \"xx-xx\"\n"
-        "name = \"third\"\n"
-        "kind = \"pronunciation\"\n"
-        "source = \"sources/words.tsv\"\n"
-        "source_format = \"tsv\"\n"
-        "asset = \"assets/words.g2lex\"\n"
+        'id = "xx-xx:third"\n'
+        'language = "xx-xx"\n'
+        'name = "third"\n'
+        'kind = "pronunciation"\n'
+        'source = "sources/words.tsv"\n'
+        'source_format = "tsv"\n'
+        'asset = "assets/words.g2lex"\n'
         "case_aliases = false\n"
-        "phoneme_encoding = \"ipa\"\n"
-        "provider = \"example\"\n",
+        'phoneme_encoding = "ipa"\n'
+        'provider = "example"\n',
         encoding="utf-8",
     )
     monkeypatch.setattr(build_assets, "MANIFEST_PATH", manifest)

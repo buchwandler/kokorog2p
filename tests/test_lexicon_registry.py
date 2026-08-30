@@ -11,6 +11,7 @@ def test_registry_aliases_and_order() -> None:
     assert available_lexicons("ja_jp") == ("words",)
     assert get_lexicon_spec("en-us", "gold").rating == 4
 
+
 def test_german_crane_is_opt_in_and_selectable() -> None:
     assert available_lexicons("de") == ("gold", "crane")
     crane = get_lexicon_spec("de", "crane")

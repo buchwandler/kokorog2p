@@ -96,6 +96,33 @@ class PhonemizeResult:
     warnings: list[str]              # Alignment warnings
 ```
 
+## Prepared phonemization
+
+When a caller has already run written-to-spoken preparation, use `phonemize_prepared()`
+rather than the written-text `phonemize()` entry point:
+
+```python
+from kokorog2p import phonemize_prepared
+
+result = phonemize_prepared(
+    prepared.spoken_text,
+    language="de",
+    overrides=prepared_coordinate_overrides,
+    return_phonemes=True,
+    return_ids=True,
+)
+```
+
+Prepared mode treats the supplied text as both `clean_text` and the offset coordinate
+space. It still performs tokenization, language/phoneme overrides, G2P/backend
+normalization, Kokoro model punctuation handling, and token-ID generation, but never
+invokes Spokenform or written-to-spoken abbreviation, number, date, unit, currency, or
+quantity expansion. Model punctuation normalization is distinct from semantic
+preparation and remains owned by kokorog2p.
+
+Do not call `phonemize_prepared()` with arbitrary written text if you expect semantic
+expansion; the caller owns that preparation step.
+
 ## Extended Text Layer
 
 Span alignment always uses `clean_text` offsets. When abbreviations or numbers are

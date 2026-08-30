@@ -2,7 +2,7 @@ from collections.abc import Callable
 
 import pytest
 
-from kokorog2p import get_g2p, phonemize, tokenize
+from kokorog2p import get_g2p, phonemize, phonemize_prepared, tokenize
 from kokorog2p.types import PhonemizeResult, TokenSpan
 
 # Optional convenience wrappers (skip tests if not present)
@@ -34,6 +34,36 @@ def test_phonemize_returns_result_shape():
     assert (r.phonemes is None) or isinstance(r.phonemes, str)
     assert (r.token_ids is None) or isinstance(r.token_ids, list)
     assert isinstance(r.warnings, list)
+
+
+def test_phonemize_prepared_returns_result_shape():
+    result = phonemize_prepared(
+        "Professor Klein wartet 2 Minuten.",
+        language="de",
+        return_ids=True,
+        return_phonemes=True,
+    )
+
+    assert isinstance(result, PhonemizeResult)
+    assert result.clean_text == "Professor Klein wartet 2 Minuten."
+    assert isinstance(result.tokens, list)
+    assert isinstance(result.phonemes, str)
+    assert isinstance(result.token_ids, list)
+    assert isinstance(result.warnings, list)
+
+
+def test_phonemize_prepared_return_flags_match_phonemize():
+    phonemes_only = phonemize_prepared(
+        "Hello world!", return_ids=False, return_phonemes=True
+    )
+    ids_only = phonemize_prepared(
+        "Hello world!", return_ids=True, return_phonemes=False
+    )
+
+    assert phonemes_only.phonemes
+    assert phonemes_only.token_ids == []
+    assert ids_only.phonemes == ""
+    assert ids_only.token_ids
 
 
 def test_tokenize_matches_phonemize_tokens_text_and_offsets():

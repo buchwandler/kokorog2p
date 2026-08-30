@@ -8,6 +8,21 @@ This module contains the core functionality of kokorog2p.
 .. autofunction:: kokorog2p.phonemize
 ```
 
+## Prepared input
+
+Use `phonemize_prepared` when the caller has already converted written text to spoken
+text. It retains kokorog2p tokenization, G2P, model punctuation handling, overrides,
+phoneme construction, and token IDs, but does not run written-to-spoken semantic
+expansion again.
+
+```{eval-rst}
+.. autofunction:: kokorog2p.phonemize_prepared
+```
+
+The supplied string is the coordinate authority: `clean_text` and token/override offsets
+refer to the prepared text. Do not pass arbitrary written text when number, date, unit,
+currency, or abbreviation expansion is expected.
+
 ```{eval-rst}
 .. autofunction:: kokorog2p.tokenize
 ```

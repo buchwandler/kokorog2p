@@ -1016,6 +1016,79 @@ def phonemize(
     )
 
 
+def phonemize_prepared(
+    text: str,
+    language: str = "en-us",
+    *,
+    overrides: Sequence[OverrideSpanLike] | None = None,
+    return_ids: bool = True,
+    return_phonemes: bool = True,
+    alignment: Literal["span", "legacy"] = "span",
+    overlap: Literal["snap", "strict"] = "snap",
+    use_normalizer_rules: bool = True,
+    use_espeak_fallback: bool = True,
+    use_goruut_fallback: bool = False,
+    use_cli: bool = False,
+    use_spacy: bool | None = None,
+    spacy_model: str | None = None,
+    spacy_model_size: SpacyModelSize | None = None,
+    load_silver: bool | None = None,
+    load_gold: bool | None = None,
+    lexicons: str | Sequence[str] | None = None,
+    backend: "BackendType" = "kokorog2p",
+    g2p: "G2PBase | None" = None,
+    g2p_options: Mapping[str, Any] | None = None,
+) -> PhonemizeResult:
+    """Phonemize text that has already been converted to spoken form.
+
+    Unlike :func:`phonemize`, this entry point does not run written-to-spoken
+    semantic preparation. The caller owns that step; kokorog2p still performs
+    tokenization, overrides, G2P, model punctuation handling, and ID generation.
+
+    ``text`` is the prepared coordinate space, so override offsets and returned
+    token offsets refer directly to it. Do not pass arbitrary written text here
+    if number, date, unit, currency, or abbreviation expansion is expected.
+    """
+    if g2p is None:
+        g2p = get_g2p(
+            language=language,
+            use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
+            use_cli=use_cli,
+            use_spacy=use_spacy,
+            spacy_model=spacy_model,
+            spacy_model_size=spacy_model_size,
+            load_silver=load_silver,
+            load_gold=load_gold,
+            lexicons=lexicons,
+            backend=backend,
+            **(dict(g2p_options) if g2p_options else {}),
+        )
+    return phonemize_to_result(
+        clean_text=text,
+        lang=language,
+        overrides=overrides,
+        return_ids=return_ids,
+        return_phonemes=return_phonemes,
+        alignment=alignment,
+        overlap=overlap,
+        use_normalizer_rules=use_normalizer_rules,
+        g2p=g2p,
+        g2p_options={
+            "use_espeak_fallback": use_espeak_fallback,
+            "use_goruut_fallback": use_goruut_fallback,
+            "use_cli": use_cli,
+            "use_spacy": use_spacy,
+            "spacy_model": spacy_model,
+            "spacy_model_size": spacy_model_size,
+            "lexicons": lexicons,
+            "backend": backend,
+            **(dict(g2p_options) if g2p_options else {}),
+        },
+        input_mode="prepared",
+    )
+
+
 def phonemes(*args: Any, **kwargs: Any) -> str:
     """Get phoneme string from text using phonemize()."""
     return (
@@ -1164,6 +1237,7 @@ __all__ = [
     "phonemes",
     "phonemes_to_ids",
     "phonemize",
+    "phonemize_prepared",
     "phonemize_segments",
     "preprocess_multilang",
     "reset_abbreviations",

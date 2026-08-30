@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from kokorog2p import get_g2p, phonemize, pipeline_api
+from kokorog2p import get_g2p, phonemize, phonemize_prepared, pipeline_api
 from kokorog2p.cs.g2p import CzechG2P
 from kokorog2p.de.g2p import GermanG2P
 from kokorog2p.de.normalizer import GermanNormalizer
@@ -1162,3 +1162,78 @@ def test_representative_direct_and_pipeline_phonemes_match():
 
     assert result.phonemes == direct_phonemes
     assert not result.warnings
+
+
+@pytest.mark.parametrize(
+    ("source", "language"),
+    [
+        ("Prof. Klein braucht 1 kg.", "de"),
+        ("Dr. Smith has 2 kg at 3:00.", "en-us"),
+        ("Dr. Smith has 2 kg.", "en-gb"),
+        ("Dr. Ana tiene 2 kg.", "es"),
+        ("Dr. Ana a 2 kg.", "fr"),
+        ("Prof. Ana ha 2 kg.", "it"),
+        ("Dr. Ana tem 2 kg.", "pt"),
+        ("Dr. Ana má 2 kg.", "cs"),
+    ],
+    ids=lambda case: case[1],
+)
+def test_prepared_mode_matches_written_spokenform_output(source, language):
+    from spokenform import PreparationConfig, prepare_for_kokorog2p
+
+    prepared = prepare_for_kokorog2p(
+        source, language=language, config=PreparationConfig.for_kokorog2p(language)
+    )
+    written = phonemize(source, language=language)
+    result = phonemize_prepared(
+        prepared.spoken_text, language=language, return_ids=True, return_phonemes=True
+    )
+
+    assert result.clean_text == prepared.spoken_text
+    assert result.phonemes == written.phonemes
+    assert result.token_ids == written.token_ids
+
+
+def test_prepared_mode_never_calls_spokenform(monkeypatch):
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("Spokenform must not run for prepared input")
+
+    monkeypatch.setattr(pipeline_api, "_spokenform_replacements_for_run", forbidden)
+    result = phonemize_prepared(
+        "Professor Klein wartet 2 Minuten.", language="de", return_ids=False
+    )
+
+    assert result.clean_text == "Professor Klein wartet 2 Minuten."
+    assert result.extended_text == result.clean_text
+    assert result.phonemes
+
+
+def test_prepared_mode_preserves_coordinates_and_overrides():
+    text = 'Äpfel "fünf-und-zwanzig" Minuten'
+    overrides = [
+        OverrideSpan(0, 5, {"ph": "ɛpfəl"}),
+        OverrideSpan(6, 22, {"lang": "en-us"}),
+    ]
+    result = phonemize_prepared(
+        text, language="de", overrides=overrides, return_ids=False
+    )
+
+    assert result.clean_text == text
+    assert result.phonemes
+    assert result.tokens[0].meta["ph"] == "ɛpfəl"
+    assert any(token.lang == "en-us" for token in result.tokens)
+    for token in result.tokens:
+        assert result.clean_text[token.char_start : token.char_end] == token.text
+
+
+def test_prepared_mode_reuses_g2p_without_semantic_expansion():
+    text = "Professor Klein braucht 2 kg."
+    g2p = get_g2p(language="de")
+    result = phonemize_prepared(
+        text, language="de", g2p=g2p, return_ids=True, return_phonemes=True
+    )
+
+    assert result.clean_text == text
+    assert result.extended_text == text
+    assert result.phonemes
+    assert result.token_ids

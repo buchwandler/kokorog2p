@@ -95,6 +95,7 @@ def _legacy_enabled(spec: LexiconSpec, *, load_gold: bool, load_silver: bool) ->
         return load_silver
     return True
 
+
 def normalize_lexicon_selection(
     language: str,
     lexicons: str | Sequence[str] | None,

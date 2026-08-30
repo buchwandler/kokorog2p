@@ -232,9 +232,7 @@ def build_record(record: dict[str, Any], output: Path) -> dict[str, Any]:
     parsed, source = validate_source(record)
     expected_source_hash = record.get("source_sha256")
     if expected_source_hash is not None and sha256(source) != expected_source_hash:
-        raise ValueError(
-            f"source SHA-256 differs from manifest for {record['id']}"
-        )
+        raise ValueError(f"source SHA-256 differs from manifest for {record['id']}")
     expected_source_size = record.get("source_size")
     if (
         expected_source_size is not None

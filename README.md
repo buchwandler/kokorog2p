@@ -348,6 +348,33 @@ kokorog2p now provides a **span-based phonemization API** designed for integrati
 text processing pipelines. This API uses character offsets for deterministic override
 application and supports per-token language switching.
 
+### Written versus prepared input
+
+Use `phonemize()` for ordinary written text; kokorog2p owns written-to-spoken semantic
+preparation and G2P:
+
+```python
+from kokorog2p import phonemize
+
+result = phonemize("Prof. Klein braucht 1 kg.", language="de")
+```
+
+If the caller already owns preparation, use the explicit prepared-input path:
+
+```python
+from spokenform import prepare_for_kokorog2p
+from kokorog2p import phonemize_prepared
+
+prepared = prepare_for_kokorog2p("Prof. Klein braucht 1 kg.", language="de")
+result = phonemize_prepared(prepared.spoken_text, language="de")
+```
+
+`phonemize_prepared()` skips Spokenform and written-to-spoken semantic expansion, while
+retaining tokenization, G2P/backend normalization, Kokoro model punctuation handling,
+overrides, phonemes, and token IDs. Its token and override offsets refer directly to the
+supplied prepared text. Do not pass arbitrary written text when you expect number, date,
+unit, currency, or abbreviation expansion; the caller owns that preparation step.
+
 ### Key Features
 
 - **Offset-based alignment**: Handles duplicate words correctly (e.g., "the cat the
@@ -663,10 +690,10 @@ kokorog2p consolidates functionality from:
 - [misaki](https://github.com/hexgrad/misaki) - G2P engine for Kokoro TTS
 - [phonemizer](https://github.com/bootphon/phonemizer) - espeak-ng wrapper
 
-
 ## Named lexicons
 
-Canonical sources stay outside the importable package; installed lookups use only generated, verified assets:
+Canonical sources stay outside the importable package; installed lookups use only
+generated, verified assets:
 
 ```text
 lexicons/sources/                  # repository/release sources
@@ -694,10 +721,14 @@ get_g2p("de", lexicons=("gold", "crane"))
 
 `crane` preserves source spellings and ordered pronunciation variants. The explicit
 selection order defines collision precedence. Crane data is CC BY-SA 4.0 with
-attribution to German Wiktionary contributors; it is not Apache-licensed. Runtime
-uses the bundled `.g2lex` asset and does not access the network.
+attribution to German Wiktionary contributors; it is not Apache-licensed. Runtime uses
+the bundled `.g2lex` asset and does not access the network.
 
-The first lexicon in `lexicons=(...)` that contains a word wins. Explicit selections preserve caller order. If `lexicons` is omitted, manifest default priorities select the compatibility default; the `load_gold` and `load_silver` flags remain compatibility controls. With an explicit selection, only a legacy flag passed by the caller is checked for contradiction.
+The first lexicon in `lexicons=(...)` that contains a word wins. Explicit selections
+preserve caller order. If `lexicons` is omitted, manifest default priorities select the
+compatibility default; the `load_gold` and `load_silver` flags remain compatibility
+controls. With an explicit selection, only a legacy flag passed by the caller is checked
+for contradiction.
 
 Maintainers rebuild and validate committed assets with:
 
@@ -707,4 +738,7 @@ python scripts/build_g2lex_assets.py --check
 python scripts/validate_g2lex_assets.py --all --runtime-parity
 ```
 
-CMUdict remains Scope A until a pinned, licensed source and a tested Kokoro-compatible ARPABET conversion are shipped. G2Lex may preserve raw ARPABET exactly, but KokoroG2P must convert it after lookup, preserve numbered variants deterministically, reject unknown symbols, and never download it at runtime.
+CMUdict remains Scope A until a pinned, licensed source and a tested Kokoro-compatible
+ARPABET conversion are shipped. G2Lex may preserve raw ARPABET exactly, but KokoroG2P
+must convert it after lookup, preserve numbered variants deterministically, reject
+unknown symbols, and never download it at runtime.

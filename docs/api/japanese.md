@@ -30,7 +30,7 @@ for token in tokens:
 - Automatic pitch accent assignment
 - Japanese numeral handling
 
-
 ## Cutlet membership asset
 
-The optional Cutlet backend uses a lazy G2Lex membership asset containing `WORD_ONLY` entries. The canonical `ja_words.txt` source is not a runtime package resource.
+The optional Cutlet backend uses a lazy G2Lex membership asset containing `WORD_ONLY`
+entries. The canonical `ja_words.txt` source is not a runtime package resource.
