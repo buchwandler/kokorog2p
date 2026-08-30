@@ -1,11 +1,9 @@
-"""Explicit derived pronunciation views used only for comparison."""
+"""Kokoro-specific German pronunciation rendering for quality benchmarks."""
 
 from __future__ import annotations
 
 import unicodedata
 from collections.abc import Mapping
-
-VIEW_VERSION = "1"
 
 _REPLACEMENTS = {
     "t͡s": "ʦ",
@@ -23,28 +21,26 @@ _REPLACEMENTS = {
 }
 
 
-def _replace_longest(value: str) -> str:
-    for source in sorted(_REPLACEMENTS, key=len, reverse=True):
-        value = value.replace(source, _REPLACEMENTS[source])
-    return value
-
-
 def to_kokoro_view(
-    source_id: str, ipa: str, *, vocab: Mapping[str, int] | None = None
+    source_id: str, pronunciation: str, *, vocab: Mapping[str, int] | None = None
 ) -> str:
-    """Return a derived view; raw source records are never modified."""
+    """Convert a raw source pronunciation for Kokoro comparison only."""
     if source_id == "gruut_espeak":
-        return ipa.replace(" ", "")
+        return pronunciation.replace(" ", "")
     if source_id == "crane_wiktionary":
-        value = _replace_longest(unicodedata.normalize("NFC", ipa))
+        value = unicodedata.normalize("NFC", pronunciation)
+        for source in sorted(_REPLACEMENTS, key=len, reverse=True):
+            value = value.replace(source, _REPLACEMENTS[source])
         if vocab is not None:
             value = "".join(char for char in value if char.isspace() or char in vocab)
-            return " ".join(value.split())
         return " ".join(value.split())
-    return ipa
+    return pronunciation
 
 
 def view_variants(
     source_id: str, variants: tuple[str, ...], *, vocab: Mapping[str, int] | None = None
 ) -> tuple[str, ...]:
     return tuple(to_kokoro_view(source_id, value, vocab=vocab) for value in variants)
+
+
+__all__ = ["to_kokoro_view", "view_variants"]

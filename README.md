@@ -718,11 +718,24 @@ selection order defines collision precedence. Crane data is CC BY-SA 4.0 with
 attribution to German Wiktionary contributors; it is not Apache-licensed. Runtime uses
 the bundled `.g2lex` asset and does not access the network.
 
-The first lexicon in `lexicons=(...)` that contains a word wins. Explicit selections
-preserve caller order. If `lexicons` is omitted, manifest default priorities select the
-compatibility default; the `load_gold` and `load_silver` flags remain compatibility
-controls. With an explicit selection, the named selection takes precedence and legacy
-flags are ignored.
+Consumer-specific pronunciation-quality experiments live under `benchmarks/`, separate
+from the G2Lex runtime. The German source benchmark accepts explicit local G2Lex assets
+or source files and keeps Kokoro normalization, vocabulary filtering, fallback scoring,
+and pronunciation-view conversion in this repository:
+
+```bash
+python benchmarks/benchmark_de_lexicon_sources.py \
+  --source gold=path/to/gold.g2lex \
+  --source crane=path/to/crane.g2lex \
+  --data-root /path/to/crane-test-data --output /tmp/de-quality.json
+```
+
+G2Lex owns exact storage, source analysis, and neutral layering metrics; KokoroG2P owns
+consumer quality evaluation and phoneme conversion. The first lexicon in
+`lexicons=(...)` that contains a word wins. Explicit selections preserve caller order.
+If `lexicons` is omitted, manifest default priorities select the compatibility default;
+the `load_gold` and `load_silver` flags remain compatibility controls. With an explicit
+selection, the named selection takes precedence and legacy flags are ignored.
 
 Maintainers rebuild and validate committed assets with:
 
