@@ -1,0 +1,5 @@
+# Canonical lexicon sources stay in the repository but are not redistributed in sdists.
+prune lexicons/sources
+
+# Runtime assets and their third-party provenance notices are redistributed.
+recursive-include kokorog2p/lexicons/data *.g2lex *.md

@@ -7,6 +7,7 @@ from types import MappingProxyType
 
 import g2lex
 
+from kokorog2p.lexicons.registry import normalize_lexicon_selection
 from kokorog2p.lexicons.runtime import SelectedLexicons, open_selected
 
 _EMPTY: Mapping[str, str] = MappingProxyType({})
@@ -29,28 +30,28 @@ def _lookup_spellings(word: str) -> tuple[str, ...]:
     candidates = (word, lowercase, lowercase.capitalize(), word.upper())
     return tuple(dict.fromkeys(candidates))
 
+
 class GermanLexicon:
     """German pronunciation lexicon backed by a lazy G2Lex asset."""
 
     def __init__(
         self,
         strip_stress: bool = False,
-        load_silver: bool = True,
-        load_gold: bool = True,
+        load_silver: bool | None = None,
+        load_gold: bool | None = None,
         lexicons: Sequence[str] | None = None,
     ) -> None:
         """Initialize the German lexicon."""
-        del load_silver
-        if lexicons is None:
-            names = ("gold",) if load_gold else ()
-        elif isinstance(lexicons, str):
-            names = (lexicons,)
-        else:
-            names = tuple(lexicons)
+        names = normalize_lexicon_selection(
+            "de-de",
+            lexicons,
+            load_gold=load_gold,
+            load_silver=load_silver,
+        )
         self._selected: SelectedLexicons = open_selected("de-de", names)
         self._gold: Mapping[str, object] = self._selected.layer("gold") or _EMPTY
         self._strip_stress = strip_stress
-        self.load_silver = False
+        self.load_silver = "silver" in names
         self.load_gold = "gold" in names
         self.lexicons = names
 

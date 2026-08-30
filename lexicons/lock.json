@@ -5,7 +5,7 @@
       "asset_sha256": "8b510bb666d600a297208007650756150809c9a29b6485d66d2764f7ef56dd1a",
       "attribution": "German Wiktionary contributors; dataset extraction/publishing by Crane Local AI",
       "entry_count": 837539,
-      "generator": "g2lex 0.1.5",
+      "generator": "g2lex 0.1.4.post4+g301e4e3.dirty",
       "license_expression": "CC-BY-SA-4.0",
       "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
       "logical_sha256": "2b97ac53b69b911ecf5c9682e3d8d2c5d89b90979626128108c1dd23e3a75ee7",
@@ -18,7 +18,7 @@
       "asset_bytes": 8551740,
       "asset_sha256": "4eb69194b751733e1df89a150f55e111535c7646c1c4ffc3048da384ccb27c85",
       "entry_count": 738427,
-      "generator": "g2lex 0.1.5",
+      "generator": "g2lex 0.1.4.post4+g301e4e3.dirty",
       "logical_sha256": "530f4787a2accd9824526749b90f43d4edaf2506f0aa385056a83913cb6ee48a",
       "phoneme_encoding": "ipa",
       "source_sha256": "2c30bcbb0a9a4fa172943026eea572f1e4ba82a799920b9d96e6ace59d273639"
@@ -27,7 +27,7 @@
       "asset_bytes": 1212420,
       "asset_sha256": "3c95de3b69d21aaf4e239ae9f6640a8ee49b65d053273e56179ed2ce10a4993f",
       "entry_count": 87364,
-      "generator": "g2lex 0.1.5",
+      "generator": "g2lex 0.1.4.post4+g301e4e3.dirty",
       "logical_sha256": "39ffb8e4f5706c287039dca34952e2c342c24ab3f0e56b0f814784a0338aa6eb",
       "phoneme_encoding": "kokoro-v1",
       "source_sha256": "bcbc593a5fe247d92ee584ffb6302d326b4f99f652c634991206e3f848d36cac"
@@ -36,7 +36,7 @@
       "asset_bytes": 1476340,
       "asset_sha256": "514910eb0b452dc00789ed9e86b568e2c3c38c53b25de8445e3238d4109b9f46",
       "entry_count": 109766,
-      "generator": "g2lex 0.1.5",
+      "generator": "g2lex 0.1.4.post4+g301e4e3.dirty",
       "logical_sha256": "d531b4031a4baf0a23f238c443356f7d941e24aa53982f406fd35439c0f521fd",
       "phoneme_encoding": "kokoro-v1",
       "source_sha256": "6c062fa3dcab1a949855ff9350bd327335cb3c501218180e052d0e3e4faf5883"
@@ -45,7 +45,7 @@
       "asset_bytes": 1257788,
       "asset_sha256": "02d6c2bb5dcf493dc1ae1d5100598e1fc5b1ed19a4ae438638c7e5916c2500f9",
       "entry_count": 90213,
-      "generator": "g2lex 0.1.5",
+      "generator": "g2lex 0.1.4.post4+g301e4e3.dirty",
       "logical_sha256": "272cea0f8255d1187b7152a5b796b13d1ce16619eca24c638809288a412330df",
       "phoneme_encoding": "kokoro-v1",
       "source_sha256": "50a8a07a5d5054c25cac1f4e2f0efc31a0a104e0d92c6ddc599772c183e1a86d"
@@ -54,7 +54,7 @@
       "asset_bytes": 1254332,
       "asset_sha256": "19b08149a9c8b0867fc995d6f36428c19cb46f0636cd590b97ea5ad629fdb60b",
       "entry_count": 93361,
-      "generator": "g2lex 0.1.5",
+      "generator": "g2lex 0.1.4.post4+g301e4e3.dirty",
       "logical_sha256": "7c400c45f8d16bfa14abd35be6527a598f6bffe2d6b85c8da21de565cc5523cb",
       "phoneme_encoding": "kokoro-v1",
       "source_sha256": "067c30f29524585b479affdef2823d6c1e27c59d6d6dfb1694be676bba1185f1"
@@ -63,7 +63,7 @@
       "asset_bytes": 159444,
       "asset_sha256": "1e67ffaee5ac895e5500c63a1c64394fc6572bf8a6dbaaa31eef3b94c9fd98f4",
       "entry_count": 15011,
-      "generator": "g2lex 0.1.5",
+      "generator": "g2lex 0.1.4.post4+g301e4e3.dirty",
       "logical_sha256": "103d5ad4108cc987b36a71b64feefa54adc0ed47e2d6b884258538502bdd1683",
       "phoneme_encoding": "kokoro-v1",
       "source_sha256": "0d5dcd4a6fec8c8decde6403880e41c7b8d6f6c300928eb81f2edc42f811e081"
@@ -72,12 +72,12 @@
       "asset_bytes": 1087484,
       "asset_sha256": "515d991ddbe91d205521a773e6f75c75d05887e46cdc04fc841dc904e8fea298",
       "entry_count": 147571,
-      "generator": "g2lex 0.1.5",
+      "generator": "g2lex 0.1.4.post4+g301e4e3.dirty",
       "logical_sha256": "06626c41087fd7d441ce3241b3b4ecb39236d970d9cb69824756d6a26bc60dca",
       "phoneme_encoding": "none",
       "source_sha256": "f4a05f1b1473f4b3797e9149e472c9343d5ad43093cbce83fe01e96dacfae334"
     }
   },
-  "g2lex_version": "0.1.5",
+  "g2lex_version": "0.1.4.post4+g301e4e3.dirty",
   "schema_version": 1
 }

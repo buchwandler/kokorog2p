@@ -18,6 +18,9 @@ https://en.wikipedia.org/wiki/Standard_German_phonology
 
 from __future__ import annotations
 
+import unicodedata
+from collections.abc import Collection
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Final
 
 from kokorog2p._optional import load_spacy_model
@@ -135,66 +138,196 @@ def _is_front_vowel_context(prev_chars: str) -> bool:
     return bool(prev_lower.endswith(("ei", "ai", "eu", "äu", "ie", "ey", "ay")))
 
 
-_KOKORO_VOCAB: Final[frozenset[str]] = frozenset(get_vocab())
+@dataclass(frozen=True, slots=True)
+class GermanPhonemeNormalization:
+    """Classified result of converting German/Crane IPA for a model."""
 
-def normalize_to_kokoro(phonemes: str, use_tie_replacement: bool = False) -> str:
-    """Normalize German phonemes to Kokoro-compatible format.
+    value: str
+    valid: bool
+    replacements: tuple[tuple[str, str], ...]
+    ignored: tuple[str, ...]
+    unsupported: tuple[str, ...]
 
-    Converts combining diacritics to precomposed characters that exist
-    in the Kokoro TTS vocabulary.
 
-    Args:
-        phonemes: IPA phoneme string potentially containing combining diacritics.
-        use_tie_replacement: If True, replace tie characters (͡) with special
-        phonmes. Default is False.
+_IGNORED_SOURCE_MARKS: Final[frozenset[str]] = frozenset(
+    {
+        "̯",  # Non-syllabic mark: the Kokoro consumer encodes the diphthong itself.
+        "̩",  # Syllabic mark: German syllabic consonants use the consonant token.
+        "-",
+        "[",
+        "]",
+        "1",
+        "(",
+        ")",  # Transcription delimiters/boundaries.
+        "̍",
+        "̑",
+        "̚",
+        "̝",
+        "̞",
+        "̢",
+        "̥",
+        "̪",
+        "̺",  # Articulatory detail.
+        "̆",
+        "̈",
+        "̊",
+        "ˑ",
+        "ˠ",
+        "ˣ",
+        "˥",
+        "ꜜ",
+        "ʶ",  # Non-model prosodic detail.
+        "͜",
+        "͡",
+        "‿",  # Joining marks after known affricates are resolved.
+    }
+)
+_GERMAN_CONVERSION_TABLE: Final[dict[str, str]] = {
+    # Crane/benchmark affricates and diphthongs.
+    "t͡s": "ʦ",
+    "t͡ʃ": "ʧ",
+    "d͡ʒ": "ʤ",
+    "d͡z": "ʣ",
+    "ts": "ʦ",
+    "dz": "ʣ",
+    "aɪ": "I",
+    "aʊ": "W",
+    "ɔʏ": "ɔy",
+    # Tie-bar forms used by the German rule fallback.
+    "a^ɪ": "I",
+    "a^ʊ": "W",
+    "d^z": "ʣ",
+    "d^ʒ": "ʤ",
+    "e^ɪ": "A",
+    "o^ʊ": "O",
+    "ə^ʊ": "Q",
+    "s^s": "S",
+    "t^s": "ʦ",
+    "t^ʃ": "ʧ",
+    "ɔ^ɪ": "Y",
+    "p͡f": "pf",
+    # Explicit approximations for foreign/loanword IPA in the source inventory.
+    "K": "k",
+    "ĕ": "e",
+    "ĭ": "i",
+    "ǃ": "ʔ",
+    "ʕ": "ʔ",
+    "ʱ": "h",
+    "з": "z",
+    "ɱ": "m",
+    "ɫ": "l",
+    "ɬ": "l",
+    "ʀ": "ʁ",
+    "ʉ": "u",
+    "ɘ": "ə",
+    "ɶ": "œ",
+    "ɝ": "ɜ",
+    "ʑ": "ʒ",
+    "ɺ": "l",
+    "ʙ": "b",
+    "ɓ": "b",
+    "ħ": "h",
+    "õ": "o",
+    "ã": "a",
+    "ẽ": "e",
+    "ạ": "a",
+    "ọ": "o",
+    "ʏ": "y",
+}
+_SORTED_GERMAN_CONVERSIONS: Final[tuple[tuple[str, str], ...]] = tuple(
+    sorted(
+        _GERMAN_CONVERSION_TABLE.items(), key=lambda item: len(item[0]), reverse=True
+    )
+)
+_GERMAN_CONVERSIONS_BY_FIRST: Final[dict[str, tuple[tuple[str, str], ...]]] = {
+    char: tuple(item for item in _SORTED_GERMAN_CONVERSIONS if item[0].startswith(char))
+    for char in {item[0][0] for item in _SORTED_GERMAN_CONVERSIONS}
+}
 
-    Returns:
-        Normalized phoneme string compatible with Kokoro vocab.
-    """
-    if not phonemes:
-        return phonemes
-    # Replace tie characters (U+0361) with special phonemes if requested
-    if use_tie_replacement:
-        phonemes = phonemes.replace("͡", "^")
-        phonemes = phonemes.replace("a^ɪ", "I")
-        phonemes = phonemes.replace("a^ʊ", "W")
-        phonemes = phonemes.replace("d^z", "ʣ")
-        phonemes = phonemes.replace("d^ʒ", "ʤ")
-        phonemes = phonemes.replace("e^ɪ", "A")
-        phonemes = phonemes.replace("o^ʊ", "O")
-        phonemes = phonemes.replace("ə^ʊ", "Q")
-        phonemes = phonemes.replace("s^s", "S")
-        phonemes = phonemes.replace("t^s", "ʦ")
-        phonemes = phonemes.replace("t^ʃ", "ʧ")
-        phonemes = phonemes.replace("ɔ^ɪ", "Y")
-        # Unknown tie-bar sequences are plain affricate sequences in IPA.
-        phonemes = phonemes.replace("^", "")
-    phonemes = phonemes.replace("ʏ", "y")
-    # Source inventories contain articulatory marks and occasional foreign IPA
-    # symbols that the Kokoro encoder cannot represent. Fold common equivalents,
-    # then drop residual unsupported marks deterministically at this boundary.
-    for source, target in {
-        "ɱ": "m",
-        "ɫ": "l",
-        "ɬ": "l",
-        "ʀ": "ʁ",
-        "ʉ": "u",
-        "ɘ": "ə",
-        "ɶ": "œ",
-        "ɝ": "ɜ",
-        "ʑ": "ʒ",
-        "ɺ": "l",
-        "ʙ": "b",
-        "ɓ": "b",
-        "ħ": "h",
-        "õ": "o",
-        "ã": "a",
-        "ẽ": "e",
-        "ạ": "a",
-        "ọ": "o",
-    }.items():
-        phonemes = phonemes.replace(source, target)
-    return "".join(char for char in phonemes if char in _KOKORO_VOCAB)
+
+def normalize_internal(
+    phonemes: str,
+    *,
+    vocabulary: Collection[str] | None = None,
+    model: str = "1.0",
+    use_tie_replacement: bool = False,
+) -> GermanPhonemeNormalization:
+    """Classify and normalize IPA without silently discarding source material."""
+    target = get_vocab(model) if vocabulary is None else vocabulary
+    source = unicodedata.normalize("NFC", phonemes)
+    output: list[str] = []
+    replacements: list[tuple[str, str]] = []
+    ignored: list[str] = []
+    unsupported: list[str] = []
+    index = 0
+    while index < len(source):
+        matched = False
+        if use_tie_replacement:
+            for old, new in _GERMAN_CONVERSIONS_BY_FIRST.get(source[index], ()):
+                if source.startswith(old, index):
+                    output.append(new)
+                    replacements.append((old, new))
+                    index += len(old)
+                    matched = True
+                    break
+        else:
+            # The caret is an internal fallback marker, not a source symbol.
+            for old, new in _GERMAN_CONVERSIONS_BY_FIRST.get(source[index], ()):
+                if "^" in old or "͡" in old:
+                    continue
+                if source.startswith(old, index):
+                    output.append(new)
+                    replacements.append((old, new))
+                    index += len(old)
+                    matched = True
+                    break
+        if matched:
+            continue
+        char = source[index]
+        if char in _IGNORED_SOURCE_MARKS:
+            ignored.append(char)
+            index += 1
+            continue
+        if char in target:
+            output.append(char)
+        else:
+            # Preserve rejected material in the result so a caller cannot mistake
+            # classified loss for a valid target string.
+            output.append(char)
+            unsupported.append(char)
+        index += 1
+    value = "".join(output)
+    valid = bool(value) and not unsupported and all(char in target for char in value)
+    return GermanPhonemeNormalization(
+        value=value,
+        valid=valid,
+        replacements=tuple(replacements),
+        ignored=tuple(ignored),
+        unsupported=tuple(unsupported),
+    )
+
+
+def normalize_to_kokoro(
+    phonemes: str,
+    use_tie_replacement: bool = False,
+    *,
+    vocabulary: Collection[str] | None = None,
+    model: str = "1.0",
+) -> str:
+    """Return strict German IPA conversion or raise for unrepresentable input."""
+    result = normalize_internal(
+        phonemes,
+        vocabulary=vocabulary,
+        model=model,
+        use_tie_replacement=use_tie_replacement,
+    )
+    if not result.valid:
+        detail = ", ".join(repr(item) for item in result.unsupported)
+        raise ValueError(
+            "German IPA contains unhandled or empty material"
+            + (f": {detail}" if detail else "")
+        )
+    return result.value
 
 
 class GermanG2P(G2PBase):
@@ -220,8 +353,8 @@ class GermanG2P(G2PBase):
         spacy_model: str | None = None,
         use_lexicon: bool = True,
         strip_stress: bool = True,
-        load_silver: bool = True,
-        load_gold: bool = True,
+        load_silver: bool | None = None,
+        load_gold: bool | None = None,
         lexicons: tuple[str, ...] | None = None,
         version: str = "1.0",
         expand_abbreviations: bool = True,
@@ -268,6 +401,7 @@ class GermanG2P(G2PBase):
             use_goruut_fallback=use_goruut_fallback,
         )
         self.version = version
+        self._vocabulary = frozenset(get_vocab(version))
         self._lexicon: GermanLexicon | None = None
         self.lexicon: GermanLexicon | None = None
         self._fallback: Any = None
@@ -393,10 +527,19 @@ class GermanG2P(G2PBase):
             if self._lexicon:
                 phonemes = self._lexicon.lookup(word, token.tag)
                 if phonemes:
-                    token.phonemes = normalize_to_kokoro(
-                        phonemes, use_tie_replacement=True
+                    normalized = normalize_internal(
+                        phonemes,
+                        use_tie_replacement=True,
+                        vocabulary=self._vocabulary,
                     )
-                    token.set("rating", 5)  # Dictionary lookup = highest rating
+                    if normalized.valid:
+                        phonemes = normalized.value
+                        token.phonemes = phonemes
+                        token.set("rating", 5)  # Dictionary lookup = highest rating
+                    else:
+                        # An invalid first source variant is a failed hit; never
+                        # let it suppress fallback or become an empty success.
+                        phonemes = None
 
             # Fallback to espeak or goruut
             if not phonemes and self._fallback:
@@ -410,8 +553,14 @@ class GermanG2P(G2PBase):
             if not phonemes:
                 phonemes = self._word_to_phonemes(word)
                 if phonemes:
-                    token.phonemes = normalize_to_kokoro(phonemes)
-                    token.set("rating", 2)  # Rule-based
+                    normalized = normalize_internal(
+                        phonemes, vocabulary=self._vocabulary
+                    )
+                    if normalized.valid:
+                        token.phonemes = normalized.value
+                        token.set("rating", 2)  # Rule-based
+                    else:
+                        phonemes = None
 
             if not phonemes:
                 token.phonemes = "?"

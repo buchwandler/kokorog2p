@@ -80,4 +80,4 @@ def test_phonemize_accepts_german_crane_selection() -> None:
         use_spacy=False,
         return_ids=False,
     )
-    assert result.phonemes == "haʊs"
+    assert result.phonemes == "hWs"

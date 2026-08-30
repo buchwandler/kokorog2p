@@ -84,6 +84,7 @@ advanced
 abbreviation_customization
 spans
 phonemes
+lexicons
 ```
 
 ```{toctree}

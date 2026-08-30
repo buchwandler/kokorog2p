@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import tarfile
 import zipfile
 from email.parser import Parser
 from importlib.resources import files
@@ -15,6 +16,7 @@ STATIC_REQUIRED_WHEEL_FILES = {
     "kokorog2p/data/kokoro_config_v1.1_de.json",
     "kokorog2p/data/kokoro_config_v1.1_zh.json",
     "kokorog2p/ko/data/table.csv",
+    "kokorog2p/lexicons/data/THIRD_PARTY_NOTICES.md",
 }
 LEGACY_SOURCE_ROOTS = (
     "kokorog2p/de/data/",
@@ -67,6 +69,27 @@ def check_wheel(path: Path, *, require_release_version: bool) -> None:
         raise SystemExit(f"{path}: release artifacts must not use version 0.0.0")
 
 
+def check_sdist(path: Path) -> None:
+    """Require notices while enforcing the generated-asset-only sdist policy."""
+    with tarfile.open(path, "r:gz") as sdist:
+        members = {member.name for member in sdist.getmembers()}
+    canonical_sources = sorted(
+        name for name in members if "/lexicons/sources/" in f"/{name}"
+    )
+    notices = [
+        name
+        for name in members
+        if name.endswith("kokorog2p/lexicons/data/THIRD_PARTY_NOTICES.md")
+    ]
+    if canonical_sources:
+        raise SystemExit(
+            f"{path}: canonical lexicon sources are forbidden in sdist: "
+            f"{', '.join(canonical_sources[:5])}"
+        )
+    if not notices:
+        raise SystemExit(f"{path}: missing bundled third-party notice")
+
+
 def check_installed(*, require_release_version: bool) -> None:
     """Load bundled assets and representative native language paths."""
     import g2lex
@@ -106,10 +129,13 @@ def check_installed(*, require_release_version: bool) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--wheel", type=Path, help="wheel to inspect")
+    parser.add_argument("--sdist", type=Path, help="source distribution to inspect")
     parser.add_argument("--release", action="store_true", help="reject version 0.0.0")
     args = parser.parse_args()
     if args.wheel:
         check_wheel(args.wheel, require_release_version=args.release)
+    if args.sdist:
+        check_sdist(args.sdist)
     check_installed(require_release_version=args.release)
 
 

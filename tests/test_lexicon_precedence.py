@@ -38,31 +38,46 @@ def test_english_delegates_precedence_to_selected_stack() -> None:
     assert hit.name == "fixture"
     assert hit.value == "from-fixture"
 
+
 def test_selected_candidates_preserve_layer_precedence_over_casing():
     from kokorog2p.lexicons.runtime import SelectedLexicons
 
     selected = SelectedLexicons.__new__(SelectedLexicons)
     selected._closed = False
     selected._specs = (
-        type("Spec", (), {
-            "name": "gold",
-            "id": "de-de:gold",
-            "rating": 1,
-            "kind": "pronunciation",
-            "phoneme_encoding": "ipa",
-            "metadata": {},
-        })(),
-        type("Spec", (), {
-            "name": "crane",
-            "id": "de-de:crane",
-            "rating": 1,
-            "kind": "pronunciation",
-            "phoneme_encoding": "ipa",
-            "metadata": {},
-        })(),
+        type(
+            "Spec",
+            (),
+            {
+                "name": "gold",
+                "id": "de-de:gold",
+                "rating": 1,
+                "kind": "pronunciation",
+                "phoneme_encoding": "ipa",
+                "metadata": {},
+            },
+        )(),
+        type(
+            "Spec",
+            (),
+            {
+                "name": "crane",
+                "id": "de-de:crane",
+                "rating": 1,
+                "kind": "pronunciation",
+                "phoneme_encoding": "ipa",
+                "metadata": {},
+            },
+        )(),
     )
-    selected._layers = {"gold": {"haus": "GOLD"}, "crane": {"Haus": "CRANE"}}
+    selected._layered = g2lex.LayeredLexicon(
+        (
+            g2lex.LexiconLayer("gold", {"haus": "GOLD"}, {}),
+            g2lex.LexiconLayer("crane", {"Haus": "CRANE"}, {}),
+        )
+    )
     try:
         assert selected.get_hit_candidates(("Haus", "haus", "HAUS")).value == "GOLD"
     finally:
+        selected._layered.close()
         selected._closed = True

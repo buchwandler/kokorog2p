@@ -218,6 +218,11 @@ jobs:
         run: python scripts/validate_g2lex_assets.py --all --runtime-parity
       - name: Audit German Crane phoneme inventory
         run: python scripts/audit_lexicon_phoneme_inventory.py --id de-de:crane
+      - name: Build and inspect wheel and sdist
+        run: |
+          rm -rf dist
+          python -m build
+          python scripts/check_release_artifacts.py --wheel "$(ls dist/*.whl)" --sdist "$(ls dist/*.tar.gz)"
       - name: Run focused lexicon tests
         run: |
           python -m pytest -q \

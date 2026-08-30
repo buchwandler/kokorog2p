@@ -26,25 +26,25 @@ def lexicon():
     return GermanLexicon()
 
 
-
 @pytest.mark.parametrize(
     ("value", "expected"),
     (
         ("t͡s", "ʦ"),
         ("t͡ʃ", "ʧ"),
         ("d͡ʒ", "ʤ"),
-        ("aɪ̯", "aɪ"),
+        ("aɪ̯", "I"),
         ("n̩", "n"),
         ("ʏ", "y"),
         ("ʔ", "ʔ"),
-        ("ˈhaʊ̯s", "ˈhaʊs"),
-        ("haʊs haʊs", "haʊs haʊs"),
+        ("ˈhaʊ̯s", "ˈhWs"),
+        ("haʊs haʊs", "hWs hWs"),
     ),
 )
 def test_crane_ipa_normalization(value, expected):
     from kokorog2p.de.g2p import normalize_to_kokoro
 
     assert normalize_to_kokoro(value, use_tie_replacement=True) == expected
+
 
 class TestGermanG2P:
     """Tests for GermanG2P."""
@@ -140,13 +140,13 @@ class TestGermanG2P:
     def test_diphthong_ei(self, g2p_no_lexicon):
         """Test ei diphthong -> [aɪ̯]."""
         result = g2p_no_lexicon.phonemize("mein")
-        assert "aɪ̯" in result or "aɪ" in result
+        assert "I" in result
 
     def test_diphthong_au(self, g2p_no_lexicon):
         """Test au diphthong -> [aʊ] (normalized from aʊ̯)."""
         result = g2p_no_lexicon.phonemize("Haus")
-        # After Kokoro normalization: aʊ̯ -> aʊ (combining marker removed)
-        assert "aʊ" in result
+        # German Crane/Kokoro profile uses the explicit W diphthong token.
+        assert "W" in result
 
     def test_diphthong_eu(self, g2p_no_lexicon):
         """Test eu/äu diphthong -> [ɔʏ] (normalized from ɔʏ̯)."""
@@ -238,7 +238,13 @@ class TestGermanLexicon:
         assert lexicon.is_known("haus")
         assert not lexicon.is_known("xyznotaword123")
 
+    def test_direct_selection_rejects_duplicate_names(self):
+        with pytest.raises(ValueError, match="duplicate"):
+            GermanLexicon(lexicons=("gold", "gold"))
 
+    def test_direct_selection_rejects_unknown_names_with_valid_names(self):
+        with pytest.raises(ValueError, match="valid names: gold, crane"):
+            GermanLexicon(lexicons=("missing",))
 
     def test_gold_lookup_remains_case_insensitive(self, lexicon):
         assert lexicon.lookup("haus") == lexicon.lookup("Haus")

@@ -15,8 +15,6 @@ import g2lex
 _SUPPORTED_ENCODINGS = frozenset({"kokoro-v1", "ipa", "none"})
 from .registry import LexiconSpec, get_lexicon_spec, normalize_language
 
-_MISSING = object()
-
 
 @dataclass(frozen=True, slots=True)
 class LexiconHit:
@@ -106,40 +104,23 @@ class SelectedLexicons:
             metadata,
         )
 
-    def get_hit_candidates(
-        self, words: Sequence[str]
-    ) -> LexiconHit | None:
-        """Search selected layers first, then candidate spellings."""
+    def get_hit_candidates(self, words: Sequence[str]) -> LexiconHit | None:
+        """Search selected layers first, then candidate spellings upstream."""
         self._ensure_open()
-        candidates: list[str] = []
-        seen: set[str] = set()
-        for word in words:
-            if word not in seen:
-                seen.add(word)
-                candidates.append(word)
-        for spec in self._specs:
-            layer = self._layers[spec.name]
-            for word in candidates:
-                value = layer.get(word, _MISSING)
-                if value is _MISSING:
-                    continue
-                metadata = {
-                    **dict(spec.metadata),
-                    "id": spec.id,
-                    "rating": spec.rating,
-                    "kind": spec.kind,
-                    "phoneme_encoding": spec.phoneme_encoding,
-                }
-                return LexiconHit(
-                    value,
-                    spec.name,
-                    spec.rating,
-                    spec.kind,
-                    spec.phoneme_encoding,
-                    spec.id,
-                    metadata,
-                )
-        return None
+        hit = self._layered.get_hit_candidates(words)
+        if hit is None:
+            return None
+        metadata = dict(hit.metadata)
+        spec = self._specs[hit.index]
+        return LexiconHit(
+            hit.value,
+            hit.name,
+            spec.rating,
+            spec.kind,
+            spec.phoneme_encoding,
+            spec.id,
+            metadata,
+        )
 
     def layer(self, name: str) -> Mapping[str, object] | None:
         """Return one selected lazy mapping, or ``None`` when not selected."""
@@ -179,10 +160,64 @@ def open_selected(language: str, names: Sequence[str]) -> SelectedLexicons:
     return SelectedLexicons(language, names)
 
 
+def _consumer_decode_parity(
+    layer: Mapping[str, object],
+    *,
+    language: str,
+    phoneme_encoding: str,
+) -> dict[str, Any]:
+    """Validate packaged values through the registered consumer decoder."""
+    result: dict[str, Any] = {
+        "decoded_entries": 0,
+        "invalid_first_pronunciations": 0,
+        "empty_first_pronunciations": 0,
+        "unsupported_source_sequences": {},
+        "target_vocabulary_violations": 0,
+        "ok": True,
+        "errors": [],
+    }
+    if phoneme_encoding != "ipa" or normalize_language(language) != "de-de":
+        return result
+    from kokorog2p.de.g2p import normalize_internal
+    from kokorog2p.vocab import get_vocab
+
+    target = set(get_vocab())
+    unsupported: dict[str, int] = {}
+    errors: list[str] = []
+    for word, value in layer.items():
+        variants = tuple(g2lex.pronunciation_variants(value))
+        if not variants:
+            result["empty_first_pronunciations"] += 1
+            errors.append(f"{word}: no pronunciation variants")
+            continue
+        result["decoded_entries"] += 1
+        first = normalize_internal(
+            str(variants[0]), vocabulary=target, use_tie_replacement=True
+        )
+        if first.unsupported:
+            result["invalid_first_pronunciations"] += 1
+            for sequence in first.unsupported:
+                unsupported[sequence] = unsupported.get(sequence, 0) + 1
+        if not first.value:
+            result["empty_first_pronunciations"] += 1
+        if not first.valid:
+            errors.append(f"{word}: invalid first pronunciation")
+        if any(char not in target for char in first.value):
+            result["target_vocabulary_violations"] += 1
+    result["unsupported_source_sequences"] = dict(sorted(unsupported.items()))
+    result["errors"] = errors[:20]
+    result["ok"] = not (
+        result["invalid_first_pronunciations"]
+        or result["empty_first_pronunciations"]
+        or result["target_vocabulary_violations"]
+    )
+    return result
+
+
 def validate_runtime_parity(
     records: list[dict[str, Any]], root: Path
 ) -> list[dict[str, Any]]:
-    """Compare every canonical source entry through the packaged runtime layer."""
+    """Report exact storage parity and complete consumer decoding parity."""
     results: list[dict[str, Any]] = []
     for record in records:
         identifier = str(record["id"])
@@ -192,6 +227,7 @@ def validate_runtime_parity(
         )
         selected = open_selected(str(record["language"]), (str(record["name"]),))
         missing = mismatches = 0
+        consumer: dict[str, Any] = {"ok": True, "skipped": True}
         try:
             layer = selected.layer(str(record["name"]))
             for word, expected in parsed.entries.items():
@@ -200,18 +236,28 @@ def validate_runtime_parity(
                     missing += 1
                 elif actual != expected:
                     mismatches += 1
+            if layer is not None:
+                consumer = _consumer_decode_parity(
+                    layer,
+                    language=str(record["language"]),
+                    phoneme_encoding=str(record["phoneme_encoding"]),
+                )
         finally:
             selected.close()
+        storage_ok = not (missing or mismatches)
+        errors = [] if storage_ok else [f"missing={missing} mismatches={mismatches}"]
+        if not consumer.get("ok", True):
+            errors.extend(str(error) for error in consumer.get("errors", ()))
         results.append(
             {
                 "id": identifier,
                 "missing_keys": missing,
                 "unexpected_semantic_hits": 0,
                 "value_mismatches": mismatches,
-                "ok": not (missing or mismatches),
-                "errors": []
-                if not (missing or mismatches)
-                else [f"missing={missing} mismatches={mismatches}"],
+                "storage_parity": "exact" if storage_ok else "failed",
+                "consumer_parity": consumer,
+                "ok": storage_ok and bool(consumer.get("ok", True)),
+                "errors": errors,
             }
         )
     return results
