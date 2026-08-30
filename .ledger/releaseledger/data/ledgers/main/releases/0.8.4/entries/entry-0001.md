@@ -3,7 +3,7 @@ schema_version: 2
 object_type: release_entry
 versioning:
   schema_version: 1
-  revision: 1
+  revision: 2
 entry_id: entry-0001
 release_version: 0.8.4
 kind: added
@@ -13,6 +13,7 @@ audience: null
 scopes: []
 source_refs:
   - tl:task-0045
+  - git:1244f4b22480ddf2563bb1121695580b7d5a7cf8
 paths:
   - kokorog2p/__init__.py
   - kokorog2p/pipeline_api.py

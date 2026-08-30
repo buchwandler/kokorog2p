@@ -1,0 +1,361 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 3
+release_version: 0.8.4
+git_base_ref: v0.8.3
+git_base_sha: 627fbddbc230cfd37f0d92a68ecde5669d385078
+git_head_ref: HEAD
+git_head_sha: f07760a11829d36a7cc0301a6581a6a94607a36f
+git_range: 627fbddbc230cfd37f0d92a68ecde5669d385078..f07760a11829d36a7cc0301a6581a6a94607a36f
+commit_count: 6
+rows:
+  - sha: 654ca44016725cfd881f69be3381c329628a3eeb
+    source_ref: git:654ca44016725cfd881f69be3381c329628a3eeb
+    short_sha: 654ca44
+    changed_paths:
+      - .github/workflows/tests.yml
+      - README.md
+      - benchmarks/JAPANESE_DATASET.md
+      - docs/advanced.md
+      - docs/api/english.md
+      - docs/api/french.md
+      - docs/api/german.md
+      - docs/api/japanese.md
+      - docs/changelog.md
+      - docs/installation.md
+      - experiments/de_lexicon_compression/README.md
+      - experiments/de_lexicon_entry_reduction/tests/test_entry_reduction.py
+      - kokorog2p/__init__.py
+      - kokorog2p/base.py
+      - kokorog2p/de/g2p.py
+      - kokorog2p/de/lexicon.py
+      - kokorog2p/en/g2p.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/fr/g2p.py
+      - kokorog2p/fr/lexicon.py
+      - kokorog2p/ja/cutlet.py
+      - kokorog2p/ja/g2p.py
+      - kokorog2p/lexicons/__init__.py
+      - kokorog2p/lexicons/data/.de_gold.n8k5jsr8/de_gold.g2lex
+      - kokorog2p/lexicons/data/__init__.py
+      - kokorog2p/lexicons/data/de_gold.g2lex
+      - kokorog2p/lexicons/data/en_gb_gold.g2lex
+      - kokorog2p/lexicons/data/en_gb_silver.g2lex
+      - kokorog2p/lexicons/data/en_us_gold.g2lex
+      - kokorog2p/lexicons/data/en_us_silver.g2lex
+      - kokorog2p/lexicons/data/fr_gold.g2lex
+      - kokorog2p/lexicons/data/ja_words.g2lex
+      - kokorog2p/lexicons/registry.py
+      - kokorog2p/lexicons/runtime.py
+      - kokorog2p/pipeline_api.py
+      - lexicons/README.md
+      - lexicons/lock.json
+      - lexicons/manifest.toml
+      - lexicons/sources/de/de_gold.json
+      - lexicons/sources/en/gb_gold.json
+      - lexicons/sources/en/gb_silver.json
+      - lexicons/sources/en/us_gold.json
+      - lexicons/sources/en/us_silver.json
+      - lexicons/sources/fr/fr_gold.json
+      - lexicons/sources/ja/ja_words.txt
+      - pyproject.toml
+      - scripts/build_g2lex_assets.py
+      - scripts/check_release_artifacts.py
+      - scripts/rebuild_lexicon_de.py
+      - scripts/rebuild_lexicon_en_gb.py
+      - scripts/rebuild_lexicon_en_us.py
+      - scripts/rebuild_lexicon_fr.py
+      - scripts/validate_g2lex_assets.py
+      - tests/test_de_normalizer.py
+      - tests/test_en_lexicon.py
+      - tests/test_g2lex_assets.py
+      - tests/test_g2lex_runtime_lifetime.py
+      - tests/test_ja_g2p.py
+      - tests/test_legacy_lexicon_parity.py
+      - tests/test_lexicon_registry.py
+      - tests/test_lexicon_selection.py
+    stats:
+      files_changed: 0
+      insertions: 1487
+      deletions: 296
+    inspected: true
+    inspected_paths:
+      - kokorog2p/lexicons/registry.py
+      - kokorog2p/lexicons/runtime.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/de/lexicon.py
+      - kokorog2p/fr/lexicon.py
+      - docs/advanced.md
+      - pyproject.toml
+      - tests/test_g2lex_assets.py
+      - tests/test_lexicon_selection.py
+    observed_behavior:
+      Replaced language lexicon JSON loading with lazy packaged G2Lex assets and a named
+      registry; explicit ordered selections control lookup precedence while legacy tier
+      flags retain compatibility defaults.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: use g2lex"
+    target_entry_id: entry-0002
+    notes:
+      Reviewed registry, runtime ownership, consumer adapters, documentation, dependency
+      declaration, and regression coverage.
+  - sha: b7d457a1974b41c36bcd760e8e3086c4532f7631
+    source_ref: git:b7d457a1974b41c36bcd760e8e3086c4532f7631
+    short_sha: b7d457a
+    changed_paths:
+      - .github/workflows/tests.yml
+      - README.md
+      - kokorog2p/__init__.py
+      - kokorog2p/de/lexicon.py
+      - kokorog2p/en/arpabet.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/fr/lexicon.py
+      - kokorog2p/lexicons/_generated_registry.py
+      - kokorog2p/lexicons/data/.de_gold.n8k5jsr8/de_gold.g2lex
+      - kokorog2p/lexicons/data/de_gold.g2lex
+      - kokorog2p/lexicons/data/en_gb_gold.g2lex
+      - kokorog2p/lexicons/data/en_gb_silver.g2lex
+      - kokorog2p/lexicons/data/en_us_gold.g2lex
+      - kokorog2p/lexicons/data/en_us_silver.g2lex
+      - kokorog2p/lexicons/data/fr_gold.g2lex
+      - kokorog2p/lexicons/data/ja_words.g2lex
+      - kokorog2p/lexicons/registry.py
+      - kokorog2p/lexicons/runtime.py
+      - lexicons/README.md
+      - lexicons/lock.json
+      - lexicons/manifest.toml
+      - scripts/build_g2lex_assets.py
+      - scripts/check_release_artifacts.py
+      - scripts/validate_g2lex_assets.py
+      - tests/test_cmudict_lexicon.py
+      - tests/test_en_arpabet.py
+      - tests/test_g2lex_assets.py
+      - tests/test_legacy_lexicon_parity.py
+      - tests/test_lexicon_manifest_generation.py
+      - tests/test_lexicon_precedence.py
+    stats:
+      files_changed: 0
+      insertions: 681
+      deletions: 234
+    inspected: true
+    inspected_paths:
+      - kokorog2p/en/arpabet.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/lexicons/registry.py
+      - kokorog2p/lexicons/runtime.py
+      - lexicons/manifest.toml
+      - scripts/validate_g2lex_assets.py
+      - tests/test_lexicon_precedence.py
+      - tests/test_lexicon_selection.py
+    observed_behavior:
+      Added strict CMU ARPABET conversion and made the generated lexicon manifest drive
+      runtime metadata, default priorities, layered precedence, and asset validation.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: improve g2lex integration"
+    target_entry_id: entry-0003
+    notes:
+      Reviewed actual changed paths; the commit also adds focused precedence and ARPABET
+      regression tests.
+  - sha: 66a935d2043beb6f9f0ed04f1488179146c56d80
+    source_ref: git:66a935d2043beb6f9f0ed04f1488179146c56d80
+    short_sha: 66a935d
+    changed_paths:
+      - .github/workflows/tests.yml
+      - README.md
+      - docs/advanced.md
+      - docs/api/german.md
+      - kokorog2p/__init__.py
+      - kokorog2p/de/g2p.py
+      - kokorog2p/de/lexicon.py
+      - kokorog2p/lexicons/_generated_registry.py
+      - kokorog2p/lexicons/data/THIRD_PARTY_NOTICES.md
+      - kokorog2p/lexicons/data/de_crane.g2lex
+      - kokorog2p/lexicons/data/de_gold.g2lex
+      - kokorog2p/lexicons/data/en_gb_gold.g2lex
+      - kokorog2p/lexicons/data/en_gb_silver.g2lex
+      - kokorog2p/lexicons/data/en_us_gold.g2lex
+      - kokorog2p/lexicons/data/en_us_silver.g2lex
+      - kokorog2p/lexicons/data/fr_gold.g2lex
+      - kokorog2p/lexicons/data/ja_words.g2lex
+      - kokorog2p/lexicons/registry.py
+      - kokorog2p/lexicons/runtime.py
+      - lexicons/README.md
+      - lexicons/lock.json
+      - lexicons/manifest.toml
+      - lexicons/sources/de/PROVENANCE.md
+      - lexicons/sources/de/crane_wiktionary.tsv
+      - pyproject.toml
+      - scripts/audit_lexicon_phoneme_inventory.py
+      - scripts/build_g2lex_assets.py
+      - scripts/validate_g2lex_assets.py
+      - tests/test_de_g2p.py
+      - tests/test_dependency_contract.py
+      - tests/test_g2lex_assets.py
+      - tests/test_g2lex_runtime_lifetime.py
+      - tests/test_lexicon_manifest_generation.py
+      - tests/test_lexicon_precedence.py
+      - tests/test_lexicon_registry.py
+      - tests/test_lexicon_selection.py
+    stats:
+      files_changed: 0
+      insertions: 904901
+      deletions: 67
+    inspected: true
+    inspected_paths:
+      - kokorog2p/de/g2p.py
+      - kokorog2p/de/lexicon.py
+      - kokorog2p/lexicons/registry.py
+      - kokorog2p/lexicons/runtime.py
+      - docs/api/german.md
+      - lexicons/manifest.toml
+      - lexicons/sources/de/PROVENANCE.md
+      - tests/test_de_g2p.py
+      - tests/test_lexicon_selection.py
+    observed_behavior:
+      Added an opt-in German Crane/Wiktionary pronunciation lexicon with pinned
+      provenance, ordered pronunciation variants, German casing candidates, and named
+      selection through the public G2P and phonemize APIs.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: add de crane g2p lex"
+    target_entry_id: entry-0004
+    notes:
+      Reviewed runtime lookup behavior, manifest metadata, license provenance,
+      documentation, and selection/normalization tests.
+  - sha: 28f8b4250711cc816f0e5e293b922aa790fe2642
+    source_ref: git:28f8b4250711cc816f0e5e293b922aa790fe2642
+    short_sha: 28f8b42
+    changed_paths:
+      - .github/workflows/tests.yml
+      - MANIFEST.in
+      - docs/index.md
+      - docs/lexicons.md
+      - kokorog2p/__init__.py
+      - kokorog2p/de/g2p.py
+      - kokorog2p/de/lexicon.py
+      - kokorog2p/lexicons/runtime.py
+      - lexicons/lock.json
+      - pyproject.toml
+      - scripts/audit_lexicon_phoneme_inventory.py
+      - scripts/check_release_artifacts.py
+      - tests/test_de_g2p.py
+      - tests/test_de_g2p_hardening.py
+      - tests/test_dependency_contract.py
+      - tests/test_lexicon_precedence.py
+      - tests/test_lexicon_selection.py
+      - tests/test_release_artifacts.py
+    stats:
+      files_changed: 0
+      insertions: 670
+      deletions: 197
+    inspected: true
+    inspected_paths:
+      - kokorog2p/de/g2p.py
+      - kokorog2p/de/lexicon.py
+      - kokorog2p/lexicons/runtime.py
+      - docs/lexicons.md
+      - MANIFEST.in
+      - pyproject.toml
+      - tests/test_de_g2p.py
+      - tests/test_de_g2p_hardening.py
+      - tests/test_release_artifacts.py
+    observed_behavior:
+      Made German IPA normalization strict and auditable, rejects unsupported first
+      pronunciations so fallback remains available, and packages compiled lexicon assets
+      with third-party notices while excluding canonical source data.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: add german crane"
+    target_entry_id: entry-0005
+    notes:
+      Reviewed normalization classifications, fallback behavior, distribution policy,
+      dependency floor, and hardening/artifact tests.
+  - sha: 1244f4b22480ddf2563bb1121695580b7d5a7cf8
+    source_ref: git:1244f4b22480ddf2563bb1121695580b7d5a7cf8
+    short_sha: 1244f4b
+    changed_paths:
+      - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0001.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/release.md
+      - README.md
+      - benchmarks/JAPANESE_DATASET.md
+      - docs/advanced.md
+      - docs/api/core.md
+      - docs/api/english.md
+      - docs/api/french.md
+      - docs/api/german.md
+      - docs/api/japanese.md
+      - docs/changelog.md
+      - docs/installation.md
+      - docs/lexicons.md
+      - docs/spans.md
+      - kokorog2p/__init__.py
+      - kokorog2p/cs/g2p.py
+      - kokorog2p/de/g2p.py
+      - kokorog2p/es/g2p.py
+      - kokorog2p/fr/g2p.py
+      - kokorog2p/it/g2p.py
+      - kokorog2p/lexicons/data/THIRD_PARTY_NOTICES.md
+      - kokorog2p/lexicons/registry.py
+      - kokorog2p/pipeline_api.py
+      - kokorog2p/pt/g2p.py
+      - lexicons/README.md
+      - lexicons/sources/de/PROVENANCE.md
+      - scripts/build_g2lex_assets.py
+      - tests/test_lexicon_manifest_generation.py
+      - tests/test_lexicon_registry.py
+      - tests/test_pipeline_api.py
+      - tests/test_public_api_consistency.py
+      - tests/test_spokenform_migration.py
+    stats:
+      files_changed: 0
+      insertions: 603
+      deletions: 136
+    inspected: true
+    inspected_paths:
+      - kokorog2p/__init__.py
+      - kokorog2p/pipeline_api.py
+      - docs/api/core.md
+      - docs/spans.md
+      - tests/test_pipeline_api.py
+      - tests/test_public_api_consistency.py
+    observed_behavior:
+      Added the public phonemize_prepared API for caller-owned written-to-spoken text
+      while retaining tokenization, overrides, model punctuation handling, alignment,
+      phoneme generation, and token IDs in the supplied coordinate space.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: phoneme generation for prepared text"
+    target_entry_key: entry-0001
+    target_entry_id: entry-0001
+    notes:
+      Existing accepted release entry covers this behavior; its git provenance will be
+      added separately.
+  - sha: f07760a11829d36a7cc0301a6581a6a94607a36f
+    source_ref: git:f07760a11829d36a7cc0301a6581a6a94607a36f
+    short_sha: f07760a
+    changed_paths:
+      - README.md
+      - kokorog2p/lexicons/registry.py
+      - tests/test_lexicon_selection.py
+    stats:
+      files_changed: 0
+      insertions: 16
+      deletions: 25
+    inspected: true
+    inspected_paths:
+      - README.md
+      - kokorog2p/lexicons/registry.py
+      - tests/test_lexicon_selection.py
+    observed_behavior:
+      Explicit named lexicon selections now take precedence over legacy load flags,
+      allowing integrations to pass old defaults without overriding the selected layer.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: allow legacy api"
+    target_entry_id: entry-0006
+    notes: Reviewed the compatibility contract and updated regression test.
