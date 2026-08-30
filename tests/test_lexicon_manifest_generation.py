@@ -1,3 +1,4 @@
+from importlib.metadata import version as distribution_version
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,10 @@ def test_generated_registry_matches_manifest() -> None:
         encoding="utf-8"
     )
     assert generated == registry_text(load_manifest())
+
+
+def test_asset_tools_use_distribution_version() -> None:
+    assert build_assets.G2LEX_VERSION == distribution_version("g2lex")
 
 
 def test_manifest_is_complete_registry_source() -> None:

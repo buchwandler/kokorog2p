@@ -2,14 +2,14 @@ schema_version: 1
 object_type: commit_audit_sheet
 versioning:
   schema_version: 1
-  revision: 3
+  revision: 8
 release_version: 0.8.4
 git_base_ref: v0.8.3
 git_base_sha: 627fbddbc230cfd37f0d92a68ecde5669d385078
 git_head_ref: HEAD
-git_head_sha: f07760a11829d36a7cc0301a6581a6a94607a36f
-git_range: 627fbddbc230cfd37f0d92a68ecde5669d385078..f07760a11829d36a7cc0301a6581a6a94607a36f
-commit_count: 6
+git_head_sha: d11d5500a42ee2f65c8629762a6aa81f6ffa1cd3
+git_range: 627fbddbc230cfd37f0d92a68ecde5669d385078..d11d5500a42ee2f65c8629762a6aa81f6ffa1cd3
+commit_count: 10
 rows:
   - sha: 654ca44016725cfd881f69be3381c329628a3eeb
     source_ref: git:654ca44016725cfd881f69be3381c329628a3eeb
@@ -359,3 +359,178 @@ rows:
     evidence_subject: "feat: allow legacy api"
     target_entry_id: entry-0006
     notes: Reviewed the compatibility contract and updated regression test.
+  - sha: d21f154bfef8a61a173549e64cb5af7903b2d076
+    source_ref: git:d21f154bfef8a61a173549e64cb5af7903b2d076
+    short_sha: d21f154
+    changed_paths:
+      - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/audit/commit-audit.yaml
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0001.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0002.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0003.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0004.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0005.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0006.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/release.md
+      - docs/changelog.md
+    stats:
+      files_changed: 0
+      insertions: 664
+      deletions: 9
+    inspected: true
+    inspected_paths:
+      - docs/changelog.md
+    observed_behavior:
+      Regenerated the public changelog section from existing releaseledger entries
+      without introducing product behavior.
+    public_impact: none
+    decision: internal
+    evidence_subject: "doc: changelog"
+    target_entry_key: entry-0010
+    target_entry_id: entry-0010
+    notes:
+      Changelog-generation housekeeping is not a separate release-note item; the
+      underlying changes remain covered by their own entries.
+  - sha: 47b5c41cba11831b4b562b9216dbbda8a10230d0
+    source_ref: git:47b5c41cba11831b4b562b9216dbbda8a10230d0
+    short_sha: 47b5c41
+    changed_paths:
+      - README.md
+      - benchmarks/text_preparation_migration.py
+      - docs/api/chinese.md
+      - docs/installation.md
+      - docs/languages.md
+      - kokorog2p/__init__.py
+      - kokorog2p/abbreviation_utils.py
+      - kokorog2p/cs/abbreviations.py
+      - kokorog2p/cs/normalizer.py
+      - kokorog2p/de/abbreviations.py
+      - kokorog2p/de/normalizer.py
+      - kokorog2p/en/abbreviations.py
+      - kokorog2p/en/normalizer.py
+      - kokorog2p/en/numbers.py
+      - kokorog2p/es/abbreviations.py
+      - kokorog2p/es/normalizer.py
+      - kokorog2p/fr/abbreviations.py
+      - kokorog2p/fr/lexicon.py
+      - kokorog2p/fr/normalizer.py
+      - kokorog2p/fr/numbers.py
+      - kokorog2p/it/abbreviations.py
+      - kokorog2p/it/normalizer.py
+      - kokorog2p/ja/cutlet.py
+      - kokorog2p/ja/g2p.py
+      - kokorog2p/ko/g2p.py
+      - kokorog2p/ko/g2pk.py
+      - kokorog2p/pipeline/abbreviations.py
+      - kokorog2p/pipeline_api.py
+      - kokorog2p/pt/abbreviations.py
+      - kokorog2p/pt/normalizer.py
+      - kokorog2p/th/g2p.py
+      - kokorog2p/zh/g2p.py
+      - lexicons/lock.json
+      - pyproject.toml
+      - scripts/build_g2lex_assets.py
+      - scripts/validate_g2lex_assets.py
+      - tests/data/text_preparation_migration.json
+      - tests/data/text_preparation_migration_baseline.jsonl
+      - tests/test_cjk_prepared_input.py
+      - tests/test_multilang.py
+      - tests/test_pipeline_api.py
+      - tests/test_semantic_ownership.py
+      - tests/test_text_preparation_migration_oracle.py
+      - tests/test_th_prepared_input.py
+    stats:
+      files_changed: 0
+      insertions: 631
+      deletions: 168
+    inspected: true
+    inspected_paths:
+      - kokorog2p/pipeline_api.py
+      - kokorog2p/__init__.py
+      - kokorog2p/ko/g2p.py
+      - kokorog2p/th/g2p.py
+      - tests/test_pipeline_api.py
+      - tests/test_cjk_prepared_input.py
+    observed_behavior:
+      Applied caller-owned semantic preparation consistently across language frontends,
+      normalized product language aliases before Spokenform calls, and prevented
+      prepared text from being semantically expanded a second time.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: all lang use the same spokenform preparation api"
+    target_entry_key: entry-0007
+    target_entry_id: entry-0007
+    notes:
+      Reviewed the pipeline adapter, language frontend changes, public API
+      compatibility, and prepared-input regression tests.
+  - sha: f6312a4cefa8538f732bc6a05a0bff11d9663132
+    source_ref: git:f6312a4cefa8538f732bc6a05a0bff11d9663132
+    short_sha: f6312a4
+    changed_paths:
+      - pyproject.toml
+    stats:
+      files_changed: 0
+      insertions: 1
+      deletions: 1
+    inspected: true
+    inspected_paths:
+      - pyproject.toml
+    observed_behavior:
+      Raised the declared minimum Spokenform dependency from 0.3.1 to 0.3.4 while
+      retaining the compatible 0.4 release ceiling.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "chore: update dep"
+    target_entry_key: entry-0008
+    target_entry_id: entry-0008
+    notes: Reviewed the package dependency declaration and its compatibility contract.
+  - sha: d11d5500a42ee2f65c8629762a6aa81f6ffa1cd3
+    source_ref: git:d11d5500a42ee2f65c8629762a6aa81f6ffa1cd3
+    short_sha: d11d550
+    changed_paths:
+      - .github/workflows/tests.yml
+      - benchmarks/text_preparation_migration.py
+      - docs/installation.md
+      - docs/languages.md
+      - kokorog2p/__init__.py
+      - kokorog2p/de/lexicon.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/fr/lexicon.py
+      - kokorog2p/ja/cutlet.py
+      - kokorog2p/lexicons/__init__.py
+      - kokorog2p/lexicons/runtime.py
+      - kokorog2p/pipeline_api.py
+      - kokorog2p/zh/g2p.py
+      - tests/data/text_preparation_migration.json
+      - tests/test_dependency_contract.py
+      - tests/test_g2lex_runtime_lifetime.py
+      - tests/test_memory_regressions.py
+      - tests/test_pipeline_api.py
+      - tests/test_text_preparation_migration_oracle.py
+    stats:
+      files_changed: 0
+      insertions: 343
+      deletions: 104
+    inspected: true
+    inspected_paths:
+      - kokorog2p/lexicons/runtime.py
+      - kokorog2p/lexicons/__init__.py
+      - kokorog2p/__init__.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/de/lexicon.py
+      - kokorog2p/fr/lexicon.py
+      - docs/installation.md
+      - tests/test_g2lex_runtime_lifetime.py
+      - tests/test_memory_regressions.py
+    observed_behavior:
+      Added a shared lease-aware G2Lex resource pool so equivalent G2P instances reuse
+      packaged lexicon mappings while closing one instance does not invalidate another;
+      exposed cache reset and diagnostics through the public lexicon runtime.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: adapt tests"
+    target_entry_key: entry-0009
+    target_entry_id: entry-0009
+    notes:
+      Reviewed resource ownership, cache eviction, compatibility wrappers, public
+      exports, and lifetime regression tests.
