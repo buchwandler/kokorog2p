@@ -2,23 +2,15 @@
 
 kokorog2p supports multiple languages with varying levels of functionality.
 
-| `en` | Spokenform semantic preparation |
-| `de` | Spokenform semantic preparation |
-| `fr` | Spokenform semantic preparation |
-| `es` | Spokenform semantic preparation |
-| `it` | Spokenform semantic preparation |
-| `pt` | Spokenform semantic preparation |
-| `cs` | Spokenform semantic preparation |
-| `vi` | Spokenform semantic preparation |
-| `ko` | Spokenform semantic preparation |
-| `he` | Spokenform semantic preparation |
-| `zh` | Spokenform semantic preparation |
-| `ja` | Spokenform semantic preparation |
-| `ar` | Spokenform semantic preparation |
-| `sv` | Spokenform semantic preparation |
-| `th` | Spokenform semantic preparation |
-| `ru` | Spokenform semantic preparation |
-| `kk` | Spokenform semantic preparation |
+| `en` | Spokenform semantic preparation | | `de` | Spokenform semantic preparation | |
+`fr` | Spokenform semantic preparation | | `es` | Spokenform semantic preparation | |
+`it` | Spokenform semantic preparation | | `pt` | Spokenform semantic preparation | |
+`cs` | Spokenform semantic preparation | | `vi` | Spokenform semantic preparation | |
+`ko` | Spokenform semantic preparation | | `he` | Spokenform semantic preparation | |
+`zh` | Spokenform semantic preparation | | `ja` | Spokenform semantic preparation | |
+`ar` | Spokenform semantic preparation | | `sv` | Spokenform semantic preparation | |
+`th` | Spokenform semantic preparation | | `ru` | Spokenform semantic preparation | |
+`kk` | Spokenform semantic preparation |
 
 ```{eval-rst}
 .. list-table:: Language Support Overview

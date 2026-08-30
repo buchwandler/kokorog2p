@@ -8,7 +8,9 @@ from pathlib import Path
 import pytest
 
 DATA = Path(__file__).parent / "data"
-CASES = json.loads((DATA / "text_preparation_migration.json").read_text(encoding="utf-8"))
+CASES = json.loads(
+    (DATA / "text_preparation_migration.json").read_text(encoding="utf-8")
+)
 BASELINE = DATA / "text_preparation_migration_baseline.jsonl"
 EXPECTED_LANGUAGES = {
     "en",
@@ -43,16 +45,22 @@ def test_oracle_has_reviewed_baseline_records() -> None:
             "before changing semantic preparation"
         )
 
-    records = [json.loads(line) for line in BASELINE.read_text(encoding="utf-8").splitlines()]
+    records = [
+        json.loads(line) for line in BASELINE.read_text(encoding="utf-8").splitlines()
+    ]
     assert records
-    assert {record["canonical_language"].split("-", 1)[0] for record in records} >= EXPECTED_LANGUAGES
+    assert {
+        record["canonical_language"].split("-", 1)[0] for record in records
+    } >= EXPECTED_LANGUAGES
     assert all(record.get("spokenform_version") for record in records)
     assert all("source" in record and "language" in record for record in records)
     assert all("preparation_ms" in record for record in records)
 
 
 def test_oracle_records_source_replacement_coordinates() -> None:
-    records = [json.loads(line) for line in BASELINE.read_text(encoding="utf-8").splitlines()]
+    records = [
+        json.loads(line) for line in BASELINE.read_text(encoding="utf-8").splitlines()
+    ]
     for record in records:
         for replacement in record.get("source_replacements", []):
             start = replacement["source_start"]
@@ -63,5 +71,7 @@ def test_oracle_records_source_replacement_coordinates() -> None:
 
 def test_aliases_are_present_in_the_oracle() -> None:
     assert any("aliases" in case and case["aliases"] for case in CASES)
-    records = [json.loads(line) for line in BASELINE.read_text(encoding="utf-8").splitlines()]
+    records = [
+        json.loads(line) for line in BASELINE.read_text(encoding="utf-8").splitlines()
+    ]
     assert any("@" in record["id"] for record in records)

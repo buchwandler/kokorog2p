@@ -92,14 +92,17 @@ EMPTY_LEXICON: Final[LexiconMapping] = MappingProxyType({})
 
 
 def clear_lexicon_cache() -> None:
-    """Compatibility hook retained for callers of the former JSON cache."""
+    """Compatibility wrapper for the shared G2Lex resource cache."""
+    from kokorog2p.lexicons.runtime import clear_resource_cache
+
+    clear_resource_cache()
 
 
 def lexicon_cache_info():
-    """Return compatibility cache statistics for the resource-backed lexicon."""
-    from collections import namedtuple
+    """Return diagnostics for the shared resource-backed lexicon cache."""
+    from kokorog2p.lexicons.runtime import resource_cache_info
 
-    return namedtuple("LexiconCacheInfo", "hits misses maxsize currsize")(0, 0, 0, 0)
+    return resource_cache_info()
 
 
 # =============================================================================

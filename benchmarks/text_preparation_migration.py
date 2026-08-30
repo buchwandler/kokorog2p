@@ -48,7 +48,7 @@ def _capture_case(case: dict[str, Any], *, capture_g2p: bool) -> dict[str, Any]:
             language=language,
             config=PreparationConfig.for_kokorog2p(language),
         )
-    except Exception as error:  # noqa: BLE001 - baseline must record unsupported profiles
+    except Exception as error:
         record["preparation_error"] = f"{type(error).__name__}: {error}"
         record["preparation_ms"] = round((time.perf_counter() - started) * 1000, 3)
         return record
@@ -97,7 +97,7 @@ def _capture_case(case: dict[str, Any], *, capture_g2p: bool) -> dict[str, Any]:
                 else None,
             }
         )
-    except Exception as error:  # noqa: BLE001 - optional backends vary by machine
+    except Exception as error:
         record["g2p_error"] = f"{type(error).__name__}: {error}"
     return record
 
@@ -112,7 +112,9 @@ def capture(*, output: Path, capture_g2p: bool) -> None:
             for alias in case.get("aliases", []):
                 alias_case = {**case, "id": f"{case['id']}@{alias}", "language": alias}
                 record = _capture_case(alias_case, capture_g2p=capture_g2p)
-                stream.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+                stream.write(
+                    json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n"
+                )
 
 
 def benchmark(*, iterations: int) -> None:
@@ -149,13 +151,17 @@ def benchmark(*, iterations: int) -> None:
                 else None,
             }
         )
-    print(json.dumps({"python": sys.version, "rows": rows}, ensure_ascii=False, indent=2))
+    print(
+        json.dumps({"python": sys.version, "rows": rows}, ensure_ascii=False, indent=2)
+    )
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument("--no-g2p", action="store_true", help="capture preparation only")
+    parser.add_argument(
+        "--no-g2p", action="store_true", help="capture preparation only"
+    )
     parser.add_argument("--benchmark", action="store_true")
     parser.add_argument("--iterations", type=int, default=10)
     args = parser.parse_args()

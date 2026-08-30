@@ -341,7 +341,6 @@ class Cutlet:
         # Spokenform owns digit-to-spoken conversion; retain only typography.
         return "".join(re.findall(r"\d+|\D+", text))
 
-
     def _romaji_tokens(self, words: list[Word]) -> list[Token]:
         """Build a list of tokens from input nodes."""
         groups = []

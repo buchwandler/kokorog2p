@@ -56,6 +56,7 @@ def test_prepared_pipeline_preserves_supplied_coordinate_space():
     for token in result.tokens:
         assert result.clean_text[token.char_start : token.char_end] == token.text
 
+
 def test_written_uses_spokenform_once_and_prepared_bypasses_semantics() -> None:
     written_g2p = _EchoG2P()
     written = phonemize_to_result(
@@ -80,8 +81,6 @@ def test_written_uses_spokenform_once_and_prepared_bypasses_semantics() -> None:
     )
     assert prepared.extended_text == "สอง"
     assert prepared_g2p.calls == ["สอง"]
-
-
 
 
 def test_coarse_g2p_span_is_consumed_once_across_domain_source_tokens():

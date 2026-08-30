@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import weakref
+from collections import namedtuple
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path
+from threading import RLock
 from types import TracebackType
 from typing import Any
 
@@ -14,6 +16,96 @@ import g2lex
 
 _SUPPORTED_ENCODINGS = frozenset({"kokoro-v1", "ipa", "none"})
 from .registry import LexiconSpec, get_lexicon_spec, normalize_language
+
+
+@dataclass(slots=True)
+class _SharedLexiconResource:
+    """One immutable G2Lex mapping with explicit consumer leases."""
+
+    key: tuple[str, str, bool]
+    handle: Any
+    mapping: Mapping[str, object]
+    leases: int = 0
+    evicted: bool = False
+    closed: bool = False
+
+    def close(self) -> None:
+        if self.closed:
+            return
+        self.closed = True
+        close = getattr(self.handle, "close", None)
+        if close is not None:
+            close()
+
+
+_RESOURCE_LOCK = RLock()
+_RESOURCE_CACHE: dict[tuple[str, str, bool], _SharedLexiconResource] = {}
+_RESOURCE_HITS = 0
+_RESOURCE_MISSES = 0
+_ResourceCacheInfo = namedtuple("ResourceCacheInfo", "hits misses maxsize currsize")
+
+
+def _resource_key(spec: LexiconSpec) -> tuple[str, str, bool]:
+    return (spec.id, spec.resource, spec.case_aliases)
+
+
+def _acquire_resource(spec: LexiconSpec) -> _SharedLexiconResource:
+    """Acquire a lease on the process-shared resource for ``spec``."""
+    global _RESOURCE_HITS, _RESOURCE_MISSES
+    with _RESOURCE_LOCK:
+        key = _resource_key(spec)
+        resource = _RESOURCE_CACHE.get(key)
+        if resource is None:
+            _RESOURCE_MISSES += 1
+            data = files("kokorog2p.lexicons.data")
+            raw = g2lex.open_traversable(data.joinpath(spec.resource))
+            try:
+                mapping: Mapping[str, object] = (
+                    g2lex.CaseAliasMapping(raw) if spec.case_aliases else raw
+                )
+            except Exception:
+                raw.close()
+                raise
+            resource = _SharedLexiconResource(key, mapping, mapping)
+            _RESOURCE_CACHE[key] = resource
+        else:
+            _RESOURCE_HITS += 1
+        resource.leases += 1
+        return resource
+
+
+def _release_resource(resource: _SharedLexiconResource) -> None:
+    with _RESOURCE_LOCK:
+        if resource.leases <= 0:
+            raise RuntimeError(f"resource lease underflow for {resource.key!r}")
+        resource.leases -= 1
+        if resource.leases == 0 and resource.evicted:
+            resource.close()
+
+
+def _release_resources(resources: tuple[_SharedLexiconResource, ...]) -> None:
+    """Release resources without retaining an owning consumer reference."""
+    for resource in resources:
+        _release_resource(resource)
+
+
+def clear_resource_cache() -> None:
+    """Evict shared resources while retaining resources leased by live consumers."""
+    with _RESOURCE_LOCK:
+        resources = tuple(_RESOURCE_CACHE.values())
+        _RESOURCE_CACHE.clear()
+        for resource in resources:
+            resource.evicted = True
+            if resource.leases == 0:
+                resource.close()
+
+
+def resource_cache_info():
+    """Return diagnostics for the shared G2Lex resource pool."""
+    with _RESOURCE_LOCK:
+        return _ResourceCacheInfo(
+            _RESOURCE_HITS, _RESOURCE_MISSES, None, len(_RESOURCE_CACHE)
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,11 +121,6 @@ class LexiconHit:
     metadata: Mapping[str, object]
 
 
-def _close_handles(handles: tuple[Any, ...]) -> None:
-    for handle in handles:
-        handle.close()
-
-
 class SelectedLexicons:
     """An ordered collection of lazy G2Lex mappings with source identity."""
 
@@ -45,9 +132,8 @@ class SelectedLexicons:
         )
         self._layers: dict[str, Mapping[str, object]] = {}
         layer_records: list[g2lex.LexiconLayer] = []
-        handles: list[Any] = []
+        resources: list[_SharedLexiconResource] = []
         try:
-            data = files("kokorog2p.lexicons.data")
             for spec in self._specs:
                 if spec.phoneme_encoding not in _SUPPORTED_ENCODINGS:
                     raise ValueError(
@@ -55,16 +141,13 @@ class SelectedLexicons:
                         f"encoding {spec.phoneme_encoding!r} "
                         f"({spec.id})"
                     )
-                handle = g2lex.open_traversable(data.joinpath(spec.resource))
-                handles.append(handle)
-                mapping: Mapping[str, object] = (
-                    g2lex.CaseAliasMapping(handle) if spec.case_aliases else handle
-                )
-                self._layers[spec.name] = mapping
+                resource = _acquire_resource(spec)
+                resources.append(resource)
+                self._layers[spec.name] = resource.mapping
                 layer_records.append(
                     g2lex.LexiconLayer(
                         spec.name,
-                        mapping,
+                        resource.mapping,
                         {
                             **dict(spec.metadata),
                             "id": spec.id,
@@ -75,12 +158,12 @@ class SelectedLexicons:
                     )
                 )
         except Exception:
-            _close_handles(tuple(handles))
+            _release_resources(tuple(reversed(resources)))
             raise
-        self._handles = tuple(handles)
+        self._resources = tuple(resources)
         self._layered = g2lex.LayeredLexicon(layer_records)
         self._closed = False
-        self._finalizer = weakref.finalize(self, _close_handles, self._handles)
+        self._finalizer = weakref.finalize(self, _release_resources, self._resources)
 
     def _ensure_open(self) -> None:
         if self._closed:
@@ -138,9 +221,10 @@ class SelectedLexicons:
         if self._closed:
             return
         self._closed = True
-        self._layered.close()
         self._layers.clear()
-        self._finalizer.detach()
+        # LayeredLexicon.close() owns its mappings; these layers are borrowed
+        # from the lease-aware pool and must only be released here.
+        self._finalizer()
 
     def __enter__(self) -> SelectedLexicons:  # noqa: PYI034
         self._ensure_open()
@@ -266,5 +350,7 @@ def validate_runtime_parity(
 __all__ = [
     "LexiconHit",
     "SelectedLexicons",
+    "clear_resource_cache",
     "open_selected",
+    "resource_cache_info",
 ]

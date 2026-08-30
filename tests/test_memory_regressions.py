@@ -51,8 +51,8 @@ def test_english_variants_share_lexicon_resources() -> None:
     assert curly.lexicon.silvers is ascii_quotes.lexicon.silvers
 
 
-def test_french_variants_share_gold_resource() -> None:
-    """French configuration variants must reuse the parsed gold mapping."""
+def test_french_equivalent_aliases_share_factory_identity() -> None:
+    """Equivalent French aliases and selections reuse one canonical factory."""
     from kokorog2p import clear_cache, get_g2p
 
     clear_cache(deep=True)
@@ -61,8 +61,8 @@ def test_french_variants_share_gold_resource() -> None:
         "french", use_spacy=False, use_espeak_fallback=False, load_silver=False
     )
 
-    assert first is not second
-    assert first.lexicon.golds is second.lexicon.golds
+    assert first is second
+    assert first.lexicon.lexicons == ("gold",)
 
 
 def test_factory_aliases_and_unknown_options() -> None:

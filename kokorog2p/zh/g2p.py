@@ -87,7 +87,6 @@ class ChineseG2P(G2PBase):
             self._frontend = ZHFrontend(unk=self.unk)
         return self._frontend
 
-
     @property
     def jieba(self):
         """Lazy import of jieba."""
@@ -96,7 +95,6 @@ class ChineseG2P(G2PBase):
 
             self._jieba = jieba
         return self._jieba
-
 
     @property
     def pypinyin(self):

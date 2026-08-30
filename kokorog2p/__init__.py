@@ -1158,18 +1158,15 @@ def clear_cache(*, deep: bool = False) -> None:
         _g2p_cache.clear()
 
     if deep:
-        from kokorog2p.de.lexicon import clear_lexicon_cache as clear_de
-        from kokorog2p.en.lexicon import clear_lexicon_cache as clear_en
-        from kokorog2p.fr.lexicon import clear_lexicon_cache as clear_fr
+        from kokorog2p.lexicons.runtime import clear_resource_cache
 
-        clear_en()
-        clear_fr()
-        clear_de()
+        clear_resource_cache()
 
 
 def reset_abbreviations() -> None:
     """Reset Spokenform's shared abbreviation registry and caches."""
     from spokenform import reset_abbreviations as reset_spokenform_abbreviations
+
     reset_spokenform_abbreviations()
 
     clear_cache(deep=True)

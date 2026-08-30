@@ -69,6 +69,7 @@ class _SpokenformRunResult(list[TextReplacement]):
         super().__init__(replacements)
         self.warnings = list(warnings)
 
+
 def _uses_spokenform_semantics(lang: str | None) -> bool:
     """Return whether *lang* has migrated semantic preparation upstream."""
     normalized = _spokenform_language(lang)
@@ -79,6 +80,7 @@ def _uses_spokenform_semantics(lang: str | None) -> bool:
     except (TypeError, ValueError):
         base = normalized.split("-", 1)[0]
     return base in _SPOKENFORM_SEMANTIC_LANGUAGES
+
 
 def _get_g2p_lock(g2p: Any) -> threading.RLock:
     try:
@@ -233,9 +235,11 @@ def _spokenform_language(lang: str | None) -> str | None:
         return None
     try:
         from kokorog2p import _canonical_language
+
         return _canonical_language(normalized)
     except (ImportError, TypeError, ValueError):
         return normalized
+
 
 @cache
 def _get_abbreviation_expander(lang: str | None) -> AbbreviationExpander | None:
