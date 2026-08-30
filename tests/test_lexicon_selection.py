@@ -38,19 +38,17 @@ def test_legacy_flags_map_to_named_layers() -> None:
         assert g2p.lexicon.lexicons == expected
 
 
-def test_explicit_selection_rejects_contradictory_flags() -> None:
-    try:
-        get_g2p(
-            "en-us",
-            lexicons="gold",
-            load_gold=False,
-            use_spacy=False,
-            use_espeak_fallback=False,
-        )
-    except ValueError as exc:
-        assert "contradicts" in str(exc)
-    else:
-        raise AssertionError("contradictory selection was accepted")
+def test_explicit_selection_takes_precedence_over_legacy_flags() -> None:
+    clear_cache()
+    g2p = get_g2p(
+        "de",
+        lexicons="gold",
+        load_gold=False,
+        load_silver=True,
+        use_spacy=False,
+        use_espeak_fallback=False,
+    )
+    assert g2p.lexicon.lexicons == ("gold",)
 
 
 def test_german_selection_preserves_explicit_order() -> None:

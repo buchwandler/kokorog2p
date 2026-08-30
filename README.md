@@ -727,8 +727,8 @@ the bundled `.g2lex` asset and does not access the network.
 The first lexicon in `lexicons=(...)` that contains a word wins. Explicit selections
 preserve caller order. If `lexicons` is omitted, manifest default priorities select the
 compatibility default; the `load_gold` and `load_silver` flags remain compatibility
-controls. With an explicit selection, only a legacy flag passed by the caller is checked
-for contradiction.
+controls. With an explicit selection, the named selection takes precedence and legacy
+flags are ignored.
 
 Maintainers rebuild and validate committed assets with:
 

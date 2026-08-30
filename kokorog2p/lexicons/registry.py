@@ -123,16 +123,9 @@ def normalize_lexicon_selection(
         raise ValueError("lexicons selection must not contain duplicate names")
     for name in names:
         get_lexicon_spec(canonical, name)
-    if load_gold is not None and ("gold" in names) != load_gold:
-        raise ValueError(
-            "Explicit lexicons selection contradicts load_gold: "
-            f"selection={names!r}, load_gold={load_gold!r}"
-        )
-    if load_silver is not None and ("silver" in names) != load_silver:
-        raise ValueError(
-            "Explicit lexicons selection contradicts load_silver: "
-            f"selection={names!r}, load_silver={load_silver!r}"
-        )
+    # Explicit selections are the new, more precise API. Legacy flags are
+    # intentionally ignored here because integrations may continue to pass
+    # their old defaults alongside a named selection.
     return names
 
 
