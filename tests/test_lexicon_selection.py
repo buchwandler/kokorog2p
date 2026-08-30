@@ -1,4 +1,5 @@
-from kokorog2p import clear_cache, get_g2p
+from kokorog2p import clear_cache, get_g2p, phonemize
+from kokorog2p.lexicons import normalize_lexicon_selection
 
 
 def test_named_selection_and_cache_identity() -> None:
@@ -50,3 +51,33 @@ def test_explicit_selection_rejects_contradictory_flags() -> None:
         assert "contradicts" in str(exc)
     else:
         raise AssertionError("contradictory selection was accepted")
+
+
+def test_german_selection_preserves_explicit_order() -> None:
+    assert normalize_lexicon_selection("de", ("gold", "crane")) == ("gold", "crane")
+    assert normalize_lexicon_selection("de", ("crane", "gold")) == ("crane", "gold")
+
+
+def test_german_named_lexicons_have_distinct_cache_identities() -> None:
+    clear_cache()
+    options = {"use_spacy": False, "use_espeak_fallback": False}
+    gold = get_g2p("de", lexicons="gold", **options)
+    crane = get_g2p("de", lexicons="crane", **options)
+    reverse = get_g2p("de", lexicons=("crane", "gold"), **options)
+    assert gold is not crane
+    assert crane is not reverse
+    assert gold.lexicon.lexicons == ("gold",)
+    assert crane.lexicon.lexicons == ("crane",)
+    assert reverse.lexicon.lexicons == ("crane", "gold")
+
+
+def test_phonemize_accepts_german_crane_selection() -> None:
+    result = phonemize(
+        "Haus",
+        language="de",
+        lexicons="crane",
+        use_espeak_fallback=False,
+        use_spacy=False,
+        return_ids=False,
+    )
+    assert result.phonemes == "haʊs"

@@ -1,3 +1,4 @@
+import hashlib
 import json
 from importlib.resources import files
 from pathlib import Path
@@ -22,3 +23,18 @@ def test_all_packaged_assets_open_and_match_lock() -> None:
             assert lexicon.metadata["logical_sha256"] == metadata["logical_sha256"]
         finally:
             lexicon.close()
+
+
+def test_crane_source_hash_and_ordered_variants_are_preserved() -> None:
+    source = Path("lexicons/sources/de/crane_wiktionary.tsv")
+    lock = json.loads(Path("lexicons/lock.json").read_text(encoding="utf-8"))
+    metadata = lock["assets"]["de-de:crane"]
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == metadata["source_sha256"]
+    parsed = g2lex.read_typed_lexicon(source, format="tsv", source_id="de-de:crane")
+    asset = g2lex.open("kokorog2p/lexicons/data/de_crane.g2lex")
+    try:
+        assert asset.get("A") == ("aː", "aːs")
+        assert asset.get("0,2-Liter-Flasche") == parsed.entries["0,2-Liter-Flasche"]
+        assert asset.metadata["logical_sha256"] == parsed.logical_sha256
+    finally:
+        asset.close()

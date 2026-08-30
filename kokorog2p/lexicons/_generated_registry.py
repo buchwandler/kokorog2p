@@ -59,6 +59,21 @@ GENERATED_LEXICONS = (
         "default_priority": 10,
     },
     {
+        "id": "de-de:crane",
+        "language": "de-de",
+        "name": "crane",
+        "resource": "de_crane.g2lex",
+        "kind": "pronunciation",
+        "case_aliases": False,
+        "phoneme_encoding": "ipa",
+        "provider": "crane-local-ai",
+        "revision": "bfd51698069a30e1b20bbf54479b55af50b4161d",
+        "source_url": "https://huggingface.co/datasets/crane-local-ai/g2p-lexicons/blob/bfd51698069a30e1b20bbf54479b55af50b4161d/de/de.tsv",
+        "license_expression": "CC-BY-SA-4.0",
+        "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "attribution": "German Wiktionary contributors; dataset extraction/publishing by Crane Local AI",  # noqa: E501
+    },
+    {
         "id": "fr-fr:gold",
         "language": "fr-fr",
         "name": "gold",

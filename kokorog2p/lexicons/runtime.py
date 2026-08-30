@@ -15,6 +15,8 @@ import g2lex
 _SUPPORTED_ENCODINGS = frozenset({"kokoro-v1", "ipa", "none"})
 from .registry import LexiconSpec, get_lexicon_spec, normalize_language
 
+_MISSING = object()
+
 
 @dataclass(frozen=True, slots=True)
 class LexiconHit:
@@ -104,6 +106,41 @@ class SelectedLexicons:
             metadata,
         )
 
+    def get_hit_candidates(
+        self, words: Sequence[str]
+    ) -> LexiconHit | None:
+        """Search selected layers first, then candidate spellings."""
+        self._ensure_open()
+        candidates: list[str] = []
+        seen: set[str] = set()
+        for word in words:
+            if word not in seen:
+                seen.add(word)
+                candidates.append(word)
+        for spec in self._specs:
+            layer = self._layers[spec.name]
+            for word in candidates:
+                value = layer.get(word, _MISSING)
+                if value is _MISSING:
+                    continue
+                metadata = {
+                    **dict(spec.metadata),
+                    "id": spec.id,
+                    "rating": spec.rating,
+                    "kind": spec.kind,
+                    "phoneme_encoding": spec.phoneme_encoding,
+                }
+                return LexiconHit(
+                    value,
+                    spec.name,
+                    spec.rating,
+                    spec.kind,
+                    spec.phoneme_encoding,
+                    spec.id,
+                    metadata,
+                )
+        return None
+
     def layer(self, name: str) -> Mapping[str, object] | None:
         """Return one selected lazy mapping, or ``None`` when not selected."""
         self._ensure_open()
@@ -158,8 +195,7 @@ def validate_runtime_parity(
         try:
             layer = selected.layer(str(record["name"]))
             for word, expected in parsed.entries.items():
-                lookup_word = word.lower() if record["language"] == "de-de" else word
-                actual = layer.get(lookup_word) if layer is not None else None
+                actual = layer.get(word) if layer is not None else None
                 if actual is None and expected is not None:
                     missing += 1
                 elif actual != expected:

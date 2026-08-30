@@ -93,8 +93,7 @@ def _legacy_enabled(spec: LexiconSpec, *, load_gold: bool, load_silver: bool) ->
         return load_gold
     if spec.name == "silver":
         return load_silver
-    return load_gold
-
+    return True
 
 def normalize_lexicon_selection(
     language: str,

@@ -26,6 +26,26 @@ def lexicon():
     return GermanLexicon()
 
 
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    (
+        ("t͡s", "ʦ"),
+        ("t͡ʃ", "ʧ"),
+        ("d͡ʒ", "ʤ"),
+        ("aɪ̯", "aɪ"),
+        ("n̩", "n"),
+        ("ʏ", "y"),
+        ("ʔ", "ʔ"),
+        ("ˈhaʊ̯s", "ˈhaʊs"),
+        ("haʊs haʊs", "haʊs haʊs"),
+    ),
+)
+def test_crane_ipa_normalization(value, expected):
+    from kokorog2p.de.g2p import normalize_to_kokoro
+
+    assert normalize_to_kokoro(value, use_tie_replacement=True) == expected
+
 class TestGermanG2P:
     """Tests for GermanG2P."""
 
@@ -217,6 +237,41 @@ class TestGermanLexicon:
         """Test is_known method."""
         assert lexicon.is_known("haus")
         assert not lexicon.is_known("xyznotaword123")
+
+
+
+    def test_gold_lookup_remains_case_insensitive(self, lexicon):
+        assert lexicon.lookup("haus") == lexicon.lookup("Haus")
+        assert lexicon.lookup("haus") == lexicon.lookup("HAUS")
+
+    def test_crane_lookup_uses_source_casing_and_variants(self):
+        lexicon = GermanLexicon(lexicons=("crane",), strip_stress=False)
+        try:
+            assert lexicon.lookup("Haus") == "haʊ̯s"
+            assert lexicon.lookup("haus") == "haʊ̯s"
+            assert lexicon.is_known("HAUS")
+        finally:
+            lexicon.close()
+
+    def test_tuple_lookup_uses_first_ordered_pronunciation(self):
+        from kokorog2p.lexicons.runtime import LexiconHit
+
+        class Selected:
+            def get_hit_candidates(self, words):
+                return LexiconHit(
+                    ("hˈaʊs", "haʊs"),
+                    "fixture",
+                    None,
+                    "pronunciation",
+                    "ipa",
+                    "de-de:fixture",
+                    {},
+                )
+
+        lexicon = GermanLexicon.__new__(GermanLexicon)
+        lexicon._selected = Selected()
+        lexicon._strip_stress = False
+        assert lexicon.lookup("Haus") == "hˈaʊs"
 
     def test_case_insensitive(self, lexicon):
         """Test case insensitive lookup."""

@@ -444,6 +444,10 @@ def get_g2p(  # noqa: C901
             Defaults to True for maximum quality and coverage.
             Set to False when only silver tier or no dictionaries needed.
             Only applies to languages with dictionaries (English, French, German).
+        lexicons: A named lexicon or ordered sequence of named lexicons for the
+            language. When omitted, the language default stack is used. In an
+            explicit sequence, the first lexicon wins collisions. Use
+            ``available_lexicons(language)`` to inspect registered names.
         version: Model version to use. Default: "1.0" (base model).
             - "1.0": Base model
             - "1.1": Chinese/English model
@@ -929,6 +933,11 @@ def phonemize(
         load_gold:
             Whether to load the optional gold dictionary when constructing a
             G2P instance.
+        lexicons:
+            A named lexicon or ordered sequence of named lexicons for the language.
+            When omitted, the language default stack is used. In an explicit sequence,
+            the first lexicon wins collisions. Use ``available_lexicons(language)``
+            to inspect registered names.
         backend:
             When constructing a G2P instance, select the backend:
             ``"kokorog2p"``, ``"espeak"``, or ``"goruut"``. Ignored if ``g2p`` is

@@ -77,3 +77,22 @@ for token in tokens:
 ## Lexicon storage
 
 German gold data is stored in the canonical source tree and shipped as a verified lazy G2Lex asset. `get_g2p("de", lexicons="gold")` selects it explicitly.
+
+`crane` is an additional opt-in named lexicon built from the pinned
+`crane-local-ai/g2p-lexicons` German Wiktionary TSV. Inspect and select it with:
+
+```python
+from kokorog2p import available_lexicons, get_g2p, phonemize
+
+available_lexicons("de")  # ("gold", "crane")
+get_g2p("de", lexicons="crane")
+phonemize("Haus", language="de", lexicons="crane")
+```
+
+The default remains `gold`; an explicit ordered sequence gives precedence to its
+first layer, even when casing candidates differ. German lookup tries the exact input,
+lowercase, initial-capitalized lowercase, and uppercase forms in that layer order.
+Crane retains all source-ordered pronunciations and the runtime selects the first.
+Its IPA is normalized centrally for the Kokoro vocabulary (including tie bars,
+non-syllabic offglides, syllabic marks, and `ʏ`). The bundled data is CC BY-SA 4.0,
+attributed to German Wiktionary contributors, and uses no network access at runtime.

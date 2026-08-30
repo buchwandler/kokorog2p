@@ -17,6 +17,7 @@ def test_migrated_semantic_dependency_floors() -> None:
     # baseline for the current migration.
     assert "abbr2words>=0.2.9,<0.3.0" in dependencies
     assert "spokenform>=0.3.1,<0.4.0" in dependencies
+    assert "g2lex>=0.1.5,<0.2.0" in dependencies
 
 
 def test_thai_dependency_extra_is_optional() -> None:

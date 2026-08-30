@@ -26,6 +26,7 @@ from kokorog2p.pipeline.tokenizer import RegexTokenizer, SpacyTokenizer
 from kokorog2p.spacy_models import resolve_spacy_model
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
+from kokorog2p.vocab import get_vocab
 
 if TYPE_CHECKING:
     from kokorog2p.de.lexicon import GermanLexicon
@@ -134,6 +135,8 @@ def _is_front_vowel_context(prev_chars: str) -> bool:
     return bool(prev_lower.endswith(("ei", "ai", "eu", "äu", "ie", "ey", "ay")))
 
 
+_KOKORO_VOCAB: Final[frozenset[str]] = frozenset(get_vocab())
+
 def normalize_to_kokoro(phonemes: str, use_tie_replacement: bool = False) -> str:
     """Normalize German phonemes to Kokoro-compatible format.
 
@@ -164,19 +167,34 @@ def normalize_to_kokoro(phonemes: str, use_tie_replacement: bool = False) -> str
         phonemes = phonemes.replace("t^s", "ʦ")
         phonemes = phonemes.replace("t^ʃ", "ʧ")
         phonemes = phonemes.replace("ɔ^ɪ", "Y")
-
-    # Remove non-syllabic markers from diphthongs (U+032F)
-    # The diphthongs work without this marker in Kokoro
-    phonemes = phonemes.replace("\u032f", "")  # COMBINING INVERTED BREVE BELOW
-
-    # Remove syllabic consonant marker (U+0329)
-    # Syllabic consonants like n̩, l̩, m̩ work without this marker in Kokoro
-    phonemes = phonemes.replace("\u0329", "")  # COMBINING VERTICAL LINE BELOW
-
-    # Replace IPA characters not in Kokoro vocab with closest equivalents
-    phonemes = phonemes.replace("ʏ", "y")  # LATIN SMALL CAPITAL Y -> lowercase y
-
-    return phonemes
+        # Unknown tie-bar sequences are plain affricate sequences in IPA.
+        phonemes = phonemes.replace("^", "")
+    phonemes = phonemes.replace("ʏ", "y")
+    # Source inventories contain articulatory marks and occasional foreign IPA
+    # symbols that the Kokoro encoder cannot represent. Fold common equivalents,
+    # then drop residual unsupported marks deterministically at this boundary.
+    for source, target in {
+        "ɱ": "m",
+        "ɫ": "l",
+        "ɬ": "l",
+        "ʀ": "ʁ",
+        "ʉ": "u",
+        "ɘ": "ə",
+        "ɶ": "œ",
+        "ɝ": "ɜ",
+        "ʑ": "ʒ",
+        "ɺ": "l",
+        "ʙ": "b",
+        "ɓ": "b",
+        "ħ": "h",
+        "õ": "o",
+        "ã": "a",
+        "ẽ": "e",
+        "ạ": "a",
+        "ọ": "o",
+    }.items():
+        phonemes = phonemes.replace(source, target)
+    return "".join(char for char in phonemes if char in _KOKORO_VOCAB)
 
 
 class GermanG2P(G2PBase):
@@ -251,6 +269,7 @@ class GermanG2P(G2PBase):
         )
         self.version = version
         self._lexicon: GermanLexicon | None = None
+        self.lexicon: GermanLexicon | None = None
         self._fallback: Any = None
         self._strip_stress = strip_stress
         if use_spacy and (spacy_model is None or spacy_model.lower() == "auto"):
@@ -285,6 +304,7 @@ class GermanG2P(G2PBase):
                     load_gold=load_gold,
                     lexicons=lexicons,
                 )
+                self.lexicon = self._lexicon
             except ImportError:
                 pass
 
@@ -373,7 +393,9 @@ class GermanG2P(G2PBase):
             if self._lexicon:
                 phonemes = self._lexicon.lookup(word, token.tag)
                 if phonemes:
-                    token.phonemes = normalize_to_kokoro(phonemes)
+                    token.phonemes = normalize_to_kokoro(
+                        phonemes, use_tie_replacement=True
+                    )
                     token.set("rating", 5)  # Dictionary lookup = highest rating
 
             # Fallback to espeak or goruut

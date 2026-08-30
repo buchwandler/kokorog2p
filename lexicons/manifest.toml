@@ -65,6 +65,25 @@ case_aliases = false
 phoneme_encoding = "ipa"
 default_priority = 10
 
+
+[[lexicon]]
+id = "de-de:crane"
+language = "de-de"
+name = "crane"
+kind = "pronunciation"
+source = "lexicons/sources/de/crane_wiktionary.tsv"
+source_format = "tsv"
+asset = "kokorog2p/lexicons/data/de_crane.g2lex"
+case_aliases = false
+phoneme_encoding = "ipa"
+source_sha256 = "04a3909f07cd08615157393814188b420a7c3c5035cf7a0608d31be07892be29"
+source_size = 32367922
+provider = "crane-local-ai"
+revision = "bfd51698069a30e1b20bbf54479b55af50b4161d"
+source_url = "https://huggingface.co/datasets/crane-local-ai/g2p-lexicons/blob/bfd51698069a30e1b20bbf54479b55af50b4161d/de/de.tsv"
+license_expression = "CC-BY-SA-4.0"
+license_url = "https://creativecommons.org/licenses/by-sa/4.0/"
+attribution = "German Wiktionary contributors; dataset extraction/publishing by Crane Local AI"
 [[lexicon]]
 id = "fr-fr:gold"
 language = "fr-fr"

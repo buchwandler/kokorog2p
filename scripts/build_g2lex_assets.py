@@ -20,7 +20,18 @@ MANIFEST_PATH = ROOT / "lexicons" / "manifest.toml"
 LOCK_PATH = ROOT / "lexicons" / "lock.json"
 
 
-def load_manifest() -> list[dict[str, Any]]:
+def _validate_repository_relative_path(value: object, field: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"manifest field {field!r} must be a non-empty string")
+    path = Path(value)
+    if path.is_absolute() or ".." in path.parts:
+        raise ValueError(
+            f"manifest field {field!r} must be repository-relative: {value!r}"
+        )
+    return value
+
+
+def load_manifest() -> list[dict[str, Any]]:  # noqa: C901
     import tomllib
 
     with MANIFEST_PATH.open("rb") as stream:
@@ -39,20 +50,91 @@ def load_manifest() -> list[dict[str, Any]]:
         "source_format",
         "asset",
         "case_aliases",
-        "default_priority",
         "phoneme_encoding",
     }
-    result = []
-    seen: set[str] = set()
+    supported_encodings = {"kokoro-v1", "ipa", "none"}
+    provenance_fields = {
+        "provider",
+        "revision",
+        "source_url",
+        "license_expression",
+        "license_url",
+        "attribution",
+    }
+    result: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    seen_language_names: set[tuple[str, str]] = set()
+    seen_assets: set[str] = set()
     for record in records:
         if not isinstance(record, dict) or not required <= record.keys():
             raise ValueError(f"invalid manifest record: {record!r}")
+        string_fields = required - {"case_aliases"}
+        if any(
+            not isinstance(record[field], str) or not record[field].strip()
+            for field in string_fields
+        ):
+            raise ValueError(
+                f"manifest record has invalid required field types: {record!r}"
+            )
         lexicon_id = str(record["id"])
-        if lexicon_id in seen:
+        language = str(record["language"])
+        name = str(record["name"])
+        if lexicon_id in seen_ids:
             raise ValueError(f"duplicate manifest id: {lexicon_id}")
-        seen.add(lexicon_id)
+        seen_ids.add(lexicon_id)
+        language_name = (language, name)
+        if language_name in seen_language_names:
+            raise ValueError(f"duplicate manifest language/name: {language_name!r}")
+        seen_language_names.add(language_name)
+        if lexicon_id != f"{language}:{name}":
+            raise ValueError(
+                f"manifest id must be '{language}:{name}', got {lexicon_id!r}"
+            )
+        _validate_repository_relative_path(record["source"], "source")
+        asset = _validate_repository_relative_path(record["asset"], "asset")
+        asset_basename = Path(asset).name
+        existing_basenames = {Path(item["asset"]).name for item in result}
+        if asset in seen_assets or asset_basename in existing_basenames:
+            raise ValueError(f"duplicate manifest asset: {asset}")
+        seen_assets.add(asset)
+        if not isinstance(record["case_aliases"], bool):
+            raise TypeError(f"case_aliases must be boolean for {lexicon_id}")
         if record["kind"] not in {"pronunciation", "membership"}:
             raise ValueError(f"unsupported lexicon kind for {lexicon_id}")
+        if record["phoneme_encoding"] not in supported_encodings:
+            raise ValueError(f"unsupported phoneme encoding for {lexicon_id}")
+        for optional in ("default_priority", "rating"):
+            if optional in record and (
+                not isinstance(record[optional], int)
+                or isinstance(record[optional], bool)
+            ):
+                raise TypeError(f"{optional} must be an integer for {lexicon_id}")
+        if "rating" in record and not 0 <= record["rating"] <= 5:
+            raise ValueError(f"rating must be between 0 and 5 for {lexicon_id}")
+        if "source_sha256" in record and (
+            not isinstance(record["source_sha256"], str)
+            or len(record["source_sha256"]) != 64
+        ):
+            raise ValueError(
+                f"source_sha256 must be a 64-character hex string for {lexicon_id}"
+            )
+        if "source_size" in record and (
+            not isinstance(record["source_size"], int)
+            or isinstance(record["source_size"], bool)
+            or record["source_size"] < 0
+        ):
+            raise ValueError(
+                f"source_size must be a non-negative integer for {lexicon_id}"
+            )
+        if "third_party" in record and not isinstance(record["third_party"], bool):
+            raise TypeError(f"third_party must be boolean for {lexicon_id}")
+        if record.get("provider") is not None or record.get("third_party") is True:
+            missing = sorted(provenance_fields - record.keys())
+            if missing:
+                raise ValueError(
+                    f"third-party record {lexicon_id} is missing provenance: "
+                    f"{', '.join(missing)}"
+                )
         result.append(record)
     return result
 
@@ -118,7 +200,10 @@ def registry_text(records: list[dict[str, Any]]) -> str:
                 value = record[field]
             else:
                 continue
-            lines.append(f"        {python_literal(field)}: {python_literal(value)},")
+            rendered = f"        {python_literal(field)}: {python_literal(value)},"
+            if field == "attribution":
+                rendered += "  # noqa: E501"
+            lines.append(rendered)
         lines.append("    },")
     lines.extend((")", ""))
     return "\n".join(lines)
@@ -145,6 +230,17 @@ def validate_source(record: dict[str, Any]) -> tuple[Any, Path]:
 
 def build_record(record: dict[str, Any], output: Path) -> dict[str, Any]:
     parsed, source = validate_source(record)
+    expected_source_hash = record.get("source_sha256")
+    if expected_source_hash is not None and sha256(source) != expected_source_hash:
+        raise ValueError(
+            f"source SHA-256 differs from manifest for {record['id']}"
+        )
+    expected_source_size = record.get("source_size")
+    if (
+        expected_source_size is not None
+        and source.stat().st_size != expected_source_size
+    ):
+        raise ValueError(f"source size differs from manifest for {record['id']}")
     packed = g2lex.pack_file(
         source,
         output,

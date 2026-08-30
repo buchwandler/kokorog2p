@@ -216,6 +216,8 @@ jobs:
         run: python scripts/build_g2lex_assets.py --check
       - name: Validate lexicon assets
         run: python scripts/validate_g2lex_assets.py --all --runtime-parity
+      - name: Audit German Crane phoneme inventory
+        run: python scripts/audit_lexicon_phoneme_inventory.py --id de-de:crane
       - name: Run focused lexicon tests
         run: |
           python -m pytest -q \
@@ -226,5 +228,6 @@ jobs:
             tests/test_legacy_lexicon_parity.py \
             tests/test_lexicon_precedence.py \
             tests/test_lexicon_manifest_generation.py \
+            tests/test_de_g2p.py \
             tests/test_en_arpabet.py \
             tests/test_cmudict_lexicon.py

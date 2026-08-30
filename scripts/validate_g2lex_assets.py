@@ -99,7 +99,9 @@ def validate_record(
                 for error in check_value(value, record)
             ]
             embedded_source = opened.metadata.get("source", {})
-            embedded_source_hash = embedded_source.get("sha256")
+            embedded_source_hash = embedded_source.get(
+                "source_sha256", embedded_source.get("sha256")
+            )
             embedded_logical = opened.metadata.get("logical_sha256")
             embedded_count = opened.metadata.get("entry_count")
         finally:
