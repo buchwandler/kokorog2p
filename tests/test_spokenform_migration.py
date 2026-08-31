@@ -22,6 +22,7 @@ from kokorog2p.it.normalizer import ItalianNormalizer
 from kokorog2p.pipeline_api import (
     _apply_structured_replacements_to_tokens,
     _normalize_punctuation_output,
+    _prepare_span_text,
     _spokenform_replacements_for_run,
     _SpokenformRunResult,
     _uses_spokenform_semantics,
@@ -55,8 +56,8 @@ def assert_spokenform_handoff(
             == replacement.source
         )
 
-    result = phonemize_to_result(source, lang=language, return_ids=False)
-    assert result.extended_text == _normalize_punctuation_output(prepared.spoken_text)
+    result = _prepare_span_text(source, lang=language, overrides=())
+    assert result.model_text == _normalize_punctuation_output(prepared.spoken_text)
 
 
 @pytest.mark.parametrize(
@@ -185,6 +186,7 @@ def test_migrated_pipeline_passes_original_symbols_to_spokenform(monkeypatch):
     phonemize_to_result(source, lang="en", return_ids=False)
 
     assert source in calls
+    assert calls.count(source) == 1
     assert any("#" in text and "@" in text and "+" in text for text in calls)
 
 
@@ -427,7 +429,8 @@ def test_english_preparation_is_idempotent_before_direct_g2p():
     ids=lambda case: case["category"] + ":" + case["source"][:18],
 )
 def test_french_parity_corpus(case):
-    assert FrenchNormalizer()(case["source"]) == case["expected"]
+    result = _prepare_span_text(case["source"], lang="fr")
+    assert result.model_text == case["expected"]
 
 
 @pytest.mark.parametrize(

@@ -60,8 +60,8 @@ def load_spacy_model(name: str, *, enable: list[str] | None = None) -> Any:
         if requested & _TRANSFORMER_COMPONENTS:
             required |= available & _TRANSFORMER_COMPONENTS
         unrelated = [pipe for pipe in pipe_names if pipe not in required]
-        if unrelated and hasattr(nlp, "disable_pipes"):
-            nlp.disable_pipes(*unrelated)
+        if unrelated:
+            nlp.select_pipes(disable=unrelated)
         return nlp
     except (OSError, ImportError) as exc:
         if isinstance(exc, ImportError) and str(exc).startswith("spaCy model"):

@@ -437,6 +437,12 @@ class EnglishG2P(G2PBase):
             normalization_log=norm_steps,
         )
 
+    def _normalize_input(self, text: str) -> str:
+        """Normalize text according to whether semantics are already prepared."""
+        if getattr(self, "_kokorog2p_prepared_input", False):
+            return self.normalizer.normalize_for_g2p(text)
+        return self.normalizer(text)
+
     def _tokenize_spacy(self, text: str) -> list[GToken]:
         """Tokenize text using spaCy with custom contraction handling.
 
@@ -449,7 +455,7 @@ class EnglishG2P(G2PBase):
             List of GToken objects.
         """
         # Normalize text
-        normalized_text = self.normalizer(text)
+        normalized_text = self._normalize_input(text)
 
         # Tokenize using spaCy tokenizer
         processing_tokens = self.spacy_tokenizer.tokenize(normalized_text)
@@ -496,7 +502,7 @@ class EnglishG2P(G2PBase):
             List of GToken objects.
         """
         # Normalize text
-        normalized_text = self.normalizer(text)
+        normalized_text = self._normalize_input(text)
 
         # Tokenize using regex tokenizer
         processing_tokens = self.regex_tokenizer.tokenize(normalized_text)

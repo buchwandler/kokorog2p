@@ -12,8 +12,8 @@ class FakeNLP:
         self.pipe_names = list(pipe_names)
         self.disabled: list[str] = []
 
-    def disable_pipes(self, *names: str) -> None:
-        self.disabled.extend(names)
+    def select_pipes(self, *, disable: list[str]) -> None:
+        self.disabled.extend(disable)
 
 
 def _fake_spacy(monkeypatch, nlp: FakeNLP):

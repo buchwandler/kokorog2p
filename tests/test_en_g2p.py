@@ -4,8 +4,9 @@ from typing import Literal
 
 import pytest
 
-from kokorog2p import phonemize_to_result
+from kokorog2p import phonemize_prepared, phonemize_to_result
 from kokorog2p.en.g2p import EnglishG2P
+from kokorog2p.en.normalizer import EnglishNormalizer
 from kokorog2p.token import GToken
 
 
@@ -448,6 +449,55 @@ class TestEnglishG2PTokenization:
 
         weve_token = next(t for t in tokens if t.text == "We've")
         assert weve_token.phonemes == "wˌiv", f"We've phonemes: {weve_token.phonemes}"
+
+
+@pytest.mark.parametrize("language", ["en-us", "en-gb"])
+@pytest.mark.parametrize("use_spacy", [False, True])
+def test_prepared_input_skips_semantic_normalization(monkeypatch, language, use_spacy):
+    if use_spacy:
+        spacy = pytest.importorskip("spacy")
+        if not spacy.util.is_package("en_core_web_sm"):
+            pytest.skip("en_core_web_sm is not installed")
+
+    g2p = EnglishG2P(
+        language=language,
+        use_spacy=use_spacy,
+        spacy_model="en_core_web_sm" if use_spacy else None,
+        use_espeak_fallback=False,
+        load_gold=False,
+        load_silver=False,
+    )
+
+    def forbidden(_self, _text, **_kwargs):
+        raise AssertionError("semantic normalization must not run")
+
+    monkeypatch.setattr(EnglishNormalizer, "__call__", forbidden)
+    text = "Two kilograms."
+    result = phonemize_prepared(
+        text, language=language, g2p=g2p, return_ids=False, return_phonemes=False
+    )
+
+    assert result.clean_text == text
+    assert result.extended_text == text
+
+
+def test_direct_english_g2p_still_prepares_written_input():
+    g2p = EnglishG2P(
+        language="en-us",
+        use_spacy=False,
+        use_espeak_fallback=False,
+        load_gold=False,
+        load_silver=False,
+    )
+
+    tokens = g2p._tokenize_simple("Version 2.0.")
+    texts = [token.text for token in tokens]
+
+    assert texts[texts.index("two") : texts.index(".", texts.index("two"))] == [
+        "two",
+        "point",
+        "oh",
+    ]
 
 
 class TestMainAPI:

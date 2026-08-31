@@ -43,6 +43,19 @@ class _EchoG2P:
         return [GToken(text=text, tag="WORD", whitespace="", phonemes=text.upper())]
 
 
+class _PreparedAwareG2P(_EchoG2P):
+    def __init__(self, language: str):
+        super().__init__()
+        self.language = language
+        self.prepared_seen: list[bool] = []
+
+    def __call__(self, text):
+        self.prepared_seen.append(
+            bool(getattr(self, "_kokorog2p_prepared_input", False))
+        )
+        return super().__call__(text)
+
+
 def test_prepared_pipeline_preserves_supplied_coordinate_space():
     text = "already spoken"
     result = phonemize_prepared(
@@ -81,6 +94,38 @@ def test_written_uses_spokenform_once_and_prepared_bypasses_semantics() -> None:
     )
     assert prepared.extended_text == "สอง"
     assert prepared_g2p.calls == ["สอง"]
+
+
+def test_migrated_span_pipeline_marks_default_g2p_input_prepared():
+    g2p = _PreparedAwareG2P("de")
+    result = phonemize_to_result(
+        "Wir brauchen 2 kg.",
+        lang="de",
+        g2p=g2p,
+        return_ids=False,
+    )
+
+    assert g2p.prepared_seen == [True]
+    assert result.extended_text == "Wir brauchen zwei Kilogramm."
+
+
+def test_migrated_language_override_g2p_receives_prepared_input(monkeypatch):
+    override_g2p = _PreparedAwareG2P("en-us")
+    monkeypatch.setattr(
+        "kokorog2p.get_g2p",
+        lambda *_args, **_kwargs: override_g2p,
+    )
+    default_g2p = _PreparedAwareG2P("en-us")
+    result = phonemize_to_result(
+        "Hello Welt!",
+        lang="en-us",
+        g2p=default_g2p,
+        overrides=[OverrideSpan(6, 10, {"lang": "de"})],
+        return_ids=False,
+    )
+
+    assert override_g2p.prepared_seen == [True]
+    assert result.extended_text == "Hello Welt!"
 
 
 def test_coarse_g2p_span_is_consumed_once_across_domain_source_tokens():

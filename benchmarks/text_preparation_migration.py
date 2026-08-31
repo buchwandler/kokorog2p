@@ -34,6 +34,7 @@ def _spokenform_language(language: str) -> str:
 
     return _canonical_language(language)
 
+
 def _capture_case(case: dict[str, Any], *, capture_g2p: bool) -> dict[str, Any]:
     from spokenform import PreparationConfig, prepare_for_kokorog2p
 
