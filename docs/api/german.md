@@ -92,9 +92,9 @@ phonemize("Haus", language="de", lexicons=("gold", "olaph"))
 ```
 
 Explicit tuple order defines collision precedence. German casing candidates are searched
-inside each layer in that order, and each source retains its ordered pronunciations while
-the runtime selects the first. `espeak` is a bundled static dictionary, not the optional
-`use_espeak_fallback=True` backend. All lookup is offline. German source IPA is normalized
-centrally for the Kokoro vocabulary; unsupported values fail closed and can fall through
-to configured fallback. The CSTR eSpeak-derived source has conservative CC BY-SA 3.0
-open-dict-data/Wiktionary provenance. OLaPh is MIT licensed.
+inside each layer in that order, and each source retains its ordered pronunciations
+while the runtime selects the first. `espeak` is a bundled static dictionary, not the
+optional `use_espeak_fallback=True` backend. All lookup is offline. German source IPA is
+normalized centrally for the Kokoro vocabulary; unsupported values fail closed and can
+fall through to configured fallback. The CSTR eSpeak-derived source has conservative CC
+BY-SA 3.0 open-dict-data/Wiktionary provenance. OLaPh is MIT licensed.

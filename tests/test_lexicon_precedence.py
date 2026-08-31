@@ -2,9 +2,8 @@ import g2lex
 import pytest
 
 from kokorog2p.en.lexicon import Lexicon
-from kokorog2p.lexicons.runtime import LexiconHit
+from kokorog2p.lexicons.runtime import LexiconHit, open_selected
 
-from kokorog2p.lexicons.runtime import open_selected
 
 def test_layered_lexicon_first_matching_layer_wins() -> None:
     first = g2lex.LexiconLayer("fixture", {"collision": "from-first"}, {"rating": 9})

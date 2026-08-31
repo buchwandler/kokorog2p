@@ -140,6 +140,58 @@ def apply_overrides_to_tokens(
     return modified_tokens, warnings
 
 
+def _coalesce_unicode_replacements(
+    tokens: list[TokenSpan],
+    source: str,
+    replacements: Sequence[TextReplacement],
+) -> list[TextReplacement]:
+    """Preserve source tokens while composing partial Unicode edits."""
+    unicode_by_token: dict[int, list[TextReplacement]] = {}
+    other_replacements: list[TextReplacement] = []
+    for replacement in replacements:
+        if replacement.kind != "unicode":
+            other_replacements.append(replacement)
+            continue
+        overlapping_indices = [
+            token_index
+            for token_index, token in enumerate(tokens)
+            if token.char_start <= replacement.start
+            and replacement.end <= token.char_end
+        ]
+        if len(overlapping_indices) == 1:
+            unicode_by_token.setdefault(overlapping_indices[0], []).append(replacement)
+        else:
+            other_replacements.append(replacement)
+
+    for token_index, token_replacements in unicode_by_token.items():
+        token = tokens[token_index]
+        if "ph" in token.meta:
+            other_replacements.extend(token_replacements)
+            continue
+        extended_text = source[token.char_start : token.char_end]
+        for replacement in sorted(
+            token_replacements, key=lambda item: item.start, reverse=True
+        ):
+            start = replacement.start - token.char_start
+            end = replacement.end - token.char_start
+            extended_text = (
+                extended_text[:start] + replacement.text + extended_text[end:]
+            )
+        first = token_replacements[0]
+        other_replacements.append(
+            TextReplacement(
+                start=token.char_start,
+                end=token.char_end,
+                text=extended_text,
+                kind="unicode",
+                priority=max(item.priority for item in token_replacements),
+                language=first.language,
+                stages=first.stages,
+            )
+        )
+    return other_replacements
+
+
 def apply_text_replacements_to_tokens(
     tokens: list[TokenSpan],
     source: str,
@@ -173,7 +225,10 @@ def apply_text_replacements_to_tokens(
             return None
         return lang.lower().replace("_", "-")
 
-    sorted_replacements = sorted(replacements, key=lambda item: (item.start, item.end))
+    sorted_replacements = sorted(
+        _coalesce_unicode_replacements(modified_tokens, source, replacements),
+        key=lambda item: (item.start, item.end),
+    )
     coalesced_replacements: list[TextReplacement] = []
     index = 0
     while index < len(sorted_replacements):

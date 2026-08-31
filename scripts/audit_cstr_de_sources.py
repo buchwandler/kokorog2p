@@ -11,16 +11,18 @@ from pathlib import Path
 from typing import Any
 
 import g2lex
+from build_g2lex_assets import ROOT, load_manifest
 
 from kokorog2p.de.g2p import normalize_internal
 from kokorog2p.vocab import get_vocab
-from build_g2lex_assets import ROOT, load_manifest
 
 _HEADERS = frozenset({"espeak_ipa", "ipa", "pronunciation"})
 
 
 def _rejected_digest(pairs: list[tuple[str, str]]) -> str:
-    payload = json.dumps(sorted(pairs), ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    payload = json.dumps(
+        sorted(pairs), ensure_ascii=False, separators=(",", ":")
+    ).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
 
 
@@ -50,7 +52,8 @@ def audit_source(record: dict[str, Any]) -> dict[str, object]:
         empty_words += int(not word)
         empty_pronunciations += int(not pronunciation)
         missing_outer_delimiters += int(
-            bool(pronunciation) and not (pronunciation.startswith("/") and pronunciation.endswith("/"))
+            bool(pronunciation)
+            and not (pronunciation.startswith("/") and pronunciation.endswith("/"))
         )
 
     parsed = g2lex.read_typed_lexicon(
@@ -66,7 +69,9 @@ def audit_source(record: dict[str, Any]) -> dict[str, object]:
             invalid += 1
             continue
         first = str(variants[0])
-        result = normalize_internal(first, vocabulary=vocabulary, use_tie_replacement=True)
+        result = normalize_internal(
+            first, vocabulary=vocabulary, use_tie_replacement=True
+        )
         for sequence in result.unsupported:
             unsupported[sequence] += 1
         has_target_violation = any(char not in vocabulary for char in result.value)
@@ -87,7 +92,8 @@ def audit_source(record: dict[str, Any]) -> dict[str, object]:
         "unique_keys": len(parsed.entries),
         "duplicate_rows": data_rows - len(parsed.entries),
         "multi_pronunciation_keys": sum(
-            len(tuple(g2lex.pronunciation_variants(value))) > 1 for value in parsed.entries.values()
+            len(tuple(g2lex.pronunciation_variants(value))) > 1
+            for value in parsed.entries.values()
         ),
         "empty_words": empty_words,
         "empty_pronunciations": empty_pronunciations,
@@ -112,7 +118,9 @@ def main() -> int:
         report = audit_source(records[identifier])
         output = args.output_dir / f"{identifier.replace(':', '_')}.json"
         output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+        output.write_text(
+            json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+        )
         print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 

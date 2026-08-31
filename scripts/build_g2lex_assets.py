@@ -256,7 +256,9 @@ def build_record(record: dict[str, Any], output: Path) -> dict[str, Any]:
             "kind": str(record["kind"]),
             "case_aliases": bool(record["case_aliases"]),
             "phoneme_encoding": str(record["phoneme_encoding"]),
-            "consumer_invalid_policy": str(record.get("consumer_invalid_policy", "error")),
+            "consumer_invalid_policy": str(
+                record.get("consumer_invalid_policy", "error")
+            ),
             **{
                 key: record[key]
                 for key in (

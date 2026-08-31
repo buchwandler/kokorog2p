@@ -4,29 +4,15 @@
   "entries_with_empty_first_pronunciation": 0,
   "entry_count": 965839,
   "first_unhandled_examples": {
-    "/": [
-      "1,6-Liter-Benzinern",
-      "1,6-Liter-Benziners",
-      "Beer"
-    ],
-    "=": [
-      "Actress",
-      "Gun",
-      "Muladhara Chakras"
-    ],
-    "g": [
-      "aasgeier",
-      "abarbeitungsgeschwindigkeit",
-      "abarbeitungsgeschwindigkeiten"
-    ],
+    "/": ["1,6-Liter-Benzinern", "1,6-Liter-Benziners", "Beer"],
+    "=": ["Actress", "Gun", "Muladhara Chakras"],
+    "g": ["aasgeier", "abarbeitungsgeschwindigkeit", "abarbeitungsgeschwindigkeiten"],
     "|": [
       "Hunde, die bellen, beißen nicht",
       "Sachen gibts, die gibts gar nicht",
       "die Sache ist die, und der Umstand ist der"
     ],
-    "é": [
-      "gesandtschaftsattaché"
-    ],
+    "é": ["gesandtschaftsattaché"],
     "ǀ": [
       "wer im Glashaus sitzt, soll nicht mit Steinen werfen",
       "wer zuletzt lacht, lacht am besten"
@@ -36,12 +22,8 @@
       "ja is denn heut schon Weihnachten",
       "ja ist denn heut schon Weihnachten"
     ],
-    "⁀": [
-      "mit Kind und Kegel"
-    ],
-    "↑": [
-      "wie kommt Saul unter die Propheten"
-    ]
+    "⁀": ["mit Kind und Kegel"],
+    "↑": ["wie kommt Saul unter die Propheten"]
   },
   "first_variants_with_unhandled_material": 33387,
   "ignored_sequences": [
@@ -532,29 +514,15 @@
     }
   ],
   "unhandled_examples": {
-    "/": [
-      "1,6-Liter-Benzinern",
-      "1,6-Liter-Benziners",
-      "Beer"
-    ],
-    "=": [
-      "Actress",
-      "Gun",
-      "Muladhara Chakras"
-    ],
-    "g": [
-      "aasgeier",
-      "abarbeitungsgeschwindigkeit",
-      "abarbeitungsgeschwindigkeiten"
-    ],
+    "/": ["1,6-Liter-Benzinern", "1,6-Liter-Benziners", "Beer"],
+    "=": ["Actress", "Gun", "Muladhara Chakras"],
+    "g": ["aasgeier", "abarbeitungsgeschwindigkeit", "abarbeitungsgeschwindigkeiten"],
     "|": [
       "Hunde, die bellen, beißen nicht",
       "Sachen gibts, die gibts gar nicht",
       "die Sache ist die, und der Umstand ist der"
     ],
-    "é": [
-      "gesandtschaftsattaché"
-    ],
+    "é": ["gesandtschaftsattaché"],
     "ǀ": [
       "wer im Glashaus sitzt, soll nicht mit Steinen werfen",
       "wer zuletzt lacht, lacht am besten"
@@ -564,12 +532,8 @@
       "ja is denn heut schon Weihnachten",
       "ja ist denn heut schon Weihnachten"
     ],
-    "⁀": [
-      "mit Kind und Kegel"
-    ],
-    "↑": [
-      "wie kommt Saul unter die Propheten"
-    ]
+    "⁀": ["mit Kind und Kegel"],
+    "↑": ["wie kommt Saul unter die Propheten"]
   },
   "unhandled_sequences": [
     {

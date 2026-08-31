@@ -43,9 +43,10 @@ metadata. See `sources/de/PROVENANCE.md` for source syntax, attribution, licensi
 the no-network runtime policy.
 
 The CSTR dictionaries use the `ipa-tsv` source adapter. It strips one outer `/.../`
-delimiter pair, skips only the exact eSpeak header on physical row one, preserves internal
-slashes, and preserves source order. OLaPh's two optional POS annotation rows are imported
-as ordinary pronunciations because the runtime lexicon is not role-specific.
+delimiter pair, skips only the exact eSpeak header on physical row one, preserves
+internal slashes, and preserves source order. OLaPh's two optional POS annotation rows
+are imported as ordinary pronunciations because the runtime lexicon is not
+role-specific.
 
 Fetch or verify the pinned maintainer sources with:
 

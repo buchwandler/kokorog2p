@@ -704,8 +704,8 @@ lexicon_info("en-us", "gold")
 g2p = get_g2p("en-us", lexicons=("gold", "silver"))
 ```
 
-German provides three opt-in third-party dictionaries in addition to its compatibility gold dictionary:
-Crane/Wiktionary, the static eSpeak-derived dictionary, and OLaPh:
+German provides three opt-in third-party dictionaries in addition to its compatibility
+gold dictionary: Crane/Wiktionary, the static eSpeak-derived dictionary, and OLaPh:
 
 ```python
 available_lexicons("de")  # ("gold", "crane", "espeak", "olaph")

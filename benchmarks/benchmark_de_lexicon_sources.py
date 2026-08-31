@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import argparse
 import itertools
-import time
 import json
+import time
 from pathlib import Path
 
 import g2lex
@@ -59,6 +59,8 @@ def _resident_memory() -> int | None:
     except ImportError:
         return None
     return psutil.Process().memory_info().rss
+
+
 def _crane_data(root: Path | None, download: bool):
     from benchmarks.crane_test_data import LANGUAGES
 
@@ -85,7 +87,9 @@ def _variants(source, word: str) -> tuple[str, ...]:
 
 def _consumer_view(source_name: str, value: str, vocab) -> tuple[str, bool]:
     if source_name in {"espeak", "olaph"} or source_name.startswith("cstr_"):
-        normalized = normalize_internal(value, vocabulary=set(vocab), use_tie_replacement=True)
+        normalized = normalize_internal(
+            value, vocabulary=set(vocab), use_tie_replacement=True
+        )
         return normalized.value if normalized.valid else "", normalized.valid
     converted = to_kokoro_view(source_name, value, vocab=vocab)
     return converted, True
@@ -132,7 +136,9 @@ def score_source(source, entries, vocab, normalizer, *, source_name: str):
         "usable_first_pronunciation_count": usable_first,
         "invalid_first_pronunciation_count": invalid_first,
         "target_vocabulary_validity": usable_first / covered if covered else 0.0,
-        "lookup_throughput_words_per_second": len(entries) / lookup_elapsed if lookup_elapsed else 0.0,
+        "lookup_throughput_words_per_second": len(entries) / lookup_elapsed
+        if lookup_elapsed
+        else 0.0,
         "selected_exact_match_rate": selected / len(entries) if entries else 0.0,
         "oracle_variant_exact_match_rate": oracle / len(entries) if entries else 0.0,
         "invalid_or_empty_outputs": sum(not value for value in actual_values),
@@ -183,6 +189,7 @@ def score_cascade(sources, entries, vocab, normalizer):
     }
     layers = [LexiconLayer(name, source, {}) for name, source in sources]
     return evaluate_quality_cascade(layers, words, references, vocab)
+
 
 def evaluate_quality_cascade(layers, words, references, vocab):
     layered = LayeredLexicon(layers)
@@ -237,12 +244,20 @@ def main() -> int:
         after = _resident_memory()
         location = source_spec.split("=", 1)[1]
         path_text, separator, format_name = location.rpartition(":")
-        path = Path(path_text) if separator and format_name in {"ipa-tsv", "tsv", "g2lex"} else Path(location)
+        path = (
+            Path(path_text)
+            if separator and format_name in {"ipa-tsv", "tsv", "g2lex"}
+            else Path(location)
+        )
         sources.append(loaded)
         source_metrics[name] = {
             "cold_open_ms": (time.perf_counter() - started) * 1000,
-            "resident_memory_delta_bytes": after - before if before is not None and after is not None else None,
-            "asset_size_bytes": path.stat().st_size if path.suffix == ".g2lex" else None,
+            "resident_memory_delta_bytes": after - before
+            if before is not None and after is not None
+            else None,
+            "asset_size_bytes": path.stat().st_size
+            if path.suffix == ".g2lex"
+            else None,
         }
     results = []
     for name, source in sources:

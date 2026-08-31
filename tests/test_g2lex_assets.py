@@ -60,15 +60,21 @@ def test_cstr_german_sources_match_pins_and_adapter_policy() -> None:
     for identifier, (source, source_hash, source_size) in expected.items():
         assert hashlib.sha256(source.read_bytes()).hexdigest() == source_hash
         assert source.stat().st_size == source_size
-        parsed = g2lex.read_typed_lexicon(source, format="ipa-tsv", source_id=identifier)
-        asset = g2lex.open(f"kokorog2p/lexicons/data/de_{identifier.rsplit(':', 1)[1]}.g2lex")
+        parsed = g2lex.read_typed_lexicon(
+            source, format="ipa-tsv", source_id=identifier
+        )
+        asset = g2lex.open(
+            f"kokorog2p/lexicons/data/de_{identifier.rsplit(':', 1)[1]}.g2lex"
+        )
         try:
             assert asset.metadata["logical_sha256"] == parsed.logical_sha256
             if identifier.endswith(":espeak"):
                 assert asset.get("word") is None
             for value in parsed.entries.values():
                 for pronunciation in g2lex.pronunciation_variants(value):
-                    assert not (pronunciation.startswith("/") and pronunciation.endswith("/"))
+                    assert not (
+                        pronunciation.startswith("/") and pronunciation.endswith("/")
+                    )
                     break
             if identifier.endswith(":olaph"):
                 assert "/" in asset.get("1,6-Liter-Benzinern")[0]

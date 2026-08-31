@@ -10,14 +10,25 @@ from build_g2lex_assets import ROOT, load_manifest
 
 def _license_name(expression: str) -> str:
     return {
-        "CC-BY-SA-4.0": "Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)",
+        "CC-BY-SA-4.0": (
+            "Creative Commons Attribution-ShareAlike 4.0 International "
+            + "(CC BY-SA 4.0)"
+        ),
         "CC-BY-SA-3.0": "Creative Commons Attribution-ShareAlike 3.0 (CC BY-SA 3.0)",
         "MIT": "MIT",
     }.get(expression, expression)
 
 
 def render() -> str:
-    lines = ["# Third-party data notices", "", "Runtime lexicon lookup is offline and does not download or parse canonical source files.", ""]
+    lines = [
+        "# Third-party data notices",
+        "",
+        (
+            "Runtime lexicon lookup is offline and does not download "
+            "or parse canonical source files."
+        ),
+        "",
+    ]
     for record in load_manifest():
         if not record.get("provider"):
             continue
@@ -36,7 +47,10 @@ def render() -> str:
                 f"- **License:** {_license_name(str(record['license_expression']))}",
                 f"- **License URL:** {record['license_url']}",
                 "",
-                f"`{asset}` is a generated, lossless G2Lex asset built from the pinned source.",
+                (
+                    f"`{asset}` is a generated, lossless G2Lex asset built "
+                    + "from the pinned source."
+                ),
                 "The canonical source is not included in the wheel or sdist.",
                 "",
             ]

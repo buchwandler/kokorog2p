@@ -75,7 +75,9 @@ def fetch(identifier: str) -> Path:
 
 
 def check(identifier: str) -> Path:
-    destination = ROOT / "lexicons" / "sources" / "de" / str(SOURCES[identifier]["filename"])
+    destination = (
+        ROOT / "lexicons" / "sources" / "de" / str(SOURCES[identifier]["filename"])
+    )
     if not destination.is_file():
         raise SystemExit(f"missing source: {destination}")
     _verify(destination, SOURCES[identifier])
