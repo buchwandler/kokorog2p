@@ -1,8 +1,10 @@
 import g2lex
+import pytest
 
 from kokorog2p.en.lexicon import Lexicon
 from kokorog2p.lexicons.runtime import LexiconHit
 
+from kokorog2p.lexicons.runtime import open_selected
 
 def test_layered_lexicon_first_matching_layer_wins() -> None:
     first = g2lex.LexiconLayer("fixture", {"collision": "from-first"}, {"rating": 9})
@@ -81,3 +83,24 @@ def test_selected_candidates_preserve_layer_precedence_over_casing():
     finally:
         selected._layered.close()
         selected._closed = True
+
+
+@pytest.mark.parametrize(
+    ("word", "first", "second"),
+    (
+        ("ab", "gold", "espeak"),
+        ("a", "gold", "olaph"),
+        ("2.", "espeak", "olaph"),
+        ("2.", "crane", "espeak"),
+    ),
+)
+def test_german_precedence_follows_explicit_order(word, first, second) -> None:
+    with open_selected("de-de", (first, second)) as selected:
+        hit = selected.get_hit(word)
+        assert hit is not None
+        assert hit.name == first
+
+    with open_selected("de-de", (second, first)) as selected:
+        hit = selected.get_hit(word)
+        assert hit is not None
+        assert hit.name == second

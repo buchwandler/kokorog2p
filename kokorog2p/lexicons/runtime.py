@@ -249,6 +249,7 @@ def _consumer_decode_parity(
     *,
     language: str,
     phoneme_encoding: str,
+    invalid_policy: str = "error",
 ) -> dict[str, Any]:
     """Validate packaged values through the registered consumer decoder."""
     result: dict[str, Any] = {
@@ -259,6 +260,7 @@ def _consumer_decode_parity(
         "target_vocabulary_violations": 0,
         "ok": True,
         "errors": [],
+        "invalid_policy": invalid_policy,
     }
     if phoneme_encoding != "ipa" or normalize_language(language) != "de-de":
         return result
@@ -291,9 +293,9 @@ def _consumer_decode_parity(
     result["unsupported_source_sequences"] = dict(sorted(unsupported.items()))
     result["errors"] = errors[:20]
     result["ok"] = not (
-        result["invalid_first_pronunciations"]
-        or result["empty_first_pronunciations"]
-        or result["target_vocabulary_violations"]
+        result["empty_first_pronunciations"]
+        or (invalid_policy == "error" and result["target_vocabulary_violations"])
+        or (invalid_policy == "error" and result["invalid_first_pronunciations"])
     )
     return result
 
@@ -325,6 +327,7 @@ def validate_runtime_parity(
                     layer,
                     language=str(record["language"]),
                     phoneme_encoding=str(record["phoneme_encoding"]),
+                    invalid_policy=str(record.get("consumer_invalid_policy", "error")),
                 )
         finally:
             selected.close()

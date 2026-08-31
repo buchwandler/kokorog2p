@@ -31,3 +31,7 @@ def test_quality_benchmark_consumes_typed_g2lex_source() -> None:
     assert result["coverage"] == 1.0
     assert result["selected_exact_match_rate"] == 1.0
     assert result["rows"][0]["selected_exact"] is True
+    assert result["usable_first_pronunciation_count"] == 1
+    assert result["invalid_first_pronunciation_count"] == 0
+    assert result["target_vocabulary_validity"] == 1.0
+    assert result["lookup_throughput_words_per_second"] > 0

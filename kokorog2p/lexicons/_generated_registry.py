@@ -74,6 +74,37 @@ GENERATED_LEXICONS = (
         "attribution": "German Wiktionary contributors; dataset extraction/publishing by Crane Local AI",  # noqa: E501
     },
     {
+        "id": "de-de:espeak",
+        "language": "de-de",
+        "name": "espeak",
+        "resource": "de_espeak.g2lex",
+        "kind": "pronunciation",
+        "case_aliases": False,
+        "phoneme_encoding": "ipa",
+        "provider": "cstr/g2p-dicts",
+        "revision": "eeac6ffc9271838fd63464a83d4b784ac75fc95b",
+        "source_url": "https://huggingface.co/datasets/cstr/g2p-dicts/blob/eeac6ffc9271838fd63464a83d4b784ac75fc95b/espeak_de.tsv",
+        "license_expression": "CC-BY-SA-3.0",
+        "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+        "attribution": "German word inventory from open-dict-data/Wiktionary-derived data; IPA generated with eSpeak tooling and redistributed by cstr/g2p-dicts",  # noqa: E501
+    },
+    {
+        "id": "de-de:olaph",
+        "language": "de-de",
+        "name": "olaph",
+        "resource": "de_olaph.g2lex",
+        "kind": "pronunciation",
+        "case_aliases": False,
+        "phoneme_encoding": "ipa",
+        "consumer_invalid_policy": "fallback",
+        "provider": "cstr/g2p-dicts",
+        "revision": "cedb4ada41a288549db36c53f9a1e6858a668624",
+        "source_url": "https://huggingface.co/datasets/cstr/g2p-dicts/blob/cedb4ada41a288549db36c53f9a1e6858a668624/olaph_de.txt",
+        "license_expression": "MIT",
+        "license_url": "https://opensource.org/license/mit/",
+        "attribution": "OLaPh (Optimal Language Phonemizer), IISYS Hof; source redistributed by cstr/g2p-dicts",  # noqa: E501
+    },
+    {
         "id": "fr-fr:gold",
         "language": "fr-fr",
         "name": "gold",

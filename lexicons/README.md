@@ -36,14 +36,24 @@ and attribution before they can be shipped.
 
 ## Third-party sources
 
-The German `de-de:crane` record is intentionally missing `default_priority`, so it is
-discoverable but never included in an implicit default selection. Its canonical source
-is the revision-pinned `de/de.tsv` file from `crane-local-ai/g2p-lexicons`; the manifest
-also pins its SHA-256 and byte size. Keep the source unchanged: case policy belongs to
-the German consumer, while repeated TSV rows remain ordered pronunciation variants.
+The German `de-de:crane`, `de-de:espeak`, and `de-de:olaph` records intentionally omit
+`default_priority`, so they are discoverable but never included in the implicit default
+selection. Their canonical sources are revision-pinned and include SHA-256 and byte-size
+metadata. See `sources/de/PROVENANCE.md` for source syntax, attribution, licensing, and
+the no-network runtime policy.
 
-Third-party records identified by `provider` or `third_party = true` must provide
-`provider`, `revision`, `source_url`, `license_expression`, `license_url`, and
-`attribution`. Build validation checks these fields, source integrity, lossless packing,
-and lock metadata. The generated Crane asset is CC BY-SA 4.0 data derived from German
-Wiktionary; see `sources/de/PROVENANCE.md` and the bundled runtime notice.
+The CSTR dictionaries use the `ipa-tsv` source adapter. It strips one outer `/.../`
+delimiter pair, skips only the exact eSpeak header on physical row one, preserves internal
+slashes, and preserves source order. OLaPh's two optional POS annotation rows are imported
+as ordinary pronunciations because the runtime lexicon is not role-specific.
+
+Fetch or verify the pinned maintainer sources with:
+
+```bash
+python scripts/fetch_cstr_de_lexicons.py --all --check
+python scripts/audit_cstr_de_sources.py --id de-de:espeak --id de-de:olaph
+```
+
+Third-party records identified by `provider` must provide `provider`, `revision`,
+`source_url`, `license_expression`, `license_url`, and `attribution`. Build validation
+checks these fields, source integrity, lossless packing, and lock metadata.

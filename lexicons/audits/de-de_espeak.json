@@ -1,0 +1,19 @@
+{
+  "accepted_first_pronunciations": 667295,
+  "duplicate_rows": 0,
+  "empty_pronunciations": 0,
+  "empty_words": 0,
+  "header_rows_skipped": 1,
+  "id": "de-de:espeak",
+  "invalid_first_pronunciations": 0,
+  "logical_entries": 667295,
+  "missing_outer_delimiters": 0,
+  "multi_pronunciation_keys": 0,
+  "physical_rows": 667296,
+  "raw_byte_size": 23829981,
+  "raw_sha256": "190b62f1ddcf6616b62214173f05b09804635b170f75b9877eceab20b1624dbf",
+  "rejected_set_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "target_vocabulary_violations": 0,
+  "unique_keys": 667295,
+  "unsupported_sequences": {}
+}

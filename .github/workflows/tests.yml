@@ -89,7 +89,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install \
             "spokenform==0.3.4" \
-            "g2lex==0.1.6"
+            "g2lex==0.1.7"
           python -m pip install -e ".[dev]"
       - name: Run lower-bound migration tests
         run: |
@@ -220,8 +220,11 @@ jobs:
         run: python scripts/build_g2lex_assets.py --check
       - name: Validate lexicon assets
         run: python scripts/validate_g2lex_assets.py --all --runtime-parity
-      - name: Audit German Crane phoneme inventory
-        run: python scripts/audit_lexicon_phoneme_inventory.py --id de-de:crane
+      - name: Audit German IPA lexicon inventories
+        run: |
+          python scripts/audit_lexicon_phoneme_inventory.py --id de-de:crane
+          python scripts/audit_lexicon_phoneme_inventory.py --id de-de:espeak
+          python scripts/audit_lexicon_phoneme_inventory.py --id de-de:olaph
       - name: Build and inspect wheel and sdist
         run: |
           rm -rf dist
@@ -240,3 +243,7 @@ jobs:
             tests/test_de_g2p.py \
             tests/test_en_arpabet.py \
             tests/test_cmudict_lexicon.py
+            tests/test_de_g2p_hardening.py \
+            tests/test_release_artifacts.py \
+            tests/test_dependency_contract.py \
+            tests/test_benchmark_de_lexicon_sources.py

@@ -1,9 +1,10 @@
 {
   "assets": {
     "de-de:crane": {
-      "asset_bytes": 10396716,
-      "asset_sha256": "09db077fbf1aaf4f368934d5b23fd82bdcf9436a8ef53dc4a697fa81a663adb8",
+      "asset_bytes": 10396748,
+      "asset_sha256": "8b654d12d51fa209a1269633e9aab0be8e7118f052bf18fd3d42c3ac2ed99b9e",
       "attribution": "German Wiktionary contributors; dataset extraction/publishing by Crane Local AI",
+      "consumer_invalid_policy": "error",
       "entry_count": 837539,
       "generator": "g2lex 0.1.7",
       "license_expression": "CC-BY-SA-4.0",
@@ -14,18 +15,50 @@
       "source_sha256": "04a3909f07cd08615157393814188b420a7c3c5035cf7a0608d31be07892be29",
       "source_url": "https://huggingface.co/datasets/crane-local-ai/g2p-lexicons/blob/bfd51698069a30e1b20bbf54479b55af50b4161d/de/de.tsv"
     },
+    "de-de:espeak": {
+      "asset_bytes": 7781220,
+      "asset_sha256": "ef1b8954172332c2c8871b43dc24537c19c791aa896d103da7a70fa60b2474d4",
+      "attribution": "German word inventory from open-dict-data/Wiktionary-derived data; IPA generated with eSpeak tooling and redistributed by cstr/g2p-dicts",
+      "consumer_invalid_policy": "error",
+      "entry_count": 667295,
+      "generator": "g2lex 0.1.7",
+      "license_expression": "CC-BY-SA-3.0",
+      "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "logical_sha256": "4c975e8348d2e8cb288f9b9530dcf26d7ac1527fec2d43457fa77481d562279d",
+      "phoneme_encoding": "ipa",
+      "revision": "eeac6ffc9271838fd63464a83d4b784ac75fc95b",
+      "source_sha256": "190b62f1ddcf6616b62214173f05b09804635b170f75b9877eceab20b1624dbf",
+      "source_url": "https://huggingface.co/datasets/cstr/g2p-dicts/blob/eeac6ffc9271838fd63464a83d4b784ac75fc95b/espeak_de.tsv"
+    },
     "de-de:gold": {
-      "asset_bytes": 8551668,
-      "asset_sha256": "b5edfb5fe77dea644a24909dd1ce98b414ebe6dfaf7795aa135e47ca540183be",
+      "asset_bytes": 8551708,
+      "asset_sha256": "00afc53e8d550f7fdafa2ca6dfad418d4a38bac75729c89e3ee206b5beed617c",
+      "consumer_invalid_policy": "error",
       "entry_count": 738427,
       "generator": "g2lex 0.1.7",
       "logical_sha256": "530f4787a2accd9824526749b90f43d4edaf2506f0aa385056a83913cb6ee48a",
       "phoneme_encoding": "ipa",
       "source_sha256": "2c30bcbb0a9a4fa172943026eea572f1e4ba82a799920b9d96e6ace59d273639"
     },
+    "de-de:olaph": {
+      "asset_bytes": 12898060,
+      "asset_sha256": "92c994c52f691d3f1869d31116c035c2d2c4b2cf1170895af63d9f86e46e9fc3",
+      "attribution": "OLaPh (Optimal Language Phonemizer), IISYS Hof; source redistributed by cstr/g2p-dicts",
+      "consumer_invalid_policy": "fallback",
+      "entry_count": 965839,
+      "generator": "g2lex 0.1.7",
+      "license_expression": "MIT",
+      "license_url": "https://opensource.org/license/mit/",
+      "logical_sha256": "c0dc2c87cf6f229ae88e66c2f4b3c03876f9f95df615e82c0133f0e3778c296d",
+      "phoneme_encoding": "ipa",
+      "revision": "cedb4ada41a288549db36c53f9a1e6858a668624",
+      "source_sha256": "aa70d85ce245c8a8f1db2cc109a0f3da6594eaba5b414a61bcd28f1ccc40ca46",
+      "source_url": "https://huggingface.co/datasets/cstr/g2p-dicts/blob/cedb4ada41a288549db36c53f9a1e6858a668624/olaph_de.txt"
+    },
     "en-gb:gold": {
-      "asset_bytes": 1212356,
-      "asset_sha256": "c94e74ae9fa7b73d2557e1b5a178d8929fcb59e8a18e8fb311e39a10c8b58e9d",
+      "asset_bytes": 1212388,
+      "asset_sha256": "fda58b8368d11604c6dda68d2e3de92bba924698d13bd266c3317410b7df6813",
+      "consumer_invalid_policy": "error",
       "entry_count": 87364,
       "generator": "g2lex 0.1.7",
       "logical_sha256": "39ffb8e4f5706c287039dca34952e2c342c24ab3f0e56b0f814784a0338aa6eb",
@@ -33,8 +66,9 @@
       "source_sha256": "bcbc593a5fe247d92ee584ffb6302d326b4f99f652c634991206e3f848d36cac"
     },
     "en-gb:silver": {
-      "asset_bytes": 1476276,
-      "asset_sha256": "744c3d3df292941d25c248735a22985e7531ea8c79fa97cd38ff161bae6f1d0f",
+      "asset_bytes": 1476308,
+      "asset_sha256": "2989a607c31d672434b1ff25689a2dafaf491a1dbd3df170e291365a9219c616",
+      "consumer_invalid_policy": "error",
       "entry_count": 109766,
       "generator": "g2lex 0.1.7",
       "logical_sha256": "d531b4031a4baf0a23f238c443356f7d941e24aa53982f406fd35439c0f521fd",
@@ -42,8 +76,9 @@
       "source_sha256": "6c062fa3dcab1a949855ff9350bd327335cb3c501218180e052d0e3e4faf5883"
     },
     "en-us:gold": {
-      "asset_bytes": 1257724,
-      "asset_sha256": "341ba19ebb7cc08871faf5e0b8722ab0818d917e08bb4776383f1b5d089945b5",
+      "asset_bytes": 1257756,
+      "asset_sha256": "e0b9385554f8b9962625d2d787e1bb4e93cf9c66e4078162301d9472e3029158",
+      "consumer_invalid_policy": "error",
       "entry_count": 90213,
       "generator": "g2lex 0.1.7",
       "logical_sha256": "272cea0f8255d1187b7152a5b796b13d1ce16619eca24c638809288a412330df",
@@ -51,8 +86,9 @@
       "source_sha256": "50a8a07a5d5054c25cac1f4e2f0efc31a0a104e0d92c6ddc599772c183e1a86d"
     },
     "en-us:silver": {
-      "asset_bytes": 1254268,
-      "asset_sha256": "7b899262cdcf29d8898b66af3ce6e07c47515a22120a25b7922cf48dc938b67e",
+      "asset_bytes": 1254300,
+      "asset_sha256": "a3d21aa3cb66c209428fb9f4d194fa4fb0548d25f3671306b17c54bd598f446d",
+      "consumer_invalid_policy": "error",
       "entry_count": 93361,
       "generator": "g2lex 0.1.7",
       "logical_sha256": "7c400c45f8d16bfa14abd35be6527a598f6bffe2d6b85c8da21de565cc5523cb",
@@ -60,8 +96,9 @@
       "source_sha256": "067c30f29524585b479affdef2823d6c1e27c59d6d6dfb1694be676bba1185f1"
     },
     "fr-fr:gold": {
-      "asset_bytes": 159380,
-      "asset_sha256": "d1408c9bd11b1e0279fd812fcc6359a15de5a8a2f222568c7a3d196287c2a085",
+      "asset_bytes": 159412,
+      "asset_sha256": "c17b5179ad0e153de8357571559b7271065b97fee1aa76ddbd69038002ba284f",
+      "consumer_invalid_policy": "error",
       "entry_count": 15011,
       "generator": "g2lex 0.1.7",
       "logical_sha256": "103d5ad4108cc987b36a71b64feefa54adc0ed47e2d6b884258538502bdd1683",
@@ -69,8 +106,9 @@
       "source_sha256": "0d5dcd4a6fec8c8decde6403880e41c7b8d6f6c300928eb81f2edc42f811e081"
     },
     "ja-jp:words": {
-      "asset_bytes": 1087420,
-      "asset_sha256": "04501e7d8f3e98dcaef973dd8672ca3a90c1214c9b25e8e4827163220fe7ff4b",
+      "asset_bytes": 1087452,
+      "asset_sha256": "4a9d7e3bb5f85b3141eab21afe3ce83139303f9e56fb94863d12fdb3cc603b4e",
+      "consumer_invalid_policy": "error",
       "entry_count": 147571,
       "generator": "g2lex 0.1.7",
       "logical_sha256": "06626c41087fd7d441ce3241b3b4ecb39236d970d9cb69824756d6a26bc60dca",

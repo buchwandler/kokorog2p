@@ -921,7 +921,9 @@ Use `available_lexicons(language)` to inspect registered names and pass `lexicon
 `("gold", "silver")` retains the compatibility default. The legacy `load_gold` and
 `load_silver` flags remain supported.
 
-For German, `available_lexicons("de")` returns `("gold", "crane")`. `gold` remains the
-implicit default; `crane` is opt-in and uses the bundled CC BY-SA 4.0 German
-Wiktionary-derived asset. Explicit order controls collisions, German casing candidates
-are searched inside each layer, and all runtime pronunciation selection is offline.
+For German, `available_lexicons("de")` returns `("gold", "crane", "espeak", "olaph")`. `gold`
+remains the implicit default; all three third-party dictionaries are opt-in. Explicit order
+controls collisions, German casing candidates are searched inside each layer, and all runtime
+pronunciation selection is offline. `espeak` is a bundled static lexicon and is distinct from
+the optional `use_espeak_fallback=True` backend. Unsupported source IPA fails closed and may
+fall through to configured fallback. See {doc}`api/german` for provenance and examples.

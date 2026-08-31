@@ -27,6 +27,8 @@ def test_sdist_requires_notice_and_excludes_canonical_sources(tmp_path: Path) ->
         [
             "kokorog2p/lexicons/data/THIRD_PARTY_NOTICES.md",
             "lexicons/sources/de/crane_wiktionary.tsv",
+            "lexicons/sources/de/espeak_de.tsv",
+            "lexicons/sources/de/olaph_de.txt",
         ],
     )
     with pytest.raises(SystemExit, match="canonical lexicon sources"):

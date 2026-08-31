@@ -43,7 +43,9 @@ def _top(counter: Counter[str]) -> list[dict[str, Any]]:
     ]
 
 
-def audit(asset: Path, *, vocabulary: set[str] | None = None) -> dict[str, object]:
+def audit(
+    asset: Path, *, vocabulary: set[str] | None = None, invalid_policy: str = "error"
+) -> dict[str, object]:
     """Audit every pronunciation variant and its selected first variant.
 
     The normalizer preserves unhandled material in ``value`` and classifies it in
@@ -129,6 +131,7 @@ def audit(asset: Path, *, vocabulary: set[str] | None = None) -> dict[str, objec
     }
     return {
         "asset": str(asset),
+        "invalid_policy": invalid_policy,
         "entry_count": entry_count,
         "variant_count": variant_count,
         "raw_source_inventory": dict(sorted(raw_characters.items())),
@@ -151,8 +154,7 @@ def audit(asset: Path, *, vocabulary: set[str] | None = None) -> dict[str, objec
         "normalized_empty_variants": normalized_empty_variants,
         "changed_variants": changed_variants,
         "ok": not (
-            unhandled
-            or normalized_bad
+            (invalid_policy == "error" and (unhandled or normalized_bad))
             or normalized_empty_variants
             or first_empty_entries
         ),
@@ -168,7 +170,9 @@ def main() -> int:
     args = parser.parse_args()
     spec = get_lexicon_spec("de-de", args.id.rsplit(":", 1)[-1])
     asset = Path("kokorog2p/lexicons/data") / spec.resource
-    report = audit(asset)
+    report = audit(
+        asset, invalid_policy=str(spec.metadata.get("consumer_invalid_policy", "error"))
+    )
     serialized = json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True)
     print(serialized)
     if args.json_path:

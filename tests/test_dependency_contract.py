@@ -16,7 +16,7 @@ def test_migrated_semantic_dependency_floors() -> None:
     # abbr2words may be transitive through Spokenform, but is not a direct
     # kokorog2p runtime dependency. G2Lex is the direct lexicon runtime.
     assert "spokenform>=0.3.4,<0.4.0" in dependencies
-    assert "g2lex>=0.1.6,<0.2.0" in dependencies
+    assert "g2lex>=0.1.7,<0.2.0" in dependencies
     assert not any(dependency.startswith("abbr2words") for dependency in dependencies)
 
 

@@ -60,6 +60,44 @@ def test_invalid_dictionary_result_allows_fallback() -> None:
     assert token.get("rating") == 3
 
 
+def test_real_olaph_invalid_pronunciation_falls_back() -> None:
+    g2p = GermanG2P(
+        lexicons=("olaph",),
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+        use_spacy=False,
+        expand_abbreviations=False,
+        enable_context_detection=False,
+        strip_stress=False,
+    )
+    try:
+        assert "/" in g2p._lexicon.lookup("Beer")
+        token = next(token for token in g2p("Beer") if token.is_word)
+        assert token.phonemes == "beːʁ"
+        assert token.get("rating") == 2
+        assert "/" not in token.phonemes
+    finally:
+        g2p.close()
+
+
+def test_static_espeak_lexicon_works_without_espeak_fallback() -> None:
+    g2p = GermanG2P(
+        lexicons=("espeak",),
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+        use_spacy=False,
+        expand_abbreviations=False,
+        enable_context_detection=False,
+        strip_stress=False,
+    )
+    try:
+        token = next(token for token in g2p("Haus") if token.is_word)
+        assert token.phonemes == "hˈWs"
+        assert token.get("rating") == 5
+    finally:
+        g2p.close()
+
+
 def test_consumer_parity_validates_first_variant_and_target_vocab() -> None:
     from kokorog2p.lexicons.runtime import _consumer_decode_parity
 

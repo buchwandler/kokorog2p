@@ -704,38 +704,42 @@ lexicon_info("en-us", "gold")
 g2p = get_g2p("en-us", lexicons=("gold", "silver"))
 ```
 
-German also provides an opt-in Crane/Wiktionary dictionary:
+German provides three opt-in third-party dictionaries in addition to its compatibility gold dictionary:
+Crane/Wiktionary, the static eSpeak-derived dictionary, and OLaPh:
 
 ```python
-available_lexicons("de")  # ("gold", "crane")
+available_lexicons("de")  # ("gold", "crane", "espeak", "olaph")
 get_g2p("de")  # compatibility default: gold only
 get_g2p("de", lexicons="crane")
-get_g2p("de", lexicons=("gold", "crane"))
+get_g2p("de", lexicons="espeak")
+get_g2p("de", lexicons="olaph")
+get_g2p("de", lexicons=("gold", "olaph"))
 ```
 
-`crane` preserves source spellings and ordered pronunciation variants. The explicit
-selection order defines collision precedence. Crane data is CC BY-SA 4.0 with
-attribution to German Wiktionary contributors; it is not Apache-licensed. Runtime uses
-the bundled `.g2lex` asset and does not access the network.
+All third-party lexicons are opt-in. The first name in an explicit selection wins
+collisions, and no selected lexicon downloads data at runtime. `lexicons="espeak"` is a
+bundled static dictionary; it is distinct from `use_espeak_fallback=True`. German source
+IPA is converted by the strict Kokoro consumer. Unsupported pronunciations fail closed
+and may fall through to configured fallback. The CSTR eSpeak-derived data carries
+conservative CC BY-SA 3.0 open-dict-data/Wiktionary provenance; OLaPh is MIT licensed.
 
 Consumer-specific pronunciation-quality experiments live under `benchmarks/`, separate
 from the G2Lex runtime. The German source benchmark accepts explicit local G2Lex assets
-or source files and keeps Kokoro normalization, vocabulary filtering, fallback scoring,
-and pronunciation-view conversion in this repository:
+or source files:
 
 ```bash
-python benchmarks/benchmark_de_lexicon_sources.py \
+python -m benchmarks.benchmark_de_lexicon_sources \
   --source gold=path/to/gold.g2lex \
   --source crane=path/to/crane.g2lex \
+  --source espeak=path/to/espeak.g2lex \
+  --source olaph=path/to/olaph.g2lex \
   --data-root /path/to/crane-test-data --output /tmp/de-quality.json
 ```
 
 G2Lex owns exact storage, source analysis, and neutral layering metrics; KokoroG2P owns
-consumer quality evaluation and phoneme conversion. The first lexicon in
-`lexicons=(...)` that contains a word wins. Explicit selections preserve caller order.
-If `lexicons` is omitted, manifest default priorities select the compatibility default;
-the `load_gold` and `load_silver` flags remain compatibility controls. With an explicit
-selection, the named selection takes precedence and legacy flags are ignored.
+consumer quality evaluation and phoneme conversion. Explicit selections preserve caller
+order. If `lexicons` is omitted, manifest default priorities select the compatibility
+default; legacy flags remain compatibility controls.
 
 Maintainers rebuild and validate committed assets with:
 

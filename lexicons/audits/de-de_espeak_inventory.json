@@ -1,0 +1,158 @@
+{
+  "asset": "kokorog2p/lexicons/data/de_espeak.g2lex",
+  "changed_variants": 247294,
+  "entries_with_empty_first_pronunciation": 0,
+  "entry_count": 667295,
+  "first_unhandled_examples": {},
+  "first_variants_with_unhandled_material": 0,
+  "ignored_sequences": [
+    {
+      "count": 3464,
+      "sequence": "("
+    },
+    {
+      "count": 3464,
+      "sequence": ")"
+    },
+    {
+      "count": 24,
+      "sequence": "̩"
+    },
+    {
+      "count": 1,
+      "sequence": "1"
+    }
+  ],
+  "invalid_policy": "error",
+  "mapped_sequences": [
+    {
+      "count": 109416,
+      "sequence": "ts"
+    },
+    {
+      "count": 97962,
+      "sequence": "aɪ"
+    },
+    {
+      "count": 61062,
+      "sequence": "aʊ"
+    },
+    {
+      "count": 32192,
+      "sequence": "ʏ"
+    },
+    {
+      "count": 793,
+      "sequence": "dz"
+    }
+  ],
+  "normalized_affected_entries": 0,
+  "normalized_affected_variants": 0,
+  "normalized_empty_variants": 0,
+  "normalized_unsupported_characters": {},
+  "ok": true,
+  "raw_affected_entries": 0,
+  "raw_affected_variants": 0,
+  "raw_source_inventory": {
+    " ": 559,
+    "(": 3464,
+    ")": 3464,
+    "1": 1,
+    "a": 401709,
+    "b": 155806,
+    "d": 205386,
+    "e": 112559,
+    "f": 201120,
+    "h": 71234,
+    "i": 171265,
+    "j": 16199,
+    "k": 192480,
+    "l": 303828,
+    "m": 201247,
+    "n": 595655,
+    "o": 108779,
+    "p": 138626,
+    "r": 296950,
+    "s": 442990,
+    "t": 666862,
+    "u": 58096,
+    "v": 94184,
+    "w": 302,
+    "x": 34393,
+    "y": 29299,
+    "z": 95155,
+    "ç": 72142,
+    "ð": 6,
+    "ø": 34291,
+    "ŋ": 52087,
+    "œ": 13201,
+    "ɐ": 14130,
+    "ɑ": 102009,
+    "ɒ": 222,
+    "ɔ": 105447,
+    "ə": 713872,
+    "ɛ": 251616,
+    "ɜ": 148552,
+    "ɡ": 176075,
+    "ɨ": 2,
+    "ɪ": 308654,
+    "ɹ": 371,
+    "ɾ": 179348,
+    "ʃ": 156555,
+    "ʊ": 180390,
+    "ʌ": 180,
+    "ʏ": 32192,
+    "ʒ": 672,
+    "ʲ": 7777,
+    "ˈ": 676608,
+    "ˌ": 456517,
+    "ː": 576735,
+    "̃": 92,
+    "̩": 24,
+    "θ": 30
+  },
+  "raw_unsupported_characters": {},
+  "source_non_direct_sequences": [
+    {
+      "count": 109416,
+      "sequence": "ts"
+    },
+    {
+      "count": 97962,
+      "sequence": "aɪ"
+    },
+    {
+      "count": 61062,
+      "sequence": "aʊ"
+    },
+    {
+      "count": 32192,
+      "sequence": "ʏ"
+    },
+    {
+      "count": 3464,
+      "sequence": "("
+    },
+    {
+      "count": 3464,
+      "sequence": ")"
+    },
+    {
+      "count": 793,
+      "sequence": "dz"
+    },
+    {
+      "count": 24,
+      "sequence": "̩"
+    },
+    {
+      "count": 1,
+      "sequence": "1"
+    }
+  ],
+  "top_normalized_offending_sequences": [],
+  "top_raw_offending_sequences": [],
+  "unhandled_examples": {},
+  "unhandled_sequences": [],
+  "variant_count": 667295
+}

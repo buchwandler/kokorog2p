@@ -42,3 +42,35 @@ def test_crane_source_hash_and_ordered_variants_are_preserved() -> None:
         assert asset.metadata["logical_sha256"] == parsed.logical_sha256
     finally:
         asset.close()
+
+
+def test_cstr_german_sources_match_pins_and_adapter_policy() -> None:
+    expected = {
+        "de-de:espeak": (
+            Path("lexicons/sources/de/espeak_de.tsv"),
+            "190b62f1ddcf6616b62214173f05b09804635b170f75b9877eceab20b1624dbf",
+            23829981,
+        ),
+        "de-de:olaph": (
+            Path("lexicons/sources/de/olaph_de.txt"),
+            "aa70d85ce245c8a8f1db2cc109a0f3da6594eaba5b414a61bcd28f1ccc40ca46",
+            41709849,
+        ),
+    }
+    for identifier, (source, source_hash, source_size) in expected.items():
+        assert hashlib.sha256(source.read_bytes()).hexdigest() == source_hash
+        assert source.stat().st_size == source_size
+        parsed = g2lex.read_typed_lexicon(source, format="ipa-tsv", source_id=identifier)
+        asset = g2lex.open(f"kokorog2p/lexicons/data/de_{identifier.rsplit(':', 1)[1]}.g2lex")
+        try:
+            assert asset.metadata["logical_sha256"] == parsed.logical_sha256
+            if identifier.endswith(":espeak"):
+                assert asset.get("word") is None
+            for value in parsed.entries.values():
+                for pronunciation in g2lex.pronunciation_variants(value):
+                    assert not (pronunciation.startswith("/") and pronunciation.endswith("/"))
+                    break
+            if identifier.endswith(":olaph"):
+                assert "/" in asset.get("1,6-Liter-Benzinern")[0]
+        finally:
+            asset.close()

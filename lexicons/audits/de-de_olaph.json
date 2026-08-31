@@ -1,0 +1,29 @@
+{
+  "accepted_first_pronunciations": 932452,
+  "duplicate_rows": 157420,
+  "empty_pronunciations": 0,
+  "empty_words": 0,
+  "header_rows_skipped": 0,
+  "id": "de-de:olaph",
+  "invalid_first_pronunciations": 33387,
+  "logical_entries": 965839,
+  "missing_outer_delimiters": 0,
+  "multi_pronunciation_keys": 157328,
+  "physical_rows": 1123259,
+  "raw_byte_size": 41709849,
+  "raw_sha256": "aa70d85ce245c8a8f1db2cc109a0f3da6594eaba5b414a61bcd28f1ccc40ca46",
+  "rejected_set_sha256": "3cae69ad128bc5c7030ede4d2b946c77b765cdbf8fb27f6d000233951f6fbfa2",
+  "target_vocabulary_violations": 33387,
+  "unique_keys": 965839,
+  "unsupported_sequences": {
+    "/": 8,
+    "=": 3,
+    "g": 36627,
+    "|": 14,
+    "é": 1,
+    "ǀ": 2,
+    "‖": 3,
+    "⁀": 1,
+    "↑": 1
+  }
+}

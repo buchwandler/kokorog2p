@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import itertools
+import time
 import json
 from pathlib import Path
 
@@ -25,6 +26,7 @@ from benchmarks.crane_test_data import (
     resolve_data_root,
 )
 from benchmarks.lexicon_quality.de import to_kokoro_view
+from kokorog2p.de.g2p import normalize_internal
 
 
 def _load_source(spec: str):
@@ -40,6 +42,7 @@ def _load_source(spec: str):
         "mfa",
         "pls",
         "words",
+        "ipa-tsv",
     }
     if separator and format_name in formats:
         path, input_format = Path(path_text), format_name
@@ -50,6 +53,12 @@ def _load_source(spec: str):
     return name, g2lex.read_typed_lexicon(path, format=input_format, source_id=name)
 
 
+def _resident_memory() -> int | None:
+    try:
+        import psutil
+    except ImportError:
+        return None
+    return psutil.Process().memory_info().rss
 def _crane_data(root: Path | None, download: bool):
     from benchmarks.crane_test_data import LANGUAGES
 
@@ -74,17 +83,32 @@ def _variants(source, word: str) -> tuple[str, ...]:
     return tuple(g2lex.pronunciation_variants(value)) if value is not None else ()
 
 
+def _consumer_view(source_name: str, value: str, vocab) -> tuple[str, bool]:
+    if source_name in {"espeak", "olaph"} or source_name.startswith("cstr_"):
+        normalized = normalize_internal(value, vocabulary=set(vocab), use_tie_replacement=True)
+        return normalized.value if normalized.valid else "", normalized.valid
+    converted = to_kokoro_view(source_name, value, vocab=vocab)
+    return converted, True
+
+
 def score_source(source, entries, vocab, normalizer, *, source_name: str):
     selected = oracle = covered = 0
+    usable_first = invalid_first = 0
     expected_values, actual_values = [], []
     rows = []
+    lookup_started = time.perf_counter()
+    conversion_source = _source_id(source, source_name)
     for entry in entries:
         expected = normalizer(entry.expected_raw_ipa, language="de_DE", vocab=vocab)
         variants = _variants(source, entry.word)
-        views = tuple(
-            to_kokoro_view(_source_id(source, source_name), value, vocab=vocab)
-            for value in variants
+        views_with_validity = tuple(
+            _consumer_view(conversion_source, value, vocab) for value in variants
         )
+        views = tuple(view for view, _valid in views_with_validity)
+        if variants and views_with_validity[0][1]:
+            usable_first += 1
+        elif variants:
+            invalid_first += 1
         actual = views[0] if views else ""
         covered += bool(variants)
         selected += actual == expected
@@ -100,10 +124,15 @@ def score_source(source, entries, vocab, normalizer, *, source_name: str):
                 "oracle_exact": expected in views,
             }
         )
+    lookup_elapsed = time.perf_counter() - lookup_started
     return {
         "source": source_name,
         "entries": len(entries),
         "coverage": covered / len(entries) if entries else 0.0,
+        "usable_first_pronunciation_count": usable_first,
+        "invalid_first_pronunciation_count": invalid_first,
+        "target_vocabulary_validity": usable_first / covered if covered else 0.0,
+        "lookup_throughput_words_per_second": len(entries) / lookup_elapsed if lookup_elapsed else 0.0,
         "selected_exact_match_rate": selected / len(entries) if entries else 0.0,
         "oracle_variant_exact_match_rate": oracle / len(entries) if entries else 0.0,
         "invalid_or_empty_outputs": sum(not value for value in actual_values),
@@ -121,17 +150,17 @@ def score_full_pipeline(source, entries, vocab, normalizer, *, source_name: str)
         )
         variants = _variants(source, entry.word)
         if variants:
-            values.append(
-                to_kokoro_view(
-                    _source_id(source, source_name), variants[0], vocab=vocab
-                )
+            value, valid = _consumer_view(
+                _source_id(source, source_name), variants[0], vocab
             )
-        else:
-            fallback_rows += 1
-            try:
-                values.append(extract_pronunciation(fallback(entry.word)))
-            except (OSError, RuntimeError, ValueError):
-                values.append("")
+            if valid:
+                values.append(value)
+                continue
+        fallback_rows += 1
+        try:
+            values.append(extract_pronunciation(fallback(entry.word)))
+        except (OSError, RuntimeError, ValueError):
+            values.append("")
     exact = sum(
         left == right for left, right in zip(expected_values, values, strict=True)
     )
@@ -153,10 +182,9 @@ def score_cascade(sources, entries, vocab, normalizer):
         for entry in entries
     }
     layers = [LexiconLayer(name, source, {}) for name, source in sources]
-    return evaluate_quality_cascade(layers, words, references)
+    return evaluate_quality_cascade(layers, words, references, vocab)
 
-
-def evaluate_quality_cascade(layers, words, references):
+def evaluate_quality_cascade(layers, words, references, vocab):
     layered = LayeredLexicon(layers)
     selected = oracle = covered = 0
     for word in words:
@@ -164,8 +192,15 @@ def evaluate_quality_cascade(layers, words, references):
         if hit is None:
             continue
         covered += 1
-        selected += hit.value == references[word]
-        oracle += any(layer.lexicon.get(word) == references[word] for layer in layers)
+        selected_value = g2lex.first_pronunciation(hit.value) or ""
+        selected_value, _valid = _consumer_view(hit.name, selected_value, vocab)
+        selected += selected_value == references[word][0]
+        for layer in layers:
+            value = g2lex.first_pronunciation(layer.lexicon.get(word)) or ""
+            value, _valid = _consumer_view(layer.name, value, vocab)
+            if value == references[word][0]:
+                oracle += 1
+                break
     total = len(words)
     return {
         "layers": [layer.name for layer in layers],
@@ -192,17 +227,36 @@ def main() -> int:
     )
     if args.limit is not None:
         entries = entries[: args.limit]
-    sources = [_load_source(value) for value in args.source]
-    results = [
-        {
-            "source": name,
-            **score_source(source, entries, vocab, normalizer, source_name=name),
-            "full_pipeline": score_full_pipeline(
-                source, entries, vocab, normalizer, source_name=name
-            ),
+    sources = []
+    source_metrics = {}
+    for source_spec in args.source:
+        started = time.perf_counter()
+        before = _resident_memory()
+        loaded = _load_source(source_spec)
+        name, source = loaded
+        after = _resident_memory()
+        location = source_spec.split("=", 1)[1]
+        path_text, separator, format_name = location.rpartition(":")
+        path = Path(path_text) if separator and format_name in {"ipa-tsv", "tsv", "g2lex"} else Path(location)
+        sources.append(loaded)
+        source_metrics[name] = {
+            "cold_open_ms": (time.perf_counter() - started) * 1000,
+            "resident_memory_delta_bytes": after - before if before is not None and after is not None else None,
+            "asset_size_bytes": path.stat().st_size if path.suffix == ".g2lex" else None,
         }
-        for name, source in sources
-    ]
+    results = []
+    for name, source in sources:
+        scored = score_source(source, entries, vocab, normalizer, source_name=name)
+        scored.update(source_metrics[name])
+        results.append(
+            {
+                "source": name,
+                **scored,
+                "full_pipeline": score_full_pipeline(
+                    source, entries, vocab, normalizer, source_name=name
+                ),
+            }
+        )
     cascades = [
         score_cascade([sources[index] for index in order], entries, vocab, normalizer)
         for order in itertools.permutations(range(len(sources)))

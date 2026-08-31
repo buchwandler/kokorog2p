@@ -68,6 +68,15 @@ def test_german_named_lexicons_have_distinct_cache_identities() -> None:
     assert crane.lexicon.lexicons == ("crane",)
     assert reverse.lexicon.lexicons == ("crane", "gold")
 
+    espeak = get_g2p("de", lexicons="espeak", **options)
+    olaph = get_g2p("de", lexicons="olaph", **options)
+    gold_espeak = get_g2p("de", lexicons=("gold", "espeak"), **options)
+    espeak_gold = get_g2p("de", lexicons=("espeak", "gold"), **options)
+    assert espeak is not olaph
+    assert gold_espeak is not espeak_gold
+    assert espeak.lexicon.lexicons == ("espeak",)
+    assert espeak("Haus") is not None
+
 
 def test_phonemize_accepts_german_crane_selection() -> None:
     result = phonemize(

@@ -78,21 +78,23 @@ for token in tokens:
 German gold data is stored in the canonical source tree and shipped as a verified lazy
 G2Lex asset. `get_g2p("de", lexicons="gold")` selects it explicitly.
 
-`crane` is an additional opt-in named lexicon built from the pinned
-`crane-local-ai/g2p-lexicons` German Wiktionary TSV. Inspect and select it with:
+The additional `crane`, `espeak`, and `olaph` dictionaries are opt-in named lexicons:
 
 ```python
 from kokorog2p import available_lexicons, get_g2p, phonemize
 
-available_lexicons("de")  # ("gold", "crane")
+available_lexicons("de")  # ("gold", "crane", "espeak", "olaph")
+get_g2p("de")  # gold only
 get_g2p("de", lexicons="crane")
-phonemize("Haus", language="de", lexicons="crane")
+get_g2p("de", lexicons="espeak")
+get_g2p("de", lexicons="olaph")
+phonemize("Haus", language="de", lexicons=("gold", "olaph"))
 ```
 
-The default remains `gold`; an explicit ordered sequence gives precedence to its first
-layer, even when casing candidates differ. German lookup tries the exact input,
-lowercase, initial-capitalized lowercase, and uppercase forms in that layer order. Crane
-retains all source-ordered pronunciations and the runtime selects the first. Its IPA is
-normalized centrally for the Kokoro vocabulary (including tie bars, non-syllabic
-offglides, syllabic marks, and `ʏ`). The bundled data is CC BY-SA 4.0, attributed to
-German Wiktionary contributors, and uses no network access at runtime.
+Explicit tuple order defines collision precedence. German casing candidates are searched
+inside each layer in that order, and each source retains its ordered pronunciations while
+the runtime selects the first. `espeak` is a bundled static dictionary, not the optional
+`use_espeak_fallback=True` backend. All lookup is offline. German source IPA is normalized
+centrally for the Kokoro vocabulary; unsupported values fail closed and can fall through
+to configured fallback. The CSTR eSpeak-derived source has conservative CC BY-SA 3.0
+open-dict-data/Wiktionary provenance. OLaPh is MIT licensed.

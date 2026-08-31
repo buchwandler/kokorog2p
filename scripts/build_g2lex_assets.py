@@ -105,6 +105,8 @@ def load_manifest() -> list[dict[str, Any]]:  # noqa: C901
             raise ValueError(f"unsupported lexicon kind for {lexicon_id}")
         if record["phoneme_encoding"] not in supported_encodings:
             raise ValueError(f"unsupported phoneme encoding for {lexicon_id}")
+        if record.get("consumer_invalid_policy", "error") not in {"error", "fallback"}:
+            raise ValueError(f"unsupported consumer invalid policy for {lexicon_id}")
         for optional in ("default_priority", "rating"):
             if optional in record and (
                 not isinstance(record[optional], int)
@@ -178,6 +180,7 @@ def registry_text(records: list[dict[str, Any]]) -> str:
         "rating",
         "case_aliases",
         "phoneme_encoding",
+        "consumer_invalid_policy",
         "default_priority",
         "provider",
         "revision",
@@ -253,6 +256,7 @@ def build_record(record: dict[str, Any], output: Path) -> dict[str, Any]:
             "kind": str(record["kind"]),
             "case_aliases": bool(record["case_aliases"]),
             "phoneme_encoding": str(record["phoneme_encoding"]),
+            "consumer_invalid_policy": str(record.get("consumer_invalid_policy", "error")),
             **{
                 key: record[key]
                 for key in (
@@ -282,6 +286,7 @@ def build_record(record: dict[str, Any], output: Path) -> dict[str, Any]:
         "asset_bytes": output.stat().st_size,
         "generator": f"g2lex {G2LEX_VERSION}",
         "phoneme_encoding": str(record["phoneme_encoding"]),
+        "consumer_invalid_policy": str(record.get("consumer_invalid_policy", "error")),
         **{
             key: record[key]
             for key in (
