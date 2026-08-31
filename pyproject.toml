@@ -22,8 +22,8 @@ authors = [
 ]
 keywords = ["g2p", "grapheme-to-phoneme", "tts", "text-to-speech", "kokoro", "phonemizer", "espeak"]
 dependencies = [
-    "spokenform>=0.3.4,<0.4.0",
-    "g2lex>=0.1.7,<0.2.0",
+    "spokenform>=0.3.5,<0.4.0",
+    "g2lex>=0.1.8,<0.2.0",
 ]
 classifiers=[
     'Development Status :: 4 - Beta',
