@@ -270,7 +270,7 @@ def test_requested_cooking_paragraph(normalizer):
         'Backpapier. Professor Klein sagt: "Bitte stelle die Form auf die '
         "zweite Schiene, backe alles für fünfundvierzig Minuten und lass es "
         'danach eine Minute oder auch zwei Minuten ruhen." Die Kosten liegen '
-        "bei zirka zwölf Euro achtzig zuzüglich Pfand."
+        "bei zirka zwölf Euro achtzig Cent zuzüglich Pfand."
     )
     assert normalizer(source) == expected
 

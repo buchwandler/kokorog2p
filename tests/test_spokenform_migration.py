@@ -511,7 +511,7 @@ def test_spokenform_adapter_rebases_and_preserves_source_provenance():
     ]
     assert all(left.end <= right.start for left, right in pairwise(replacements))
     assert replacements[0].text == "eins Komma fünf Kilogramm"
-    assert replacements[1].text == "zwölf Euro achtzig"
+    assert replacements[1].text == "zwölf Euro achtzig Cent"
     assert replacements[0].rule == "de.quantity"
     assert replacements[0].language == "de"
     assert replacements[0].stages == ("structured",)
