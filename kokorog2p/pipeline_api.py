@@ -442,11 +442,19 @@ def _spokenform_replacements_for_run(
                 f"expected {item.source!r}, got "
                 f"{text[item.source_start : item.source_end]!r}"
             )
+        replacement_text = item.replacement
+        if (
+            language.startswith("de")
+            and getattr(item, "rule", None) == "de.currency"
+        ):
+            # Spokenform 0.3.5 names the German minor currency unit, while
+            # kokorog2p's established source-aligned contract omits it.
+            replacement_text = replacement_text.removesuffix(" Cent")
         replacements.append(
             TextReplacement(
                 start=source_offset + item.source_start,
                 end=source_offset + item.source_end,
-                text=item.replacement,
+                text=replacement_text,
                 kind=item.kind or "spokenform",
                 rule=getattr(item, "rule", None),
                 language=getattr(item, "language", None),
