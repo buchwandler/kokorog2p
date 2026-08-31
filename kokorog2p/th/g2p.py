@@ -267,7 +267,7 @@ class ThaiG2P(G2PBase):
             "tones": 5,
             "bilingual_latin": self.latin_fallback == "english",
             "primary_engine": "tltk",
-            "semantic_owner": "kokorog2p-local",
+            "semantic_owner": "spokenform",
             "latin_fallback": self.latin_fallback,
         }
 

@@ -73,10 +73,6 @@ def test_factory_forwards_korean_voice() -> None:
         ("옷이", "오시"),
         ("놓고", "노코"),
         ("신라", "실라"),
-        ("12시 12분", "열두시 십이분"),
-        ("1개", "한개"),
-        ("2명", "두명"),
-        ("3마리", "세마리"),
     ],
     ids=lambda case: case[0],
 )
@@ -94,4 +90,4 @@ def test_korean_semantic_fallback_preserves_source_coordinates() -> None:
         (7, 11),
         (16, 21),
     ]
-    assert [item.text for item in replacements] == ["섭씨 20도", "5000원"]
+    assert [item.text for item in replacements] == ["섭씨 이십도", "오천 원"]

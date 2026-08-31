@@ -1,6 +1,7 @@
 """Tests for the Korean G2P module."""
 
 import pytest
+from spokenform import prepare_for_kokorog2p
 
 from kokorog2p.ko import KoreanG2P
 from kokorog2p.token import GToken
@@ -222,7 +223,10 @@ class TestKoreanG2P:
 
     def test_mixed_korean_english_numbers(self, g2p):
         """Test mixed Korean, English, and numbers."""
-        result = g2p.phonemize("나의 친구가 mp3 file 3개를 다운받고 있다")
+        prepared = prepare_for_kokorog2p(
+            "나의 친구가 mp3 file 3개를 다운받고 있다", language="ko"
+        ).spoken_text
+        result = g2p.phonemize(prepared)
         assert result is not None
         assert len(result) > 0
 
@@ -239,13 +243,15 @@ class TestKoreanG2P:
 
     def test_percentage_unit(self, g2p):
         """Test % unit conversion."""
-        result = g2p.phonemize("50%")
+        prepared = prepare_for_kokorog2p("50%", language="ko").spoken_text
+        result = g2p.phonemize(prepared)
         # Should convert % to 퍼센트
         assert result is not None
 
     def test_unit_conversion_km(self, g2p):
         """Test km unit conversion."""
-        result = g2p.phonemize("5km")
+        prepared = prepare_for_kokorog2p("5km", language="ko").spoken_text
+        result = g2p.phonemize(prepared)
         # Should convert km to 킬로미터
         assert result is not None
 

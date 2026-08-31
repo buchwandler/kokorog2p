@@ -28,10 +28,17 @@ def _package_version(name: str) -> str | None:
         return None
 
 
+def _spokenform_language(language: str) -> str:
+    """Resolve a Kokoro product alias before calling Spokenform."""
+    from kokorog2p import _canonical_language
+
+    return _canonical_language(language)
+
 def _capture_case(case: dict[str, Any], *, capture_g2p: bool) -> dict[str, Any]:
     from spokenform import PreparationConfig, prepare_for_kokorog2p
 
-    language = str(case["language"])
+    source_language = str(case["language"])
+    language = _spokenform_language(source_language)
     source = str(case["source"])
     record: dict[str, Any] = {
         **case,
@@ -81,7 +88,7 @@ def _capture_case(case: dict[str, Any], *, capture_g2p: bool) -> dict[str, Any]:
         g2p_started = time.perf_counter()
         result = phonemize_to_result(
             source,
-            lang=language,
+            lang=source_language,
             return_ids=True,
             return_phonemes=True,
         )

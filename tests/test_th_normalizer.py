@@ -52,6 +52,6 @@ def test_structured_replacement_is_source_aligned() -> None:
     normalizer = ThaiNormalizer()
     replacements = list(normalizer.iter_structured_replacements("ราคา ๒๐ บาท"))
     assert len(replacements) == 1
-    assert replacements[0].start == 0
+    assert replacements[0].start == len("ราคา ")
     assert replacements[0].end == len("ราคา ๒๐ บาท")
     assert "ยี่สิบ" in replacements[0].text
