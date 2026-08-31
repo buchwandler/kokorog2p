@@ -19,6 +19,10 @@ def test_all_packaged_assets_open_and_match_lock() -> None:
         assert resource.is_file()
         lexicon = g2lex.open_traversable(resource)
         try:
+            embedded_path = lexicon.metadata.get("source", {}).get("path")
+            if embedded_path:
+                assert "/" not in embedded_path
+                assert "\\" not in embedded_path
             assert len(lexicon) == metadata["entry_count"]
             assert lexicon.metadata["logical_sha256"] == metadata["logical_sha256"]
         finally:
