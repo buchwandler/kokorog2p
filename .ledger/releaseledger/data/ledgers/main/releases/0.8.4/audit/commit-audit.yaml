@@ -2,14 +2,14 @@ schema_version: 1
 object_type: commit_audit_sheet
 versioning:
   schema_version: 1
-  revision: 8
+  revision: 11
 release_version: 0.8.4
 git_base_ref: v0.8.3
 git_base_sha: 627fbddbc230cfd37f0d92a68ecde5669d385078
 git_head_ref: HEAD
-git_head_sha: d11d5500a42ee2f65c8629762a6aa81f6ffa1cd3
-git_range: 627fbddbc230cfd37f0d92a68ecde5669d385078..d11d5500a42ee2f65c8629762a6aa81f6ffa1cd3
-commit_count: 10
+git_head_sha: 5a15b24c0ccff23b281025813d6dd3516b9007b5
+git_range: 627fbddbc230cfd37f0d92a68ecde5669d385078..5a15b24c0ccff23b281025813d6dd3516b9007b5
+commit_count: 17
 rows:
   - sha: 654ca44016725cfd881f69be3381c329628a3eeb
     source_ref: git:654ca44016725cfd881f69be3381c329628a3eeb
@@ -534,3 +534,368 @@ rows:
     notes:
       Reviewed resource ownership, cache eviction, compatibility wrappers, public
       exports, and lifetime regression tests.
+  - sha: 186c48fd433b2a21f9a6227f0b60257ef580941a
+    source_ref: git:186c48fd433b2a21f9a6227f0b60257ef580941a
+    short_sha: 186c48f
+    changed_paths:
+      - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/audit/commit-audit.yaml
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0007.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0008.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0009.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0010.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/release.md
+      - docs/changelog.md
+      - scripts/build_g2lex_assets.py
+      - scripts/validate_g2lex_assets.py
+      - tests/test_lexicon_manifest_generation.py
+    stats:
+      files_changed: 0
+      insertions: 330
+      deletions: 11
+    inspected: true
+    inspected_paths:
+      - scripts/build_g2lex_assets.py
+      - scripts/validate_g2lex_assets.py
+      - tests/test_lexicon_manifest_generation.py
+    observed_behavior:
+      Asset build and validation now use installed distribution metadata for the G2Lex
+      version, with a regression test covering the locked version source.
+    public_impact: internal
+    decision: internal
+    evidence_subject: "chore: fix ci"
+    target_entry_id: entry-0011
+    notes:
+      Releaseledger files and changelog regeneration are bookkeeping; the tool-version
+      fix is maintenance-only.
+  - sha: 4935ed0c6c318a26b9f1d1f7488e8f2e2398fb45
+    source_ref: git:4935ed0c6c318a26b9f1d1f7488e8f2e2398fb45
+    short_sha: 4935ed0
+    changed_paths:
+      - README.md
+      - benchmarks/benchmark_de_lexicon_sources.py
+      - benchmarks/lexicon_quality/__init__.py
+      - benchmarks/lexicon_quality/de.py
+      - experiments/de_lexicon_compression/README.md
+      - experiments/de_lexicon_compression/__init__.py
+      - experiments/de_lexicon_compression/analyze_sources.py
+      - experiments/de_lexicon_compression/benchmark_quality.py
+      - experiments/de_lexicon_compression/benchmark_runtime.py
+      - experiments/de_lexicon_compression/compress.py
+      - experiments/de_lexicon_compression/data/.gitkeep
+      - experiments/de_lexicon_compression/download_sources.py
+      - experiments/de_lexicon_compression/fixtures/toy_ambiguity.tsv
+      - experiments/de_lexicon_compression/fixtures/toy_case_collisions.tsv
+      - experiments/de_lexicon_compression/fixtures/toy_single.tsv
+      - experiments/de_lexicon_compression/fixtures/toy_unicode.tsv
+      - experiments/de_lexicon_compression/fixtures/toy_variants.tsv
+      - experiments/de_lexicon_compression/generate_report.py
+      - experiments/de_lexicon_compression/lexlab/__init__.py
+      - experiments/de_lexicon_compression/lexlab/cascade.py
+      - experiments/de_lexicon_compression/lexlab/compact.py
+      - experiments/de_lexicon_compression/lexlab/composition.py
+      - experiments/de_lexicon_compression/lexlab/compressor.py
+      - experiments/de_lexicon_compression/lexlab/decoder.py
+      - experiments/de_lexicon_compression/lexlab/download.py
+      - experiments/de_lexicon_compression/lexlab/keys.py
+      - experiments/de_lexicon_compression/lexlab/metrics.py
+      - experiments/de_lexicon_compression/lexlab/model.py
+      - experiments/de_lexicon_compression/lexlab/overlap.py
+      - experiments/de_lexicon_compression/lexlab/p4.py
+      - experiments/de_lexicon_compression/lexlab/parse.py
+      - experiments/de_lexicon_compression/lexlab/reports.py
+      - experiments/de_lexicon_compression/lexlab/serializer.py
+      - experiments/de_lexicon_compression/lexlab/sources.py
+      - experiments/de_lexicon_compression/lexlab/trie.py
+      - experiments/de_lexicon_compression/reports/.gitkeep
+      - experiments/de_lexicon_compression/run_matrix.py
+      - experiments/de_lexicon_compression/source_manifest.toml
+      - experiments/de_lexicon_compression/tests/__init__.py
+      - experiments/de_lexicon_compression/tests/test_analysis.py
+      - experiments/de_lexicon_compression/tests/test_benchmarks.py
+      - experiments/de_lexicon_compression/tests/test_cli.py
+      - experiments/de_lexicon_compression/tests/test_composition.py
+      - experiments/de_lexicon_compression/tests/test_compressor.py
+      - experiments/de_lexicon_compression/tests/test_download.py
+      - experiments/de_lexicon_compression/tests/test_keys.py
+      - experiments/de_lexicon_compression/tests/test_overlap.py
+      - experiments/de_lexicon_compression/tests/test_parser.py
+      - experiments/de_lexicon_compression/tests/test_serializer.py
+      - experiments/de_lexicon_compression/tests/test_sources.py
+      - experiments/de_lexicon_compression/tests/test_toy_roundtrip.py
+      - experiments/de_lexicon_compression/tests/test_v2_review.py
+      - experiments/de_lexicon_compression/tests/test_variants.py
+      - experiments/de_lexicon_compression/tests/test_views.py
+      - experiments/de_lexicon_compression/verify.py
+      - experiments/de_lexicon_entry_reduction/README.md
+      - experiments/de_lexicon_entry_reduction/__init__.py
+      - experiments/de_lexicon_entry_reduction/analyze_failures.py
+      - experiments/de_lexicon_entry_reduction/benchmark_memory.py
+      - experiments/de_lexicon_entry_reduction/generate_report.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/__init__.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/affixes.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/audit.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/boundary_rules.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/builder.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/composer.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/diagnostics.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/linkers.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/literals.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/membership.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/optimizer.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/prefix_index.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/reports.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/resolver.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/rules.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/segmentation.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/selector.py
+      - experiments/de_lexicon_entry_reduction/lexreduce/serializer.py
+      - experiments/de_lexicon_entry_reduction/model.py
+      - experiments/de_lexicon_entry_reduction/run.py
+      - experiments/de_lexicon_entry_reduction/run_matrix.py
+      - experiments/de_lexicon_entry_reduction/source.py
+      - experiments/de_lexicon_entry_reduction/tests/__init__.py
+      - experiments/de_lexicon_entry_reduction/tests/test_entry_reduction.py
+      - experiments/de_lexicon_entry_reduction/verify.py
+      - tests/test_benchmark_de_lexicon_sources.py
+    stats:
+      files_changed: 0
+      insertions: 297
+      deletions: 7927
+    inspected: true
+    inspected_paths:
+      - README.md
+      - benchmarks/benchmark_de_lexicon_sources.py
+      - benchmarks/lexicon_quality/de.py
+      - tests/test_benchmark_de_lexicon_sources.py
+    observed_behavior:
+      Moved German lexicon quality evaluation into a supported benchmark package with
+      explicit local source loading, Kokoro consumer conversion, cascade scoring, and
+      focused tests.
+    public_impact: docs
+    decision: accepted
+    evidence_subject: "feat: move experiments to g2lex"
+    target_entry_id: entry-0012
+    notes:
+      Removed obsolete experiment implementations while documenting the supported
+      benchmark entry point.
+  - sha: d822ddc36870227bf8e2b19d2e0ea9db25784389
+    source_ref: git:d822ddc36870227bf8e2b19d2e0ea9db25784389
+    short_sha: d822ddc
+    changed_paths:
+      - kokorog2p/lexicons/data/de_crane.g2lex
+      - kokorog2p/lexicons/data/de_gold.g2lex
+      - kokorog2p/lexicons/data/en_gb_gold.g2lex
+      - kokorog2p/lexicons/data/en_gb_silver.g2lex
+      - kokorog2p/lexicons/data/en_us_gold.g2lex
+      - kokorog2p/lexicons/data/en_us_silver.g2lex
+      - kokorog2p/lexicons/data/fr_gold.g2lex
+      - kokorog2p/lexicons/data/ja_words.g2lex
+      - lexicons/lock.json
+      - tests/test_g2lex_assets.py
+    stats:
+      files_changed: 0
+      insertions: 29
+      deletions: 25
+    inspected: true
+    inspected_paths:
+      - lexicons/lock.json
+      - tests/test_g2lex_assets.py
+    observed_behavior:
+      Regenerated packaged G2Lex assets with reproducible g2lex 0.1.7 output and added
+      validation that embedded source paths remain package-safe.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: reproducable g2lex"
+    target_entry_id: entry-0013
+    notes:
+      Reviewed the lockfile hash and generator changes together with the asset integrity
+      regression.
+  - sha: 2966da3c4d780097140fb4ee6b65bafc28a38c04
+    source_ref: git:2966da3c4d780097140fb4ee6b65bafc28a38c04
+    short_sha: 2966da3
+    changed_paths:
+      - benchmarks/text_preparation_migration.py
+      - kokorog2p/ko/numerals.py
+      - kokorog2p/th/g2p.py
+      - kokorog2p/th/normalizer.py
+      - tests/data/text_preparation_migration_baseline.jsonl
+      - tests/test_ko_contract.py
+      - tests/test_ko_g2p.py
+      - tests/test_th_normalizer.py
+    stats:
+      files_changed: 0
+      insertions: 152
+      deletions: 345
+    inspected: true
+    inspected_paths:
+      - kokorog2p/ko/numerals.py
+      - kokorog2p/th/normalizer.py
+      - kokorog2p/th/g2p.py
+      - tests/test_ko_contract.py
+      - tests/test_ko_g2p.py
+      - tests/test_th_normalizer.py
+    observed_behavior:
+      Moved Korean numeral and Thai semantic preparation to Spokenform while retaining
+      compatibility adapters, Thai model sanitation, and source-aligned replacement
+      coordinates.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: migrate more text normalization into spokenform"
+    target_entry_id: entry-0014
+    notes: Reviewed the updated Korean and Thai contracts and regression expectations.
+  - sha: 8f3af2d407ce37719bbe741eafa516ef7d73c1f2
+    source_ref: git:8f3af2d407ce37719bbe741eafa516ef7d73c1f2
+    short_sha: 8f3af2d
+    changed_paths:
+      - benchmarks/text_preparation_migration.py
+      - kokorog2p/_optional.py
+      - kokorog2p/en/g2p.py
+      - kokorog2p/pipeline_api.py
+      - tests/test_en_g2p.py
+      - tests/test_pipeline_api.py
+      - tests/test_spacy_transformer_loading.py
+      - tests/test_spokenform_migration.py
+    stats:
+      files_changed: 0
+      insertions: 217
+      deletions: 61
+    inspected: true
+    inspected_paths:
+      - kokorog2p/pipeline_api.py
+      - kokorog2p/en/g2p.py
+      - kokorog2p/_optional.py
+      - tests/test_pipeline_api.py
+      - tests/test_en_g2p.py
+      - tests/test_spokenform_migration.py
+    observed_behavior:
+      Prepared span pipelines now separate semantic and model text, pass
+      already-prepared input to language frontends, and avoid repeating semantic
+      normalization while preserving direct G2P behavior.
+    public_impact: public
+    decision: accepted
+    evidence_subject:
+      "feat: improve pipeline speed by reducing number of expensive calls"
+    target_entry_id: entry-0015
+    notes:
+      Reviewed prepared-input regressions, migrated-language handling, and the
+      single-call Spokenform assertion.
+  - sha: 5ab325e550de35afb51e172dde23339dbbe81a33
+    source_ref: git:5ab325e550de35afb51e172dde23339dbbe81a33
+    short_sha: 5ab325e
+    changed_paths:
+      - .github/workflows/tests.yml
+      - README.md
+      - benchmarks/DE_LEXICON_BENCHMARK.md
+      - benchmarks/benchmark_de_lexicon_sources.py
+      - benchmarks/de_lexicon_sources_results.json
+      - docs/advanced.md
+      - docs/api/german.md
+      - docs/lexicons.md
+      - kokorog2p/lexicons/_generated_registry.py
+      - kokorog2p/lexicons/data/THIRD_PARTY_NOTICES.md
+      - kokorog2p/lexicons/data/de_crane.g2lex
+      - kokorog2p/lexicons/data/de_espeak.g2lex
+      - kokorog2p/lexicons/data/de_gold.g2lex
+      - kokorog2p/lexicons/data/de_olaph.g2lex
+      - kokorog2p/lexicons/data/en_gb_gold.g2lex
+      - kokorog2p/lexicons/data/en_gb_silver.g2lex
+      - kokorog2p/lexicons/data/en_us_gold.g2lex
+      - kokorog2p/lexicons/data/en_us_silver.g2lex
+      - kokorog2p/lexicons/data/fr_gold.g2lex
+      - kokorog2p/lexicons/data/ja_words.g2lex
+      - kokorog2p/lexicons/runtime.py
+      - lexicons/README.md
+      - lexicons/audits/de-de_espeak.json
+      - lexicons/audits/de-de_espeak_inventory.json
+      - lexicons/audits/de-de_olaph.json
+      - lexicons/audits/de-de_olaph_inventory.json
+      - lexicons/lock.json
+      - lexicons/manifest.toml
+      - lexicons/sources/de/PROVENANCE.md
+      - lexicons/sources/de/espeak_de.tsv
+      - lexicons/sources/de/olaph_de.txt
+      - pyproject.toml
+      - scripts/audit_cstr_de_sources.py
+      - scripts/audit_lexicon_phoneme_inventory.py
+      - scripts/build_g2lex_assets.py
+      - scripts/fetch_cstr_de_lexicons.py
+      - scripts/generate_lexicon_notices.py
+      - tests/test_benchmark_de_lexicon_sources.py
+      - tests/test_de_g2p_hardening.py
+      - tests/test_dependency_contract.py
+      - tests/test_g2lex_assets.py
+      - tests/test_g2lex_runtime_lifetime.py
+      - tests/test_lexicon_precedence.py
+      - tests/test_lexicon_registry.py
+      - tests/test_lexicon_selection.py
+      - tests/test_release_artifacts.py
+    stats:
+      files_changed: 0
+      insertions: 1820701
+      deletions: 162
+    inspected: true
+    inspected_paths:
+      - README.md
+      - docs/api/german.md
+      - docs/lexicons.md
+      - kokorog2p/lexicons/_generated_registry.py
+      - kokorog2p/lexicons/runtime.py
+      - lexicons/manifest.toml
+      - pyproject.toml
+      - tests/test_lexicon_selection.py
+      - tests/test_release_artifacts.py
+    observed_behavior:
+      Added opt-in German eSpeak-derived and OLaPh pronunciation lexicons with pinned
+      provenance, offline packaged assets, ordered selection, and fallback handling for
+      unsupported source IPA.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: add de olaph and espeak dictionaries"
+    target_entry_id: entry-0016
+    notes:
+      Reviewed public selection examples, manifest metadata, licensing notices,
+      dependency floor, and artifact tests.
+  - sha: 5a15b24c0ccff23b281025813d6dd3516b9007b5
+    source_ref: git:5a15b24c0ccff23b281025813d6dd3516b9007b5
+    short_sha: 5a15b24
+    changed_paths:
+      - README.md
+      - benchmarks/DE_LEXICON_BENCHMARK.md
+      - benchmarks/benchmark_de_lexicon_sources.py
+      - benchmarks/de_lexicon_sources_results.json
+      - docs/advanced.md
+      - docs/api/german.md
+      - docs/lexicons.md
+      - kokorog2p/lexicons/data/THIRD_PARTY_NOTICES.md
+      - kokorog2p/span_processing.py
+      - lexicons/README.md
+      - lexicons/audits/de-de_olaph_inventory.json
+      - lexicons/sources/de/PROVENANCE.md
+      - scripts/audit_cstr_de_sources.py
+      - scripts/build_g2lex_assets.py
+      - scripts/fetch_cstr_de_lexicons.py
+      - scripts/generate_lexicon_notices.py
+      - tests/test_g2lex_assets.py
+      - tests/test_lexicon_precedence.py
+      - tests/test_lexicon_registry.py
+    stats:
+      files_changed: 0
+      insertions: 261
+      deletions: 295
+    inspected: true
+    inspected_paths:
+      - kokorog2p/span_processing.py
+      - tests/test_g2lex_assets.py
+      - tests/test_lexicon_precedence.py
+      - tests/test_lexicon_registry.py
+    observed_behavior:
+      Span replacement processing now coalesces multiple Unicode edits within a source
+      token before applying them, preserving token boundaries and composed text.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: improve span processing"
+    target_entry_id: entry-0017
+    notes:
+      Reviewed the replacement composition implementation and the associated asset and
+      registry regression updates.
