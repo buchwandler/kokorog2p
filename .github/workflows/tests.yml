@@ -257,7 +257,7 @@ jobs:
             tests/test_lexicon_manifest_generation.py \
             tests/test_de_g2p.py \
             tests/test_en_arpabet.py \
-            tests/test_cmudict_lexicon.py
+            tests/test_cmudict_lexicon.py \
             tests/test_de_g2p_hardening.py \
             tests/test_release_artifacts.py \
             tests/test_dependency_contract.py \
