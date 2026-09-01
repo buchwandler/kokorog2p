@@ -29,6 +29,7 @@ from kokorog2p.span_processing import (
     apply_overrides_to_tokens,
     apply_text_replacements_to_tokens,
 )
+from kokorog2p.stress import InvalidStressLevel, apply_stress, parse_stress_level
 from kokorog2p.tokenization import (
     ensure_gtoken_positions,
     gtokens_to_tokenspans,
@@ -915,6 +916,7 @@ def phonemize_to_result(
     lexicons: str | Sequence[str] | None = None,
     g2p_options: dict[str, Any] | None = None,
     input_mode: InputTextMode = "written",
+    strict_stress: bool = False,
 ) -> PhonemizeResult:
     """Phonemize text with span-based override application.
 
@@ -943,6 +945,8 @@ def phonemize_to_result(
         g2p_options: Optional factory options to use when loading G2P instances
             for language-specific override spans.
 
+        strict_stress: Whether invalid stress metadata raises instead of producing a
+            warning.
     Returns:
         PhonemizeResult with clean_text, tokens, phonemes, token_ids, and warnings.
 
@@ -1054,6 +1058,7 @@ def phonemize_to_result(
         lang,
         g2p_options=g2p_options,
         input_mode=input_mode,
+        strict_stress=strict_stress,
     )
     warnings.extend(phonemize_warnings)
 
@@ -1106,6 +1111,57 @@ def phonemize_to_result(
     )
 
 
+def _stress_vowels(language: str) -> frozenset[str]:
+    """Return the final-phoneme vowel inventory for a language."""
+    normalized = language.lower().replace("_", "-")
+    if normalized.startswith("de"):
+        from kokorog2p.de.stress import GERMAN_VOWELS
+
+        return GERMAN_VOWELS
+    if normalized.startswith("en"):
+        from kokorog2p.en.lexicon import VOWELS
+
+        return VOWELS
+    return frozenset("aɑeɛiɪoɔøœuʊyəɜɐAIOQWY")
+
+
+def _apply_token_stress(
+    token: TokenSpan,
+    phonemes: str,
+    *,
+    language: str,
+    strict: bool,
+    warnings: list[str],
+) -> str:
+    """Apply a token's explicit stress override after pronunciation resolution."""
+    stress_value = token.meta.get("stress")
+    if not stress_value or not phonemes or _is_punctuation_token(token):
+        return phonemes
+    if _is_punctuation(phonemes) or phonemes == "?":
+        return phonemes
+    ph_override = str(token.meta.get("ph", ""))
+    if "ph" in token.meta and any(character.isspace() for character in ph_override):
+        message = (
+            f"[STRESS] cannot apply stress to collapsed multi-word ph override "
+            f"for token '{token.text}' [{token.char_start}:{token.char_end}]"
+        )
+        if strict:
+            raise InvalidStressLevel(message)
+        warnings.append(message)
+        return phonemes
+    try:
+        level = parse_stress_level(stress_value)
+    except InvalidStressLevel as exc:
+        if strict:
+            raise
+        warnings.append(
+            f"[STRESS] {exc} for token '{token.text}' "
+            f"[{token.char_start}:{token.char_end}]"
+        )
+        return phonemes
+    return apply_stress(phonemes, level, vowels=_stress_vowels(language))
+
+
 def _phonemize_token_spans(  # noqa: C901
     token_spans: list[TokenSpan],
     g2p_token_spans: list[TokenSpan],
@@ -1114,6 +1170,7 @@ def _phonemize_token_spans(  # noqa: C901
     *,
     g2p_options: dict[str, Any] | None = None,
     input_mode: InputTextMode = "written",
+    strict_stress: bool = False,
 ) -> tuple[list[TokenSpan], list[str], str]:
     """Phonemize token spans, handling per-span language switching.
 
@@ -1357,6 +1414,14 @@ def _phonemize_token_spans(  # noqa: C901
                         f"[G2P] fallback phonemization failed for token "
                         f"'{token.text}' [{token.char_start}:{token.char_end}]: {e}"
                     )
+
+        phonemes = _apply_token_stress(
+            token,
+            phonemes,
+            language=token_lang,
+            strict=strict_stress,
+            warnings=warnings,
+        )
 
         # Create phonemized token
         meta = {**token.meta, "phonemes": phonemes, "whitespace": mapped_whitespace}

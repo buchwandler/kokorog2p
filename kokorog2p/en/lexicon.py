@@ -140,57 +140,10 @@ def lexicon_cache_info():
 
 
 def apply_stress(ps: str | None, stress: float | None) -> str | None:
-    """Apply stress modification to a phoneme string.
+    """Apply English stress modification using the shared state machine."""
+    from kokorog2p.stress import apply_stress as _apply_stress
 
-    Args:
-        ps: Phoneme string.
-        stress: Stress level (-2=remove all, -1=demote, 0=neutral,
-            1=promote, 2=force primary).
-
-    Returns:
-        Modified phoneme string.
-    """
-    if ps is None or stress is None:
-        return ps
-
-    def restress(phonemes: str) -> str:
-        """Move stress markers before their associated vowels."""
-        ips = list(enumerate(phonemes))
-        stresses = {}
-        for i, p in ips:
-            if p in STRESSES:
-                # Find next vowel
-                for j, v in ips[i:]:
-                    if v in VOWELS:
-                        stresses[i] = j
-                        break
-        for i, j in stresses.items():
-            _, s = ips[i]
-            ips[i] = (j - 0.5, s)
-        return "".join(p for _, p in sorted(ips))
-
-    if stress < -1:
-        # Remove all stress
-        return ps.replace(PRIMARY_STRESS, "").replace(SECONDARY_STRESS, "")
-    elif stress == -1 or (stress in (0, -0.5) and PRIMARY_STRESS in ps):
-        # Demote primary to secondary
-        return ps.replace(SECONDARY_STRESS, "").replace(
-            PRIMARY_STRESS, SECONDARY_STRESS
-        )
-    elif stress in (0, 0.5, 1) and all(s not in ps for s in STRESSES):
-        # Add secondary stress if missing
-        if all(v not in ps for v in VOWELS):
-            return ps
-        return restress(SECONDARY_STRESS + ps)
-    elif stress >= 1 and PRIMARY_STRESS not in ps and SECONDARY_STRESS in ps:
-        # Promote secondary to primary
-        return ps.replace(SECONDARY_STRESS, PRIMARY_STRESS)
-    elif stress > 1 and all(s not in ps for s in STRESSES):
-        # Add primary stress
-        if all(v not in ps for v in VOWELS):
-            return ps
-        return restress(PRIMARY_STRESS + ps)
-    return ps
+    return _apply_stress(ps, stress, vowels=VOWELS)
 
 
 def stress_weight(ps: str | None) -> int:
@@ -257,7 +210,30 @@ class Lexicon:
 
     def _selected_hit(self, word: str) -> LexiconHit | None:
         """Return the hit selected by the configured ordered stack."""
-        return self._selected.get_hit(word)
+        hit = self._selected.get_hit(word)
+        if hit is not None:
+            return hit
+
+        # Keep the public tier mappings usable for deterministic callers that
+        # replace them with an in-memory fixture after construction.
+        for name, mapping, rating in (
+            ("gold", self.golds, 4),
+            ("silver", self.silvers, 3),
+        ):
+            try:
+                value = mapping[word]
+            except KeyError:
+                continue
+            return LexiconHit(
+                value=value,
+                name=name,
+                rating=rating,
+                kind="pronunciation",
+                phoneme_encoding="ipa",
+                lexicon_id=f"en-us:{name}:compatibility",
+                metadata={},
+            )
+        return None
 
     def _contains_selected(self, word: str) -> bool:
         """Check membership without assuming tier names."""

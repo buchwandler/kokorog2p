@@ -4,8 +4,10 @@ import pytest
 
 from kokorog2p.de import GermanG2P, GermanLexicon, GermanNumberConverter
 from kokorog2p.de.numbers import expand_number, number_to_german, ordinal_to_german
+from kokorog2p.pipeline_api import phonemize_to_result
 from kokorog2p.spacy_models import SpacyModelResolution, SpacyModelSize
 from kokorog2p.token import GToken
+from kokorog2p.types import OverrideSpan
 
 
 @pytest.fixture(scope="module")
@@ -503,3 +505,72 @@ class TestGermanGetG2P:
         assert isinstance(g2p, GermanG2P)
         assert g2p.use_spacy is False
         assert g2p.spacy_model is None
+
+
+@pytest.mark.parametrize("source", ["gold", "crane", "espeak", "olaph"])
+def test_german_stress_is_relative_across_sources(source):
+    g2p = GermanG2P(
+        lexicons=(source,),
+        strip_stress=False,
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+    )
+    try:
+        base = g2p("zwei")[0].phonemes
+        raised = phonemize_to_result(
+            "zwei",
+            lang="de",
+            g2p=g2p,
+            overrides=[OverrideSpan(0, 4, {"stress": "+2"})],
+            return_ids=False,
+        ).phonemes
+    finally:
+        g2p.close()
+
+    assert base is not None
+    if "ˈ" in base:
+        assert raised == base
+    else:
+        assert raised is not None and "ˈ" in raised
+
+
+@pytest.mark.parametrize("source", ["gold", "crane", "espeak", "olaph"])
+def test_german_without_stress_override_is_unchanged(source):
+    g2p = GermanG2P(
+        lexicons=(source,),
+        strip_stress=False,
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+    )
+    try:
+        direct = " ".join(
+            token.phonemes or "" for token in g2p("zwei") if token.phonemes
+        )
+        result = phonemize_to_result(
+            "zwei", lang="de", g2p=g2p, return_ids=False
+        ).phonemes
+    finally:
+        g2p.close()
+
+    assert result == direct
+
+
+def test_german_strip_stress_then_explicit_stress():
+    g2p = GermanG2P(
+        lexicons=("gold",),
+        strip_stress=True,
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+    )
+    try:
+        result = phonemize_to_result(
+            "zwei",
+            lang="de",
+            g2p=g2p,
+            overrides=[OverrideSpan(0, 4, {"stress": "+2"})],
+            return_ids=False,
+        ).phonemes
+    finally:
+        g2p.close()
+
+    assert result == "ʦvˈI"

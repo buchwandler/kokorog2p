@@ -854,6 +854,7 @@ def phonemize(
     backend: "BackendType" = "kokorog2p",
     g2p: "G2PBase | None" = None,
     g2p_options: Mapping[str, Any] | None = None,
+    strict_stress: bool = False,
 ) -> PhonemizeResult:
     """Phonemize text using the unified kokorog2p pipeline.
 
@@ -1013,6 +1014,7 @@ def phonemize(
             "backend": backend,
             **(dict(g2p_options) if g2p_options else {}),
         },
+        strict_stress=strict_stress,
     )
 
 
@@ -1038,6 +1040,7 @@ def phonemize_prepared(
     backend: "BackendType" = "kokorog2p",
     g2p: "G2PBase | None" = None,
     g2p_options: Mapping[str, Any] | None = None,
+    strict_stress: bool = False,
 ) -> PhonemizeResult:
     """Phonemize text that has already been converted to spoken form.
 
@@ -1086,6 +1089,7 @@ def phonemize_prepared(
             **(dict(g2p_options) if g2p_options else {}),
         },
         input_mode="prepared",
+        strict_stress=strict_stress,
     )
 
 

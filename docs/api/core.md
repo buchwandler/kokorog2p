@@ -8,6 +8,34 @@ This module contains the core functionality of kokorog2p.
 .. autofunction:: kokorog2p.phonemize
 ```
 
+## Structured stress overrides
+
+`OverrideSpan` supports explicit phoneme stress changes through the `stress` attribute.
+Values are strings and must be one of `"-2"`, `"-1"`, `"+1"`, or `"+2"`. The stress
+change is applied after language resolution and pronunciation or `ph` override
+resolution.
+
+```python
+from kokorog2p import OverrideSpan, phonemize
+
+result = phonemize(
+    "zwei Minuten",
+    language="de",
+    overrides=[OverrideSpan(0, 4, {"stress": "+2"})],
+)
+```
+
+The values mean:
+
+- `-2`: remove stress markers.
+- `-1`: lower stress by one level.
+- `+1`: raise stress by one level.
+- `+2`: promote or force primary stress.
+
+A span covering multiple lexical tokens applies independently to each spoken token. This
+changes phoneme stress markers (`ˌ` and `ˈ`), not volume, pitch, duration, or SSML
+emphasis. Markdown, Misaki, Kokoro markup, and other prosody syntax are not supported.
+
 ## Prepared input
 
 Use `phonemize_prepared` when the caller has already converted written text to spoken

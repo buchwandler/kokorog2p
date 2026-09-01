@@ -81,6 +81,40 @@ overrides = [
 ]
 ```
 
+## Structured stress overrides
+
+Use `stress` in an `OverrideSpan` to change the relative stress of the resolved phonemes
+for a token or span:
+
+```python
+from kokorog2p import OverrideSpan, phonemize
+
+result = phonemize(
+    "zwei Minuten",
+    language="de",
+    overrides=[
+        OverrideSpan(0, 4, {"stress": "+2"}),
+    ],
+)
+```
+
+Supported values are strings:
+
+- `"-2"` removes `ˌ` and `ˈ` markers.
+- `"-1"` lowers primary stress to secondary stress.
+- `"+1"` adds secondary stress or promotes existing secondary stress.
+- `"+2"` adds or promotes primary stress.
+
+Stress is applied after `lang`, G2P, lexicon, fallback, and `ph` resolution. A span
+covering several lexical tokens applies the same relative stress independently to each
+spoken token. Punctuation, whitespace, and empty phoneme output are unchanged. A
+one-word `ph` override may combine with stress. A collapsed multi-word `ph` override is
+diagnosed instead of guessing which word receives stress.
+
+This structured feature changes phoneme stress markers only. It is not direct volume,
+pitch, duration, SSML emphasis, or general prosody control. Markdown, Misaki, and
+Kokoro-compatible stress syntax are outside this API.
+
 ### PhonemizeResult
 
 The complete phonemization output:

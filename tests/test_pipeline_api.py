@@ -1376,3 +1376,162 @@ class TestPhonemizeToResult:
             for token in result.tokens:
                 phonemes = token.meta.get("phonemes", "")
                 assert phonemes, f"Token '{token.text}' should have phonemes"
+
+
+class _StressG2P:
+    version = "1.0"
+
+    def __init__(self, language="de", phonemes="ʦvI"):
+        self.language = language
+        self.phoneme_value = phonemes
+
+    def __call__(self, text):
+        from kokorog2p.token import GToken
+
+        matches = list(re.finditer(r"\w+|[^\w\s]+", text))
+        tokens = []
+        for index, match in enumerate(matches):
+            word = match.group()
+            whitespace = (
+                text[match.end() : matches[index + 1].start()]
+                if index + 1 < len(matches)
+                else ""
+            )
+            is_word = any(character.isalnum() for character in word)
+            tokens.append(
+                GToken(
+                    text=word,
+                    tag="WORD" if is_word else "PUNCT",
+                    whitespace=whitespace,
+                    phonemes=self.phoneme_value if is_word else word,
+                )
+            )
+        return tokens
+
+    def get_target_model(self):
+        return "1.0"
+
+
+@pytest.mark.parametrize(
+    ("stress", "expected"),
+    (("-2", "ʦvI"), ("-1", "ʦvI"), ("+1", "ʦvˌI"), ("+2", "ʦvˈI")),
+)
+def test_stress_override_is_applied_after_g2p(stress, expected):
+    result = phonemize_to_result(
+        "zwei",
+        lang="de",
+        g2p=_StressG2P(),
+        overrides=[OverrideSpan(0, 4, {"stress": stress})],
+        return_ids=False,
+    )
+
+    assert result.phonemes == expected
+
+
+def test_stress_override_is_applied_after_ph_override():
+    result = phonemize_to_result(
+        "zwei",
+        lang="de",
+        g2p=_StressG2P(),
+        overrides=[OverrideSpan(0, 4, {"ph": "ʦvI", "stress": "+2"})],
+        return_ids=False,
+    )
+
+    assert result.phonemes == "ʦvˈI"
+
+
+def test_invalid_stress_warns_or_raises():
+    override = [OverrideSpan(0, 4, {"stress": "high"})]
+    result = phonemize_to_result(
+        "zwei", g2p=_StressG2P(), overrides=override, return_ids=False
+    )
+    assert result.phonemes == "ʦvI"
+    assert any("invalid stress level" in warning for warning in result.warnings)
+
+    with pytest.raises(ValueError, match="invalid stress level"):
+        phonemize_to_result(
+            "zwei",
+            g2p=_StressG2P(),
+            overrides=override,
+            return_ids=False,
+            strict_stress=True,
+        )
+
+
+def test_stress_span_applies_independently_to_multiple_tokens():
+    result = phonemize_to_result(
+        "zwei zwei",
+        lang="de",
+        g2p=_StressG2P(),
+        overrides=[OverrideSpan(0, 9, {"stress": "+2"})],
+        return_ids=False,
+    )
+
+    assert result.phonemes == "ʦvˈI ʦvˈI"
+
+
+def test_stress_does_not_change_punctuation():
+    result = phonemize_to_result(
+        "!",
+        lang="de",
+        g2p=_StressG2P(),
+        overrides=[OverrideSpan(0, 1, {"stress": "+2"})],
+        return_ids=False,
+    )
+
+    assert result.phonemes == "!"
+    assert not any("STRESS" in warning for warning in result.warnings)
+
+
+def test_multiword_ph_stress_is_diagnosed():
+    result = phonemize_to_result(
+        "zwei zwei",
+        lang="de",
+        g2p=_StressG2P(),
+        overrides=[OverrideSpan(0, 9, {"ph": "ʦvI miːnuːtn", "stress": "+2"})],
+        return_ids=False,
+    )
+
+    assert result.phonemes == "ʦvI miːnuːtn"
+    assert any("collapsed multi-word" in warning for warning in result.warnings)
+
+
+def test_public_phonemize_supports_structured_stress():
+    result = phonemize(
+        "zwei",
+        language="de",
+        g2p=_StressG2P(),
+        overrides=[OverrideSpan(0, 4, {"stress": "+2"})],
+        return_ids=False,
+    )
+
+    assert result.phonemes == "ʦvˈI"
+
+
+def test_language_resolution_precedes_stress(monkeypatch):
+    def get_g2p(language, **_kwargs):
+        return _StressG2P(language, "ʦvI")
+
+    monkeypatch.setattr("kokorog2p.get_g2p", get_g2p)
+    result = phonemize_to_result(
+        "Welt",
+        lang="en-us",
+        g2p=_StressG2P("en-us", "base"),
+        overrides=[OverrideSpan(0, 4, {"lang": "de", "stress": "+2"})],
+        return_ids=False,
+    )
+
+    assert result.phonemes == "ʦvˈI"
+
+
+def test_custom_stress_span_metadata_is_preserved():
+    result = phonemize_to_result(
+        "zwei",
+        lang="de",
+        g2p=_StressG2P(),
+        overrides=[OverrideSpan(0, 4, {"stress": "+2", "custom": "kept"})],
+        return_ids=False,
+    )
+
+    assert result.tokens[0].meta["custom"] == "kept"
+    assert result.tokens[0].meta["stress"] == "+2"
