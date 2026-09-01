@@ -169,11 +169,11 @@ def test_numbered_unit_boundaries_and_attached_forms(normalizer):
     [
         ("1 EUR", "ein Euro"),
         ("2 EUR", "zwei Euro"),
-        ("12,50 EUR", "zwölf Euro fünfzig"),
-        ("12.50 EUR", "zwölf Euro fünfzig"),
-        ("-1,25 EUR", "minus ein Euro fünfundzwanzig"),
-        ("0,05 EUR", "null Euro fünf"),
-        ("EUR 12,50", "zwölf Euro fünfzig"),
+        ("12,50 EUR", "zwölf Euro fünfzig Cent"),
+        ("12.50 EUR", "zwölf Euro fünfzig Cent"),
+        ("-1,25 EUR", "minus ein Euro fünfundzwanzig Cent"),
+        ("0,05 EUR", "null Euro fünf Cent"),
+        ("EUR 12,50", "zwölf Euro fünfzig Cent"),
     ],
 )
 def test_currency(normalizer, source, expected):
@@ -347,7 +347,7 @@ def test_german_lexicon_data_is_packaged():
         ("-1.234 EUR", "minus eintausendzweihundertvierunddreißig Euro"),
         (
             "1.234,56 EUR",
-            "eintausendzweihundertvierunddreißig Euro sechsundfünfzig",
+            "eintausendzweihundertvierunddreißig Euro sechsundfünfzig Cent",
         ),
     ],
 )
