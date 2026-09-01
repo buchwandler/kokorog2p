@@ -5,10 +5,10 @@ ensuring that tokenization used for override application matches the tokenizatio
 used for phonemization.
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from kokorog2p.abbreviation_utils import merge_abbreviation_tokens
-from kokorog2p.types import TokenSpan
+from kokorog2p.types import TokenAnnotation, TokenAnnotationLike, TokenSpan
 
 if TYPE_CHECKING:
     from kokorog2p.token import GToken
@@ -17,6 +17,83 @@ if TYPE_CHECKING:
 COMMON_COMBINING_MARK_RANGES = r"\u0300-\u036f"
 ARABIC_COMBINING_MARK_RANGES = r"\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed"
 WORD_MARK_RANGES = COMMON_COMBINING_MARK_RANGES + ARABIC_COMBINING_MARK_RANGES
+
+
+def _annotation_value(annotation: object, name: str, default: object = None) -> object:
+    value = getattr(annotation, name, default)
+    if name == "language" and value is None:
+        value = getattr(annotation, "lang", default)
+    return value
+
+
+def coerce_token_annotations(
+    text: str,
+    annotations: list[TokenAnnotationLike] | tuple[TokenAnnotationLike, ...] | Any,
+) -> list[TokenAnnotation]:
+    """Validate compatible external token annotations in source coordinates."""
+    if annotations is None:
+        return []
+    result: list[TokenAnnotation] = []
+    previous_end = 0
+    for index, raw in enumerate(annotations):
+        start = _annotation_value(raw, "start")
+        end = _annotation_value(raw, "end")
+        if isinstance(start, bool) or not isinstance(start, int):
+            raise TypeError(f"annotation {index} start must be an integer")
+        if isinstance(end, bool) or not isinstance(end, int):
+            raise TypeError(f"annotation {index} end must be an integer")
+        if not (0 <= start < end <= len(text)) or start < previous_end:
+            raise ValueError(f"annotation {index} has invalid or overlapping bounds")
+        raw_text = _annotation_value(raw, "text")
+        if raw_text is not None and (
+            not isinstance(raw_text, str) or raw_text != text[start:end]
+        ):
+            raise ValueError(f"annotation {index} text does not match source slice")
+        values: dict[str, str | None] = {}
+        for name in ("pos", "tag", "lemma", "language"):
+            value = _annotation_value(raw, name)
+            if value is not None and not isinstance(value, str):
+                raise TypeError(f"annotation {index} {name} must be a string or None")
+            values[name] = value or None
+        result.append(TokenAnnotation(start, end, raw_text, **values))
+        previous_end = end
+    return result
+
+
+def tokens_from_annotations(
+    text: str,
+    annotations: list[TokenAnnotationLike] | tuple[TokenAnnotationLike, ...] | Any,
+    *,
+    lang: str | None = None,
+    keep_punct: bool = True,
+) -> list[TokenSpan]:
+    """Tokenize text and attach validated external linguistic metadata."""
+    validated = coerce_token_annotations(text, annotations)
+    tokens = tokenize_with_offsets(text, lang=lang, keep_punct=keep_punct)
+    for token in tokens:
+        for annotation in validated:
+            if annotation.end <= token.char_start:
+                continue
+            if annotation.start >= token.char_end:
+                break
+            if (
+                annotation.start <= token.char_start
+                and token.char_end <= annotation.end
+            ):
+                token.meta.update(
+                    {
+                        key: value
+                        for key, value in {
+                            "pos": annotation.pos,
+                            "tag": annotation.tag,
+                            "lemma": annotation.lemma,
+                        }.items()
+                        if value is not None
+                    }
+                )
+                token.lang = annotation.language or lang
+                break
+    return tokens
 
 
 def ensure_gtoken_positions(gtokens: list["GToken"], text: str) -> list["GToken"]:

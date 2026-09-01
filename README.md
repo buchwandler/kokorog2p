@@ -342,32 +342,21 @@ kokorog2p now provides a **span-based phonemization API** designed for integrati
 text processing pipelines. This API uses character offsets for deterministic override
 application and supports per-token language switching.
 
-### Written versus prepared input
+### Prepared input
 
-Use `phonemize()` for ordinary written text; kokorog2p owns written-to-spoken semantic
-preparation and G2P:
-
-```python
-from kokorog2p import phonemize
-
-result = phonemize("Prof. Klein braucht 1 kg.", language="de")
-```
-
-If the caller already owns preparation, use the explicit prepared-input path:
+KokoroG2P consumes already speakable text and an explicit language. Use
+`phonemize_prepared()` for the canonical pipeline path:
 
 ```python
-from spokenform import prepare_for_kokorog2p
 from kokorog2p import phonemize_prepared
 
-prepared = prepare_for_kokorog2p("Prof. Klein braucht 1 kg.", language="de")
-result = phonemize_prepared(prepared.spoken_text, language="de")
+result = phonemize_prepared("Professor Klein braucht ein Kilogramm.", language="de")
 ```
 
-`phonemize_prepared()` skips Spokenform and written-to-spoken semantic expansion, while
-retaining tokenization, G2P/backend normalization, Kokoro model punctuation handling,
-overrides, phonemes, and token IDs. Its token and override offsets refer directly to the
-supplied prepared text. Do not pass arbitrary written text when you expect number, date,
-unit, currency, or abbreviation expansion; the caller owns that preparation step.
+Written-to-spoken preparation for numbers, abbreviations, units, currencies, dates,
+times, URLs, and versions belongs to an external layer such as Spokenform.
+`phonemize_prepared()` does not perform semantic expansion. Token and override offsets
+refer directly to the supplied prepared text.
 
 ### Key Features
 

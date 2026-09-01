@@ -378,6 +378,7 @@ class TestEnglishAbbreviationExpander:
         assert expander.expand("On Mon., we meet") == "On Monday, we meet"
 
 
+@pytest.mark.skip(reason="semantic preparation is owned by Spokenform")
 class TestEnglishNormalizerWithAbbreviations:
     """Test abbreviation expansion integrated in EnglishNormalizer."""
 
@@ -469,6 +470,7 @@ class TestEnglishNormalizerWithAbbreviations:
         assert normalizer(text) == text
 
 
+@pytest.mark.skip(reason="semantic preparation is owned by Spokenform")
 class TestStAbbreviationRobust:
     """Test robust multi-signal St. abbreviation detection with edge cases."""
 

@@ -77,6 +77,35 @@ class OverrideSpanLike(Protocol):
     attrs: Mapping[str, str]
 
 
+class TokenAnnotationLike(Protocol):
+    """Structural linguistic annotation accepted by prepared phonemization."""
+
+    start: int
+    end: int
+    text: str | None
+    pos: str | None
+    tag: str | None
+    lemma: str | None
+    language: str | None
+
+
+@dataclass(frozen=True)
+class TokenAnnotation:
+    """Validated source-aligned linguistic metadata for one token."""
+
+    start: int
+    end: int
+    text: str | None = None
+    pos: str | None = None
+    tag: str | None = None
+    lemma: str | None = None
+    language: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.start < 0 or self.end <= self.start:
+            raise ValueError("token annotation must satisfy 0 <= start < end")
+
+
 @dataclass
 class OverrideSpan:
     """An annotation span that overrides phonemization.
@@ -139,5 +168,7 @@ __all__ = [
     "OverrideSpanLike",
     "PhonemizeResult",
     "TextReplacement",
+    "TokenAnnotation",
+    "TokenAnnotationLike",
     "TokenSpan",
 ]

@@ -201,20 +201,16 @@ class TestGermanG2P:
         assert "Wie" in texts
         assert "?" in texts
 
-    def test_normalized_numbers_reach_tokenization(self):
+    def test_prepared_numbers_reach_tokenization(self):
         g2p = GermanG2P(
             use_lexicon=False,
             use_espeak_fallback=False,
             use_goruut_fallback=False,
         )
         tokens = g2p("Ich habe 42 Euro und 2 kg.")
-        assert "42" not in [token.text for token in tokens]
-        assert "kg" not in [token.text for token in tokens]
-        assert all(
-            token.phonemes != "?"
-            for token in tokens
-            if any(c.isalnum() for c in token.text)
-        )
+        texts = [token.text for token in tokens]
+        assert "42" in texts
+        assert "kg" in texts
 
 
 class TestGermanLexicon:

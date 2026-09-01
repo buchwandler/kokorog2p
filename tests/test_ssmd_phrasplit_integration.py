@@ -148,10 +148,10 @@ def test_numeric_dotted_units_remain_one_normalized_offset_span():
         return_ids=False,
     )
 
-    assert results[0].extended_text == "ein Liter Milch und danach zwei Minuten ruhen."
-    unit = next(token for token in results[0].tokens if token.text == "1 ltr.")
-    assert source[unit.char_start : unit.char_end] == "1 ltr."
-    assert unit.extended_text == "ein Liter"
+    assert results[0].extended_text == source
+    unit = next(token for token in results[0].tokens if token.text == "1")
+    assert source[unit.char_start : unit.char_end] == "1"
+    assert unit.extended_text is None
 
 
 def test_installed_phrasplit_and_ssmd_pipeline_uses_clean_text_coordinates():

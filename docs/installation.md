@@ -10,9 +10,8 @@ The core package has minimal dependencies:
 pip install kokorog2p
 ```
 
-The core install includes `spokenform>=0.3.4,<0.4.0` and `g2lex>=0.1.6,<0.2.0`.
-Spokenform owns written-to-spoken semantic preparation and abbreviation integration,
-while G2Lex provides the direct lexicon runtime. Kokorog2p remains the G2P and phoneme
+The core install includes the direct `g2lex` runtime. Spokenform is optional and belongs
+to an external written-text preparation layer. Kokorog2p remains the G2P and phoneme
 layer; `abbr2words` is an upstream dependency of Spokenform when needed, not a direct
 KokoroG2P runtime dependency.
 

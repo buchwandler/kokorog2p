@@ -8,20 +8,13 @@ direct token ID output.
 import re
 import threading
 import unicodedata
-from collections.abc import Callable, Mapping, Sequence
+import warnings as warnings_module
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from functools import cache
 from typing import TYPE_CHECKING, Any, Literal
 from weakref import WeakKeyDictionary
-
-from spokenform import SUPPORTED_BASE_LANGUAGES
-from spokenform import base_language as spokenform_base_language
-from spokenform.abbreviations import (
-    AbbreviationExpander,
-    get_shared_expander,
-    normalize_language,
-)
 
 from kokorog2p.integrations import coerce_override_spans
 from kokorog2p.punctuation import normalize_punctuation
@@ -34,11 +27,13 @@ from kokorog2p.tokenization import (
     ensure_gtoken_positions,
     gtokens_to_tokenspans,
     tokenize_with_offsets,
+    tokens_from_annotations,
 )
 from kokorog2p.types import (
     OverrideSpanLike,
     PhonemizeResult,
     TextReplacement,
+    TokenAnnotationLike,
     TokenSpan,
 )
 from kokorog2p.vocab import filter_for_kokoro, phonemes_to_ids, validate_for_kokoro
@@ -50,19 +45,15 @@ if TYPE_CHECKING:
 
 _G2P_LOCKS: "WeakKeyDictionary[object, threading.RLock]" = WeakKeyDictionary()
 
-# Semantic preparation is owned by spokenform for migrated languages.  Keep
-# this policy centralized so run-level preparation and token-level fallbacks
-# cannot drift apart as more locales move upstream.
-# Spokenform owns this metadata.  Kokorog2p consumes the stable exported base
-# language set instead of maintaining a second upstream shortlist.
-_SPOKENFORM_SEMANTIC_LANGUAGES = frozenset(SUPPORTED_BASE_LANGUAGES)
-
+# Prepared text is the canonical core contract.  ``written`` remains a
+# compatibility spelling for one transition period but is never semantically
+# expanded by this package.
 InputTextMode = Literal["written", "prepared"]
 
 
 @dataclass(frozen=True)
 class PreparedSpanText:
-    """Semantic and model text produced before the G2P frontend runs."""
+    """Text prepared only by KokoroG2P's phonological/model rules."""
 
     clean_text: str
     semantic_text: str
@@ -73,7 +64,7 @@ class PreparedSpanText:
 
 
 class _SpokenformRunResult(list[TextReplacement]):
-    """List-compatible replacement result carrying upstream diagnostics."""
+    """Compatibility result for an explicitly optional Spokenform adapter."""
 
     def __init__(
         self,
@@ -85,22 +76,15 @@ class _SpokenformRunResult(list[TextReplacement]):
 
 
 def _uses_spokenform_semantics(lang: str | None) -> bool:
-    """Return whether *lang* has migrated semantic preparation upstream."""
-    normalized = _spokenform_language(lang)
-    if not normalized:
-        return False
-    try:
-        base = spokenform_base_language(normalized)
-    except (TypeError, ValueError):
-        base = normalized.split("-", 1)[0]
-    return base in _SPOKENFORM_SEMANTIC_LANGUAGES
+    """Return false because semantic preparation is outside the core package."""
+    del lang
+    return False
 
 
 def _g2p_input_is_prepared(*, input_mode: InputTextMode, language: str) -> bool:
-    """Return whether a token's text already owns written-form semantics."""
-    return input_mode == "prepared" or (
-        input_mode == "written" and _uses_spokenform_semantics(language)
-    )
+    """Treat every core pipeline call as prepared text."""
+    del language
+    return input_mode == "prepared" or input_mode == "written"
 
 
 def _get_g2p_lock(g2p: Any) -> threading.RLock:
@@ -263,55 +247,21 @@ def _spokenform_language(lang: str | None) -> str | None:
 
 
 @cache
-def _get_abbreviation_expander(lang: str | None) -> AbbreviationExpander | None:
-    normalized = _normalize_lang(lang)
-    if not normalized:
-        normalized = "en-us"
-
-    try:
-        # Custom registries are keyed by the base language.  Resolve locale
-        # aliases to that same registry so Spokenform and kokorog2p consumers
-        # observe identical public abbreviation customizations.
-        language = normalize_language(normalized.split("-", 1)[0])
-    except ValueError:
-        return None
-    return get_shared_expander(language, context=True)
+def _get_abbreviation_expander(lang: str | None) -> None:
+    """Deprecated compatibility hook; semantic expansion is external."""
+    del lang
 
 
+@cache
 def _expand_abbreviation(
     token_text: str,
     before: str,
     after: str,
     lang: str | None,
 ) -> str | None:
-    expander = _get_abbreviation_expander(lang)
-    if not expander:
-        return None
-
-    entry = expander.get_abbreviation(token_text, case_sensitive=True)
-    if entry is None:
-        entry = expander.get_abbreviation(token_text, case_sensitive=False)
-    if entry is None:
-        return None
-
-    if expander.context_detector:
-        context = expander.context_detector.detect_context(token_text, before, after)
-        return entry.get_expansion(context)
-
-    return entry.expansion
-
-
-_NUM2WORDS_LANGS: dict[str, list[str]] = {
-    "en": ["en"],
-    "en-us": ["en"],
-    "en-gb": ["en"],
-    "de": ["de"],
-    "fr": ["fr"],
-    "es": ["es"],
-    "pt": ["pt"],
-    "it": ["it"],
-    "cs": ["cs", "cz"],
-}
+    """Semantic abbreviation expansion is intentionally unavailable in core."""
+    del token_text, before, after, lang
+    return None
 
 
 @cache
@@ -369,32 +319,9 @@ def _get_structured_replacements(
     protected_spans: Sequence[tuple[int, int]] = (),
     expand_nums: bool = True,
 ) -> list[TextReplacement]:
-    """Get source-aligned semantic replacements for one language run."""
-
-    normalized = _normalize_lang(lang) or "en-us"
-    if _uses_spokenform_semantics(normalized):
-        return _spokenform_replacements_for_run(
-            text,
-            normalized,
-            source_offset=source_offset,
-            protected_spans=protected_spans,
-            expand_nums=expand_nums,
-        )
-
-    normalizer = _get_language_normalizer(lang)
-    iterator = getattr(normalizer, "iter_structured_replacements", None)
-    if not callable(iterator):
-        return []
-    return [
-        TextReplacement(
-            start=replacement.start + source_offset,
-            end=replacement.end + source_offset,
-            text=replacement.text,
-            kind=replacement.kind,
-            priority=replacement.priority,
-        )
-        for replacement in iterator(text)
-    ]
+    """Return no semantic replacements from the core G2P package."""
+    del text, lang, source_offset, protected_spans, expand_nums
+    return []
 
 
 def _spokenform_replacements_for_run(
@@ -521,56 +448,6 @@ def _apply_structured_replacements_to_tokens(
     return processed_tokens, all_warnings
 
 
-@cache
-def _get_num2words() -> Callable[..., str] | None:
-    from spokenform.number_words import number_words
-
-    return number_words
-
-
-def _expand_number(token_text: str, lang: str | None) -> str | None:
-    if not token_text or not token_text.isdigit():
-        return None
-
-    normalized = _normalize_lang(lang)
-    if normalized is None:
-        normalized = "en-us"
-
-    if normalized.startswith("de"):
-        try:
-            from kokorog2p.de.numbers import GermanNumberConverter
-
-            converter = GermanNumberConverter()
-            expanded = converter.convert_cardinal(token_text)
-            if expanded and expanded != token_text:
-                return expanded.replace("-", " ")
-        except Exception:
-            return None
-
-    num2words_fn = _get_num2words()
-    if not num2words_fn:
-        return None
-
-    base_lang = normalized.split("-")[0]
-    lang_codes = _NUM2WORDS_LANGS.get(normalized) or _NUM2WORDS_LANGS.get(base_lang)
-    if not lang_codes:
-        return None
-
-    value = int(token_text)
-    for lang_code in lang_codes:
-        try:
-            expanded = num2words_fn(value, lang=lang_code)
-        except (NotImplementedError, ValueError):
-            continue
-        except Exception:
-            return None
-
-        if expanded:
-            return expanded.replace("-", " ")
-
-    return None
-
-
 def _apply_extended_text(
     tokens: list[TokenSpan],
     clean_text: str,
@@ -578,67 +455,27 @@ def _apply_extended_text(
     *,
     use_normalizer_rules: bool = True,
 ) -> str:
+    """Apply only intrinsic frontend normalization to prepared text."""
+    del default_lang
     if not tokens:
         return clean_text
 
     prefix = clean_text[: tokens[0].char_start]
     parts = [prefix]
     extended_pos = len(prefix)
-
+    del use_normalizer_rules
     for index, token in enumerate(tokens):
-        token_lang = token.lang or default_lang
-        expanded = None
-        used_normalizer = False
-        if token.extended_text is not None:
-            expanded = token.extended_text
-            used_normalizer = True
-        elif "ph" not in token.meta:
-            before = clean_text[: token.char_start].strip()
-            after = clean_text[token.char_end :].strip()
-            semantic_rules_enabled = use_normalizer_rules and not (
-                _uses_spokenform_semantics(token_lang)
-            )
-            if semantic_rules_enabled:
-                normalizer = _get_language_normalizer(token_lang)
-                if normalizer and hasattr(normalizer, "normalize_token"):
-                    expanded = normalizer.normalize_token(
-                        token.text,
-                        before=before,
-                        after=after,
-                    )
-                    used_normalizer = True
-                    if expanded == token.text:
-                        expanded = None
-
-            if expanded is None and not used_normalizer and semantic_rules_enabled:
-                expanded = _expand_abbreviation(token.text, before, after, token_lang)
-
-            if expanded is None and semantic_rules_enabled:
-                expanded = _expand_number(token.text, token_lang)
-
-        if expanded and expanded != token.text:
-            token.extended_text = expanded
-            token.meta["_extended_text_changed"] = True
-            token.meta["_extended_text"] = expanded
-        elif token.extended_text is None:
-            token.extended_text = None
-            token.meta.pop("_extended_text_changed", None)
-            token.meta.pop("_extended_text", None)
-
         token_text = token.extended_text or token.text
         token.meta["_extended_char_start"] = extended_pos
         token.meta["_extended_char_end"] = extended_pos + len(token_text)
-
         parts.append(token_text)
         extended_pos += len(token_text)
-
         next_start = (
             tokens[index + 1].char_start if index + 1 < len(tokens) else len(clean_text)
         )
         gap = clean_text[token.char_end : next_start]
         parts.append(gap)
         extended_pos += len(gap)
-
     return "".join(parts)
 
 
@@ -647,16 +484,22 @@ def _prepare_span_text(
     *,
     lang: str,
     overrides: Sequence[OverrideSpanLike] = (),
+    annotations: Sequence[TokenAnnotationLike] | None = None,
     expand_nums: bool = True,
     use_normalizer_rules: bool = True,
-    input_mode: InputTextMode = "written",
+    input_mode: InputTextMode = "prepared",
     source_sensitive: bool = False,
     overlap: Literal["snap", "strict"] = "snap",
 ) -> PreparedSpanText:
     """Prepare span text before invoking any language G2P frontend."""
     prepared_mode = input_mode == "prepared"
     migrated_semantics = not prepared_mode and _uses_spokenform_semantics(lang)
-    token_spans = tokenize_with_offsets(clean_text, lang=lang, keep_punct=True)
+    migrated_semantics = False
+    token_spans = (
+        tokens_from_annotations(clean_text, annotations, lang=lang, keep_punct=True)
+        if annotations is not None
+        else tokenize_with_offsets(clean_text, lang=lang, keep_punct=True)
+    )
     warnings: list[str] = []
     if overrides:
         token_spans, override_warnings = apply_overrides_to_tokens(
@@ -705,14 +548,19 @@ def _call_g2p_without_abbreviations(  # noqa: C901
     text: str,
     *,
     prepared: bool = False,
+    annotations_provided: bool = False,
 ) -> list["GToken"]:
     original_expand = None
     normalizer_states: list[tuple[Any, bool | None, object | None]] = []
     prepared_states: list[tuple[Any, bool, object | None]] = []
     semantic_states: list[tuple[Any, object]] = []
     g2p_any: Any = g2p
+    original_use_spacy: bool | None = None
     lock = _get_g2p_lock(g2p_any)
     with lock:
+        if annotations_provided and hasattr(g2p_any, "use_spacy"):
+            original_use_spacy = bool(g2p_any.use_spacy)
+            g2p_any.use_spacy = False
         if prepared:
             # Let repository G2P frontends distinguish caller-prepared text
             # from their ordinary written-text convenience path.
@@ -756,6 +604,8 @@ def _call_g2p_without_abbreviations(  # noqa: C901
         try:
             return g2p_any(text)
         finally:
+            if original_use_spacy is not None:
+                g2p_any.use_spacy = original_use_spacy
             if original_expand is not None:
                 g2p_any.expand_abbreviations = original_expand
             for normalizer_obj, expand_value, abbrev_expander in normalizer_states:
@@ -790,7 +640,7 @@ def _normalize_for_g2p_alignment(
     text: str,
     g2p: "G2PBase",
     *,
-    input_mode: InputTextMode = "written",
+    input_mode: InputTextMode = "prepared",
 ) -> str:
     normalizer = _get_g2p_normalizer(g2p)
     if normalizer is None or not text:
@@ -907,6 +757,7 @@ def phonemize_to_result(
     *,
     lang: str | None = None,
     overrides: Sequence[OverrideSpanLike] | None = None,
+    annotations: Sequence[TokenAnnotationLike] | None = None,
     return_ids: bool = True,
     return_phonemes: bool = True,
     alignment: Literal["span", "legacy"] = "span",
@@ -915,7 +766,7 @@ def phonemize_to_result(
     g2p: "G2PBase | None" = None,
     lexicons: str | Sequence[str] | None = None,
     g2p_options: dict[str, Any] | None = None,
-    input_mode: InputTextMode = "written",
+    input_mode: InputTextMode = "prepared",
     strict_stress: bool = False,
 ) -> PhonemizeResult:
     """Phonemize text with span-based override application.
@@ -973,6 +824,13 @@ def phonemize_to_result(
 
     if input_mode not in ("written", "prepared"):
         raise ValueError(f"Unsupported input_mode: {input_mode!r}")
+    if input_mode == "written":
+        warnings_module.warn(
+            "Semantic written-to-spoken preparation is deprecated in KokoroG2P. "
+            "Run Spokenform first and use phonemize_prepared().",
+            DeprecationWarning,
+            stacklevel=2,
+        )
     prepared_mode = input_mode == "prepared"
     lang = lang or "en-us"
     warnings: list[str] = []
@@ -1002,6 +860,7 @@ def phonemize_to_result(
         prepared_span = _prepare_span_text(
             clean_text,
             lang=lang,
+            annotations=annotations,
             overrides=overrides or (),
             expand_nums=bool(getattr(g2p, "expand_nums", True)),
             use_normalizer_rules=use_normalizer_rules,
@@ -1026,9 +885,12 @@ def phonemize_to_result(
                 token_spans, clean_text, result_clean_text
             )
         extended_text = normalized_text
-        g2p_input_prepared = prepared_mode or migrated_semantics
+        g2p_input_prepared = True
         gtokens = _call_g2p_without_abbreviations(
-            g2p, extended_text, prepared=g2p_input_prepared
+            g2p,
+            extended_text,
+            prepared=g2p_input_prepared,
+            annotations_provided=annotations is not None,
         )
         warnings.extend(str(warning) for warning in getattr(g2p, "warnings", ()))
         ensure_gtoken_positions(gtokens, extended_text)
@@ -1036,7 +898,10 @@ def phonemize_to_result(
     else:
         # Legacy: use G2P's tokenization and offsets
         gtokens = _call_g2p_without_abbreviations(
-            g2p, clean_text, prepared=prepared_mode
+            g2p,
+            clean_text,
+            prepared=True,
+            annotations_provided=annotations is not None,
         )
         ensure_gtoken_positions(gtokens, clean_text)
         g2p_token_spans = gtokens_to_tokenspans(gtokens, clean_text)
@@ -1397,6 +1262,16 @@ def _phonemize_token_spans(  # noqa: C901
                     mapped_parts.append(str(whitespace))
 
             phonemes = "".join(mapped_parts)
+            annotation_tag = token.meta.get("tag") or token.meta.get("pos")
+            if annotation_tag and not token_is_punct and "ph" not in token.meta:
+                try:
+                    annotated = token_g2p.lookup(
+                        token.extended_text or token.text, str(annotation_tag)
+                    )
+                except (AttributeError, TypeError, ValueError):
+                    annotated = None
+                if annotated:
+                    phonemes = annotated
             if not phonemes and token.text.strip() and not _is_punctuation(token.text):
                 # fallback: re-phonemize token directly
                 try:

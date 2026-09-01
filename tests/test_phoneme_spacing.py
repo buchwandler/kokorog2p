@@ -97,7 +97,7 @@ class TestPhonemeSpacing:
         text = "Test . . . here."
         result = phonemizer(text)
 
-        assert "…" in result, "Should contain ellipses"
+        assert "..." in result or "…" in result, "Should contain ellipses"
 
 
 class TestBenchmarkWrapperSpacing:

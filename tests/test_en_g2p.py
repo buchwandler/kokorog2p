@@ -356,7 +356,7 @@ class TestEnglishG2PTokenization:
         assert tokens[-1].phonemes == "."
 
     def test_regex_leading_decimal_is_not_preclassified_as_punctuation(self):
-        """A leading decimal is prepared upstream as exact digit words."""
+        """A leading decimal remains one prepared token."""
         g2p = EnglishG2P(
             language="en-us",
             use_spacy=False,
@@ -366,13 +366,8 @@ class TestEnglishG2PTokenization:
         )
 
         tokens = g2p._tokenize_simple("Three hesitated for .02 seconds.")
-
         texts = [token.text for token in tokens]
-        assert texts[texts.index("point") : texts.index("seconds")] == [
-            "point",
-            "zero",
-            "two",
-        ]
+        assert texts[texts.index(".02") : texts.index("seconds")] == [".02"]
 
     def test_simple_tokenization(self, english_g2p_no_espeak):
         """Test simple tokenization without spaCy."""
@@ -481,7 +476,7 @@ def test_prepared_input_skips_semantic_normalization(monkeypatch, language, use_
     assert result.extended_text == text
 
 
-def test_direct_english_g2p_still_prepares_written_input():
+def test_direct_english_g2p_consumes_prepared_input():
     g2p = EnglishG2P(
         language="en-us",
         use_spacy=False,
@@ -492,12 +487,7 @@ def test_direct_english_g2p_still_prepares_written_input():
 
     tokens = g2p._tokenize_simple("Version 2.0.")
     texts = [token.text for token in tokens]
-
-    assert texts[texts.index("two") : texts.index(".", texts.index("two"))] == [
-        "two",
-        "point",
-        "oh",
-    ]
+    assert texts[texts.index("2.0") : texts.index(".", texts.index("2.0"))] == ["2.0"]
 
 
 class TestMainAPI:

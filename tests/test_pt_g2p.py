@@ -40,10 +40,10 @@ class TestPortugueseG2P:
             ("pt-pt", "pt", "dezasseis"),
         ],
     )
-    def test_language_selects_semantic_dialect(
+    def test_language_selects_dialect_without_semantic_preparation(
         self, language, expected_dialect, expected_number
     ):
-        """Direct G2P construction preserves Brazilian/European wording."""
+        """Dialect selection remains available for pronunciation rules."""
         g2p = PortugueseG2P(
             language=language,
             use_spacy=False,
@@ -51,7 +51,7 @@ class TestPortugueseG2P:
         )
 
         assert g2p.dialect == expected_dialect
-        assert g2p._normalizer("16") == expected_number
+        assert g2p._normalizer("16") == "16"
 
     def test_basic_words(self, g2p):
         """Test basic Portuguese words."""

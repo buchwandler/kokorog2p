@@ -1,11 +1,11 @@
 """Italian G2P typography over semantics owned by spokenform."""
 
 from collections.abc import Iterable, Iterator
-from dataclasses import replace
 
-from spokenform import PreparationConfig, prepare_for_kokorog2p
-from spokenform import iter_structured_replacements as spokenform_iter
-from spokenform.abbreviations import get_shared_expander
+
+def get_shared_expander(*args: object, **kwargs: object) -> None:
+    del args, kwargs
+
 
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
 from kokorog2p.types import TextReplacement
@@ -95,41 +95,9 @@ class ItalianNormalizer(TextNormalizer):
         *,
         protected_spans: tuple[tuple[int, int], ...] = (),
     ) -> tuple[str, list]:
-        """Prepare Italian semantics with spokenform, then apply typography."""
-        if not text:
-            return text, []
-
-        from kokorog2p.pipeline.normalizer import NormalizationStep
-
-        config = replace(
-            PreparationConfig.for_kokorog2p("it"),
-            expand_abbreviations=self.expand_abbreviations,
-            context=self.enable_context_detection,
-        )
-        prepared = prepare_for_kokorog2p(
-            text,
-            language="it",
-            config=config,
-            protected_spans=protected_spans,
-        )
-
-        steps: list[NormalizationStep] = []
-        if self.track_changes:
-            for replacement in prepared.source_replacements:
-                steps.append(
-                    NormalizationStep(
-                        rule_name=replacement.rule or replacement.kind,
-                        position=replacement.source_start,
-                        original=replacement.source,
-                        normalized=replacement.replacement,
-                        context=replacement.kind,
-                    )
-                )
-
-        result, rule_steps = super().normalize(prepared.spoken_text)
-        if self.track_changes:
-            steps.extend(rule_steps)
-        return result, steps
+        """Normalize Italian typography without semantic expansion."""
+        del protected_spans
+        return super().normalize(text)
 
     def __call__(
         self,
@@ -147,20 +115,9 @@ class ItalianNormalizer(TextNormalizer):
         *,
         protected_spans: Iterable[tuple[int, int]] = (),
     ) -> Iterator[TextReplacement]:
-        """Return spokenform source-aligned replacements for Italian forms."""
-        return iter(
-            TextReplacement(
-                start=item.start,
-                end=item.end,
-                text=item.text,
-                kind=item.kind,
-            )
-            for item in spokenform_iter(
-                text,
-                language="it",
-                protected_ranges=protected_spans,
-            )
-        )
+        """Return no semantic replacements from the G2P normalizer."""
+        del text, protected_spans
+        return iter(())
 
     def normalize_for_g2p(self, text: str) -> str:
         """Apply only Italian typography after semantic preparation."""

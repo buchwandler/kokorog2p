@@ -12,10 +12,10 @@ status: accepted
 audience: null
 scopes: []
 source_refs:
-- git:e1c3f95db6ebd01f3395a84526adab367426f379
-- git:930208d2ea660e1608f3bcd73a9a13d111dc6dde
+  - git:e1c3f95db6ebd01f3395a84526adab367426f379
+  - git:930208d2ea660e1608f3bcd73a9a13d111dc6dde
 paths:
-- .github/workflows/tests.yml
+  - .github/workflows/tests.yml
 issues: []
 prs: []
 sources: []

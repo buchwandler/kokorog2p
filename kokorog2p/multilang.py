@@ -13,6 +13,7 @@ Example:
 from __future__ import annotations
 
 import re
+import warnings
 from collections.abc import Callable
 from typing import Any, Final
 
@@ -351,6 +352,12 @@ def preprocess_multilang(
         ImportError: If lingua-language-detector is not installed.
         ValueError: If allowed_languages is missing or default_language not allowed.
     """
+    warnings.warn(
+        "preprocess_multilang() is deprecated; provide explicit "
+        "language spans instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     if not LINGUA_AVAILABLE:
         raise ImportError(
             "lingua-language-detector is required for preprocess_multilang. "

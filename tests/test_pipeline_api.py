@@ -70,18 +70,22 @@ def test_prepared_pipeline_preserves_supplied_coordinate_space():
         assert result.clean_text[token.char_start : token.char_end] == token.text
 
 
-def test_written_uses_spokenform_once_and_prepared_bypasses_semantics() -> None:
+def test_written_mode_is_deprecated_and_does_not_prepare_semantics():
     written_g2p = _EchoG2P()
-    written = phonemize_to_result(
-        "2",
-        lang="th",
-        g2p=written_g2p,
-        input_mode="written",
-        return_ids=False,
-        return_phonemes=False,
-    )
-    assert written.extended_text == "สอง"
-    assert written_g2p.calls == ["สอง"]
+    with pytest.warns(
+        DeprecationWarning, match="Semantic written-to-spoken preparation"
+    ) as caught:
+        written = phonemize_to_result(
+            "2",
+            lang="th",
+            g2p=written_g2p,
+            input_mode="written",
+            return_ids=False,
+            return_phonemes=False,
+        )
+    assert len(caught) == 1
+    assert written.extended_text == "2"
+    assert written_g2p.calls == ["2"]
 
     prepared_g2p = _EchoG2P()
     prepared = phonemize_to_result(
@@ -106,7 +110,7 @@ def test_migrated_span_pipeline_marks_default_g2p_input_prepared():
     )
 
     assert g2p.prepared_seen == [True]
-    assert result.extended_text == "Wir brauchen zwei Kilogramm."
+    assert result.extended_text == "Wir brauchen 2 kg."
 
 
 def test_migrated_language_override_g2p_receives_prepared_input(monkeypatch):
@@ -397,12 +401,12 @@ class TestPhonemizeToResult:
         text = "Hello . . . world!"
         result = phonemize(text, alignment="span", language="en-us", backend="espeak")
 
-        assert result.clean_text == "Hello…world!"
+        assert result.clean_text == text
         assert result.phonemes is not None
         assert result.phonemes.count("wˈɜɹld") == 1
-        assert "…" in result.phonemes
+        assert "..." in result.phonemes
 
-        ellipsis_tokens = [t for t in result.tokens if t.text == "…"]
+        ellipsis_tokens = [t for t in result.tokens if t.meta.get("phonemes") == "…"]
         assert len(ellipsis_tokens) == 1
         assert not ellipsis_tokens[0].meta.get("_drop")
 
@@ -633,41 +637,29 @@ class TestPhonemizeToResult:
         and_token = next(token for token in result.tokens if token.text == "and")
         assert and_token.meta.get("phonemes")
 
-    def test_number_expansion_extended_text(self):
-        """Test digit tokens expand into extended_text."""
-        try:
-            import num2words  # noqa: F401
-        except ImportError:
-            pytest.skip("num2words not installed")
-
+    def test_number_tokens_preserve_prepared_text(self):
         result = phonemize("I have 1 cat.", language="en-us")
-
         number_token = next(token for token in result.tokens if token.text == "1")
-        assert number_token.extended_text
-        assert number_token.extended_text != "1"
+        assert number_token.extended_text is None
         assert number_token.meta.get("phonemes")
         assert result.extended_text is not None
-        assert "one" in result.extended_text
+        assert "1" in result.extended_text
 
-    def test_temperature_expansion_extended_text(self):
-        """Test temperature tokens expand into extended_text."""
+    def test_temperature_tokens_preserve_prepared_text(self):
         result = phonemize("It's 30C.", language="en-us")
-
         temp_token = next(token for token in result.tokens if token.text == "30C")
-        assert temp_token.extended_text == "thirty degrees Celsius"
+        assert temp_token.extended_text is None
         assert temp_token.meta.get("phonemes")
         assert result.extended_text is not None
-        assert "thirty degrees Celsius" in result.extended_text
+        assert "30C" in result.extended_text
 
-    def test_abbreviation_expansion_metadata(self):
-        """Ensure abbreviation expansion retains offsets and meta flag."""
+    def test_abbreviation_token_metadata_preserves_prepared_text(self):
         result = phonemize("Dr. Smith", language="en-us")
-
         token = next(token for token in result.tokens if token.text == "Dr.")
         assert token.char_start == 0
         assert token.char_end == 3
-        assert token.extended_text
-        assert token.meta.get("_extended_text_changed") is True
+        assert token.extended_text is None
+        assert token.meta.get("_extended_text_changed") is not True
 
     def test_abbreviation_token_span(self):
         """Test that abbreviations with periods stay in one token."""
@@ -722,6 +714,7 @@ class TestPhonemizeToResult:
         assert len(result.tokens) == 0
         assert result.phonemes == ""
 
+    @pytest.mark.skip(reason="semantic preparation is owned by Spokenform")
     def test_german_structured_forms_use_source_aligned_span_normalization(self):
         from kokorog2p.de.g2p import GermanG2P
 
@@ -771,6 +764,7 @@ class TestPhonemizeToResult:
         )
         assert sum(token.text == "1,5 kg" for token in result.tokens) == 1
 
+    @pytest.mark.skip(reason="semantic preparation is owned by Spokenform")
     def test_german_semantic_stage_reaches_backend_without_normalizer(self):
         from kokorog2p.base import G2PBase
         from kokorog2p.token import GToken
@@ -816,6 +810,7 @@ class TestPhonemizeToResult:
         assert result.extended_text == g2p.calls[0]
         assert "1,5 kg" not in g2p.calls[0]
 
+    @pytest.mark.skip(reason="semantic preparation is owned by Spokenform")
     def test_german_span_and_legacy_paths_have_semantic_parity(self):
         from kokorog2p.de.g2p import GermanG2P
         from kokorog2p.de.normalizer import GermanNormalizer
@@ -884,6 +879,7 @@ class TestPhonemizeToResult:
             ("1 m3", "ein Kubikmeter"),
         ],
     )
+    @pytest.mark.skip(reason="semantic preparation is owned by Spokenform")
     def test_german_extended_quantity_public_path_matches_direct_normalizer(
         self, source, expected
     ):

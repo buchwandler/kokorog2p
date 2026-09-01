@@ -5,8 +5,6 @@ from __future__ import annotations
 import unicodedata
 from collections.abc import Iterable, Iterator
 
-from spokenform import iter_structured_replacements, prepare_for_kokorog2p
-
 from kokorog2p.punctuation import normalize_punctuation
 from kokorog2p.types import TextReplacement
 
@@ -64,13 +62,10 @@ class ThaiNormalizer:
         return "".join(kept)
 
     def normalize(self, text: str) -> str:
-        """Return Spokenform semantics followed by Thai model sanitation."""
+        """Sanitize prepared Thai model input without semantic expansion."""
         self.warnings = []
         self.diagnostics = []
-        prepared = prepare_for_kokorog2p(text, language="th")
-        self.warnings.extend(prepared.warnings)
-        result = self._fold_latin_accents(prepared.spoken_text)
-        result = normalize_punctuation(result)
+        result = self._fold_latin_accents(normalize_punctuation(text))
         result = self._drop_unsupported(result)
         return " ".join(result.split())
 
@@ -85,20 +80,9 @@ class ThaiNormalizer:
     def iter_structured_replacements(
         self, text: str, *, protected_spans: Iterable[tuple[int, int]] = ()
     ) -> Iterator[TextReplacement]:
-        """Yield Spokenform's source-aligned Thai semantic replacements."""
-        for replacement in iter_structured_replacements(
-            text,
-            language="th",
-            protected_ranges=protected_spans,
-        ):
-            yield TextReplacement(
-                start=replacement.start,
-                end=replacement.end,
-                text=replacement.text,
-                kind=replacement.kind,
-                priority=replacement.specificity,
-                language=replacement.language,
-            )
+        """Return no semantic replacements from the Thai G2P layer."""
+        del text, protected_spans
+        return iter(())
 
     def normalize_for_g2p(self, text: str) -> str:
         """Sanitize text that has already received Spokenform semantics."""

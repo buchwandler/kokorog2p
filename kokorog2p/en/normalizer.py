@@ -5,11 +5,6 @@ to make it testable, observable, and reusable.
 """
 
 from collections.abc import Iterable, Iterator
-from dataclasses import replace
-
-from spokenform import PreparationConfig, prepare_for_kokorog2p
-from spokenform import iter_structured_replacements as spokenform_iter
-from spokenform.abbreviations import get_shared_expander
 
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
 from kokorog2p.types import TextReplacement
@@ -42,13 +37,10 @@ class EnglishNormalizer(TextNormalizer):
             expand_abbreviations: Whether to expand abbreviations
             enable_context_detection: Context-aware abbreviation expansion
         """
+        # Semantic expansion is not part of the G2P normalizer.
         self.expand_abbreviations = expand_abbreviations
         self.enable_context_detection = enable_context_detection
-        self.abbrev_expander = (
-            get_shared_expander("en", context=enable_context_detection)
-            if expand_abbreviations
-            else None
-        )
+        self.abbrev_expander = None
         super().__init__(track_changes=track_changes)
 
     def _initialize_rules(self) -> None:
@@ -381,45 +373,9 @@ class EnglishNormalizer(TextNormalizer):
         *,
         protected_spans: tuple[tuple[int, int], ...] = (),
     ) -> tuple[str, list]:
-        """Prepare English semantics with spokenform, then apply typography.
-
-        Semantic preparation is source-aligned and run-local. ``protected_spans``
-        therefore reaches spokenform before any structured replacement is made.
-        """
-        if not text:
-            return text, []
-
-        from kokorog2p.pipeline.normalizer import NormalizationStep
-
-        config = replace(
-            PreparationConfig.for_kokorog2p("en"),
-            expand_abbreviations=self.expand_abbreviations,
-            context=self.enable_context_detection,
-        )
-        prepared = prepare_for_kokorog2p(
-            text,
-            language="en",
-            config=config,
-            protected_spans=protected_spans,
-        )
-
-        steps: list[NormalizationStep] = []
-        if self.track_changes:
-            for replacement in prepared.source_replacements:
-                steps.append(
-                    NormalizationStep(
-                        rule_name=replacement.rule or replacement.kind,
-                        position=replacement.source_start,
-                        original=replacement.source,
-                        normalized=replacement.replacement,
-                        context=replacement.kind,
-                    )
-                )
-
-        result, typography_steps = super().normalize(prepared.spoken_text)
-        if self.track_changes:
-            steps.extend(typography_steps)
-        return result, steps
+        """Normalize only English typography and preserve source semantics."""
+        del protected_spans
+        return super().normalize(text)
 
     def __call__(
         self,
@@ -427,7 +383,6 @@ class EnglishNormalizer(TextNormalizer):
         *,
         protected_spans: tuple[tuple[int, int], ...] = (),
     ) -> str:
-        """Normalize English text and discard change tracking."""
         result, _ = self.normalize(text, protected_spans=protected_spans)
         return result
 
@@ -437,20 +392,9 @@ class EnglishNormalizer(TextNormalizer):
         *,
         protected_spans: Iterable[tuple[int, int]] = (),
     ) -> Iterator[TextReplacement]:
-        """Return spokenform source-aligned replacements for English forms."""
-        return iter(
-            TextReplacement(
-                start=item.start,
-                end=item.end,
-                text=item.text,
-                kind=item.kind,
-            )
-            for item in spokenform_iter(
-                text,
-                language="en",
-                protected_ranges=protected_spans,
-            )
-        )
+        """Return no semantic replacements from the G2P normalizer."""
+        del text, protected_spans
+        return iter(())
 
     def normalize_for_g2p(self, text: str) -> str:
         """Apply only English typography after semantic preparation."""

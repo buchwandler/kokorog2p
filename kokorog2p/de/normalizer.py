@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from dataclasses import replace
 
-from spokenform import PreparationConfig, prepare_for_kokorog2p
-from spokenform import iter_structured_replacements as spokenform_iter
-from spokenform.abbreviations import get_shared_expander
+
+def get_shared_expander(*args: object, **kwargs: object) -> None:
+    del args, kwargs
+
 
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
 from kokorog2p.types import TextReplacement
@@ -105,44 +105,15 @@ class GermanNormalizer(TextNormalizer):
             )
         return normalized
 
-    def normalize(self, text: str) -> tuple[str, list]:
-        """Normalize German text through spokenform, then apply G2P typography."""
-
-        if not text:
-            return text, []
-        steps: list = []
-
-        config = replace(
-            PreparationConfig.for_kokorog2p("de"),
-            expand_abbreviations=self.expand_abbreviations,
-            context=self.enable_context_detection,
-        )
-        prepared = prepare_for_kokorog2p(text, language="de", config=config)
-        for replacement in prepared.source_replacements:
-            rule_name = (
-                "german_structured_numbers"
-                if replacement.kind == "structured"
-                else "abbreviation_expansion"
-                if replacement.kind == "abbreviation"
-                else replacement.rule or replacement.kind
-            )
-            if self.track_changes:
-                from kokorog2p.pipeline.normalizer import NormalizationStep
-
-                steps.append(
-                    NormalizationStep(
-                        rule_name=rule_name,
-                        position=replacement.source_start,
-                        original=replacement.source,
-                        normalized=replacement.replacement,
-                        context=replacement.kind,
-                    )
-                )
-
-        result, rule_steps = super().normalize(prepared.spoken_text)
-        if self.track_changes:
-            steps.extend(rule_steps)
-        return result, steps
+    def normalize(
+        self,
+        text: str,
+        *,
+        protected_spans: tuple[tuple[int, int], ...] = (),
+    ) -> tuple[str, list]:
+        """Normalize German typography without semantic expansion."""
+        del protected_spans
+        return super().normalize(text)
 
     def __call__(self, text: str) -> str:
         result, _ = self.normalize(text)
@@ -150,17 +121,9 @@ class GermanNormalizer(TextNormalizer):
 
     @staticmethod
     def iter_structured_replacements(text: str) -> Iterator[TextReplacement]:
-        """Return spokenform source-aligned replacements for German forms."""
-
-        return iter(
-            TextReplacement(
-                start=item.start,
-                end=item.end,
-                text=item.text,
-                kind=item.kind,
-            )
-            for item in spokenform_iter(text, language="de")
-        )
+        """Return no semantic replacements from the G2P normalizer."""
+        del text
+        return iter(())
 
     def normalize_for_g2p(self, text: str) -> str:
         """Apply only typography after semantic preparation already occurred."""

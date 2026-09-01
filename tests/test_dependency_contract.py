@@ -8,16 +8,15 @@ except ModuleNotFoundError:  # pragma: no cover - exercised on Python 3.10
     import tomli as tomllib
 
 
-def test_migrated_semantic_dependency_floors() -> None:
+def test_core_dependency_contract() -> None:
     data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
     dependencies = data["project"]["dependencies"]
 
-    # Spokenform owns written-to-spoken semantics and abbreviation integration.
-    # abbr2words may be transitive through Spokenform, but is not a direct
-    # kokorog2p runtime dependency. G2Lex is the direct lexicon runtime.
-    assert "spokenform>=0.3.5,<0.4.0" in dependencies
     assert "g2lex>=0.1.8,<0.2.0" in dependencies
-    assert not any(dependency.startswith("abbr2words") for dependency in dependencies)
+    assert not any(
+        dependency.startswith(("spokenform", "abbr2words"))
+        for dependency in dependencies
+    )
 
 
 def test_thai_dependency_extra_is_optional() -> None:

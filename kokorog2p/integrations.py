@@ -8,7 +8,13 @@ itself while passing compatible objects from either package when installed.
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Any, Literal, Protocol, cast
 
-from kokorog2p.types import OverrideSpan, PhonemizeResult
+from kokorog2p.tokenization import coerce_token_annotations
+from kokorog2p.types import (
+    OverrideSpan,
+    PhonemizeResult,
+    TokenAnnotation,
+    TokenAnnotationLike,
+)
 
 
 class SegmentLike(Protocol):
@@ -172,10 +178,43 @@ def _validate_segment(segment: object, clean_text: str) -> tuple[str, int, int]:
     return text, start, end
 
 
+def annotations_for_segment(
+    segment_start: int,
+    segment_end: int,
+    annotations: Iterable[TokenAnnotationLike],
+    *,
+    clean_text: str,
+) -> list[TokenAnnotation]:
+    """Intersect document annotations and rebase them to segment offsets."""
+    start = _validated_offset(segment_start, "segment_start")
+    end = _validated_offset(segment_end, "segment_end")
+    if end < start or end > len(clean_text):
+        raise ValueError(f"invalid segment offsets [{start}:{end}]")
+    rebased: list[TokenAnnotation] = []
+    for annotation in coerce_token_annotations(clean_text, annotations):
+        if annotation.start < start or annotation.end > end:
+            continue
+        local_start = annotation.start - start
+        local_end = annotation.end - start
+        rebased.append(
+            TokenAnnotation(
+                local_start,
+                local_end,
+                clean_text[annotation.start : annotation.end],
+                annotation.pos,
+                annotation.tag,
+                annotation.lemma,
+                annotation.language,
+            )
+        )
+    return rebased
+
+
 def phonemize_segments(
     clean_text: str,
     segments: Sequence[object],
     overrides: Sequence[object] = (),
+    annotations: Sequence[TokenAnnotationLike] = (),
     *,
     phonemize: Callable[..., PhonemizeResult],
     **kwargs: Any,
@@ -186,12 +225,23 @@ def phonemize_segments(
     for segment in segments:
         text, start, end = _validate_segment(segment, clean_text)
         local_overrides = overrides_for_segment(start, end, overrides)
-        results.append(phonemize(text, overrides=local_overrides, **kwargs))
+        local_annotations = annotations_for_segment(
+            start, end, annotations, clean_text=clean_text
+        )
+        results.append(
+            phonemize(
+                text,
+                overrides=local_overrides,
+                annotations=local_annotations,
+                **kwargs,
+            )
+        )
     return results
 
 
 __all__ = [
     "SegmentLike",
+    "annotations_for_segment",
     "coerce_override_spans",
     "overrides_for_segment",
     "overrides_from_ssmd",

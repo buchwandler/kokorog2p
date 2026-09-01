@@ -12,18 +12,18 @@ status: accepted
 audience: null
 scopes: []
 source_refs:
-- git:8093760f4edb39143566dbb73fb7dac24b78fa6b
+  - git:8093760f4edb39143566dbb73fb7dac24b78fa6b
 paths:
-- docs/api/core.md
-- docs/spans.md
-- kokorog2p/__init__.py
-- kokorog2p/de/stress.py
-- kokorog2p/en/lexicon.py
-- kokorog2p/pipeline_api.py
-- kokorog2p/stress.py
-- tests/test_de_g2p.py
-- tests/test_pipeline_api.py
-- tests/test_stress.py
+  - docs/api/core.md
+  - docs/spans.md
+  - kokorog2p/__init__.py
+  - kokorog2p/de/stress.py
+  - kokorog2p/en/lexicon.py
+  - kokorog2p/pipeline_api.py
+  - kokorog2p/stress.py
+  - tests/test_de_g2p.py
+  - tests/test_pipeline_api.py
+  - tests/test_stress.py
 issues: []
 prs: []
 sources: []

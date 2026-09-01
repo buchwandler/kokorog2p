@@ -1,11 +1,11 @@
 """French G2P typography over semantics owned by spokenform."""
 
 from collections.abc import Iterator
-from dataclasses import replace
 
-from spokenform import NumberPolicy, PreparationConfig, prepare_for_kokorog2p
-from spokenform import iter_structured_replacements as spokenform_iter
-from spokenform.abbreviations import get_shared_expander
+
+def get_shared_expander(*args: object, **kwargs: object) -> None:
+    del args, kwargs
+
 
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
 from kokorog2p.types import TextReplacement
@@ -143,53 +143,9 @@ class FrenchNormalizer(TextNormalizer):
         *,
         protected_spans: tuple[tuple[int, int], ...] = (),
     ) -> tuple[str, list]:
-        """Prepare French semantics with spokenform, then apply typography.
-
-        Args:
-            text: Text to normalize
-
-        Returns:
-            Tuple of (normalized_text, list of all normalization steps)
-        """
-        if not text:
-            return text, []
-
-        from kokorog2p.pipeline.normalizer import NormalizationStep
-
-        base_config = PreparationConfig.for_kokorog2p("fr")
-        config = replace(
-            base_config,
-            expand_abbreviations=self.expand_abbreviations,
-            expand_numbers=self.expand_nums,
-            number_policy=(
-                base_config.number_policy if self.expand_nums else NumberPolicy.NONE
-            ),
-            context=self.enable_context_detection,
-        )
-        prepared = prepare_for_kokorog2p(
-            text,
-            language="fr",
-            config=config,
-            protected_spans=protected_spans,
-        )
-
-        steps: list[NormalizationStep] = []
-        if self.track_changes:
-            for replacement in prepared.source_replacements:
-                steps.append(
-                    NormalizationStep(
-                        rule_name=replacement.rule or replacement.kind,
-                        position=replacement.source_start,
-                        original=replacement.source,
-                        normalized=replacement.replacement,
-                        context=replacement.kind,
-                    )
-                )
-
-        result, rule_steps = super().normalize(prepared.spoken_text)
-        if self.track_changes:
-            steps.extend(rule_steps)
-        return result, steps
+        """Normalize French typography without semantic expansion."""
+        del protected_spans
+        return super().normalize(text)
 
     def __call__(
         self,
@@ -210,17 +166,9 @@ class FrenchNormalizer(TextNormalizer):
 
     @staticmethod
     def iter_structured_replacements(text: str) -> Iterator[TextReplacement]:
-        """Return spokenform source-aligned replacements for French forms."""
-
-        return iter(
-            TextReplacement(
-                start=item.start,
-                end=item.end,
-                text=item.text,
-                kind=item.kind,
-            )
-            for item in spokenform_iter(text, language="fr")
-        )
+        """Return no semantic replacements from the G2P normalizer."""
+        del text
+        return iter(())
 
     def normalize_for_g2p(self, text: str) -> str:
         """Apply only French typography after semantic preparation."""

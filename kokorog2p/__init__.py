@@ -65,6 +65,7 @@ from kokorog2p.phonemes import (
 from kokorog2p.pipeline_api import phonemize_to_result
 from kokorog2p.integrations import (
     SegmentLike,
+    annotations_for_segment,
     coerce_override_spans,
     overrides_for_segment,
     overrides_from_ssmd,
@@ -83,7 +84,14 @@ from kokorog2p.punctuation import (
 # Core classes
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import tokenize_with_offsets
-from kokorog2p.types import OverrideSpan, OverrideSpanLike, PhonemizeResult, TokenSpan
+from kokorog2p.types import (
+    OverrideSpan,
+    OverrideSpanLike,
+    PhonemizeResult,
+    TokenAnnotation,
+    TokenAnnotationLike,
+    TokenSpan,
+)
 from kokorog2p.spacy_models import (
     SpacyModelResolution,
     SpacyModelResolutionError,
@@ -511,6 +519,14 @@ def get_g2p(  # noqa: C901
     if backend not in ("kokorog2p", "espeak", "goruut"):
         raise ValueError(f"Unsupported backend: {backend!r}")
     _validate_factory_kwargs(lang, backend, kwargs)
+    for option in ("expand_nums", "expand_abbreviations", "enable_context_detection"):
+        if option in kwargs:
+            warnings.warn(
+                f"{option} is deprecated and ignored by KokoroG2P; prepare text "
+                "with Spokenform before phonemization.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
     implementation_language = (
         lang if backend in ("espeak", "goruut") else requested_language
     )
@@ -837,6 +853,7 @@ def phonemize(
     language: str = "en-us",
     *,
     overrides: Sequence[OverrideSpanLike] | None = None,
+    annotations: Sequence[TokenAnnotationLike] | None = None,
     return_ids: bool = True,
     return_phonemes: bool = True,
     alignment: Literal["span", "legacy"] = "span",
@@ -997,6 +1014,7 @@ def phonemize(
         clean_text=text,
         lang=language,
         overrides=overrides,
+        annotations=annotations,
         return_ids=return_ids,
         return_phonemes=return_phonemes,
         alignment=alignment,
@@ -1023,6 +1041,7 @@ def phonemize_prepared(
     language: str = "en-us",
     *,
     overrides: Sequence[OverrideSpanLike] | None = None,
+    annotations: Sequence[TokenAnnotationLike] | None = None,
     return_ids: bool = True,
     return_phonemes: bool = True,
     alignment: Literal["span", "legacy"] = "span",
@@ -1088,6 +1107,7 @@ def phonemize_prepared(
             "backend": backend,
             **(dict(g2p_options) if g2p_options else {}),
         },
+        annotations=annotations,
         input_mode="prepared",
         strict_stress=strict_stress,
     )
@@ -1168,17 +1188,8 @@ def clear_cache(*, deep: bool = False) -> None:
 
 
 def reset_abbreviations() -> None:
-    """Reset Spokenform's shared abbreviation registry and caches."""
-    from spokenform import reset_abbreviations as reset_spokenform_abbreviations
-
-    reset_spokenform_abbreviations()
-
+    """Deprecated no-op retained for callers of the old semantic API."""
     clear_cache(deep=True)
-
-    from kokorog2p import pipeline_api
-
-    pipeline_api._get_abbreviation_expander.cache_clear()
-    pipeline_api._get_language_normalizer.cache_clear()
 
 
 # Public API
@@ -1203,9 +1214,12 @@ __all__ = [
     "SpacyModelResolution",
     "SpacyModelResolutionError",
     "SpacyModelSize",
+    "TokenAnnotation",
+    "TokenAnnotationLike",
     "TokenSpan",
     "__version__",
     "__version_tuple__",
+    "annotations_for_segment",
     "apply_marker_overrides",
     "available_lexicons",
     "cache_info",

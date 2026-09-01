@@ -119,11 +119,11 @@ def test_phoneme_ids_wrapper_matches_result():
 def test_phonemize():
     text = "Hello . . . world!"
     result = phonemize(text, alignment="span")
-    assert result.clean_text == "Hello…world!"
-    assert "…" in result.phonemes
+    assert result.clean_text == text
+    assert "..." in result.phonemes or "…" in result.phonemes
     result = phonemize(text, alignment="legacy")
-    assert result.clean_text == "Hello…world!"
-    assert "…" in result.phonemes
+    assert result.clean_text == text
+    assert "..." in result.phonemes or "…" in result.phonemes
 
 
 def test_kazakh_public_api_uses_standard_result_shape() -> None:

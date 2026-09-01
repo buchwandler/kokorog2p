@@ -3,14 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from typing import Protocol, TypeVar
+from typing import TYPE_CHECKING, Protocol, TypeVar
 
-from spokenform.abbreviations import (
-    AbbreviationEntry,
-    abbreviation_guards_match,
-    get_shared_expander,
-    normalize_language,
-)
+if TYPE_CHECKING:
+    from spokenform.abbreviations import AbbreviationEntry
 
 
 class AbbreviationToken(Protocol):
@@ -31,13 +27,13 @@ def _normalize_lang(lang: str | None) -> str:
 
 
 def _get_abbreviation_definitions(lang: str | None) -> list[AbbreviationEntry]:
-    """Collect complete abbreviation definitions for a language."""
+    """Collect optional abbreviation definitions without a core dependency."""
     normalized = _normalize_lang(lang)
-
     try:
-        # Shared custom registries are keyed by the base language.  Using
-        # ``en_US`` here would create/read a different registry from the
-        # English compatibility expander's ``en`` registry.
+        from spokenform.abbreviations import get_shared_expander, normalize_language
+    except ImportError:
+        return []
+    try:
         language = normalize_language(normalized.split("-", 1)[0])
     except ValueError:
         return []
@@ -169,6 +165,10 @@ def merge_abbreviation_tokens(
                 start_span = resolved_spans[i]
                 end_span = resolved_spans[j]
                 if start_span is None or end_span is None:
+                    continue
+                try:
+                    from spokenform.abbreviations import abbreviation_guards_match
+                except ImportError:
                     continue
                 if not abbreviation_guards_match(
                     entry,
