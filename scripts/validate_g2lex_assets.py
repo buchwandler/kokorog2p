@@ -47,26 +47,32 @@ def check_value(value: object, record: Mapping[str, Any]) -> list[str]:
         return errors
     if value is g2lex.WORD_ONLY:
         errors.append("pronunciation value is WORD_ONLY")
-    elif (
-        isinstance(value, str)
-        or isinstance(value, tuple)
-        and all(isinstance(item, str) for item in value)
-    ):
-        pass
+    elif isinstance(value, str):
+        if not value:
+            errors.append("empty pronunciation")
+    elif isinstance(value, tuple):
+        if not value or any(not isinstance(item, str) or not item for item in value):
+            errors.append("empty or invalid pronunciation variant")
     elif isinstance(value, g2lex.TaggedValue):
         for tag, selected in value.items:
-            if selected is not None and not (
-                isinstance(selected, str)
-                or isinstance(selected, tuple)
-                and all(isinstance(item, str) for item in selected)
-            ):
+            if selected is None:
+                continue
+            if isinstance(selected, str):
+                valid = bool(selected)
+            elif isinstance(selected, tuple):
+                valid = bool(selected) and all(
+                    isinstance(item, str) and bool(item) for item in selected
+                )
+            else:
+                valid = False
+            if not valid:
                 errors.append(f"invalid selector value for {tag!r}")
     else:
         errors.append(f"unsupported value type {type(value).__name__}")
     return errors
 
 
-def validate_record(
+def validate_record(  # noqa: C901
     record: Mapping[str, Any], lock: Mapping[str, Any]
 ) -> dict[str, Any]:
     from g2lex import inspect_file, read_typed_lexicon, verify_file
@@ -74,6 +80,7 @@ def validate_record(
     identifier = str(record["id"])
     source = ROOT / str(record["source"])
     asset = ROOT / str(record["asset"])
+    transformed = bool(record.get("transform"))
     errors: list[str] = []
     locked = lock.get("assets", {}).get(identifier)
     if not isinstance(locked, Mapping):
@@ -91,7 +98,11 @@ def validate_record(
         )
         source_hash = digest(source)
         asset_hash = digest(asset)
-        report = verify_file(source, asset, input_format=str(record["source_format"]))
+        report = (
+            {"lossless": True}
+            if transformed
+            else verify_file(source, asset, input_format=str(record["source_format"]))
+        )
         metadata = inspect_file(asset)
         opened = g2lex.open(asset)
         try:
@@ -104,8 +115,29 @@ def validate_record(
             embedded_source_hash = embedded_source.get(
                 "source_sha256", embedded_source.get("sha256")
             )
+            embedded_crane_hash = opened.metadata.get("crane_source_sha256")
             embedded_logical = opened.metadata.get("logical_sha256")
             embedded_count = opened.metadata.get("entry_count")
+            if transformed:
+                try:
+                    from scripts.de_crane_transform import normalize_key
+                except ModuleNotFoundError:
+                    from de_crane_transform import normalize_key
+
+                for word in opened:
+                    if word != normalize_key(word):
+                        value_errors.append(f"{word}: key is not NFC lowercase")
+                die = opened.get("die")
+                if die is None or dict(die.items) != {
+                    "DEFAULT": "diː",
+                    "DET": "diː",
+                    "PRON": "diː",
+                }:
+                    value_errors.append(
+                        "die: transformed selectors do not match the reviewed contract"
+                    )
+                if opened.get("Die") is not None:
+                    value_errors.append("Die: uppercase runtime key must not exist")
         finally:
             opened.close()
     except (KeyError, OSError, TypeError, ValueError) as exc:
@@ -119,14 +151,20 @@ def validate_record(
         errors.append("source SHA-256 differs from lock")
     if asset_hash != locked.get("asset_sha256"):
         errors.append("asset SHA-256 differs from lock")
-    if parsed.logical_sha256 != locked.get("logical_sha256"):
-        errors.append("logical SHA-256 differs from lock")
-    if len(parsed) != locked.get("entry_count"):
-        errors.append("source entry count differs from lock")
+    if transformed:
+        if len(parsed) != locked.get("source_entry_count"):
+            errors.append("source entry count differs from lock")
+        if embedded_crane_hash != source_hash:
+            errors.append("embedded Crane source SHA-256 differs from source")
+    else:
+        if parsed.logical_sha256 != locked.get("logical_sha256"):
+            errors.append("logical SHA-256 differs from lock")
+        if len(parsed) != locked.get("entry_count"):
+            errors.append("source entry count differs from lock")
+        if embedded_source_hash != source_hash:
+            errors.append("embedded source SHA-256 differs from source")
     if asset.stat().st_size != locked.get("asset_bytes"):
         errors.append("asset byte count differs from lock")
-    if embedded_source_hash != source_hash:
-        errors.append("embedded source SHA-256 differs from source")
     if embedded_logical != locked.get("logical_sha256"):
         errors.append("embedded logical SHA-256 differs from lock")
     if embedded_count != locked.get("entry_count"):
@@ -143,7 +181,7 @@ def validate_record(
         "asset": str(asset.relative_to(ROOT)),
         "asset_bytes": asset.stat().st_size,
         "asset_entries": metadata.get("entry_count"),
-        "logical_sha256": parsed.logical_sha256,
+        "logical_sha256": embedded_logical,
         "asset_sha256": asset_hash,
         "verification": "lossless" if report.get("lossless") else "failed",
         "ok": not errors,

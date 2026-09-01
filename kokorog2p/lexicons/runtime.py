@@ -303,25 +303,31 @@ def _consumer_decode_parity(
 def validate_runtime_parity(
     records: list[dict[str, Any]], root: Path
 ) -> list[dict[str, Any]]:
-    """Report exact storage parity and complete consumer decoding parity."""
+    """Report storage and consumer parity for registered runtime layers."""
     results: list[dict[str, Any]] = []
     for record in records:
         identifier = str(record["id"])
+        transformed = bool(record.get("transform"))
         source = root / str(record["source"])
-        parsed = g2lex.read_typed_lexicon(
-            source, format=str(record["source_format"]), source_id=identifier
+        parsed = (
+            None
+            if transformed
+            else g2lex.read_typed_lexicon(
+                source, format=str(record["source_format"]), source_id=identifier
+            )
         )
         selected = open_selected(str(record["language"]), (str(record["name"]),))
         missing = mismatches = 0
         consumer: dict[str, Any] = {"ok": True, "skipped": True}
         try:
             layer = selected.layer(str(record["name"]))
-            for word, expected in parsed.entries.items():
-                actual = layer.get(word) if layer is not None else None
-                if actual is None and expected is not None:
-                    missing += 1
-                elif actual != expected:
-                    mismatches += 1
+            if not transformed and layer is not None and parsed is not None:
+                for word, expected in parsed.entries.items():
+                    actual = layer.get(word)
+                    if actual is None and expected is not None:
+                        missing += 1
+                    elif actual != expected:
+                        mismatches += 1
             if layer is not None:
                 consumer = _consumer_decode_parity(
                     layer,
@@ -341,7 +347,9 @@ def validate_runtime_parity(
                 "missing_keys": missing,
                 "unexpected_semantic_hits": 0,
                 "value_mismatches": mismatches,
-                "storage_parity": "exact" if storage_ok else "failed",
+                "storage_parity": "transformed"
+                if transformed
+                else ("exact" if storage_ok else "failed"),
                 "consumer_parity": consumer,
                 "ok": storage_ok and bool(consumer.get("ok", True)),
                 "errors": errors,

@@ -259,6 +259,50 @@ class TestGermanLexicon:
         finally:
             lexicon.close()
 
+    def test_crane_sentence_initial_die_uses_default_article_pronunciation(self):
+        g2p = GermanG2P(
+            lexicons=("crane",),
+            use_spacy=False,
+            use_espeak_fallback=False,
+            use_goruut_fallback=False,
+            strip_stress=False,
+        )
+        try:
+            tokens = g2p("Die Leute")
+            assert tokens[0].text == "Die"
+            assert tokens[0].phonemes == "diː"
+        finally:
+            g2p.close()
+
+    def test_crane_die_uses_lowercase_runtime_selectors(self):
+        lexicon = GermanLexicon(lexicons=("crane",), strip_stress=False)
+        try:
+            assert lexicon.lookup("die") == "diː"
+            assert lexicon.lookup("Die") == "diː"
+            assert lexicon.lookup("DIE") == "diː"
+            assert lexicon.lookup("die", tag="DET") == "diː"
+            assert lexicon.lookup("die", tag="ART") == "diː"
+            assert lexicon.lookup("die", tag="PRON") == "diː"
+        finally:
+            lexicon.close()
+
+    @pytest.mark.spacy
+    def test_crane_sentence_initial_die_with_spacy_pos(self):
+        g2p = GermanG2P(
+            lexicons=("crane",),
+            use_spacy=True,
+            spacy_model="de_core_news_sm",
+            use_espeak_fallback=False,
+            use_goruut_fallback=False,
+            strip_stress=False,
+        )
+        try:
+            tokens = g2p("Die Leute")
+            assert tokens[0].tag == "ART"
+            assert tokens[0].phonemes == "diː"
+        finally:
+            g2p.close()
+
     def test_tuple_lookup_uses_first_ordered_pronunciation(self):
         from kokorog2p.lexicons.runtime import LexiconHit
 

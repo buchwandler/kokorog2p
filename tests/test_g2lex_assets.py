@@ -1,5 +1,6 @@
 import hashlib
 import json
+import unicodedata
 from importlib.resources import files
 from pathlib import Path
 
@@ -29,19 +30,50 @@ def test_all_packaged_assets_open_and_match_lock() -> None:
             lexicon.close()
 
 
-def test_crane_source_hash_and_ordered_variants_are_preserved() -> None:
+def test_crane_source_provenance_and_transformed_runtime_contract() -> None:
     source = Path("lexicons/sources/de/crane_wiktionary.tsv")
     lock = json.loads(Path("lexicons/lock.json").read_text(encoding="utf-8"))
     metadata = lock["assets"]["de-de:crane"]
     assert hashlib.sha256(source.read_bytes()).hexdigest() == metadata["source_sha256"]
-    parsed = g2lex.read_typed_lexicon(source, format="tsv", source_id="de-de:crane")
     asset = g2lex.open("kokorog2p/lexicons/data/de_crane.g2lex")
     try:
-        assert asset.get("A") == ("aː", "aːs")
-        assert asset.get("0,2-Liter-Flasche") == parsed.entries["0,2-Liter-Flasche"]
-        assert asset.metadata["logical_sha256"] == parsed.logical_sha256
+        assert asset.get("a") is not None
+        assert asset.get("A") is None
+        assert asset.get("0,2-liter-flasche") is not None
+        assert asset.get("0,2-Liter-Flasche") is None
+        assert asset.metadata["transform"] == "de-crane-lowercase-lexhint-v1"
+        assert asset.metadata["crane_source_sha256"] == metadata["source_sha256"]
+        assert dict(asset.get("die").items) == {
+            "DEFAULT": "diː",
+            "DET": "diː",
+            "PRON": "diː",
+        }
+        assert asset.get("Die") is None
     finally:
         asset.close()
+
+
+def test_crane_runtime_keys_are_nfc_lowercase() -> None:
+    asset = g2lex.open("kokorog2p/lexicons/data/de_crane.g2lex")
+    try:
+        assert all(key == unicodedata.normalize("NFC", key).lower() for key in asset)
+    finally:
+        asset.close()
+
+def test_phoneme_inventory_audit_traverses_tagged_selectors(tmp_path: Path) -> None:
+    from scripts.audit_lexicon_phoneme_inventory import audit
+
+    source = tmp_path / "tagged.json"
+    source.write_text(
+        '{"die":{"DEFAULT":"diː","DET":"diː","PRON":"diː"}}\n',
+        encoding="utf-8",
+    )
+    asset = tmp_path / "tagged.g2lex"
+    g2lex.pack_file(source, asset, input_format="kokoro-json", source_id="test")
+    report = audit(asset, vocabulary=set("diː"))
+    assert report["entry_count"] == 1
+    assert report["variant_count"] == 3
+    assert report["ok"]
 
 
 def test_cstr_german_sources_match_pins_and_adapter_policy() -> None:

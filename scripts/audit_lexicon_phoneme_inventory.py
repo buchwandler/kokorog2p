@@ -73,7 +73,14 @@ def audit(
     try:
         for word, value in lexicon.items():
             entry_count += 1
-            variants = tuple(g2lex.pronunciation_variants(value))
+            if isinstance(value, g2lex.TaggedValue):
+                variants = tuple(
+                    pronunciation
+                    for tag, _selected in value.items
+                    for pronunciation in g2lex.pronunciation_variants(value, tag=tag)
+                )
+            else:
+                variants = tuple(g2lex.pronunciation_variants(value))
             if not variants:
                 continue
             entry_raw_affected = False

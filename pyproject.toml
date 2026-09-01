@@ -51,6 +51,9 @@ docs = [
     "sphinx-rtd-theme>=2",
     "myst-parser>=2.0.0",
 ]
+lexicon-build = [
+    "lexhint==0.4.2",
+]
 espeak = [
     "espeakng-loader>=0.1.0",
     "dlinfo>=1.2.1",

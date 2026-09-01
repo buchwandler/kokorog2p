@@ -1,19 +1,33 @@
 {
   "assets": {
     "de-de:crane": {
-      "asset_bytes": 10396748,
-      "asset_sha256": "8b654d12d51fa209a1269633e9aab0be8e7118f052bf18fd3d42c3ac2ed99b9e",
+      "asset_bytes": 10243516,
+      "asset_sha256": "c1282dd43439347f32e7c9fb2bf5c658d9dd9d08937447b89426cd63c37ea6ca",
       "attribution": "German Wiktionary contributors; dataset extraction/publishing by Crane Local AI",
       "consumer_invalid_policy": "error",
-      "entry_count": 837539,
-      "generator": "g2lex 0.1.7",
+      "crane_source_sha256": "04a3909f07cd08615157393814188b420a7c3c5035cf7a0608d31be07892be29",
+      "entry_count": 826871,
+      "generator": "g2lex 0.1.8",
+      "key_normalization": "NFC+lower",
+      "lexhint_artifact": "de/dictionary/s10/2026.08.28/lexhint.sqlite3",
+      "lexhint_artifact_sha256": "ef8c6d0402409353abd81bd1ee1d2ef620ae002a0ecbbd8a3a1cb0bc1364cfba",
+      "lexhint_language": "de",
+      "lexhint_version": "0.4.2",
       "license_expression": "CC-BY-SA-4.0",
       "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
-      "logical_sha256": "2b97ac53b69b911ecf5c9682e3d8d2c5d89b90979626128108c1dd23e3a75ee7",
+      "logical_sha256": "2381391dc5c0ea083816c1d3cac9002d16750e05038dc3ac97690115b9007efa",
       "phoneme_encoding": "ipa",
       "revision": "bfd51698069a30e1b20bbf54479b55af50b4161d",
+      "source_entry_count": 837539,
       "source_sha256": "04a3909f07cd08615157393814188b420a7c3c5035cf7a0608d31be07892be29",
-      "source_url": "https://huggingface.co/datasets/crane-local-ai/g2p-lexicons/blob/bfd51698069a30e1b20bbf54479b55af50b4161d/de/de.tsv"
+      "source_url": "https://huggingface.co/datasets/crane-local-ai/g2p-lexicons/blob/bfd51698069a30e1b20bbf54479b55af50b4161d/de/de.tsv",
+      "transform": "de-crane-lowercase-lexhint-v1",
+      "transform_inputs": {
+        "crane_sha256": "04a3909f07cd08615157393814188b420a7c3c5035cf7a0608d31be07892be29",
+        "lexhint_sha256": "ef8c6d0402409353abd81bd1ee1d2ef620ae002a0ecbbd8a3a1cb0bc1364cfba",
+        "lexhint_version": "0.4.2"
+      },
+      "transform_report_sha256": "8cc0ab759775722e78f72e676016efcbd64c4ba8f6d35fb4a508642b7b7f1baf"
     },
     "de-de:espeak": {
       "asset_bytes": 7781220,
@@ -21,12 +35,13 @@
       "attribution": "German word inventory from open-dict-data/Wiktionary-derived data; IPA generated with eSpeak tooling and redistributed by cstr/g2p-dicts",
       "consumer_invalid_policy": "error",
       "entry_count": 667295,
-      "generator": "g2lex 0.1.7",
+      "generator": "g2lex 0.1.8",
       "license_expression": "CC-BY-SA-3.0",
       "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
       "logical_sha256": "4c975e8348d2e8cb288f9b9530dcf26d7ac1527fec2d43457fa77481d562279d",
       "phoneme_encoding": "ipa",
       "revision": "eeac6ffc9271838fd63464a83d4b784ac75fc95b",
+      "source_entry_count": 667295,
       "source_sha256": "190b62f1ddcf6616b62214173f05b09804635b170f75b9877eceab20b1624dbf",
       "source_url": "https://huggingface.co/datasets/cstr/g2p-dicts/blob/eeac6ffc9271838fd63464a83d4b784ac75fc95b/espeak_de.tsv"
     },
@@ -35,9 +50,10 @@
       "asset_sha256": "00afc53e8d550f7fdafa2ca6dfad418d4a38bac75729c89e3ee206b5beed617c",
       "consumer_invalid_policy": "error",
       "entry_count": 738427,
-      "generator": "g2lex 0.1.7",
+      "generator": "g2lex 0.1.8",
       "logical_sha256": "530f4787a2accd9824526749b90f43d4edaf2506f0aa385056a83913cb6ee48a",
       "phoneme_encoding": "ipa",
+      "source_entry_count": 738427,
       "source_sha256": "2c30bcbb0a9a4fa172943026eea572f1e4ba82a799920b9d96e6ace59d273639"
     },
     "de-de:olaph": {
@@ -46,12 +62,13 @@
       "attribution": "OLaPh (Optimal Language Phonemizer), IISYS Hof; source redistributed by cstr/g2p-dicts",
       "consumer_invalid_policy": "fallback",
       "entry_count": 965839,
-      "generator": "g2lex 0.1.7",
+      "generator": "g2lex 0.1.8",
       "license_expression": "MIT",
       "license_url": "https://opensource.org/license/mit/",
       "logical_sha256": "c0dc2c87cf6f229ae88e66c2f4b3c03876f9f95df615e82c0133f0e3778c296d",
       "phoneme_encoding": "ipa",
       "revision": "cedb4ada41a288549db36c53f9a1e6858a668624",
+      "source_entry_count": 965839,
       "source_sha256": "aa70d85ce245c8a8f1db2cc109a0f3da6594eaba5b414a61bcd28f1ccc40ca46",
       "source_url": "https://huggingface.co/datasets/cstr/g2p-dicts/blob/cedb4ada41a288549db36c53f9a1e6858a668624/olaph_de.txt"
     },
@@ -60,9 +77,10 @@
       "asset_sha256": "fda58b8368d11604c6dda68d2e3de92bba924698d13bd266c3317410b7df6813",
       "consumer_invalid_policy": "error",
       "entry_count": 87364,
-      "generator": "g2lex 0.1.7",
+      "generator": "g2lex 0.1.8",
       "logical_sha256": "39ffb8e4f5706c287039dca34952e2c342c24ab3f0e56b0f814784a0338aa6eb",
       "phoneme_encoding": "kokoro-v1",
+      "source_entry_count": 87364,
       "source_sha256": "bcbc593a5fe247d92ee584ffb6302d326b4f99f652c634991206e3f848d36cac"
     },
     "en-gb:silver": {
@@ -70,9 +88,10 @@
       "asset_sha256": "2989a607c31d672434b1ff25689a2dafaf491a1dbd3df170e291365a9219c616",
       "consumer_invalid_policy": "error",
       "entry_count": 109766,
-      "generator": "g2lex 0.1.7",
+      "generator": "g2lex 0.1.8",
       "logical_sha256": "d531b4031a4baf0a23f238c443356f7d941e24aa53982f406fd35439c0f521fd",
       "phoneme_encoding": "kokoro-v1",
+      "source_entry_count": 109766,
       "source_sha256": "6c062fa3dcab1a949855ff9350bd327335cb3c501218180e052d0e3e4faf5883"
     },
     "en-us:gold": {
@@ -80,9 +99,10 @@
       "asset_sha256": "e0b9385554f8b9962625d2d787e1bb4e93cf9c66e4078162301d9472e3029158",
       "consumer_invalid_policy": "error",
       "entry_count": 90213,
-      "generator": "g2lex 0.1.7",
+      "generator": "g2lex 0.1.8",
       "logical_sha256": "272cea0f8255d1187b7152a5b796b13d1ce16619eca24c638809288a412330df",
       "phoneme_encoding": "kokoro-v1",
+      "source_entry_count": 90213,
       "source_sha256": "50a8a07a5d5054c25cac1f4e2f0efc31a0a104e0d92c6ddc599772c183e1a86d"
     },
     "en-us:silver": {
@@ -90,9 +110,10 @@
       "asset_sha256": "a3d21aa3cb66c209428fb9f4d194fa4fb0548d25f3671306b17c54bd598f446d",
       "consumer_invalid_policy": "error",
       "entry_count": 93361,
-      "generator": "g2lex 0.1.7",
+      "generator": "g2lex 0.1.8",
       "logical_sha256": "7c400c45f8d16bfa14abd35be6527a598f6bffe2d6b85c8da21de565cc5523cb",
       "phoneme_encoding": "kokoro-v1",
+      "source_entry_count": 93361,
       "source_sha256": "067c30f29524585b479affdef2823d6c1e27c59d6d6dfb1694be676bba1185f1"
     },
     "fr-fr:gold": {
@@ -100,9 +121,10 @@
       "asset_sha256": "c17b5179ad0e153de8357571559b7271065b97fee1aa76ddbd69038002ba284f",
       "consumer_invalid_policy": "error",
       "entry_count": 15011,
-      "generator": "g2lex 0.1.7",
+      "generator": "g2lex 0.1.8",
       "logical_sha256": "103d5ad4108cc987b36a71b64feefa54adc0ed47e2d6b884258538502bdd1683",
       "phoneme_encoding": "kokoro-v1",
+      "source_entry_count": 15011,
       "source_sha256": "0d5dcd4a6fec8c8decde6403880e41c7b8d6f6c300928eb81f2edc42f811e081"
     },
     "ja-jp:words": {
@@ -110,12 +132,13 @@
       "asset_sha256": "4a9d7e3bb5f85b3141eab21afe3ce83139303f9e56fb94863d12fdb3cc603b4e",
       "consumer_invalid_policy": "error",
       "entry_count": 147571,
-      "generator": "g2lex 0.1.7",
+      "generator": "g2lex 0.1.8",
       "logical_sha256": "06626c41087fd7d441ce3241b3b4ecb39236d970d9cb69824756d6a26bc60dca",
       "phoneme_encoding": "none",
+      "source_entry_count": 147571,
       "source_sha256": "f4a05f1b1473f4b3797e9149e472c9343d5ad43093cbce83fe01e96dacfae334"
     }
   },
-  "g2lex_version": "0.1.7",
+  "g2lex_version": "0.1.8",
   "schema_version": 1
 }

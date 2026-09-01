@@ -14,6 +14,21 @@ from typing import Any
 
 import g2lex
 
+try:
+    from scripts.de_crane_transform import (
+        TRANSFORM_VERSION,
+        serialize_entries,
+        transform_crane,
+        write_report,
+    )
+except ModuleNotFoundError:
+    from de_crane_transform import (
+        TRANSFORM_VERSION,
+        serialize_entries,
+        transform_crane,
+        write_report,
+    )
+
 # The runtime module may fall back to a placeholder when loaded from a wheel;
 # the distribution metadata is the version used to build and lock the asset.
 G2LEX_VERSION = distribution_version("g2lex")
@@ -188,6 +203,12 @@ def registry_text(records: list[dict[str, Any]]) -> str:
         "license_expression",
         "license_url",
         "attribution",
+        "transform",
+        "lexhint_language",
+        "lexhint_artifact",
+        "lexhint_artifact_sha256",
+        "lexhint_version",
+        "key_normalization",
     )
     lines = [
         '"""Generated from lexicons/manifest.toml; do not edit manually."""',
@@ -233,55 +254,121 @@ def validate_source(record: dict[str, Any]) -> tuple[Any, Path]:
     return parsed, path
 
 
-def build_record(record: dict[str, Any], output: Path) -> dict[str, Any]:
-    parsed, source = validate_source(record)
-    expected_source_hash = record.get("source_sha256")
-    if expected_source_hash is not None and sha256(source) != expected_source_hash:
-        raise ValueError(f"source SHA-256 differs from manifest for {record['id']}")
-    expected_source_size = record.get("source_size")
-    if (
-        expected_source_size is not None
-        and source.stat().st_size != expected_source_size
+def build_de_crane_intermediate(
+    record: dict[str, Any], source: Path, temp_dir: Path
+) -> tuple[Path, str, dict[str, object]]:
+    """Build the rich temporary input used for the transformed Crane asset."""
+    from lexhint import Lexicon
+
+    lexicon = Lexicon(str(record["language"]).split("-", 1)[0])
+    artifact = Path(lexicon.path)
+    artifact_id = "/".join(artifact.parts[-5:])
+    lexhint_metadata = {
+        "lexhint_language": str(record["language"]).split("-", 1)[0],
+        "lexhint_artifact": artifact_id,
+        "lexhint_artifact_sha256": sha256(artifact),
+        "lexhint_version": distribution_version("lexhint"),
+        "key_normalization": "NFC+lower",
+    }
+    for field in (
+        "lexhint_language",
+        "lexhint_artifact",
+        "lexhint_artifact_sha256",
+        "lexhint_version",
     ):
-        raise ValueError(f"source size differs from manifest for {record['id']}")
-    packed = g2lex.pack_file(
+        expected = record.get(field)
+        if expected is not None and expected != lexhint_metadata[field]:
+            raise ValueError(f"{field} differs from pinned manifest for {record['id']}")
+    result = transform_crane(
         source,
-        output,
-        input_format=str(record["source_format"]),
-        source_id=str(record["id"]),
-        metadata={
-            "lexicon_id": str(record["id"]),
-            "language": str(record["language"]),
-            "name": str(record["name"]),
-            "kind": str(record["kind"]),
-            "case_aliases": bool(record["case_aliases"]),
-            "phoneme_encoding": str(record["phoneme_encoding"]),
-            "consumer_invalid_policy": str(
-                record.get("consumer_invalid_policy", "error")
-            ),
-            **{
-                key: record[key]
-                for key in (
-                    "provider",
-                    "revision",
-                    "source_url",
-                    "license_expression",
-                    "license_url",
-                    "attribution",
-                )
-                if key in record
-            },
+        lexhint_lexicon=lexicon,
+        source_metadata={
+            "crane_source_sha256": sha256(source),
+            **lexhint_metadata,
         },
     )
-    verification = g2lex.verify_file(
-        source, output, input_format=str(record["source_format"])
-    )
-    if not verification.get("lossless"):
-        raise ValueError(
-            f"independent verification failed for {record['id']}: {verification}"
+    intermediate = temp_dir / f"{Path(record['asset']).stem}.json"
+    intermediate.write_text(serialize_entries(result.entries), encoding="utf-8")
+    report = temp_dir / "de_crane_lowercase_collisions.json"
+    write_report(result.report, report)
+    metadata = {
+        "transform": TRANSFORM_VERSION,
+        "crane_source_sha256": sha256(source),
+        **lexhint_metadata,
+        "transform_report_sha256": sha256(report),
+        "transform_inputs": {
+            "crane_sha256": sha256(source),
+            "lexhint_sha256": sha256(artifact),
+            "lexhint_version": distribution_version("lexhint"),
+        },
+    }
+    return intermediate, "kokoro-json", metadata
+
+
+def build_record(record: dict[str, Any], output: Path) -> dict[str, Any]:
+    parsed, source = validate_source(record)
+    source_hash = sha256(source)
+    expected_source_hash = record.get("source_sha256")
+    if expected_source_hash is not None and source_hash != expected_source_hash:
+        raise ValueError(f"source SHA-256 differs from manifest for {record['id']}")
+    source_size = source.stat().st_size
+    expected_source_size = record.get("source_size")
+    if expected_source_size is not None and source_size != expected_source_size:
+        raise ValueError(f"source size differs from manifest for {record['id']}")
+
+    with tempfile.TemporaryDirectory(
+        prefix=f".{output.stem}.transform.", dir=output.parent
+    ) as temp_name:
+        transform_input = source
+        input_format = str(record["source_format"])
+        transform_metadata: dict[str, object] = {}
+        if record.get("transform") == TRANSFORM_VERSION:
+            transform_input, input_format, transform_metadata = (
+                build_de_crane_intermediate(record, source, Path(temp_name))
+            )
+        elif record.get("transform") is not None:
+            raise ValueError(f"unknown lexicon transform: {record['transform']!r}")
+        packed = g2lex.pack_file(
+            transform_input,
+            output,
+            input_format=input_format,
+            source_id=str(record["id"]),
+            metadata={
+                "lexicon_id": str(record["id"]),
+                "language": str(record["language"]),
+                "name": str(record["name"]),
+                "kind": str(record["kind"]),
+                "case_aliases": bool(record["case_aliases"]),
+                "phoneme_encoding": str(record["phoneme_encoding"]),
+                "consumer_invalid_policy": str(
+                    record.get("consumer_invalid_policy", "error")
+                ),
+                **transform_metadata,
+                **{
+                    key: record[key]
+                    for key in (
+                        "provider",
+                        "revision",
+                        "source_url",
+                        "license_expression",
+                        "license_url",
+                        "attribution",
+                    )
+                    if key in record
+                },
+            },
         )
+        verification = g2lex.verify_file(
+            transform_input, output, input_format=input_format
+        )
+        if not verification.get("lossless"):
+            raise ValueError(
+                f"independent verification failed for {record['id']}: {verification}"
+            )
+
     result = {
-        "source_sha256": sha256(source),
+        "source_sha256": source_hash,
+        "source_entry_count": len(parsed),
         "logical_sha256": str(packed["logical_sha256"]),
         "asset_sha256": sha256(output),
         "entry_count": int(packed["asset_entry_count"]),
@@ -290,19 +377,28 @@ def build_record(record: dict[str, Any], output: Path) -> dict[str, Any]:
         "phoneme_encoding": str(record["phoneme_encoding"]),
         "consumer_invalid_policy": str(record.get("consumer_invalid_policy", "error")),
         **{
-            key: record[key]
+            key: transform_metadata[key] if key in transform_metadata else record[key]
             for key in (
                 "revision",
                 "source_url",
                 "license_expression",
                 "license_url",
                 "attribution",
+                "crane_source_sha256",
+                "transform_report_sha256",
+                "transform_inputs",
+                "transform",
+                "lexhint_language",
+                "lexhint_artifact",
+                "lexhint_artifact_sha256",
+                "lexhint_version",
+                "key_normalization",
             )
-            if key in record
+            if key in record or key in transform_metadata
         },
     }
     print(
-        f"{record['id']}: source={source} source_bytes={source.stat().st_size} "
+        f"{record['id']}: source={source} source_bytes={source_size} "
         f"source_entries={len(parsed)} source_sha256={result['source_sha256']} "
         f"asset={record['asset']} asset_bytes={result['asset_bytes']} "
         f"asset_entries={result['entry_count']} "

@@ -34,6 +34,58 @@ def _lookup_spellings(word: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(candidates))
 
 
+_UNIVERSAL_POS = frozenset(
+    {
+        "ADJ",
+        "ADP",
+        "ADV",
+        "AUX",
+        "CCONJ",
+        "DET",
+        "INTJ",
+        "NOUN",
+        "NUM",
+        "PART",
+        "PRON",
+        "PROPN",
+        "SCONJ",
+        "VERB",
+        "X",
+    }
+)
+_GERMAN_STTS_TO_POS = {
+    "ART": "DET",
+    "PDS": "PRON",
+    "PDAT": "PRON",
+    "PIS": "PRON",
+    "PIAT": "PRON",
+    "PIDAT": "PRON",
+    "PPER": "PRON",
+    "PPOSS": "PRON",
+    "PPOSAT": "PRON",
+    "PRELS": "PRON",
+    "PRELAT": "PRON",
+    "PRF": "PRON",
+    "NN": "NOUN",
+    "NE": "PROPN",
+    "VVFIN": "VERB",
+    "VVINF": "VERB",
+    "VVIZU": "VERB",
+    "VAFIN": "AUX",
+    "VAINF": "AUX",
+    "VMFIN": "AUX",
+}
+
+
+def _normalize_german_lexicon_tag(tag: str | None) -> str | None:
+    if tag is None:
+        return None
+    normalized = tag.upper()
+    if normalized in _UNIVERSAL_POS:
+        return normalized
+    return _GERMAN_STTS_TO_POS.get(normalized, normalized)
+
+
 class GermanLexicon:
     """German pronunciation lexicon backed by a lazy G2Lex asset."""
 
@@ -63,7 +115,9 @@ class GermanLexicon:
         hit = self._selected.get_hit_candidates(_lookup_spellings(word))
         if hit is None:
             return None
-        phonemes = g2lex.first_pronunciation(hit.value, tag=tag)
+        phonemes = g2lex.first_pronunciation(
+            hit.value, tag=_normalize_german_lexicon_tag(tag)
+        )
         if phonemes is None:
             return None
         if self._strip_stress:

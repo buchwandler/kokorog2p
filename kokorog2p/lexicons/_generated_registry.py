@@ -72,6 +72,12 @@ GENERATED_LEXICONS = (
         "license_expression": "CC-BY-SA-4.0",
         "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
         "attribution": "German Wiktionary contributors; dataset extraction/publishing by Crane Local AI",  # noqa: E501
+        "transform": "de-crane-lowercase-lexhint-v1",
+        "lexhint_language": "de",
+        "lexhint_artifact": "de/dictionary/s10/2026.08.28/lexhint.sqlite3",
+        "lexhint_artifact_sha256": "ef8c6d0402409353abd81bd1ee1d2ef620ae002a0ecbbd8a3a1cb0bc1364cfba",
+        "lexhint_version": "0.4.2",
+        "key_normalization": "nfc-lower",
     },
     {
         "id": "de-de:espeak",
