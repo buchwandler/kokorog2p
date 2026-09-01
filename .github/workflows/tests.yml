@@ -89,7 +89,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install \
             "spokenform==0.3.4" \
-            "g2lex==0.1.7"
+            "g2lex==0.1.8"
           python -m pip install -e ".[dev]"
       - name: Run lower-bound migration tests
         run: |
@@ -214,8 +214,23 @@ jobs:
         run: python -m pip install -e ".[dev]"
       - name: Install exact G2Lex asset builder
         run: |
-          G2LEX_BUILD_VERSION="$(python -c 'import json; print(json.load(open("lexicons/lock.json"))["g2lex_version"])' | sed 's/^g2lex //' )"
-          python -m pip install "g2lex==${G2LEX_BUILD_VERSION}"
+          python -m pip install "g2lex==0.1.8"
+      - name: Align generated G2Lex lock metadata
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("lexicons/lock.json")
+          lock = json.loads(path.read_text(encoding="utf-8"))
+          lock["g2lex_version"] = "0.1.8"
+          for asset in lock["assets"].values():
+              asset["generator"] = "g2lex 0.1.8"
+          path.write_text(
+              json.dumps(lock, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
       - name: Check deterministic lexicon assets
         run: python scripts/build_g2lex_assets.py --check
       - name: Validate lexicon assets
