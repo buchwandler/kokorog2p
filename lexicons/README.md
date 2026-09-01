@@ -7,12 +7,13 @@ material, not importable runtime resources.
 `manifest.toml` defines each named lexicon, its source format, and generated package
 asset. `lock.json` records hashes and counts from the last deterministic build.
 
-The German Crane record is a build-time derivative. Its canonical TSV remains byte-identical
-for provenance, while the packaged runtime asset normalizes keys to NFC lowercase. Ambiguous
-case collisions can receive POS selectors from a pinned LexHint German artifact. The `die`
-entry uses `DEFAULT`, `DET`, and `PRON`, all `diː`, so sentence-initial capitalization cannot
-select the unrelated technical noun pronunciation. LexHint is not a KokoroG2P runtime dependency;
-raw TSV logical parity is not expected for transformed Crane assets.
+The German Crane record is a build-time derivative. Its canonical TSV remains
+byte-identical for provenance, while the packaged runtime asset normalizes keys to NFC
+lowercase. Ambiguous case collisions can receive POS selectors from a pinned LexHint
+German artifact. The `die` entry uses `DEFAULT`, `DET`, and `PRON`, all `diː`, so
+sentence-initial capitalization cannot select the unrelated technical noun
+pronunciation. LexHint is not a KokoroG2P runtime dependency; raw TSV logical parity is
+not expected for transformed Crane assets.
 
 Regenerate all assets with:
 

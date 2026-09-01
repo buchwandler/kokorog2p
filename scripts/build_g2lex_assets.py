@@ -227,7 +227,7 @@ def registry_text(records: list[dict[str, Any]]) -> str:
             else:
                 continue
             rendered = f"        {python_literal(field)}: {python_literal(value)},"
-            if field == "attribution":
+            if field == "attribution" or (len(rendered) > 88 and "://" not in rendered):
                 rendered += "  # noqa: E501"
             lines.append(rendered)
         lines.append("    },")

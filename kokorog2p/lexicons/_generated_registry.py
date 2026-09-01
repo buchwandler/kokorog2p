@@ -75,7 +75,7 @@ GENERATED_LEXICONS = (
         "transform": "de-crane-lowercase-lexhint-v1",
         "lexhint_language": "de",
         "lexhint_artifact": "de/dictionary/s10/2026.08.28/lexhint.sqlite3",
-        "lexhint_artifact_sha256": "ef8c6d0402409353abd81bd1ee1d2ef620ae002a0ecbbd8a3a1cb0bc1364cfba",
+        "lexhint_artifact_sha256": "ef8c6d0402409353abd81bd1ee1d2ef620ae002a0ecbbd8a3a1cb0bc1364cfba",  # noqa: E501
         "lexhint_version": "0.4.2",
         "key_normalization": "nfc-lower",
     },

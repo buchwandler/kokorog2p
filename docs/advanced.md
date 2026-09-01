@@ -273,11 +273,12 @@ print(phonemes)  # haʊ̯s
 print(f"Dictionary has {len(lexicon):,} entries")  # 738,427
 ```
 
-The opt-in Crane dictionary preserves its canonical TSV unchanged for provenance, but the
-packaged runtime asset is derived with NFC-plus-lowercase keys. Case-colliding pronunciations
-may be enriched at build time with POS selectors from a pinned LexHint German artifact. Runtime
-KokoroG2P does not depend on LexHint. The `DEFAULT` selector is authoritative when no POS tag is
-available, including sentence-initial `Die`; raw TSV logical parity is not expected for this asset.
+The opt-in Crane dictionary preserves its canonical TSV unchanged for provenance, but
+the packaged runtime asset is derived with NFC-plus-lowercase keys. Case-colliding
+pronunciations may be enriched at build time with POS selectors from a pinned LexHint
+German artifact. Runtime KokoroG2P does not depend on LexHint. The `DEFAULT` selector is
+authoritative when no POS tag is available, including sentence-initial `Die`; raw TSV
+logical parity is not expected for this asset.
 
 ## Phoneme Utilities
 

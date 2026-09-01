@@ -60,6 +60,7 @@ def test_crane_runtime_keys_are_nfc_lowercase() -> None:
     finally:
         asset.close()
 
+
 def test_phoneme_inventory_audit_traverses_tagged_selectors(tmp_path: Path) -> None:
     from scripts.audit_lexicon_phoneme_inventory import audit
 

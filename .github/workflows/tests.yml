@@ -214,7 +214,7 @@ jobs:
         run: python -m pip install -e ".[dev]"
       - name: Install exact G2Lex asset builder
         run: |
-          python -m pip install "g2lex==0.1.8"
+          python -m pip install "g2lex==0.1.8" "lexhint==0.4.2"
       - name: Align generated G2Lex lock metadata
         run: |
           python - <<'PY'

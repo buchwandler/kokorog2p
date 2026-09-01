@@ -91,13 +91,14 @@ get_g2p("de", lexicons="olaph")
 phonemize("Haus", language="de", lexicons=("gold", "olaph"))
 ```
 
-Explicit tuple order defines collision precedence. German casing candidates are searched inside
-each layer in that order. The Crane source is preserved byte-for-byte for provenance, but its
-packaged runtime derivative uses NFC-lowercase keys. Case-colliding Crane pronunciations may
-be enriched with POS selectors using the pinned LexHint German build artifact; `DEFAULT` keeps
-lookups correct when no POS tag is available. Raw TSV logical parity is therefore not expected
-for Crane. `espeak` is a bundled static dictionary, not the optional
-`use_espeak_fallback=True` backend. All lookup is offline. German source IPA is
-normalized centrally for the Kokoro vocabulary; unsupported values fail closed and can
-fall through to configured fallback. The CSTR eSpeak-derived source has conservative CC
-BY-SA 3.0 open-dict-data/Wiktionary provenance. OLaPh is MIT licensed.
+Explicit tuple order defines collision precedence. German casing candidates are searched
+inside each layer in that order. The Crane source is preserved byte-for-byte for
+provenance, but its packaged runtime derivative uses NFC-lowercase keys. Case-colliding
+Crane pronunciations may be enriched with POS selectors using the pinned LexHint German
+build artifact; `DEFAULT` keeps lookups correct when no POS tag is available. Raw TSV
+logical parity is therefore not expected for Crane. `espeak` is a bundled static
+dictionary, not the optional `use_espeak_fallback=True` backend. All lookup is offline.
+German source IPA is normalized centrally for the Kokoro vocabulary; unsupported values
+fail closed and can fall through to configured fallback. The CSTR eSpeak-derived source
+has conservative CC BY-SA 3.0 open-dict-data/Wiktionary provenance. OLaPh is MIT
+licensed.
