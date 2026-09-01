@@ -3,7 +3,7 @@ schema_version: 2
 object_type: release_entry
 versioning:
   schema_version: 1
-  revision: 1
+  revision: 2
 entry_id: entry-0004
 release_version: 0.8.4
 kind: added
@@ -15,6 +15,7 @@ audience: null
 scopes: []
 source_refs:
   - git:66a935d2043beb6f9f0ed04f1488179146c56d80
+  - git:9e2e871a5795e1092bcca0a6dae28eda220dc645
 paths:
   - .github/workflows/tests.yml
   - README.md

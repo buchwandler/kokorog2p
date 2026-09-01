@@ -2,14 +2,14 @@ schema_version: 1
 object_type: commit_audit_sheet
 versioning:
   schema_version: 1
-  revision: 11
+  revision: 15
 release_version: 0.8.4
 git_base_ref: v0.8.3
 git_base_sha: 627fbddbc230cfd37f0d92a68ecde5669d385078
 git_head_ref: HEAD
-git_head_sha: 5a15b24c0ccff23b281025813d6dd3516b9007b5
-git_range: 627fbddbc230cfd37f0d92a68ecde5669d385078..5a15b24c0ccff23b281025813d6dd3516b9007b5
-commit_count: 17
+git_head_sha: 8093760f4edb39143566dbb73fb7dac24b78fa6b
+git_range: 627fbddbc230cfd37f0d92a68ecde5669d385078..8093760f4edb39143566dbb73fb7dac24b78fa6b
+commit_count: 27
 rows:
   - sha: 654ca44016725cfd881f69be3381c329628a3eeb
     source_ref: git:654ca44016725cfd881f69be3381c329628a3eeb
@@ -899,3 +899,308 @@ rows:
     notes:
       Reviewed the replacement composition implementation and the associated asset and
       registry regression updates.
+  - sha: 3813812dfc3580f8214085124ede786f0f2eea7d
+    source_ref: git:3813812dfc3580f8214085124ede786f0f2eea7d
+    short_sha: "3813812"
+    changed_paths:
+      - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/audit/commit-audit.yaml
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0011.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0012.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0013.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0014.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0015.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0016.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0017.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/release.md
+    stats:
+      files_changed: 0
+      insertions: 584
+      deletions: 9
+    inspected: true
+    inspected_paths:
+      - docs/changelog.md
+    observed_behavior:
+      Regenerated the public changelog from existing releaseledger entries without
+      introducing product behavior.
+    public_impact: none
+    decision: internal
+    evidence_subject: "doc: changelog"
+    target_entry_key: entry-0010
+    target_entry_id: entry-0010
+    notes: Changelog and releaseledger bookkeeping only.
+  - sha: 896782271d7284ea16a92f29d3b1fa03d57fa99e
+    source_ref: git:896782271d7284ea16a92f29d3b1fa03d57fa99e
+    short_sha: "8967822"
+    changed_paths:
+      - pyproject.toml
+    stats:
+      files_changed: 0
+      insertions: 2
+      deletions: 2
+    inspected: true
+    inspected_paths:
+      - pyproject.toml
+    observed_behavior:
+      Raised the declared minimum Spokenform dependency to 0.3.5 and G2Lex dependency to
+      0.1.8.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "chore: update deps"
+    target_entry_key: entry-0008
+    target_entry_id: entry-0008
+    notes: Reviewed the package dependency declaration and its compatibility contract.
+  - sha: f644076b76bb3f7e5c2d73f3377a61e1748846cf
+    source_ref: git:f644076b76bb3f7e5c2d73f3377a61e1748846cf
+    short_sha: f644076
+    changed_paths:
+      - kokorog2p/pipeline_api.py
+    stats:
+      files_changed: 0
+      insertions: 9
+      deletions: 1
+    inspected: true
+    inspected_paths:
+      - kokorog2p/pipeline_api.py
+    observed_behavior:
+      Adjusted German currency replacement handling as part of the final minor-unit
+      wording compatibility sequence.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "fix: cent output"
+    target_entry_key: entry-0018
+    target_entry_id: entry-0018
+    notes:
+      Reviewed together with the subsequent compatibility correction and regression
+      updates.
+  - sha: 93e1f648ea9d38365136da38e401ae08fc9b64ff
+    source_ref: git:93e1f648ea9d38365136da38e401ae08fc9b64ff
+    short_sha: 93e1f64
+    changed_paths:
+      - kokorog2p/pipeline_api.py
+      - scripts/audit_cstr_de_sources.py
+      - scripts/fetch_cstr_de_lexicons.py
+      - scripts/generate_lexicon_notices.py
+      - tests/data/de_semantic_parity.json
+      - tests/test_de_normalizer.py
+      - tests/test_dependency_contract.py
+      - tests/test_pipeline_api.py
+      - tests/test_spokenform_migration.py
+    stats:
+      files_changed: 0
+      insertions: 7
+      deletions: 15
+    inspected: true
+    inspected_paths:
+      - kokorog2p/pipeline_api.py
+      - scripts/audit_cstr_de_sources.py
+      - scripts/fetch_cstr_de_lexicons.py
+      - scripts/generate_lexicon_notices.py
+      - tests/data/de_semantic_parity.json
+      - tests/test_de_normalizer.py
+      - tests/test_dependency_contract.py
+      - tests/test_pipeline_api.py
+      - tests/test_spokenform_migration.py
+    observed_behavior:
+      Restored German Spokenform currency wording and aligned parity and regression
+      expectations, while normalizing source script executable modes.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "chore: pre-commit and german test"
+    target_entry_key: entry-0018
+    target_entry_id: entry-0018
+    notes: Reviewed the final currency output and associated regression fixtures.
+  - sha: e1c3f95db6ebd01f3395a84526adab367426f379
+    source_ref: git:e1c3f95db6ebd01f3395a84526adab367426f379
+    short_sha: e1c3f95
+    changed_paths:
+      - .github/workflows/tests.yml
+    stats:
+      files_changed: 0
+      insertions: 18
+      deletions: 3
+    inspected: true
+    inspected_paths:
+      - .github/workflows/tests.yml
+    observed_behavior:
+      Updated CI installation and lexicon asset validation setup for the pinned G2Lex
+      toolchain.
+    public_impact: internal
+    decision: internal
+    evidence_subject: "chore: ci fix"
+    target_entry_key: entry-0021
+    notes: CI maintenance only.
+  - sha: 465ca5a9748515692e4b84c4c7596f5bdf3eda3f
+    source_ref: git:465ca5a9748515692e4b84c4c7596f5bdf3eda3f
+    short_sha: 465ca5a
+    changed_paths:
+      - tests/test_de_normalizer.py
+    stats:
+      files_changed: 0
+      insertions: 6
+      deletions: 6
+    inspected: true
+    inspected_paths:
+      - tests/test_de_normalizer.py
+    observed_behavior:
+      Updated German currency normalization regression expectations to match the
+      retained minor-unit wording.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "fix: fix test"
+    target_entry_key: entry-0018
+    target_entry_id: entry-0018
+    notes: Test-only part of the final currency compatibility fix.
+  - sha: 930208d2ea660e1608f3bcd73a9a13d111dc6dde
+    source_ref: git:930208d2ea660e1608f3bcd73a9a13d111dc6dde
+    short_sha: 930208d
+    changed_paths:
+      - .github/workflows/tests.yml
+    stats:
+      files_changed: 0
+      insertions: 1
+      deletions: 1
+    inspected: true
+    inspected_paths:
+      - .github/workflows/tests.yml
+    observed_behavior:
+      Corrected the CI focused test command so the remaining release validation tests
+      execute.
+    public_impact: internal
+    decision: internal
+    evidence_subject: "chore: fix ci"
+    target_entry_key: entry-0021
+    notes: CI maintenance only.
+  - sha: 63b7be365c204da76539a9482ea8bb03178db3f8
+    source_ref: git:63b7be365c204da76539a9482ea8bb03178db3f8
+    short_sha: 63b7be3
+    changed_paths:
+      - docs/advanced.md
+      - docs/api/german.md
+      - kokorog2p/de/lexicon.py
+      - kokorog2p/lexicons/_generated_registry.py
+      - kokorog2p/lexicons/data/de_crane.g2lex
+      - kokorog2p/lexicons/runtime.py
+      - lexicons/README.md
+      - lexicons/lock.json
+      - lexicons/manifest.toml
+      - pyproject.toml
+      - scripts/audit_lexicon_phoneme_inventory.py
+      - scripts/build_g2lex_assets.py
+      - scripts/de_crane_transform.py
+      - scripts/validate_g2lex_assets.py
+      - tests/test_de_crane_transform.py
+      - tests/test_de_g2p.py
+      - tests/test_g2lex_assets.py
+    stats:
+      files_changed: 0
+      insertions: 927
+      deletions: 100
+    inspected: true
+    inspected_paths:
+      - docs/advanced.md
+      - docs/api/german.md
+      - kokorog2p/de/lexicon.py
+      - kokorog2p/lexicons/_generated_registry.py
+      - kokorog2p/lexicons/runtime.py
+      - lexicons/README.md
+      - lexicons/lock.json
+      - lexicons/manifest.toml
+      - pyproject.toml
+      - scripts/audit_lexicon_phoneme_inventory.py
+      - scripts/build_g2lex_assets.py
+      - scripts/de_crane_transform.py
+      - scripts/validate_g2lex_assets.py
+      - tests/test_de_crane_transform.py
+      - tests/test_de_g2p.py
+      - tests/test_g2lex_assets.py
+    observed_behavior:
+      Changed the German Crane runtime derivative to NFC-lowercase keys and added
+      LexHint-backed POS selectors for reviewed case collisions while preserving source
+      provenance and offline runtime use.
+    public_impact: public
+    decision: accepted
+    evidence_subject:
+      "feat: crate lexicon use lower keys and new conflict solution by word type"
+    target_entry_key: entry-0019
+    target_entry_id: entry-0019
+    notes:
+      Reviewed the transformation, runtime lookup, manifest metadata, provenance, and
+      regression coverage.
+  - sha: 9e2e871a5795e1092bcca0a6dae28eda220dc645
+    source_ref: git:9e2e871a5795e1092bcca0a6dae28eda220dc645
+    short_sha: 9e2e871
+    changed_paths:
+      - .github/workflows/tests.yml
+      - docs/advanced.md
+      - docs/api/german.md
+      - kokorog2p/lexicons/_generated_registry.py
+      - lexicons/README.md
+      - scripts/build_g2lex_assets.py
+      - tests/test_g2lex_assets.py
+    stats:
+      files_changed: 0
+      insertions: 28
+      deletions: 24
+    inspected: true
+    inspected_paths:
+      - .github/workflows/tests.yml
+      - docs/advanced.md
+      - docs/api/german.md
+      - kokorog2p/lexicons/_generated_registry.py
+      - lexicons/README.md
+      - scripts/build_g2lex_assets.py
+      - tests/test_g2lex_assets.py
+    observed_behavior:
+      Clarified the transformed German Crane runtime contract in documentation and
+      completed the pinned LexHint CI and generated-registry integration.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "chore: add missing lexhint"
+    target_entry_key: entry-0019
+    target_entry_id: entry-0004
+    notes: Reviewed the public documentation and build validation updates.
+  - sha: 8093760f4edb39143566dbb73fb7dac24b78fa6b
+    source_ref: git:8093760f4edb39143566dbb73fb7dac24b78fa6b
+    short_sha: "8093760"
+    changed_paths:
+      - .github/workflows/tests.yml
+      - docs/api/core.md
+      - docs/spans.md
+      - kokorog2p/__init__.py
+      - kokorog2p/de/stress.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/pipeline_api.py
+      - kokorog2p/stress.py
+      - tests/test_de_g2p.py
+      - tests/test_pipeline_api.py
+      - tests/test_stress.py
+    stats:
+      files_changed: 0
+      insertions: 570
+      deletions: 52
+    inspected: true
+    inspected_paths:
+      - .github/workflows/tests.yml
+      - docs/api/core.md
+      - docs/spans.md
+      - kokorog2p/__init__.py
+      - kokorog2p/de/stress.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/pipeline_api.py
+      - kokorog2p/stress.py
+      - tests/test_de_g2p.py
+      - tests/test_pipeline_api.py
+      - tests/test_stress.py
+    observed_behavior:
+      Added structured stress metadata overrides applied after language and
+      pronunciation resolution, with language-aware phoneme inventories and warning or
+      strict-error validation.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: structured stress overrides"
+    target_entry_key: entry-0020
+    target_entry_id: entry-0020
+    notes:
+      Reviewed the public API, stress state machine, documentation, and regression
+      coverage.
