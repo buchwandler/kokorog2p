@@ -2,42 +2,12 @@
 
 This guide covers advanced features and usage patterns for kokorog2p.
 
-## Semantic preparation boundary
+## Prepared text boundary
 
-For migrated English, German, French, Spanish, Italian, Portuguese, and Czech text,
-`abbr2words` supplies lexical abbreviation and symbol recognition, `spokenform` owns
-semantic written-to-spoken preparation, and `kokorog2p` owns routing, spans, overrides,
-tokenization, model punctuation, G2P, phonemes, and vocabulary IDs. The ordering is
-explicit:
-
-```text
-original source spans → Spokenform semantic preparation → model punctuation cleanup → G2P
-```
-
-Preparation runs separately for each homogeneous language run, with caller-protected
-ranges passed to Spokenform first. The supported Spokenform profile is authoritative;
-the examples covered by downstream tests are representative, not an exhaustive semantic
-category list. English phoneme-sensitive number conversion, Spanish dialect behavior,
-and other documented G2P decisions remain downstream-owned. Use `spokenform` directly
-for reusable spoken text or `abbr2words` directly for registry-only workflows.
-
-Countdown example:
-
-```text
-source:
-  Initiate in 3-2-1.
-
-Spokenform semantic preparation:
-  Initiate in three - two - one.
-
-KokoroG2P model punctuation:
-  Initiate in three — two — one.
-```
-
-An accepted structured replacement may preserve a model-neutral punctuation boundary
-when that boundary carries grouping or cadence. KokoroG2P does not re-recognize the
-semantic category; it only maps that generic boundary to punctuation supported by the
-Kokoro model.
+Semantic preparation is outside KokoroG2P. Prepare written forms in the owning
+application or an optional cross-package tool, then pass the result to
+`phonemize_prepared()`. Core normalizers may apply only intrinsic typography and
+phonological normalization.
 
 ## Custom G2P Configuration
 
@@ -559,61 +529,11 @@ for mismatch in mismatches:
     print(f"  Type: {mismatch.type}")
 ```
 
-## Number Expansion
+## Semantic preparation
 
-Customize number handling:
-
-### English
-
-```python
-from kokorog2p.en.numbers import EnglishNumberConverter
-
-converter = EnglishNumberConverter()
-
-# Cardinals
-print(converter.convert_cardinal("42"))
-# → forty-two
-
-# Ordinals
-print(converter.convert_ordinal("42"))
-# → forty-second
-
-# Years
-print(converter.convert_year("1984"))
-# → nineteen eighty-four
-
-# Currency
-print(converter.convert_currency("12.50", "$"))
-# → twelve dollars and fifty cents
-
-# Decimals
-print(converter.convert_decimal("3.14"))
-# → three point one four
-```
-
-### German
-
-```python
-from kokorog2p.de.numbers import GermanNumberConverter
-
-converter = GermanNumberConverter()
-
-# Cardinals
-print(converter.convert_cardinal("42"))
-# → zweiundvierzig
-
-# Ordinals
-print(converter.convert_ordinal("42"))
-# → zweiundvierzigste
-
-# Years
-print(converter.convert_year("1984"))
-# → neunzehnhundertvierundachtzig
-
-# Currency
-print(converter.convert_currency("12,50", "€"))
-# → zwölf Euro fünfzig
-```
+Number, currency, date, abbreviation, and unit expansion are not configurable G2P
+features. Prepare these forms before calling `phonemize_prepared()`; the core preserves
+the supplied text and applies only phonological/model normalization.
 
 ## Custom Backend Selection
 
@@ -708,74 +628,11 @@ filtered = filter_for_kokoro(phoneme_str)
 print(filtered)
 ```
 
-## Multilang Preprocessing
+## Explicit language spans
 
-Use `preprocess_multilang` to get language override spans for mixed-language text. This
-integrates with the span-based phonemization API.
-
-```python
-from kokorog2p import phonemize
-from kokorog2p.multilang import preprocess_multilang
-
-text = "Hello, mein Freund! Bonjour!"
-overrides = preprocess_multilang(
-    text,
-    default_language="de",
-    allowed_languages=["de", "en-us", "fr"],
-    confidence_threshold=0.6,
-)
-
-result = phonemize(text, language="de", overrides=overrides)
-```
-
-### Confidence Tuning
-
-Adjust detection sensitivity based on your use case:
-
-```python
-from kokorog2p.multilang import preprocess_multilang
-
-text = "Das Meeting ist wichtig"
-
-conservative = preprocess_multilang(
-    text,
-    default_language="de",
-    allowed_languages=["de", "en-us"],
-    confidence_threshold=0.9,
-)
-
-aggressive = preprocess_multilang(
-    text,
-    default_language="de",
-    allowed_languages=["de", "en-us"],
-    confidence_threshold=0.5,
-)
-```
-
-### Integration with Span API
-
-Combine language detection with other span overrides:
-
-```python
-from kokorog2p import phonemize, OverrideSpan
-from kokorog2p.multilang import preprocess_multilang
-
-text = "Das Meeting ist wichtig"
-
-# Get language overrides
-lang_overrides = preprocess_multilang(
-    text,
-    default_language="de",
-    allowed_languages=["de", "en-us"],
-)
-
-# Add custom phoneme override
-all_overrides = lang_overrides + [
-    OverrideSpan(4, 11, {"ph": "ˈmiːtɪŋ"})  # Custom pronunciation for "Meeting"
-]
-
-result = phonemize(text, language="de", overrides=all_overrides)
-```
+For mixed-language documents, the application must identify foreign spans and supply
+their language explicitly. Use `OverrideSpan` or annotation `language` metadata with the
+prepared text. KokoroG2P does not provide generic language detection or segmentation.
 
 ## Error Handling
 

@@ -357,9 +357,6 @@ class GermanG2P(G2PBase):
         load_gold: bool | None = None,
         lexicons: tuple[str, ...] | None = None,
         version: str = "1.0",
-        expand_abbreviations: bool = True,
-        enable_context_detection: bool = True,
-        **kwargs: Any,
     ) -> None:
         """Initialize the German G2P converter.
 
@@ -381,9 +378,6 @@ class GermanG2P(G2PBase):
             load_gold: If True, load gold tier dictionary.
                 Defaults to True for maximum quality and coverage.
                 Set to False when ultra-fast initialization is needed.
-            expand_abbreviations: Whether to expand abbreviations (Prof. → Professor).
-            enable_context_detection: Context-aware abbreviation expansion.
-
         Raises:
             ValueError: If both use_espeak_fallback and use_goruut_fallback are True.
         """
@@ -424,8 +418,6 @@ class GermanG2P(G2PBase):
 
         self._normalizer = GermanNormalizer(
             track_changes=False,
-            expand_abbreviations=expand_abbreviations,
-            enable_context_detection=enable_context_detection,
         )
 
         if use_lexicon:

@@ -134,7 +134,7 @@ To add support for a new language:
        ├── __init__.py
        ├── g2p.py
        ├── lexicon.py (if dictionary-based)
-       ├── numbers.py (for number handling)
+   ├── normalizer.py (for intrinsic typography/phonology)
        └── data/
            └── __init__.py
    ```

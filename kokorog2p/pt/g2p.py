@@ -20,7 +20,7 @@ https://en.wikipedia.org/wiki/Brazilian_Portuguese
 
 import re
 import unicodedata
-from typing import Any, Final
+from typing import Final
 
 from kokorog2p._optional import load_spacy_model
 from kokorog2p.base import G2PBase
@@ -92,11 +92,8 @@ class PortugueseG2P(G2PBase):
         spacy_model: str | None = None,
         mark_stress: bool = True,
         affricate_ti_di: bool = True,  # Affricate t/d before i (Brazilian feature)
-        expand_abbreviations: bool = True,
-        enable_context_detection: bool = True,
         dialect: str = "br",  # "br" for Brazilian, "pt" for European
         version: str = "1.0",
-        **kwargs: Any,
     ) -> None:
         """Initialize the Portuguese G2P converter.
 
@@ -109,8 +106,6 @@ class PortugueseG2P(G2PBase):
                 (e.g., "pt_core_news_sm", "pt_core_news_md", "pt_core_news_lg").
             mark_stress: Whether to mark primary stress with ˈ.
             affricate_ti_di: Whether to affricate /t d/ before /i/ (Brazilian feature).
-            expand_abbreviations: Whether to expand common abbreviations.
-            enable_context_detection: Context-aware abbreviation expansion.
             dialect: "br" for Brazilian, "pt" for European Portuguese.
                      Affects number pronunciation (dezesseis vs dezasseis)
             version: Target model version.
@@ -138,8 +133,6 @@ class PortugueseG2P(G2PBase):
 
         # Initialize normalizer with dialect support
         self._normalizer = PortugueseNormalizer(
-            expand_abbreviations=expand_abbreviations,
-            enable_context_detection=enable_context_detection,
             dialect=dialect,
         )
 

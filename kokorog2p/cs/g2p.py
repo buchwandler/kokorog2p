@@ -254,9 +254,6 @@ class CzechG2P(G2PBase):
         load_silver: bool = True,
         load_gold: bool = True,
         version: str = "1.0",
-        expand_abbreviations: bool = True,
-        enable_context_detection: bool = True,
-        **kwargs: Any,
     ) -> None:
         """Initialize the Czech G2P converter.
 
@@ -273,9 +270,7 @@ class CzechG2P(G2PBase):
                 Currently Czech uses rule-based G2P, so this parameter
                 is reserved for future use and consistency.
                 Defaults to True for consistency.
-            expand_abbreviations: If True, expand common abbreviations
                 (e.g., "Dr." → "Doktor"). Defaults to True.
-            enable_context_detection: If True, use context-aware expansion
                 for ambiguous abbreviations. Defaults to True.
 
         Raises:
@@ -295,15 +290,10 @@ class CzechG2P(G2PBase):
         self.load_silver = load_silver
         self.load_gold = load_gold
         self.use_goruut_fallback = use_goruut_fallback
-        self.expand_abbreviations = expand_abbreviations
-        self.enable_context_detection = enable_context_detection
         self._fallback: Any = None
 
         # Initialize normalizer
-        self._normalizer = CzechNormalizer(
-            expand_abbreviations=expand_abbreviations,
-            enable_context_detection=enable_context_detection,
-        )
+        self._normalizer = CzechNormalizer()
 
         # Initialize fallback (lazy)
         if use_goruut_fallback:

@@ -93,6 +93,23 @@ jobs:
       - name: Run lower-bound core contract tests
         run: python -m pytest -q tests/test_dependency_contract.py tests/test_semantic_ownership.py
 
+  spokenform-composition:
+    name: Spokenform composition (optional)
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install released packages
+        run: |
+          python -m pip install -e .
+          python -m pip install "spokenform>=0.3.5,<0.4" pytest
+      - name: Run optional composition test
+        run: python -m pytest -q tests/test_spokenform_composition.py
+
   integration:
     if: github.event_name != 'push'
     runs-on: ubuntu-latest

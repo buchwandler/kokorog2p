@@ -267,10 +267,6 @@ class TestEnglishNormalizer:
             "37 C. and 2 kg"
         )
 
-    def test_custom_abbreviation_is_not_a_core_normalizer_feature(self, normalizer):
-        with pytest.raises(RuntimeError):
-            normalizer.add_abbreviation("Qz.", "Quizzical")
-
     def test_tracking_has_no_semantic_steps(self):
         normalizer = EnglishNormalizer(track_changes=True)
         _result, steps = normalizer.normalize("At 3:00 and 2 kg.")

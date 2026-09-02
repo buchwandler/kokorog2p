@@ -6,7 +6,7 @@ Czech, Chinese, Japanese, Korean, and Hebrew.
 
 Supported Languages:
     - English (US/GB): 100k+ dictionary, POS tagging, stress assignment
-    - German: 738k+ dictionary, phonological rules, number handling
+    - German: 738k+ dictionary and phonological rules
     - French: Gold dictionary, liaison rules, espeak fallback
     - Czech: Rule-based phonology
     - Chinese: pypinyin with tone sandhi
@@ -48,7 +48,6 @@ from kokorog2p.lexicons.registry import (
     normalize_lexicon_selection,
 )
 from kokorog2p.markers import apply_marker_overrides, parse_delimited
-from kokorog2p.multilang import preprocess_multilang
 from kokorog2p.phonemes import (
     CONSONANTS,
     GB_VOCAB,
@@ -197,37 +196,13 @@ _LANGUAGE_ALIASES = {
 }
 
 _FACTORY_KWARGS_BY_LANGUAGE = {
-    "en": frozenset({"expand_abbreviations", "enable_context_detection", "unk"}),
-    "fr": frozenset(
-        {"expand_nums", "expand_abbreviations", "enable_context_detection", "unk"}
-    ),
-    "de": frozenset(
-        {
-            "use_lexicon",
-            "strip_stress",
-            "expand_abbreviations",
-            "enable_context_detection",
-        }
-    ),
-    "cs": frozenset({"unk", "expand_abbreviations", "enable_context_detection"}),
-    "es": frozenset({"expand_abbreviations", "enable_context_detection"}),
-    "it": frozenset(
-        {
-            "mark_stress",
-            "mark_gemination",
-            "expand_abbreviations",
-            "enable_context_detection",
-        }
-    ),
-    "pt": frozenset(
-        {
-            "mark_stress",
-            "affricate_ti_di",
-            "expand_abbreviations",
-            "enable_context_detection",
-            "dialect",
-        }
-    ),
+    "en": frozenset({"unk"}),
+    "fr": frozenset({"unk"}),
+    "de": frozenset({"use_lexicon", "strip_stress"}),
+    "cs": frozenset({"unk"}),
+    "es": frozenset(),
+    "it": frozenset({"mark_stress", "mark_gemination"}),
+    "pt": frozenset({"mark_stress", "affricate_ti_di", "dialect"}),
     "he": frozenset({"preserve_punctuation", "preserve_stress", "some_extra_param"}),
     "ko": frozenset(
         {
@@ -419,8 +394,6 @@ def get_g2p(  # noqa: C901
     """Get a G2P instance for the specified language.
 
     This factory function returns an appropriate G2P instance based on the
-    language code. Results are cached for efficiency. For mixed-language text,
-    use preprocess_multilang to generate OverrideSpan objects for phonemize_to_result.
 
     Args:
         language: Language code (e.g., 'en-us', 'en-gb', 'zh', 'ja', 'fr', etc.).
@@ -519,14 +492,6 @@ def get_g2p(  # noqa: C901
     if backend not in ("kokorog2p", "espeak", "goruut"):
         raise ValueError(f"Unsupported backend: {backend!r}")
     _validate_factory_kwargs(lang, backend, kwargs)
-    for option in ("expand_nums", "expand_abbreviations", "enable_context_detection"):
-        if option in kwargs:
-            warnings.warn(
-                f"{option} is deprecated and ignored by KokoroG2P; prepare text "
-                "with Spokenform before phonemization.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
     implementation_language = (
         lang if backend in ("espeak", "goruut") else requested_language
     )
@@ -1061,15 +1026,12 @@ def phonemize_prepared(
     g2p_options: Mapping[str, Any] | None = None,
     strict_stress: bool = False,
 ) -> PhonemizeResult:
-    """Phonemize text that has already been converted to spoken form.
+    """Explicit alias for the prepared-text phonemization contract.
 
-    Unlike :func:`phonemize`, this entry point does not run written-to-spoken
-    semantic preparation. The caller owns that step; kokorog2p still performs
+    The caller owns written-to-spoken semantic preparation; kokorog2p performs
     tokenization, overrides, G2P, model punctuation handling, and ID generation.
-
     ``text`` is the prepared coordinate space, so override offsets and returned
-    token offsets refer directly to it. Do not pass arbitrary written text here
-    if number, date, unit, currency, or abbreviation expansion is expected.
+    token offsets refer directly to it.
     """
     if g2p is None:
         g2p = get_g2p(
@@ -1108,7 +1070,6 @@ def phonemize_prepared(
             **(dict(g2p_options) if g2p_options else {}),
         },
         annotations=annotations,
-        input_mode="prepared",
         strict_stress=strict_stress,
     )
 
@@ -1187,11 +1148,6 @@ def clear_cache(*, deep: bool = False) -> None:
         clear_resource_cache()
 
 
-def reset_abbreviations() -> None:
-    """Deprecated no-op retained for callers of the old semantic API."""
-    clear_cache(deep=True)
-
-
 # Public API
 __all__ = [
     "CONSONANTS",
@@ -1253,8 +1209,6 @@ __all__ = [
     "phonemize",
     "phonemize_prepared",
     "phonemize_segments",
-    "preprocess_multilang",
-    "reset_abbreviations",
     "resolve_spacy_model",
     "to_espeak",
     "tokenize",

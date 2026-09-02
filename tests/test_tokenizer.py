@@ -5,8 +5,6 @@ Tests the BaseTokenizer, RegexTokenizer, and SpacyTokenizer classes.
 
 import pytest
 
-from kokorog2p import reset_abbreviations
-from kokorog2p.en.abbreviations import get_expander
 from kokorog2p.pipeline.tokenizer import RegexTokenizer, SpacyTokenizer
 
 
@@ -51,16 +49,12 @@ class TestRegexTokenizer:
         assert tokens[0].text == "I'm"
         assert tokens[3].text == "don't"
 
-    def test_abbreviation_not_split(self, tokenizer):
-        """Test that abbreviations with periods are preserved."""
+    def test_dotted_words_are_registry_independent(self, tokenizer):
+        """Dotted words are tokenized without semantic abbreviation merging."""
         tokens = tokenizer.tokenize("Hello Mr. Smith")
-
-        assert len(tokens) == 3
-        assert tokens[0].text == "Hello"
-        assert tokens[1].text == "Mr."
-        assert tokens[2].text == "Smith"
+        assert [token.text for token in tokens] == ["Hello", "Mr", ".", "Smith"]
         assert tokens[1].char_start == 6
-        assert tokens[1].char_end == 9
+        assert tokens[2].char_start == 8
 
     @pytest.mark.parametrize(
         "text",
@@ -99,21 +93,6 @@ class TestRegexTokenizer:
         tokens = tokenizer.tokenize(text)
 
         assert [token.text for token in tokens] == expected
-
-    def test_custom_abbreviation_merge(self):
-        """Tokenization should reflect custom abbreviations."""
-        reset_abbreviations()
-        get_expander().add_custom_abbreviation("X.Y.", "Ex Why")
-
-        tokenizer = RegexTokenizer(
-            track_positions=True, use_bracket_matching=True, lang="en-us"
-        )
-        tokens = tokenizer.tokenize("X.Y.")
-        assert [t.text for t in tokens] == ["X.Y."]
-        assert tokens[0].char_start == 0
-        assert tokens[0].char_end == 4
-
-        reset_abbreviations()
 
     def test_position_tracking(self, tokenizer):
         """Test that character positions are tracked correctly."""

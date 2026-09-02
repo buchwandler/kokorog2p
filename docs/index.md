@@ -1,95 +1,31 @@
-# Welcome to kokorog2p's documentation!
+# kokorog2p documentation
 
-**kokorog2p** is a unified G2P (Grapheme-to-Phoneme) library for Kokoro TTS, providing
-high-quality text-to-phoneme conversion for multiple languages.
+**kokorog2p** is a multilingual grapheme-to-phoneme and Kokoro model adaptation layer.
+The core accepts prepared, speakable text and an explicit language.
 
-```{image} https://img.shields.io/pypi/v/kokorog2p.svg
-:alt: PyPI version
-:target: https://pypi.org/project/kokorog2p/
-```
+## Responsibility boundary
 
-```{image} https://img.shields.io/pypi/pyversions/kokorog2p.svg
-:alt: Python versions
-:target: https://pypi.org/project/kokorog2p/
-```
+KokoroG2P owns tokenization, phonological normalization, language routing requested by
+the caller, annotations, overrides, and phoneme/model output. It does not verbalize
+numbers, abbreviations, units, currencies, dates, URLs, or other written semantics.
+Applications may prepare those forms with an external tool such as Spokenform before
+calling `phonemize_prepared()`.
 
-## Features
-
-- **Multi-language support**: English (US/GB), German, French, Czech, Spanish, Italian,
-  Portuguese, Chinese, Japanese, Korean, Hebrew, Vietnamese, Kazakh
-- **Native Vietnamese**: Pure-Python Northern/Hanoi profile with NFC/NFD support and six
-  named tones
-- **Mixed-language detection**: Automatic detection and handling of texts mixing
-  multiple languages
-- **Native Thai (optional)**: TLTK frontend with Wayu vocabulary targeting, bilingual
-  Latin routing, and diagnostics
-- **Native Russian (optional)**: Contextual stress, ё restoration, source-aligned
-  tokens, and Kokoro 1.0 vocabulary transforms
-- **Dictionary-based lookup** with large gold/silver tier lexicons for select languages
-- **Rule-based G2P** for Romance and Slavic languages with comprehensive phonological
-  rules
-- **espeak-ng integration** as a fallback for out-of-vocabulary words
-- **Automatic IPA to Kokoro phoneme conversion**
-- **Number and currency handling** across all languages
-- **Stress assignment** based on linguistic rules
-- **High performance** with caching and optimized lookup
-
-## Quick Start
+## Quick start
 
 ```python
-from kokorog2p import phonemize
+from kokorog2p import phonemize_prepared
 
-# English
-phonemes = phonemize("Hello world!", language="en-us").phonemes
-print(phonemes)  # hˈɛlO wˈɜɹld!
-
-# German
-phonemes = phonemize("Guten Tag", language="de").phonemes
-print(phonemes)  # ɡuːtn̩ taːk
-
-# French
-phonemes = phonemize("Bonjour", language="fr").phonemes
-print(phonemes)  # bɔ̃ʒuʁ
+result = phonemize_prepared("Hello world!", language="en-us")
+print(result.phonemes)
 ```
 
-## Installation
-
-```bash
-# Core package
-pip install kokorog2p
-
-# With English support (includes spaCy)
-pip install kokorog2p[en]
-
-# With espeak-ng backend
-pip install kokorog2p[espeak]
-
-
-# Kazakh support
-pip install "kokorog2p[kk]"
-
-pip install "kokorog2p[th]"  # Thai support with TLTK and PyThaiNLP
-# Full installation (all languages and backends)
-pip install kokorog2p[all]
-```
+See [Quick Start](quickstart.md), [prepared phonemization](prepared_phonemization.md),
+and the [span guide](spans.md) for details.
 
 ```{toctree}
-:caption: User Guide
 :maxdepth: 2
-
-installation
-quickstart
-languages
-advanced
-abbreviation_customization
-spans
-phonemes
-lexicons
-```
-
-```{toctree}
 :caption: API Reference
-:maxdepth: 2
 
 api/core
 api/english
@@ -105,7 +41,6 @@ api/korean
 api/vietnamese
 api/russian
 api/hebrew
-api/mixed
 api/thai
 api/kazakh
 api/arabic
@@ -114,15 +49,13 @@ api/utils
 ```
 
 ```{toctree}
-:caption: Development
-:maxdepth: 1
+:maxdepth: 2
+:caption: Guides
 
-contributing
-changelog
+quickstart
+prepared_phonemization
+languages
+spans
+advanced
+installation
 ```
-
-# Indices and tables
-
-- {ref}`genindex`
-- {ref}`modindex`
-- {ref}`search`

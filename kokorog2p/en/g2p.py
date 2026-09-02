@@ -33,8 +33,6 @@ class EnglishG2P(G2PBase):
         use_cli: bool = False,
         use_spacy: bool = True,
         spacy_model: str | None = None,
-        expand_abbreviations: bool = True,
-        enable_context_detection: bool = True,
         phoneme_quotes: str = "curly",
         unk: str = "❓",
         load_silver: bool = True,
@@ -42,7 +40,6 @@ class EnglishG2P(G2PBase):
         lexicons: tuple[str, ...] | None = None,
         strict: bool = True,
         version: str = "1.0",
-        **kwargs,
     ) -> None:
         """Initialize the English G2P converter.
 
@@ -54,8 +51,6 @@ class EnglishG2P(G2PBase):
             use_spacy: Whether to use spaCy for tokenization and POS tagging.
             spacy_model: spaCy English model package to load when use_spacy=True
                 (e.g., "en_core_web_sm", "en_core_web_md", "en_core_web_lg").
-            expand_abbreviations: Whether to expand common abbreviations.
-            enable_context_detection: Context-aware abbreviation expansion.
             phoneme_quotes: Quote style in phoneme output:
                 - "curly": Use directional quotes " and " (default)
                 - "ascii": Use ASCII double quote "
@@ -74,8 +69,6 @@ class EnglishG2P(G2PBase):
             version: Model version ("1.0" for multilingual model, "1.1" for
             Chinese model).
                 Defaults to "1.0".
-            **kwargs: Additional arguments for future compatibility.
-
         Raises:
             ValueError: If both use_espeak_fallback and use_goruut_fallback are True.
         """
@@ -111,8 +104,6 @@ class EnglishG2P(G2PBase):
             ).package
         self.use_spacy = use_spacy
         self.spacy_model = spacy_model
-        self.expand_abbreviations = expand_abbreviations
-        self.enable_context_detection = enable_context_detection
         self.phoneme_quotes = phoneme_quotes
 
         # Initialize lexicon
@@ -165,8 +156,6 @@ class EnglishG2P(G2PBase):
         if self._normalizer is None:
             self._normalizer = EnglishNormalizer(
                 track_changes=False,
-                expand_abbreviations=self.expand_abbreviations,
-                enable_context_detection=self.enable_context_detection,
             )
         return self._normalizer
 
@@ -626,97 +615,6 @@ class EnglishG2P(G2PBase):
         """
         ps, _ = self.lexicon(word, tag, None, None)
         return ps
-
-    def add_abbreviation(
-        self,
-        abbreviation: str,
-        expansion: str | dict[str, str],
-        description: str = "",
-        case_sensitive: bool = False,
-    ) -> None:
-        """Add or update a custom abbreviation.
-
-        This method allows users to add custom abbreviations or override existing ones.
-        Changes persist across all uses of this G2P instance and affect the singleton
-        abbreviation expander (shared across all instances).
-
-        Args:
-            abbreviation: The abbreviation string (e.g., "Dr.", "Tech.")
-            expansion: Either a simple string expansion or a dict mapping context
-                names to expansions. For dict, use context names like:
-                "default", "title", "place", "time", "academic", "religious"
-            description: Optional description of the abbreviation
-            case_sensitive: Whether matching should be case-sensitive
-
-        Examples:
-            >>> g2p = get_g2p("en-us")
-            >>> # Simple expansion
-            >>> g2p.add_abbreviation("Tech.", "Technology")
-            >>> # Context-aware expansion
-            >>> g2p.add_abbreviation(
-            ...     "Dr.",
-            ...     {"default": "Drive", "title": "Doctor"},
-            ...     "Doctor or Drive (context-dependent)"
-            ... )
-            >>> g2p.phonemize("I live on Main Dr.")
-            'aɪ lˈɪv ɒn mˈeɪn dɹˈaɪv.'
-        """
-        self.normalizer.add_abbreviation(
-            abbreviation, expansion, description, case_sensitive
-        )
-
-    def remove_abbreviation(
-        self, abbreviation: str, case_sensitive: bool = False
-    ) -> bool:
-        """Remove an abbreviation.
-
-        Args:
-            abbreviation: The abbreviation to remove (e.g., "Dr.")
-            case_sensitive: Whether to match case-sensitively
-
-        Returns:
-            True if the abbreviation was found and removed, False otherwise
-
-        Example:
-            >>> g2p = get_g2p("en-us")
-            >>> g2p.remove_abbreviation("Dr.")
-            True
-            >>> # Now "Dr." won't be expanded
-            >>> g2p.phonemize("Dr. Smith")
-            'd r. smˈɪθ'
-        """
-        return self.normalizer.remove_abbreviation(abbreviation, case_sensitive)
-
-    def has_abbreviation(self, abbreviation: str, case_sensitive: bool = False) -> bool:
-        """Check if an abbreviation exists.
-
-        Args:
-            abbreviation: The abbreviation to check (e.g., "Dr.")
-            case_sensitive: Whether to match case-sensitively
-
-        Returns:
-            True if the abbreviation exists, False otherwise
-
-        Example:
-            >>> g2p = get_g2p("en-us")
-            >>> g2p.has_abbreviation("Dr.")
-            True
-        """
-        return self.normalizer.has_abbreviation(abbreviation, case_sensitive)
-
-    def list_abbreviations(self) -> list[str]:
-        """Get a list of all registered abbreviations.
-
-        Returns:
-            List of abbreviation strings
-
-        Example:
-            >>> g2p = get_g2p("en-us")
-            >>> abbrevs = g2p.list_abbreviations()
-            >>> "Dr." in abbrevs
-            True
-        """
-        return self.normalizer.list_abbreviations()
 
     def __repr__(self) -> str:
         return f"EnglishG2P(language={self.language!r}, version={self.version!r})"

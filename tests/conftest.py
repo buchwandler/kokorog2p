@@ -23,12 +23,8 @@ def pytest_configure(config: pytest.Config) -> None:
 
 @pytest.fixture(scope="module", autouse=True)
 def _reset_process_state() -> object:
-    """Bound global G2P and abbreviation state to one test module."""
+    """Bound process-wide resources to one test module."""
     yield
-
-    from kokorog2p import reset_abbreviations
-
-    reset_abbreviations()
     gc.collect()
 
 

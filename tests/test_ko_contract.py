@@ -4,6 +4,8 @@ import importlib.resources
 
 import pytest
 
+pytest.importorskip("jamo")
+
 from kokorog2p.ko import KoreanG2P
 from kokorog2p.ko.jamo_to_ipa import jamo_to_ipa
 from kokorog2p.ko.model_profile import KOKORO_V1_VOICE, encode_for_model, model_vocab
@@ -46,12 +48,6 @@ def test_korean_morphology_off_is_deterministic() -> None:
     assert g2p.phonemize("안녕하세요")
 
 
-def test_pure_hangul_does_not_load_cmudict() -> None:
-    g2p = KoreanG2P(use_dict=False)
-    assert g2p.phonemize("안녕하세요")
-    assert g2p.g2pk._cmu is None
-
-
 def test_unknown_korean_options_are_rejected() -> None:
     with pytest.raises(TypeError, match="Unsupported KoreanG2P options"):
         KoreanG2P(use_dict=False, use_mecab=True)
@@ -79,15 +75,3 @@ def test_factory_forwards_korean_voice() -> None:
 def test_g2pkc_intermediate_regressions(source: str, expected: str) -> None:
     g2p = KoreanG2P(use_dict=False, output="jamo", to_syl=True)
     assert g2p.phonemize(source) == expected
-
-
-def test_korean_semantic_fallback_preserves_source_coordinates() -> None:
-    from kokorog2p.pipeline_api import _spokenform_replacements_for_run
-
-    source = "prefix 20°C and ₩5000"
-    replacements = _spokenform_replacements_for_run(source, "ko")
-    assert [(item.start, item.end) for item in replacements] == [
-        (7, 11),
-        (16, 21),
-    ]
-    assert [item.text for item in replacements] == ["섭씨 이십도", "오천 원"]

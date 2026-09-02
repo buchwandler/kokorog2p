@@ -1,360 +1,54 @@
 # Installation
 
-kokorog2p can be installed with different feature sets depending on your needs.
-
-## Basic Installation
-
-The core package has minimal dependencies:
+Install the core package for the prepared-text G2P pipeline:
 
 ```bash
-pip install kokorog2p
+python -m pip install kokorog2p
 ```
 
-The core install includes the direct `g2lex` runtime. Spokenform is optional and belongs
-to an external written-text preparation layer. Kokorog2p remains the G2P and phoneme
-layer; `abbr2words` is an upstream dependency of Spokenform when needed, not a direct
-KokoroG2P runtime dependency.
+The core package does not install or import a semantic text-preparation package. Written
+numbers, abbreviations, units, currencies, dates, URLs, and similar forms must be
+prepared by the calling application before phonemization.
 
-This gives you:
+## Language extras
 
-- Core G2P functionality
-- Basic phoneme conversion
-- German, Czech support (rule-based)
-- Number handling
-
-## With Language Support
-
-### English (with spaCy)
-
-For full English support with POS tagging and advanced tokenization:
+Language and backend integrations are optional extras:
 
 ```bash
-pip install kokorog2p[en]
+python -m pip install "kokorog2p[en]"
+python -m pip install "kokorog2p[de]"
+python -m pip install "kokorog2p[fr]"
+python -m pip install "kokorog2p[ko]"
+python -m pip install "kokorog2p[ja]"
+python -m pip install "kokorog2p[espeak]"
 ```
 
-This includes:
+See `pyproject.toml` for the complete list of language extras. Optional spaCy models are
+never downloaded by KokoroG2P; install the model required by your application
+separately.
 
-- spaCy runtime support (models are installed separately and never downloaded by
-  kokorog2p)
-- US and GB dictionaries (gold/silver tiers)
-- Context-dependent pronunciation
-- Number and currency expansion
+## Optional semantic preparation
 
-With `use_spacy=None`, English and French try the highest installed and loadable local
-model in `trf > lg > md > sm` order, then fall back to native tokenization when no model
-is available. `use_spacy=True`, `spacy_model=...`, and `spacy_model_size="md"` are
-strict requests and raise if the requested model is unavailable. No mode downloads
-models.
-
-### French
-
-For French support:
+If the application uses Spokenform, install and invoke it independently:
 
 ```bash
-pip install kokorog2p[fr]
+python -m pip install "spokenform>=0.3.5,<0.4"
 ```
-
-This includes:
-
-- French gold dictionary
-- espeak-ng fallback
-- Number and currency handling
-
-### Russian
-
-Russian support is an optional native frontend with lazy contextual stress and an
-eSpeak-ng raw IPA path:
-
-```bash
-pip install "kokorog2p[ru]"
-```
-
-RUAccent model artifacts may be heavyweight and are not loaded during import. Russian
-eSpeak data must pass the runtime combining-acute stress capability probe. Configure a
-custom data directory with `get_g2p("ru", espeak_data="/path/to/espeak-ng-data")`.
-KokoroG2P does not install or bundle `kokoro-ru` model weights or compiled eSpeak data.
-See [Russian API](api/russian.md).
-
-### Kazakh
-
-Kazakh support uses the existing eSpeak-NG integration and the upstream `kk` voice:
-
-```bash
-pip install "kokorog2p[kk]"
-```
-
-The frontend consumes raw non-English IPA, validates stock Kokoro 1.0 labels, and does
-not install Epitran, Misaki, or a Kazakh lexicon. The upstream voice is marked
-`testing`.
-
-### Vietnamese
-
-Vietnamese is included in the core pure-Python installation. It uses the `vi-vn`
-Northern/Hanoi profile and does not require a Vietnamese-specific package or model
-download:
 
 ```python
-from kokorog2p import phonemize
-print(phonemize("Xin chào!", language="vi").phonemes)
+from spokenform import prepare_for_kokorog2p
+from kokorog2p import phonemize_prepared
+
+prepared = prepare_for_kokorog2p("Read 2 kg", language="en").spoken_text
+result = phonemize_prepared(prepared, language="en-us")
 ```
 
-### Thai
-
-Thai support is optional and installs TLTK plus PyThaiNLP:
+## Development installation
 
 ```bash
-pip install "kokorog2p[th]"
+python -m pip install -e ".[dev]"
+python -m pytest -q tests/test_prepared_core.py tests/test_dependency_contract.py
 ```
 
-The native Thai frontend targets `wayu-kokoro-thai-v1`, uses a separate vocabulary
-profile, and lazily creates the existing English frontend for Latin phrases. Core
-installation does not import Thai dependencies. See {doc}`api/thai` for normalization,
-diagnostics, and strict-mode behavior.
-
-### Chinese
-
-For Chinese support:
-
-```bash
-pip install kokorog2p[zh]
-```
-
-This includes:
-
-- jieba for tokenization
-- pypinyin for pinyin conversion
-- Tone sandhi rules
-
-### Japanese
-
-For the recommended OpenJTalk-compatible Japanese backend:
-
-```bash
-pip install "kokorog2p[ja]"
-```
-
-This installs only the primary `pyopenjtalk` frontend and the Kokoro mora mapper. The
-legacy Cutlet backend is separate:
-
-```bash
-pip install "kokorog2p[ja-cutlet]"
-```
-
-The Cutlet extra uses `unidic-lite` and is intended for compatibility use. Full UniDic
-is an explicit opt-in and is not downloaded by pip:
-
-```bash
-pip install "kokorog2p[ja-cutlet-full]"
-python -m unidic download
-```
-
-`backend` selects the Japanese frontend and `version` selects the target model
-representation. `use_espeak_fallback` is retained for API compatibility but is not used
-by Japanese G2P.
-
-### Mixed-Language Detection
-
-## Korean support
-
-For Korean G2P with the Kokoro 82M v1.0 model alphabet:
-
-```bash
-pip install "kokorog2p[ko]"
-```
-
-Korean morphology is optional. Install the upstream-compatible Korean analyzer with:
-
-```bash
-pip install "kokorog2p[ko-mecab]"
-```
-
-The default Korean voice metadata is `jf_alpha`, the Japanese voice requested for Korean
-synthesis. Pure Hangul does not require CMUdict. Latin input requires the NLTK `cmudict`
-resource, which is installed separately with `python -m nltk.downloader cmudict`. For
-automatic language detection in mixed-language texts:
-
-```bash
-pip install kokorog2p[mixed]
-```
-
-This includes:
-
-- lingua-language-detector for high-accuracy detection
-- Automatic routing to appropriate G2P engines
-- Support for 17+ languages
-- Caching for performance
-
-### SSMD and phrasplit integration
-
-The integration adapters are dependency-free. Install the upstream packages only when
-your application needs them, and use `overrides_from_ssmd()` plus
-`overrides_for_segment()` to keep document-level clean-text offsets aligned with each
-sentence. The compatibility test targets are phrasplit 0.3.4 and SSMD 0.8.0; they are
-not runtime dependencies of the core package.
-
-## With Backend Support
-
-### espeak-ng Backend
-
-For espeak-ng fallback (recommended for production):
-
-```bash
-pip install kokorog2p[espeak]
-```
-
-This includes:
-
-- espeak-ng Python bindings
-- Fallback for OOV words
-- Support for 100+ languages via espeak-ng
-
-### goruut Backend
-
-For goruut backend (experimental):
-
-```bash
-pip install kokorog2p[goruut]
-```
-
-## Full Installation
-
-To install all features:
-
-```bash
-pip install kokorog2p[all]
-```
-
-This includes all language packs and backends.
-
-## Development Installation
-
-For development, clone the repository and install in editable mode:
-
-```bash
-git clone https://github.com/buchwandler/kokorog2p.git
-cd kokorog2p
-pip install -e ".[dev]"
-```
-
-This includes:
-
-- All language packs and backends
-- Development tools (pytest, ruff, mypy)
-- Pre-commit hooks
-- Documentation building tools
-
-## System Dependencies
-
-### espeak-ng
-
-If using the espeak backend, you'll need espeak-ng installed on your system:
-
-**Ubuntu/Debian:**
-
-```bash
-sudo apt-get install espeak-ng
-```
-
-**macOS:**
-
-```bash
-brew install espeak-ng
-```
-
-**Windows:**
-
-Download the installer from the
-[espeak-ng releases page](https://github.com/espeak-ng/espeak-ng/releases).
-
-## Verifying Installation
-
-To verify your installation:
-
-```python
-import kokorog2p
-print(kokorog2p.__version__)
-
-# Test basic functionality
-from kokorog2p import phonemize
-result = phonemize("Hello world!", language="en-us")
-print(result)
-```
-
-If you see phoneme output, your installation is successful!
-
-## Troubleshooting
-
-### Import Errors
-
-If you get import errors for optional dependencies:
-
-```python
-# Check what's installed
-import importlib.util
-
-# Check for spaCy
-spacy_available = importlib.util.find_spec("spacy") is not None
-print(f"spaCy available: {spacy_available}")
-
-# Check for espeak
-espeak_available = importlib.util.find_spec("espeakng_loader") is not None
-print(f"espeak-ng available: {espeak_available}")
-```
-
-### Missing Language Models
-
-If spaCy models are missing:
-
-kokorog2p never downloads models during import or inference. Install the requested model
-explicitly in the environment that runs the application:
-
-```bash
-# Install one or more candidates; automatic selection uses the best installed one
-python -m spacy download en_core_web_md
-
-# Optional alternatives
-python -m spacy download en_core_web_sm
-python -m spacy download en_core_web_lg
-
-# Transformer tier (highest quality when installed and loadable)
-python -m spacy download en_core_web_trf
-```
-
-For French, German, Spanish, Italian, or Portuguese, install the matching
-`*_core_news_{trf,lg,md,sm}` package. Automatic errors list every compatible candidate
-checked and any load errors. An explicit package or size request is strict and reports
-only that requested package; it does not substitute another tier.
-
-### Performance Issues
-
-For better performance:
-
-1. Use dictionary-based G2P when possible (English, German, French)
-2. Enable caching (enabled by default)
-3. Reuse G2P instances instead of creating new ones
-4. Consider using espeak-ng fallback only for truly OOV words
-
-### Arabic MSA
-
-Install the native Arabic path with the existing eSpeak extra:
-
-```bash
-pip install "kokorog2p[ar]"
-```
-
-For unvocalized MSA, the optional CAMeL adapter is available separately:
-
-```bash
-pip install "kokorog2p[ar-diacritize]"
-```
-
-Provision `disambig-mle-calima-msa-r13` using CAMeL Tools' documented local data
-workflow. KokoroG2P does not download or provision CAMeL data, and the data license is
-separate from the Apache-2.0 KokoroG2P package. Use `diacritizer="none"` for
-already-vocalized Arabic.
-
-## Production lexicon assets
-
-The core package includes compiled G2Lex assets for the English, German, French, and
-Japanese lexicons. Canonical editable JSON and word-list sources remain in the
-repository under `lexicons/sources` and are not loaded at runtime.
+For release and integration checks, consult the project workflow and keep optional
+cross-package tests separate from the Spokenform-free core suite.

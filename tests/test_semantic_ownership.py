@@ -9,10 +9,13 @@ def test_kokorog2p_has_no_direct_semantic_backend_imports() -> None:
     prohibited = (
         "from abbr2words",
         "import abbr2words",
+        "from cn2an",
         "from num2words",
         "import num2words",
-        "from cn2an",
-        "import cn2an",
+        "from spokenform",
+        "import spokenform",
+        "prepare_for_kokorog2p",
+        "preprocess_multilang",
     )
     offenders = []
     for path in ROOT.rglob("*.py"):

@@ -27,27 +27,19 @@ class EnglishNormalizer(TextNormalizer):
     def __init__(
         self,
         track_changes: bool = False,
-        expand_abbreviations: bool = True,
-        enable_context_detection: bool = True,
     ):
         """Initialize the English normalizer.
 
         Args:
             track_changes: Whether to track normalization changes
-            expand_abbreviations: Whether to expand abbreviations
-            enable_context_detection: Context-aware abbreviation expansion
         """
         # Semantic expansion is not part of the G2P normalizer.
-        self.expand_abbreviations = expand_abbreviations
-        self.enable_context_detection = enable_context_detection
-        self.abbrev_expander = None
         super().__init__(track_changes=track_changes)
 
     def _initialize_rules(self) -> None:
         """Initialize English typography rules in the correct order."""
 
-        # Semantic preparation is source-aligned and run-local upstream in
-        # spokenform. These rules are deliberately typography-only.
+        # Prepared input owns written-to-spoken semantics; rules are typography-only.
 
         # Normalize apostrophes FIRST (before quote handling)
         # This ensures contractions are handled correctly
@@ -408,7 +400,6 @@ class EnglishNormalizer(TextNormalizer):
         before: str = "",
         after: str = "",
         apply_rules: bool = True,
-        expand_abbreviations: bool | None = None,
     ) -> str:
         """Normalize token typography without re-running English semantics.
 
@@ -420,111 +411,10 @@ class EnglishNormalizer(TextNormalizer):
             before: Text before the token (for context detection).
             after: Text after the token (for context detection).
             apply_rules: Whether to apply normalization rules.
-            expand_abbreviations: Override abbreviation expansion.
-
         Returns:
             Normalized token text.
         """
         if not text:
             return text
 
-        del before, after, expand_abbreviations
         return self._apply_rules(text) if apply_rules else text
-
-    def add_abbreviation(
-        self,
-        abbreviation: str,
-        expansion: str | dict[str, str],
-        description: str = "",
-        case_sensitive: bool = False,
-    ) -> None:
-        """Add or update a custom abbreviation.
-
-        This method allows users to add custom abbreviations or override existing ones.
-
-        Args:
-            abbreviation: The abbreviation string (e.g., "Dr.", "Tech.")
-            expansion: Either a simple string expansion or a dict mapping context
-                names to expansions. For dict, use context names like:
-                "default", "title", "place", "time", "academic", "religious"
-            description: Optional description of the abbreviation
-            case_sensitive: Whether matching should be case-sensitive
-
-        Examples:
-            >>> normalizer = EnglishNormalizer()
-            >>> # Simple expansion
-            >>> normalizer.add_abbreviation("Tech.", "Technology")
-            >>> # Context-aware expansion
-            >>> normalizer.add_abbreviation(
-            ...     "Dr.",
-            ...     {"default": "Drive", "title": "Doctor"},
-            ...     "Doctor or Drive (context-dependent)"
-            ... )
-        """
-        if not self.expand_abbreviations or not self.abbrev_expander:
-            raise RuntimeError(
-                "Cannot add abbreviations when expand_abbreviations is disabled. "
-                "Create EnglishNormalizer with expand_abbreviations=True."
-            )
-        self.abbrev_expander.add_custom_abbreviation(
-            abbreviation, expansion, description, case_sensitive
-        )
-
-    def remove_abbreviation(
-        self, abbreviation: str, case_sensitive: bool = False
-    ) -> bool:
-        """Remove an abbreviation.
-
-        Args:
-            abbreviation: The abbreviation to remove (e.g., "Dr.")
-            case_sensitive: Whether to match case-sensitively
-
-        Returns:
-            True if the abbreviation was found and removed, False otherwise
-
-        Example:
-            >>> normalizer = EnglishNormalizer()
-            >>> normalizer.remove_abbreviation("Dr.")
-            True
-        """
-        if not self.expand_abbreviations or not self.abbrev_expander:
-            raise RuntimeError(
-                "Cannot remove abbreviations when expand_abbreviations is disabled. "
-                "Create EnglishNormalizer with expand_abbreviations=True."
-            )
-        return self.abbrev_expander.remove_abbreviation(abbreviation, case_sensitive)
-
-    def has_abbreviation(self, abbreviation: str, case_sensitive: bool = False) -> bool:
-        """Check if an abbreviation exists.
-
-        Args:
-            abbreviation: The abbreviation to check (e.g., "Dr.")
-            case_sensitive: Whether to match case-sensitively
-
-        Returns:
-            True if the abbreviation exists, False otherwise
-
-        Example:
-            >>> normalizer = EnglishNormalizer()
-            >>> normalizer.has_abbreviation("Dr.")
-            True
-        """
-        if not self.expand_abbreviations or not self.abbrev_expander:
-            return False
-        return self.abbrev_expander.has_abbreviation(abbreviation, case_sensitive)
-
-    def list_abbreviations(self) -> list[str]:
-        """Get a list of all registered abbreviations.
-
-        Returns:
-            List of abbreviation strings
-
-        Example:
-            >>> normalizer = EnglishNormalizer()
-            >>> abbrevs = normalizer.list_abbreviations()
-            >>> "Dr." in abbrevs
-            True
-        """
-        if not self.expand_abbreviations or not self.abbrev_expander:
-            return []
-        return self.abbrev_expander.get_abbreviations_list()

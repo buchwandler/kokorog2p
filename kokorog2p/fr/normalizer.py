@@ -1,54 +1,19 @@
-"""French G2P typography over semantics owned by spokenform."""
+"""French typography normalization for prepared text."""
 
 from collections.abc import Iterator
-
-
-def get_shared_expander(*args: object, **kwargs: object) -> None:
-    del args, kwargs
-
 
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
 from kokorog2p.types import TextReplacement
 
 
 class FrenchNormalizer(TextNormalizer):
-    """Normalizes French text for G2P processing.
-
-    Semantic expansion is provided by ``spokenform``. This adapter retains:
-    - Apostrophe variants → standard apostrophe (')
-    - Quote variants → straight quotes (" and `)
-    - Ellipsis variants → single ellipsis (…)
-    - Dash variants → em dash (—)
-    - French-specific normalizations (guillemets, etc.)
-
-    The order of rules is critical for correctness.
-    """
+    """Normalize French typography for G2P processing."""
 
     def __init__(
         self,
         track_changes: bool = False,
-        expand_abbreviations: bool = True,
-        enable_context_detection: bool = True,
-        expand_nums: bool = True,
     ):
-        """Initialize the French normalizer.
-
-        Args:
-            track_changes: Whether to track normalization changes
-            expand_abbreviations: Whether to expand abbreviations
-            enable_context_detection: Context-aware abbreviation expansion.
-            expand_nums: Whether plain and structured numeric semantics should be
-                prepared by spokenform. ``False`` deliberately selects the
-                upstream ``NONE`` policy so ordinary numbers are not expanded.
-        """
-        self.expand_abbreviations = expand_abbreviations
-        self.enable_context_detection = enable_context_detection
-        self.expand_nums = expand_nums
-        self.abbrev_expander = (
-            get_shared_expander("fr", context=enable_context_detection)
-            if expand_abbreviations
-            else None
-        )
+        """Initialize the French typography normalizer."""
         super().__init__(track_changes=track_changes)
 
     def _initialize_rules(self) -> None:
@@ -183,16 +148,14 @@ class FrenchNormalizer(TextNormalizer):
         before: str = "",
         after: str = "",
         apply_rules: bool = True,
-        expand_abbreviations: bool | None = None,
     ) -> str:
         """Normalize token typography without re-running French semantics.
 
         French semantic ownership is source-aligned and run-level. The
-        ``expand_abbreviations`` argument remains for API compatibility but is
         intentionally not used to create a second semantic source of truth.
         """
         if not text:
             return text
 
-        del before, after, expand_abbreviations
+        del before, after
         return self._apply_rules(text) if apply_rules else text

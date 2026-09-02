@@ -17,7 +17,7 @@ https://en.wikipedia.org/wiki/Italian_phonology
 
 import re
 import unicodedata
-from typing import Any, Final
+from typing import Final
 
 from kokorog2p._optional import load_spacy_model
 from kokorog2p.base import G2PBase
@@ -97,10 +97,7 @@ class ItalianG2P(G2PBase):
         spacy_model: str | None = None,
         mark_stress: bool = True,
         mark_gemination: bool = True,
-        expand_abbreviations: bool = True,
-        enable_context_detection: bool = True,
         version: str = "1.0",
-        **kwargs: Any,
     ) -> None:
         """Initialize the Italian G2P converter.
 
@@ -113,8 +110,6 @@ class ItalianG2P(G2PBase):
                 (e.g., "it_core_news_sm", "it_core_news_md", "it_core_news_lg").
             mark_stress: Whether to mark primary stress with ˈ.
             mark_gemination: Whether to mark double consonants with ː.
-            expand_abbreviations: Whether to expand common abbreviations.
-            enable_context_detection: Context-aware abbreviation expansion.
             version: Target model version.
         """
         super().__init__(
@@ -136,10 +131,7 @@ class ItalianG2P(G2PBase):
         self._spacy_tokenizer: SpacyTokenizer | None = None
 
         # Initialize normalizer
-        self._normalizer = ItalianNormalizer(
-            expand_abbreviations=expand_abbreviations,
-            enable_context_detection=enable_context_detection,
-        )
+        self._normalizer = ItalianNormalizer()
 
     def __call__(self, text: str) -> list[GToken]:
         """Convert text to a list of tokens with phonemes.

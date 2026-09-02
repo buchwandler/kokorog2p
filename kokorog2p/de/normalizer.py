@@ -4,11 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 
-
-def get_shared_expander(*args: object, **kwargs: object) -> None:
-    del args, kwargs
-
-
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
 from kokorog2p.types import TextReplacement
 
@@ -24,16 +19,7 @@ class GermanNormalizer(TextNormalizer):
     def __init__(
         self,
         track_changes: bool = False,
-        expand_abbreviations: bool = True,
-        enable_context_detection: bool = True,
     ):
-        self.expand_abbreviations = expand_abbreviations
-        self.enable_context_detection = enable_context_detection
-        self.abbrev_expander = (
-            get_shared_expander("de", context=enable_context_detection)
-            if expand_abbreviations
-            else None
-        )
         super().__init__(track_changes=track_changes)
 
     def _initialize_rules(self) -> None:
@@ -138,29 +124,9 @@ class GermanNormalizer(TextNormalizer):
         before: str = "",
         after: str = "",
         apply_rules: bool = True,
-        expand_abbreviations: bool | None = None,
     ) -> str:
-        """Normalize a single token using lexical rules and typography."""
-
+        """Normalize a token using intrinsic typography rules."""
+        del before, after
         if not text:
             return text
-        if expand_abbreviations is None:
-            expand_abbreviations = self.expand_abbreviations
-        result = text
-        if expand_abbreviations and self.abbrev_expander:
-            entry = self.abbrev_expander.get_abbreviation(result, case_sensitive=True)
-            if entry is None:
-                entry = self.abbrev_expander.get_abbreviation(
-                    result, case_sensitive=False
-                )
-            if entry is not None:
-                if self.abbrev_expander.context_detector:
-                    context = self.abbrev_expander.context_detector.detect_context(
-                        result, before, after
-                    )
-                    result = entry.get_expansion(context)
-                else:
-                    result = entry.expansion
-        if apply_rules:
-            result = self._apply_rules(result)
-        return result
+        return self._apply_rules(text) if apply_rules else text

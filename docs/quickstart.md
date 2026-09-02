@@ -1,344 +1,78 @@
 # Quick Start
 
-This guide will help you get started with kokorog2p quickly.
+KokoroG2P converts prepared, speakable text to Kokoro phonemes. It does not verbalize
+numbers, abbreviations, units, dates, currencies, URLs, or other written semantics.
+Prepare those forms in the application layer (for example with Spokenform), then pass
+the resulting text to `phonemize_prepared()`.
 
-## Basic Usage
-
-The simplest way to use kokorog2p is with the `phonemize()` function:
+## Basic usage
 
 ```python
-from kokorog2p import phonemize
+from kokorog2p import phonemize_prepared
 
-# Convert text to phonemes
-result = phonemize("Hello world!")
-phonemes = result.phonemes
-print(phonemes)  # hˈɛlO wˈɜɹld!
+result = phonemize_prepared("Hello world!", language="en-us")
+print(result.phonemes)
 ```
 
-## Error Handling
+`phonemize()` is the compatibility spelling for the same prepared-text operation. The
+input text is preserved as the coordinate space for tokens and offsets.
 
-By default, kokorog2p raises clear errors when backends fail (v0.4.0+):
+## Explicit languages
 
 ```python
-from kokorog2p import get_g2p
+from kokorog2p import phonemize_prepared
 
-# Strict mode (default) - raises errors
-try:
-    g2p = get_g2p("en-us", backend="espeak")
-    tokens = g2p("Hello world!")
-except RuntimeError as e:
-    print(f"Error: {e}")
-    # Will show helpful message if espeak-ng is not installed
-
-# Lenient mode - returns empty strings on errors (backward compatible)
-g2p = get_g2p("en-us", backend="espeak", strict=False)
-tokens = g2p("Hello world!")  # Returns empty strings if backend fails
+for text, language in [
+    ("Hello world!", "en-us"),
+    ("Guten Tag", "de"),
+    ("Bonjour le monde", "fr"),
+    ("안녕하세요", "ko"),
+]:
+    print(phonemize_prepared(text, language=language).phonemes)
 ```
 
-For more details, see {doc}`advanced`.
+Language selection is explicit. For a foreign span, supply an `OverrideSpan` or
+annotation language metadata; automatic document-language detection is outside the core
+package.
 
-## Specifying Language
-
-You can specify the language explicitly:
+## Prepare semantics outside the core
 
 ```python
-from kokorog2p import phonemize
+from spokenform import prepare_for_kokorog2p
+from kokorog2p import phonemize_prepared
 
-# US English (default)
-us_phonemes = phonemize("Hello world!", language="en-us").phonemes
+prepared = prepare_for_kokorog2p("Meet Dr. Smith at 2 kg.", language="en").spoken_text
+result = phonemize_prepared(prepared, language="en-us")
+```
 
-# British English
-gb_phonemes = phonemize("Hello world!", language="en-gb").phonemes
+The optional preparation package is not a KokoroG2P runtime dependency. A minimal core
+installation works without it.
 
-# German
-de_phonemes = phonemize("Guten Tag", language="de").phonemes
+## Linguistic annotations
 
-# French
-fr_phonemes = phonemize("Bonjour le monde", language="fr").phonemes
+Applications may provide already-computed token metadata without installing a parser:
 
-# Czech
-cs_phonemes = phonemize("Dobrý den", language="cs").phonemes
+```python
+from kokorog2p import TokenAnnotation, phonemize_prepared
 
-
-# Kazakh eSpeak-NG frontend
-kk_phonemes = phonemize("Сәлем әлем!", language="kk").phonemes
-print(kk_phonemes)
-# Requires: pip install "kokorog2p[kk]"
-
-# Vietnamese native frontend
-vi_phonemes = phonemize("Xin chào!", language="vi").phonemes
-print(vi_phonemes)
-# Mixed-language (German with English words)
-from kokorog2p import phonemize
-from kokorog2p.multilang import preprocess_multilang
-
-text = "Das Meeting war great!"
-overrides = preprocess_multilang(
-    text,
-    default_language="de",
-    allowed_languages=["de", "en-us"],
+annotations = [TokenAnnotation(0, 6, "record", pos="NOUN", tag="NN")]
+result = phonemize_prepared(
+    "record this record", language="en-us", annotations=annotations
 )
-mixed_phonemes = phonemize(
-    text, language="de", overrides=overrides
-).phonemes
 ```
 
-## Using G2P Instances
+Annotation offsets are half-open, ordered, non-overlapping, and relative to the supplied
+prepared text. See [the span guide](spans.md) for explicit overrides and offsets.
 
-For more control, create a G2P instance:
+## G2P instances
 
 ```python
 from kokorog2p import get_g2p
 
-# Get a G2P instance for US English
 g2p = get_g2p("en-us")
-
-# Convert text
-tokens = g2p("The quick brown fox jumps over the lazy dog.")
-
-# Access individual tokens
-for token in tokens:
-    print(f"{token.text:15} → {token.phonemes}")
+for token in g2p("The quick brown fox"):
+    print(token.text, token.phonemes)
 ```
 
-Output:
-
-```text
-The             → ðə
-quick           → kwˈɪk
-brown           → bɹˈaʊn
-fox             → fˈɑks
-jumps           → dʒˈʌmps
-over            → ˈOvɚ
-the             → ðə
-lazy            → lˈeɪzi
-dog             → dˈɔɡ
-.               → .
-```
-
-## Language-Specific G2P
-
-You can also import language-specific G2P classes:
-
-### English
-
-```python
-from kokorog2p.en import EnglishG2P
-
-g2p = EnglishG2P(
-    language="en-us",
-    use_espeak_fallback=True,
-    use_spacy=True,
-    spacy_model="en_core_web_md",  # explicit; auto selection is the default when enabled
-)
-
-tokens = g2p("I can't believe it!")
-for token in tokens:
-    print(f"{token.text} → {token.phonemes} (tag: {token.tag})")
-
-# Optional: choose an exact model; omitted model selects the highest installed loadable tier
-g2p_auto = EnglishG2P(use_spacy=True)
-g2p_small = EnglishG2P(use_spacy=True, spacy_model="en_core_web_sm")
-g2p_large = EnglishG2P(use_spacy=True, spacy_model="en_core_web_lg")
-```
-
-### German
-
-```python
-from kokorog2p.de import GermanG2P
-
-g2p = GermanG2P(
-    language="de-de",
-    use_espeak_fallback=True
-)
-
-tokens = g2p("Wie geht es Ihnen?")
-for token in tokens:
-    print(f"{token.text} → {token.phonemes}")
-```
-
-### French
-
-```python
-from kokorog2p.fr import FrenchG2P
-
-g2p = FrenchG2P(
-    language="fr-fr",
-    use_espeak_fallback=True
-)
-
-tokens = g2p("Comment allez-vous?")
-for token in tokens:
-    print(f"{token.text} → {token.phonemes}")
-```
-
-### Czech
-
-```python
-from kokorog2p.cs import CzechG2P
-
-g2p = CzechG2P(language="cs-cz")
-
-tokens = g2p("Jak se máte?")
-for token in tokens:
-    print(f"{token.text} → {token.phonemes}")
-```
-
-### Mixed-Language
-
-```python
-from kokorog2p import phonemize
-from kokorog2p.multilang import preprocess_multilang
-
-text = "Das Meeting war great!"
-overrides = preprocess_multilang(
-    text,
-    default_language="de",
-    allowed_languages=["de", "en-us"],
-)
-result = phonemize(text, language="de", overrides=overrides)
-
-for token in result.tokens:
-    print(f"{token.text} ({token.lang}) → {token.phonemes}")
-```
-
-Output:
-
-```text
-Das (de) → das
-Meeting (en-us) → mˈiɾɪŋ
-war (de) → vaːɐ̯
-great (en-us) → ɡɹˈeɪt
-```
-
-## Working with Tokens
-
-Tokens contain rich information:
-
-```python
-from kokorog2p import get_g2p
-
-g2p = get_g2p("en-us", use_spacy=True)
-tokens = g2p("I love reading!")
-
-for token in tokens:
-    print(f"Text:      {token.text}")
-    print(f"Phonemes:  {token.phonemes}")
-    print(f"POS tag:   {token.tag}")
-    print(f"Rating:    {token.get('rating')}")
-    print(f"Whitespace: '{token.whitespace}'")
-    print("---")
-```
-
-Output:
-
-```text
-Text:      I
-Phonemes:  ˈaɪ
-POS tag:   PRP
-Rating:    5
-Whitespace: ' '
----
-Text:      love
-Phonemes:  lˈʌv
-POS tag:   VBP
-Rating:    5
-Whitespace: ' '
----
-```
-
-## Number Handling
-
-kokorog2p automatically handles numbers:
-
-```python
-from kokorog2p import phonemize
-
-# Numbers
-print(phonemize("I have 42 apples.", language="en-us"))
-# → aɪ hæv fˈOɹti tˈu ˈæpəlz.
-
-# Currency
-print(phonemize("It costs $12.50", language="en-us"))
-# → ɪt kˈɑsts twˈɛlv dˈɑlɚz ænd fˈɪfti sˈɛnts
-
-# German numbers
-print(phonemize("Ich habe 42 Äpfel.", language="de"))
-# → ɪç haːbə t͡svaɪ̯ʊntfɪɐ̯t͡sɪç ɛːpfl̩.
-```
-
-## Choosing Backends
-
-You can choose different phonemization backends:
-
-### espeak Backend (Default)
-
-```python
-from kokorog2p import phonemize
-
-# Uses espeak-ng for fallback
-result = phonemize("Hello", backend="espeak")
-```
-
-### goruut Backend
-
-```python
-from kokorog2p import phonemize
-
-# Uses goruut (if installed)
-result = phonemize("Hello", backend="goruut")
-```
-
-## Disabling Fallback
-
-You can disable fallback for out-of-vocabulary words:
-
-```python
-from kokorog2p import get_g2p
-
-# No fallback - unknown words will have empty phonemes
-g2p = get_g2p("en-us", use_espeak_fallback=False)
-
-tokens = g2p("xyznotaword")
-print(tokens[0].phonemes)  # Will be empty or "?"
-```
-
-## Performance Tips
-
-1. **Reuse G2P instances**: Creating instances is expensive
-
-   ```python
-   # Good: Reuse the same instance
-   g2p = get_g2p("en-us")
-   for text in texts:
-       tokens = g2p(text)
-
-   # Bad: Create new instance each time
-   for text in texts:
-       g2p = get_g2p("en-us")  # Slow!
-       tokens = g2p(text)
-   ```
-
-2. **Use caching**: G2P instances are cached by default
-
-   ```python
-   # These return the same cached instance
-   g2p1 = get_g2p("en-us")
-   g2p2 = get_g2p("en-us")
-   assert g2p1 is g2p2
-   ```
-
-3. **Clear cache when needed**:
-
-   ```python
-   from kokorog2p import clear_cache
-
-   # Clear all cached instances
-   clear_cache()
-   ```
-
-## Next Steps
-
-- Learn about {doc}`languages` for language-specific features
-- See {doc}`advanced` for advanced usage patterns
-- Check the {doc}`api/core` for detailed API documentation
+Use `get_g2p()` for backend-specific controls. Semantic preparation flags and
+abbreviation registries are intentionally not part of the v0.9 API.

@@ -4,7 +4,6 @@ Based on misaki French implementation, adapted for kokorog2p.
 """
 
 import unicodedata
-import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -248,33 +247,6 @@ class FrenchLexicon:
 
     def close(self) -> None:
         self._selected.close()
-
-    def expand_abbreviation(self, text: str) -> str:
-        """Compatibility shim for the former local abbreviation registry.
-
-        New code should use ``abbr2words`` or ``FrenchNormalizer``. Keeping
-        this method avoids an abrupt API break without retaining a duplicate
-        registry in the French G2P path.
-        """
-        warnings.warn(
-            "FrenchLexicon.expand_abbreviation is deprecated; use abbr2words.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        from spokenform.abbreviations import get_shared_expander
-
-        return get_shared_expander("fr", context=True).expand(text)
-
-    def expand_ordinals(self, text: str) -> str:
-        """Deprecated compatibility shim for upstream ordinal preparation."""
-        warnings.warn(
-            "FrenchLexicon.expand_ordinals is deprecated; use spokenform.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        from kokorog2p.fr.numbers import expand_ordinal
-
-        return expand_ordinal(text)
 
     def get_special_case(
         self,

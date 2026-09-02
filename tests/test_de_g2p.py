@@ -1,9 +1,10 @@
 """Tests for the German G2P module."""
 
+from importlib.util import find_spec
+
 import pytest
 
-from kokorog2p.de import GermanG2P, GermanLexicon, GermanNumberConverter
-from kokorog2p.de.numbers import expand_number, number_to_german, ordinal_to_german
+from kokorog2p.de import GermanG2P, GermanLexicon
 from kokorog2p.pipeline_api import phonemize_to_result
 from kokorog2p.spacy_models import SpacyModelResolution, SpacyModelSize
 from kokorog2p.token import GToken
@@ -286,6 +287,8 @@ class TestGermanLexicon:
 
     @pytest.mark.spacy
     def test_crane_sentence_initial_die_with_spacy_pos(self):
+        if find_spec("de_core_news_sm") is None:
+            pytest.skip("spaCy model de_core_news_sm is not installed")
         g2p = GermanG2P(
             lexicons=("crane",),
             use_spacy=True,
@@ -333,105 +336,6 @@ class TestGermanLexicon:
         result = repr(lexicon)
         assert "GermanLexicon" in result
         assert "entries=" in result
-
-
-class TestGermanNumberConverter:
-    """Tests for GermanNumberConverter."""
-
-    @pytest.fixture
-    def converter(self):
-        """Create a German number converter instance."""
-        return GermanNumberConverter()
-
-    def test_cardinal_single_digit(self, converter):
-        """Test single digit cardinals."""
-        assert converter.convert_cardinal("1") == "eins"
-        assert converter.convert_cardinal("5") == "fünf"
-        assert converter.convert_cardinal("0") == "null"
-
-    def test_cardinal_teens(self, converter):
-        """Test teen numbers."""
-        assert converter.convert_cardinal("11") == "elf"
-        assert converter.convert_cardinal("12") == "zwölf"
-        assert converter.convert_cardinal("17") == "siebzehn"
-
-    def test_cardinal_tens(self, converter):
-        """Test tens."""
-        assert converter.convert_cardinal("20") == "zwanzig"
-        assert converter.convert_cardinal("30") == "dreißig"
-        assert converter.convert_cardinal("21") == "einundzwanzig"
-        assert converter.convert_cardinal("42") == "zweiundvierzig"
-
-    def test_cardinal_hundreds(self, converter):
-        """Test hundreds."""
-        # num2words returns "einhundert", our fallback returns "hundert"
-        result_100 = converter.convert_cardinal("100")
-        assert result_100 in ("hundert", "einhundert")
-        result_200 = converter.convert_cardinal("200")
-        assert result_200 == "zweihundert"
-        result_123 = converter.convert_cardinal("123")
-        assert "hundert" in result_123 and "dreiundzwanzig" in result_123
-
-    def test_cardinal_thousands(self, converter):
-        """Test thousands."""
-        assert converter.convert_cardinal("1000") == "eintausend"
-        assert converter.convert_cardinal("2000") == "zweitausend"
-
-    def test_ordinal(self, converter):
-        """Test ordinal conversion."""
-        assert converter.convert_ordinal("1") == "erste"
-        assert converter.convert_ordinal("3") == "dritte"
-        assert converter.convert_ordinal("7") == "siebte"
-        assert converter.convert_ordinal("20") == "zwanzigste"
-
-    def test_year(self, converter):
-        """Test year conversion."""
-        result = converter.convert_year("1984")
-        assert "neunzehn" in result
-        assert "hundert" in result
-
-        result2 = converter.convert_year("2024")
-        assert "zweitausend" in result2
-
-    def test_decimal(self, converter):
-        """Test decimal conversion."""
-        result = converter.convert_decimal("3,14")
-        assert "drei" in result
-        assert "Komma" in result
-
-    def test_currency(self, converter):
-        """Test currency conversion."""
-        result = converter.convert_currency("12,50", "€")
-        assert "zwölf" in result
-        assert "Euro" in result
-        assert "fünfzig" in result
-
-
-class TestGermanNumberFunctions:
-    """Tests for standalone number conversion functions."""
-
-    def test_number_to_german(self):
-        """Test number_to_german function."""
-        assert number_to_german(0) == "null"
-        assert number_to_german(1) == "eins"
-        assert number_to_german(21) == "einundzwanzig"
-        assert number_to_german(-5) == "minus fünf"
-
-    def test_ordinal_to_german(self):
-        """Test ordinal_to_german function."""
-        assert ordinal_to_german(1) == "erste"
-        assert ordinal_to_german(3) == "dritte"
-        assert ordinal_to_german(8) == "achte"
-
-    def test_expand_number(self):
-        """Test expand_number function."""
-        result = expand_number("Ich habe 42 Bücher.")
-        assert "zweiundvierzig" in result
-
-        # Test simple number expansion (currency pattern is complex)
-        result2 = expand_number("Preis: 12,50")
-        assert "zwölf" in result2
-        assert "Komma" in result2
 
 
 class TestGermanGetG2P:

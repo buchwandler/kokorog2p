@@ -424,24 +424,6 @@ class TestSuffixesDeterministic:
 
 
 # =============================================================================
-# Lexicon: number detection
-# =============================================================================
-
-
-class TestNumberDetection:
-    def test_is_number_more_cases(self):
-        assert Lexicon.is_number("123", True) is True
-        assert Lexicon.is_number("12,345", True) is True
-        assert Lexicon.is_number("3.1415", True) is True
-        assert Lexicon.is_number("-100", True) is True
-        assert Lexicon.is_number("-100", False) is False
-        assert Lexicon.is_number("1st", True) is True
-        assert Lexicon.is_number("2nd", True) is True
-        assert Lexicon.is_number("100th", True) is True
-        assert Lexicon.is_number("hello", True) is False
-
-
-# =============================================================================
 # Integration tests (real dictionaries)
 # =============================================================================
 

@@ -66,8 +66,6 @@ def test_real_olaph_invalid_pronunciation_falls_back() -> None:
         use_espeak_fallback=False,
         use_goruut_fallback=False,
         use_spacy=False,
-        expand_abbreviations=False,
-        enable_context_detection=False,
         strip_stress=False,
     )
     try:
@@ -86,8 +84,6 @@ def test_static_espeak_lexicon_works_without_espeak_fallback() -> None:
         use_espeak_fallback=False,
         use_goruut_fallback=False,
         use_spacy=False,
-        expand_abbreviations=False,
-        enable_context_detection=False,
         strip_stress=False,
     )
     try:

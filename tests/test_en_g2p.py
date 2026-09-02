@@ -514,21 +514,12 @@ class TestMainAPI:
         get_g2p("en-us", use_espeak_fallback=True, use_spacy=False)
         # Note: Can't test this without espeak, but the cache key is different
 
-    def test_get_g2p_cache_includes_kwargs(self):
-        """Test kwargs are included in get_g2p cache key."""
-        from kokorog2p import clear_cache, get_g2p
+    def test_removed_semantic_options_are_rejected(self):
+        """Semantic constructor options are not part of the 0.9 API."""
+        from kokorog2p import get_g2p
 
-        clear_cache()
-        g2p_default = get_g2p("en-us", use_spacy=False)
-        g2p_no_context = get_g2p(
-            "en-us",
-            use_spacy=False,
-            enable_context_detection=False,
-        )
-        assert g2p_default is not g2p_no_context
-
-        g2p_unk = get_g2p("en-us", use_spacy=False, unk="?")
-        assert g2p_default is not g2p_unk
+        with pytest.raises(TypeError, match="Unsupported get_g2p options"):
+            get_g2p("en-us", use_spacy=False, enable_context_detection=False)
 
     def test_get_g2p_cache_includes_explicit_spacy_model(self):
         """Test explicit spacy_model is included in get_g2p cache key."""

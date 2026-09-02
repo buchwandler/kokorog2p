@@ -70,34 +70,30 @@ def test_prepared_pipeline_preserves_supplied_coordinate_space():
         assert result.clean_text[token.char_start : token.char_end] == token.text
 
 
-def test_written_mode_is_deprecated_and_does_not_prepare_semantics():
-    written_g2p = _EchoG2P()
-    with pytest.warns(
-        DeprecationWarning, match="Semantic written-to-spoken preparation"
-    ) as caught:
-        written = phonemize_to_result(
-            "2",
-            lang="th",
-            g2p=written_g2p,
-            input_mode="written",
-            return_ids=False,
-            return_phonemes=False,
-        )
-    assert len(caught) == 1
-    assert written.extended_text == "2"
-    assert written_g2p.calls == ["2"]
-
-    prepared_g2p = _EchoG2P()
-    prepared = phonemize_to_result(
-        "สอง",
-        lang="th",
-        g2p=prepared_g2p,
-        input_mode="prepared",
+def test_phonemize_to_result_is_prepared_only():
+    g2p = _EchoG2P()
+    result = phonemize_to_result(
+        "2 kg",
+        lang="en-us",
+        g2p=g2p,
         return_ids=False,
         return_phonemes=False,
     )
-    assert prepared.extended_text == "สอง"
-    assert prepared_g2p.calls == ["สอง"]
+    assert result.extended_text == "2 kg"
+    assert g2p.calls == ["2 kg"]
+
+
+def test_phonemize_prepared_is_clear_alias():
+    g2p = _EchoG2P()
+    result = phonemize_prepared(
+        "already spoken",
+        language="en-us",
+        g2p=g2p,
+        return_ids=False,
+        return_phonemes=False,
+    )
+    assert result.extended_text == "already spoken"
+    assert g2p.calls == ["already spoken"]
 
 
 def test_migrated_span_pipeline_marks_default_g2p_input_prepared():
@@ -621,57 +617,24 @@ class TestPhonemizeToResult:
         assert result.phonemes.count("ði") == 1
         assert not any("[ALIGNMENT]" in w for w in result.warnings)
 
-    def test_abbreviation_sentence_phonemes(self):
-        """Test abbreviations don't lose phonemes in sentences."""
-        text = "Meet Mr. Schmidt, Mrs. Johnson, Ms. Anderson, and Dr. Brown."
+    def test_prepared_sentence_phonemes(self):
+        """Prepared lexical text retains phonemes and punctuation."""
+        text = "Meet Mister Schmidt, Misses Johnson, Miz Anderson, and Doctor Brown."
         result = phonemize(text, language="en-us")
-
         assert not any("no phonemes" in w.lower() for w in result.warnings)
+        for token in result.tokens:
+            if any(character.isalnum() for character in token.text):
+                assert token.meta.get("phonemes")
+        for token in result.tokens:
+            assert result.clean_text[token.char_start : token.char_end] == token.text
 
-        token_map = {token.text: token for token in result.tokens}
-        for abbrev in ("Mr.", "Mrs.", "Ms.", "Dr."):
-            phonemes = token_map[abbrev].meta.get("phonemes", "")
-            assert phonemes
-            assert not phonemes.startswith(",")
-
-        and_token = next(token for token in result.tokens if token.text == "and")
-        assert and_token.meta.get("phonemes")
-
-    def test_number_tokens_preserve_prepared_text(self):
-        result = phonemize("I have 1 cat.", language="en-us")
-        number_token = next(token for token in result.tokens if token.text == "1")
-        assert number_token.extended_text is None
-        assert number_token.meta.get("phonemes")
-        assert result.extended_text is not None
-        assert "1" in result.extended_text
-
-    def test_temperature_tokens_preserve_prepared_text(self):
-        result = phonemize("It's 30C.", language="en-us")
-        temp_token = next(token for token in result.tokens if token.text == "30C")
-        assert temp_token.extended_text is None
-        assert temp_token.meta.get("phonemes")
-        assert result.extended_text is not None
-        assert "30C" in result.extended_text
-
-    def test_abbreviation_token_metadata_preserves_prepared_text(self):
-        result = phonemize("Dr. Smith", language="en-us")
-        token = next(token for token in result.tokens if token.text == "Dr.")
-        assert token.char_start == 0
-        assert token.char_end == 3
-        assert token.extended_text is None
-        assert token.meta.get("_extended_text_changed") is not True
-
-    def test_abbreviation_token_span(self):
-        """Test that abbreviations with periods stay in one token."""
+    def test_dotted_token_span_is_registry_independent(self):
+        """Literal dotted prepared input uses deterministic token offsets."""
         result = phonemize("Hello Mr. Smith", language="en-us")
-
         token_texts = [token.text for token in result.tokens]
-        assert "Mr." in token_texts
-        assert "." not in token_texts
-
-        mr_token = next(token for token in result.tokens if token.text == "Mr.")
-        assert mr_token.char_start == 6
-        assert mr_token.char_end == 9
+        assert token_texts[:4] == ["Hello", "Mr", ".", "Smith"]
+        assert result.clean_text[6:8] == "Mr"
+        assert result.clean_text[8:9] == "."
 
     def test_return_only_phonemes(self):
         """Test requesting only phonemes, not IDs."""
@@ -713,198 +676,6 @@ class TestPhonemizeToResult:
         assert result.clean_text == ""
         assert len(result.tokens) == 0
         assert result.phonemes == ""
-
-    @pytest.mark.skip(reason="semantic preparation is owned by Spokenform")
-    def test_german_structured_forms_use_source_aligned_span_normalization(self):
-        from kokorog2p.de.g2p import GermanG2P
-
-        source = (
-            "Zum 14.05.2026 um 18:20 Uhr ist das Abendessen geplant. "
-            "Für den Auflauf brauchen wir 1,5 kg Kartoffeln, 500 g Quark, "
-            "2 Eier, 1 ltr. Milch und ggf. 3 cm mehr Backpapier. "
-            'Prof. Klein sagt: "Bitte stelle die Form auf die 2. Schiene, '
-            "backe alles für 45 Min. und lass es danach 1 Min. oder auch "
-            '2 Min. ruhen." Die Kosten liegen bei ca. 12,80 EUR zzgl. Pfand.'
-        )
-        expected = (
-            "Zum vierzehnten Mai zweitausendsechsundzwanzig um achtzehn Uhr "
-            "zwanzig ist das Abendessen geplant. Für den Auflauf brauchen wir "
-            "eins Komma fünf Kilogramm Kartoffeln, fünfhundert Gramm Quark, "
-            "zwei Eier, ein Liter Milch und gegebenenfalls drei Zentimeter mehr "
-            'Backpapier. Professor Klein sagt: "Bitte stelle die Form auf die '
-            "zweite Schiene, backe alles für fünfundvierzig Minuten und lass es "
-            'danach eine Minute oder auch zwei Minuten ruhen." Die Kosten liegen '
-            "bei zirka zwölf Euro achtzig Cent zuzüglich Pfand."
-        )
-        g2p = GermanG2P(
-            use_lexicon=False,
-            use_espeak_fallback=False,
-            use_goruut_fallback=False,
-            load_gold=False,
-            load_silver=False,
-        )
-
-        result = phonemize(
-            source,
-            language="de",
-            g2p=g2p,
-            alignment="span",
-            return_ids=False,
-        )
-
-        assert result.extended_text == expected
-        assert not any(char.isdigit() for char in result.extended_text)
-        assert not any(
-            symbol in result.extended_text for symbol in ("kg", " cm", " EUR")
-        )
-        assert not any("[ALIGNMENT]" in warning for warning in result.warnings)
-        assert all(
-            source[token.char_start : token.char_end] == token.text
-            for token in result.tokens
-        )
-        assert sum(token.text == "1,5 kg" for token in result.tokens) == 1
-
-    @pytest.mark.skip(reason="semantic preparation is owned by Spokenform")
-    def test_german_semantic_stage_reaches_backend_without_normalizer(self):
-        from kokorog2p.base import G2PBase
-        from kokorog2p.token import GToken
-
-        class RecordingG2P(G2PBase):
-            def __init__(self):
-                super().__init__(language="de")
-                self.calls: list[str] = []
-
-            def __call__(self, text: str) -> list[GToken]:
-                self.calls.append(text)
-                matches = list(re.finditer(r"\w+|[^\w\s]", text))
-                result: list[GToken] = []
-                for index, match in enumerate(matches):
-                    next_start = (
-                        matches[index + 1].start()
-                        if index + 1 < len(matches)
-                        else len(text)
-                    )
-                    result.append(
-                        GToken(
-                            text=match.group(),
-                            tag="PUNCT" if not match.group().isalnum() else "WORD",
-                            whitespace=text[match.end() : next_start],
-                            phonemes=match.group(),
-                        )
-                    )
-                return result
-
-            def lookup(self, word: str, tag: str | None = None) -> str | None:
-                return None
-
-        g2p = RecordingG2P()
-        result = phonemize(
-            "Wir brauchen 1,5 kg.",
-            language="de",
-            g2p=g2p,
-            alignment="span",
-            return_ids=False,
-        )
-
-        assert g2p.calls == ["Wir brauchen eins Komma fünf Kilogramm."]
-        assert result.extended_text == g2p.calls[0]
-        assert "1,5 kg" not in g2p.calls[0]
-
-    @pytest.mark.skip(reason="semantic preparation is owned by Spokenform")
-    def test_german_span_and_legacy_paths_have_semantic_parity(self):
-        from kokorog2p.de.g2p import GermanG2P
-        from kokorog2p.de.normalizer import GermanNormalizer
-
-        expressions = (
-            "1,5 kg",
-            "500 g",
-            "1 ltr. Milch",
-            "3 cm",
-            "1 m²",
-            "2 m³",
-            "1 ha",
-            "2 m/s",
-            "1 km/h",
-            "1 m2",
-            "1 m3",
-            "45 Min.",
-            "1 Min.",
-            "2 Min.",
-            "12,80 EUR",
-            "auf die 2. Schiene",
-        )
-        g2p = GermanG2P(
-            use_lexicon=False,
-            use_espeak_fallback=False,
-            use_goruut_fallback=False,
-            load_gold=False,
-            load_silver=False,
-        )
-        normalizer = GermanNormalizer()
-
-        for source in expressions:
-            span = phonemize(
-                source,
-                language="de",
-                g2p=g2p,
-                alignment="span",
-                return_ids=False,
-            )
-            legacy = phonemize(
-                source,
-                language="de",
-                g2p=g2p,
-                alignment="legacy",
-                return_ids=False,
-            )
-            legacy_text = " ".join(token.text for token in legacy.tokens)
-            legacy_text = legacy_text.replace(" .", ".")
-            assert span.extended_text == normalizer(source)
-            assert legacy_text == span.extended_text
-
-    @pytest.mark.parametrize(
-        ("source", "expected"),
-        [
-            ("1 mm²", "ein Quadratmillimeter"),
-            ("2 cm²", "zwei Quadratzentimeter"),
-            ("1 m²", "ein Quadratmeter"),
-            ("2 km²", "zwei Quadratkilometer"),
-            ("1 ha", "ein Hektar"),
-            ("2 mm³", "zwei Kubikmillimeter"),
-            ("1 cm³", "ein Kubikzentimeter"),
-            ("2 m³", "zwei Kubikmeter"),
-            ("1 m/s", "ein Meter pro Sekunde"),
-            ("2 km/h", "zwei Kilometer pro Stunde"),
-            ("1 m2", "ein Quadratmeter"),
-            ("1 m3", "ein Kubikmeter"),
-        ],
-    )
-    @pytest.mark.skip(reason="semantic preparation is owned by Spokenform")
-    def test_german_extended_quantity_public_path_matches_direct_normalizer(
-        self, source, expected
-    ):
-        from kokorog2p.de.g2p import GermanG2P
-        from kokorog2p.de.normalizer import GermanNormalizer
-
-        g2p = GermanG2P(
-            use_lexicon=False,
-            use_espeak_fallback=False,
-            use_goruut_fallback=False,
-            load_gold=False,
-            load_silver=False,
-        )
-        direct = GermanNormalizer()(source)
-        result = phonemize(
-            source,
-            language="de",
-            g2p=g2p,
-            alignment="span",
-            return_ids=False,
-        )
-
-        assert direct == expected
-        assert result.extended_text == expected
-        assert not result.warnings
 
     def test_whitespace_only(self):
         """Test with whitespace-only text."""
@@ -1013,39 +784,15 @@ class TestPhonemizeToResult:
         assert result1.phonemes is not None
         assert result2.phonemes is not None
 
-    def test_normalizer_state_restored(self):
-        """Ensure normalizer abbreviation settings are restored after calls."""
-        from kokorog2p import get_g2p
-
-        g2p = get_g2p("en-us", use_spacy=False)
-        normalizer = getattr(g2p, "_normalizer", None) or getattr(
-            g2p, "normalizer", None
-        )
-        if normalizer is None or not hasattr(normalizer, "expand_abbreviations"):
-            pytest.skip("G2P normalizer not available")
-
-        original_expand = normalizer.expand_abbreviations
-        phonemize_to_result("Dr. Smith", g2p=g2p)
-        assert normalizer.expand_abbreviations == original_expand
-
     @pytest.mark.slow
     def test_normalizer_thread_safety(self):
-        """Ensure concurrent calls do not corrupt normalizer state."""
+        """Concurrent prepared calls return deterministic results."""
         from concurrent.futures import ThreadPoolExecutor
 
         from kokorog2p import get_g2p
 
-        g2p = get_g2p("en-us")
-        normalizer = getattr(g2p, "_normalizer", None) or getattr(
-            g2p, "normalizer", None
-        )
-        if normalizer is None or not hasattr(normalizer, "expand_abbreviations"):
-            pytest.skip("G2P normalizer not available")
-
-        text = "Dr. Smith arrived."
-
-        original_expand = normalizer.expand_abbreviations
-
+        g2p = get_g2p("en-us", use_spacy=False)
+        text = "Doctor Smith arrived."
         with ThreadPoolExecutor(max_workers=8) as executor:
             results = list(
                 executor.map(
@@ -1053,9 +800,7 @@ class TestPhonemizeToResult:
                     range(16),
                 )
             )
-
         assert all(result == results[0] for result in results)
-        assert normalizer.expand_abbreviations == original_expand
 
     def test_long_text_with_multiple_overrides(self):
         """Test longer text with multiple overrides."""

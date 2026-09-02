@@ -1,47 +1,23 @@
-"""Portuguese G2P typography over semantics owned by spokenform."""
+"""Portuguese typography normalization for prepared text."""
 
 from collections.abc import Iterable, Iterator
-
-
-def get_shared_expander(*args: object, **kwargs: object) -> None:
-    del args, kwargs
-
 
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
 from kokorog2p.types import TextReplacement
 
 
-def _semantic_locale(dialect: str) -> str:
-    """Map the public Portuguese dialect selector to spokenform's locale."""
-    return "pt-pt" if dialect == "pt" else "pt-br"
-
-
 class PortugueseNormalizer(TextNormalizer):
-    """Prepare Portuguese semantics upstream and retain kokorog2p typography."""
+    """Normalize Portuguese typography for prepared text."""
 
     def __init__(
         self,
         track_changes: bool = False,
-        expand_abbreviations: bool = True,
-        enable_context_detection: bool = True,
         dialect: str = "br",
     ) -> None:
-        """Initialize the Portuguese downstream adapter.
-
-        ``dialect`` remains a compatibility argument: ``br`` selects Brazilian
-        Portuguese (``pt-br``), while ``pt`` selects European Portuguese
-        (``pt-pt``) for spokenform semantic preparation.
-        """
-        self.expand_abbreviations = expand_abbreviations
-        self.enable_context_detection = enable_context_detection
+        """Initialize the Portuguese typography normalizer."""
         self.dialect = dialect
         # Keep the compatibility attribute used by callers and the G2P
         # alignment guard, but never use it for semantic expansion here.
-        self.abbrev_expander = (
-            get_shared_expander("pt", context=enable_context_detection)
-            if expand_abbreviations
-            else None
-        )
         super().__init__(track_changes=track_changes)
 
     def _initialize_rules(self) -> None:
@@ -146,11 +122,10 @@ class PortugueseNormalizer(TextNormalizer):
         before: str = "",
         after: str = "",
         apply_rules: bool = True,
-        expand_abbreviations: bool | None = None,
     ) -> str:
         """Normalize token typography without re-running Portuguese semantics."""
         if not text:
             return text
 
-        del before, after, expand_abbreviations
+        del before, after
         return self._apply_rules(text) if apply_rules else text

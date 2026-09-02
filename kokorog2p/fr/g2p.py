@@ -53,15 +53,11 @@ class FrenchG2P(G2PBase):
         use_cli: bool = False,
         use_spacy: bool = True,
         spacy_model: str | None = None,
-        expand_nums: bool = True,
-        expand_abbreviations: bool = True,
-        enable_context_detection: bool = True,
         unk: str = "?",
         load_silver: bool = True,
         load_gold: bool = True,
         lexicons: tuple[str, ...] | None = None,
         version: str = "1.0",
-        **kwargs,
     ) -> None:
         """Initialize the French G2P converter.
 
@@ -73,9 +69,6 @@ class FrenchG2P(G2PBase):
             use_spacy: Whether to use spaCy for tokenization and POS tagging.
             spacy_model: spaCy French model package to load when use_spacy=True
                 (e.g., "fr_core_news_sm", "fr_core_news_md", "fr_core_news_lg").
-            expand_nums: Whether to expand numbers to words.
-            expand_abbreviations: Whether to expand common abbreviations.
-            enable_context_detection: Context-aware abbreviation expansion.
             unk: Character to use for unknown words when fallback is disabled.
             load_silver: If True, load silver tier dictionary if available.
                 Currently French only has gold dictionary, so this parameter
@@ -112,14 +105,9 @@ class FrenchG2P(G2PBase):
             ).package
         self.use_spacy = use_spacy
         self.spacy_model = spacy_model
-        self.expand_nums = expand_nums
 
         # Initialize normalizer
-        self._normalizer = FrenchNormalizer(
-            expand_abbreviations=expand_abbreviations,
-            enable_context_detection=enable_context_detection,
-            expand_nums=expand_nums,
-        )
+        self._normalizer = FrenchNormalizer()
 
         # Initialize lexicon
         self.lexicon = FrenchLexicon(

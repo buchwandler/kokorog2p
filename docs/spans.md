@@ -132,47 +132,32 @@ class PhonemizeResult:
 
 ## Prepared phonemization
 
-When a caller has already run written-to-spoken preparation, use `phonemize_prepared()`
-rather than the written-text `phonemize()` entry point:
+`phonemize_prepared()` is the explicit core entry point. `phonemize()` remains a
+prepared-text compatibility spelling; neither entry point performs written-to-spoken
+semantic expansion:
 
 ```python
 from kokorog2p import phonemize_prepared
 
 result = phonemize_prepared(
-    prepared.spoken_text,
+    prepared_text,
     language="de",
     overrides=prepared_coordinate_overrides,
     return_phonemes=True,
     return_ids=True,
-)
+ )
 ```
 
-Prepared mode treats the supplied text as both `clean_text` and the offset coordinate
-space. It still performs tokenization, language/phoneme overrides, G2P/backend
-normalization, Kokoro model punctuation handling, and token-ID generation, but never
-invokes Spokenform or written-to-spoken abbreviation, number, date, unit, currency, or
-quantity expansion. Model punctuation normalization is distinct from semantic
-preparation and remains owned by kokorog2p.
-
-Do not call `phonemize_prepared()` with arbitrary written text if you expect semantic
-expansion; the caller owns that preparation step.
+The supplied prepared text remains the coordinate space for `clean_text`, tokens, and
+offsets. KokoroG2P performs tokenization, explicit language/phoneme overrides,
+G2P/backend normalization, punctuation handling, and token-ID generation. Semantic
+preparation is owned by the caller.
 
 ## Extended Text Layer
 
-Span alignment always uses `clean_text` offsets. When abbreviations or numbers are
-expanded for phonemization, the expanded form is stored on each token's `extended_text`
-and in `PhonemizeResult.extended_text`. This keeps character offsets stable while
-allowing the phonemizer to speak the expanded form.
-
-Example:
-
-```python
-text = "Meet Mr. Smith"
-result = phonemize(text)
-# TokenSpan(text="Mr.", extended_text="Mister", char_start=5, char_end=8, ...)
-# result.clean_text == "Meet Mr. Smith"
-# result.extended_text == "Meet Mister Smith"
-```
+`extended_text` is retained as a result field for compatibility and normally equals the
+prepared input. The core does not populate it with number, abbreviation, date, unit, or
+currency expansions.
 
 ## SSMD and phrasplit compatibility
 

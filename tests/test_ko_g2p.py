@@ -1,7 +1,6 @@
 """Tests for the Korean G2P module."""
 
 import pytest
-from spokenform import prepare_for_kokorog2p
 
 from kokorog2p.ko import KoreanG2P
 from kokorog2p.token import GToken
@@ -76,22 +75,19 @@ class TestKoreanG2P:
         assert len(tokens) > 0
         assert tokens[0].phonemes is not None
 
-    def test_idiom_replacement(self, g2p):
-        """Test idiom replacement (mp3 -> 엠피쓰리)."""
-        result = g2p.phonemize("mp3 파일")
-        # Should contain the converted form
+    def test_prepared_latin_and_korean_text(self, g2p):
+        """Latin semantic preparation is external to KoreanG2P."""
+        result = g2p.phonemize("엠피쓰리 파일")
         assert result is not None
 
-    def test_number_conversion(self, g2p):
-        """Test Arabic number to Korean spelling."""
-        result = g2p.phonemize("3개")
-        # Should spell out 3 as 세
+    def test_prepared_numeric_text(self, g2p):
+        """Numeric semantics are prepared outside KoreanG2P."""
+        result = g2p.phonemize("삼개")
         assert result is not None
 
-    def test_english_word_in_korean(self, g2p):
-        """Test English word conversion to Hangul."""
-        result = g2p.phonemize("좋은 game이야")
-        # Should convert 'game' to Hangul
+    def test_prepared_english_word_in_korean(self, g2p):
+        """English semantic preparation is external to KoreanG2P."""
+        result = g2p.phonemize("좋은 게임이야")
         assert result is not None
 
     def test_palatalization_rule(self, g2p):
@@ -130,27 +126,20 @@ class TestKoreanG2P:
         result = g2p.phonemize("놓고")
         assert result is not None
 
-    def test_sino_korean_number(self, g2p):
-        """Test Sino-Korean number spelling."""
-        result = g2p.phonemize("123")
+    def test_prepared_sino_korean_number(self, g2p):
+        result = g2p.phonemize("백이십삼")
         assert result is not None
 
-    def test_pure_korean_number_with_bound_noun(self, g2p):
-        """Test pure Korean number with bound noun."""
-        # 3개 should use pure Korean: 세개
-        result = g2p.phonemize("3개")
+    def test_prepared_pure_korean_number_with_bound_noun(self, g2p):
+        result = g2p.phonemize("세개")
         assert result is not None
 
-    def test_special_date_10월(self, g2p):
-        """Test special date pronunciation (10월 -> 시월)."""
-        result = g2p.phonemize("10월")
-        # Should be 시월 not 십월
+    def test_prepared_date_10월(self, g2p):
+        result = g2p.phonemize("시월")
         assert result is not None
 
-    def test_special_date_6월(self, g2p):
-        """Test special date pronunciation (6월 -> 유월)."""
-        result = g2p.phonemize("6월")
-        # Should be 유월 not 육월
+    def test_prepared_date_6월(self, g2p):
+        result = g2p.phonemize("유월")
         assert result is not None
 
     def test_ui_consonant_rule(self, g2p):
@@ -221,12 +210,9 @@ class TestKoreanG2P:
         result = g2p_custom.phonemize("테스트")
         assert result is not None
 
-    def test_mixed_korean_english_numbers(self, g2p):
-        """Test mixed Korean, English, and numbers."""
-        prepared = prepare_for_kokorog2p(
-            "나의 친구가 mp3 file 3개를 다운받고 있다", language="ko"
-        ).spoken_text
-        result = g2p.phonemize(prepared)
+    def test_mixed_prepared_korean_text(self, g2p):
+        """Mixed-language semantic preparation is external."""
+        result = g2p.phonemize("나의 친구가 엠피쓰리 파일 삼개를 다운받고 있다")
         assert result is not None
         assert len(result) > 0
 
@@ -241,18 +227,12 @@ class TestKoreanG2P:
         result = g2p.phonemize("스물^여덟")
         assert result is not None
 
-    def test_percentage_unit(self, g2p):
-        """Test % unit conversion."""
-        prepared = prepare_for_kokorog2p("50%", language="ko").spoken_text
-        result = g2p.phonemize(prepared)
-        # Should convert % to 퍼센트
+    def test_prepared_percentage_unit(self, g2p):
+        result = g2p.phonemize("오십 퍼센트")
         assert result is not None
 
-    def test_unit_conversion_km(self, g2p):
-        """Test km unit conversion."""
-        prepared = prepare_for_kokorog2p("5km", language="ko").spoken_text
-        result = g2p.phonemize(prepared)
-        # Should convert km to 킬로미터
+    def test_prepared_unit_km(self, g2p):
+        result = g2p.phonemize("오 킬로미터")
         assert result is not None
 
 

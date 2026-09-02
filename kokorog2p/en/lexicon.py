@@ -621,21 +621,6 @@ class Lexicon:
         return str(int(n)) if n == int(n) else c
 
     @staticmethod
-    def is_number(word: str, is_head: bool) -> bool:
-        """Check if word represents a number."""
-        if all(not c.isdigit() for c in word):
-            return False
-        suffixes = ("ing", "'d", "ed", "'s", *ORDINALS, "s")
-        for s in suffixes:
-            if word.endswith(s):
-                word = word[: -len(s)]
-                break
-        return all(
-            c.isdigit() or c in ",." or (is_head and i == 0 and c == "-")
-            for i, c in enumerate(word)
-        )
-
-    @staticmethod
     def normalize_greek(word: str) -> str:
         """Convert Greek letters to their English names.
 
@@ -690,45 +675,8 @@ class Lexicon:
         if ps is not None:
             return (apply_stress(ps, stress), rating)
 
-        # Check if it's a number and try number conversion
-        if self.is_number(word, True):
-            ps, rating = self._convert_number(word, None, True)
-            if ps is not None:
-                return (apply_stress(ps, stress), rating)
-
         # Check for valid characters
         if not all(ord(c) in LEXICON_ORDS for c in word):
             return (None, None)
 
         return (None, None)
-
-    def _convert_number(
-        self,
-        word: str,
-        currency: str | None,
-        is_head: bool,
-    ) -> tuple[str | None, int | None]:
-        """Convert a number to phonemes using num2words.
-
-        Args:
-            word: The number string.
-            currency: Optional currency symbol.
-            is_head: Whether this is the first word.
-
-        Returns:
-            Tuple of (phonemes, rating) or (None, None).
-        """
-        try:
-            from kokorog2p.en.numbers import NumberConverter
-
-            converter = NumberConverter(
-                lookup_fn=self.lookup,
-                stem_s_fn=self.stem_s,
-            )
-            return converter.convert(word, currency, is_head)
-        except ImportError:
-            # num2words not installed
-            return (None, None)
-        except Exception:
-            # Conversion failed
-            return (None, None)

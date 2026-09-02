@@ -7,7 +7,6 @@ used for phonemization.
 
 from typing import TYPE_CHECKING, Any
 
-from kokorog2p.abbreviation_utils import merge_abbreviation_tokens
 from kokorog2p.types import TokenAnnotation, TokenAnnotationLike, TokenSpan
 
 if TYPE_CHECKING:
@@ -158,33 +157,6 @@ def gtoken_to_tokenspan(
     )
 
 
-def _merge_abbreviation_tokens(
-    tokens: list[TokenSpan],
-    lang: str | None,
-    source_text: str,
-) -> list[TokenSpan]:
-    def is_break(prev: TokenSpan, current: TokenSpan, last_end: int) -> bool:
-        return current.char_start != last_end
-
-    def build_token(start: TokenSpan, end: TokenSpan, text: str) -> TokenSpan:
-        return TokenSpan(
-            text=text,
-            char_start=start.char_start,
-            char_end=end.char_end,
-            lang=start.lang,
-            extended_text=start.extended_text,
-            meta=start.meta,
-        )
-
-    return merge_abbreviation_tokens(
-        tokens,
-        lang,
-        is_break=is_break,
-        build_token=build_token,
-        source_text=source_text,
-    )
-
-
 def _infer_token_offsets(
     token_text: str,
     clean_text: str,
@@ -304,7 +276,7 @@ def tokenize_with_offsets(
             )
         )
 
-    return _merge_abbreviation_tokens(tokens, lang, text)
+    return tokens
 
 
 def gtokens_to_tokenspans(

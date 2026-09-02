@@ -1,11 +1,6 @@
-"""Czech G2P typography over semantics owned by spokenform."""
+"""Czech typography normalization for prepared text."""
 
 from collections.abc import Iterable, Iterator
-
-
-def get_shared_expander(*args: object, **kwargs: object) -> None:
-    del args, kwargs
-
 
 from kokorog2p.pipeline.normalizer import NormalizationRule, TextNormalizer
 from kokorog2p.types import TextReplacement
@@ -17,8 +12,6 @@ class CzechNormalizer(TextNormalizer):
     def __init__(
         self,
         track_changes: bool = False,
-        expand_abbreviations: bool = True,
-        enable_context_detection: bool = True,
     ) -> None:
         """Initialize the Czech downstream adapter.
 
@@ -26,13 +19,6 @@ class CzechNormalizer(TextNormalizer):
         temporarily toggle the historical compatibility surface. Semantic
         expansion itself is owned by the shared Spokenform preparation pipeline.
         """
-        self.expand_abbreviations = expand_abbreviations
-        self.enable_context_detection = enable_context_detection
-        self.abbrev_expander = (
-            get_shared_expander("cs", context=enable_context_detection)
-            if expand_abbreviations
-            else None
-        )
         super().__init__(track_changes=track_changes)
 
     def _initialize_rules(self) -> None:
@@ -160,11 +146,10 @@ class CzechNormalizer(TextNormalizer):
         before: str = "",
         after: str = "",
         apply_rules: bool = True,
-        expand_abbreviations: bool | None = None,
     ) -> str:
         """Normalize token typography without re-running Czech semantics."""
         if not text:
             return text
 
-        del before, after, expand_abbreviations
+        del before, after
         return self._apply_rules(text) if apply_rules else text

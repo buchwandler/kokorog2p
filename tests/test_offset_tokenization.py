@@ -1,7 +1,5 @@
 """Tests for offset-aware tokenization."""
 
-from kokorog2p import reset_abbreviations
-from kokorog2p.en.abbreviations import get_expander
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import (
     ensure_gtoken_positions,
@@ -41,24 +39,15 @@ class TestTokenizeWithOffsets:
         # Should keep "don't" as single token
         assert any(t.text == "don't" for t in tokens)
 
-    def test_abbreviation_preserved(self):
-        """Test abbreviations with periods are not split."""
-        tokens = tokenize_with_offsets("Hello Mr. Smith", lang="en-us")
-        assert [t.text for t in tokens] == ["Hello", "Mr.", "Smith"]
+    def test_dotted_words_have_exact_offsets(self):
+        """Dotted words are split deterministically in prepared coordinates."""
+        text = "Hello Mr. Smith"
+        tokens = tokenize_with_offsets(text, lang="en-us")
+        assert [t.text for t in tokens] == ["Hello", "Mr", ".", "Smith"]
         assert tokens[1].char_start == 6
-        assert tokens[1].char_end == 9
-
-    def test_abbreviation_update_reflects_in_tokenization(self):
-        """Custom abbreviations should merge without restarting."""
-        reset_abbreviations()
-        get_expander().add_custom_abbreviation("X.Y.", "Ex Why")
-
-        tokens = tokenize_with_offsets("X.Y.", lang="en-us")
-        assert [t.text for t in tokens] == ["X.Y."]
-        assert tokens[0].char_start == 0
-        assert tokens[0].char_end == 4
-
-        reset_abbreviations()
+        assert tokens[1].char_end == 8
+        assert tokens[2].char_start == 8
+        assert tokens[2].char_end == 9
 
     def test_duplicate_words(self):
         """Test that duplicate words get different offsets."""

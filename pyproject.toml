@@ -128,11 +128,8 @@ ko-benchmark = [
 he = [
     "phonikud"
 ]
-mixed = [
-    "lingua-language-detector>=2.0.0",
-]
 all = [
-    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,mixed,ar,th,ru,kk]"
+    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,ar,th,ru,kk]"
 ]
 dev = [
     "pytest>=7.0.0",
@@ -206,7 +203,6 @@ module = [
     "kokorog2p.ja.*",
     "kokorog2p.zh.*",
     "kokorog2p.ko.*",
-    "kokorog2p.de.numbers",
     "kokorog2p.goruut_g2p",
     "kokorog2p.backends.goruut.*",
     "kokorog2p.backends.espeak.wrapper",
@@ -217,7 +213,6 @@ module = [
     "kokorog2p.en.g2p",
     "kokorog2p.en.lexicon",
     "kokorog2p.words_mismatch",
-    "kokorog2p.multilang",
 ]
 ignore_errors = true
 

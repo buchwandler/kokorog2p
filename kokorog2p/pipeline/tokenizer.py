@@ -8,41 +8,7 @@ import re
 from abc import ABC, abstractmethod
 from typing import Any
 
-from kokorog2p.abbreviation_utils import merge_abbreviation_tokens
 from kokorog2p.pipeline.models import ProcessingToken
-
-
-def _merge_abbreviation_tokens(
-    tokens: list[ProcessingToken],
-    lang: str | None,
-    source_text: str,
-) -> list[ProcessingToken]:
-    def is_break(
-        prev: ProcessingToken, current: ProcessingToken, last_end: int
-    ) -> bool:
-        if prev.whitespace:
-            return True
-        return bool(current.char_start != last_end and current.char_start != 0)
-
-    def build_token(
-        start: ProcessingToken,
-        end: ProcessingToken,
-        text: str,
-    ) -> ProcessingToken:
-        return ProcessingToken(
-            text=text,
-            char_start=start.char_start,
-            char_end=end.char_end,
-            whitespace=end.whitespace,
-        )
-
-    return merge_abbreviation_tokens(
-        tokens,
-        lang,
-        is_break=is_break,
-        build_token=build_token,
-        source_text=source_text,
-    )
 
 
 class BaseTokenizer(ABC):
@@ -343,8 +309,6 @@ class RegexTokenizer(BaseTokenizer):
             )
 
             tokens.append(token)
-
-        tokens = _merge_abbreviation_tokens(tokens, self.lang, text)
 
         # Detect quote nesting
         self._detect_quote_depth(tokens, use_bracket_matching=self.use_bracket_matching)

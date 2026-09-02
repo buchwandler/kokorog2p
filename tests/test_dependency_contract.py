@@ -13,8 +13,16 @@ def test_core_dependency_contract() -> None:
     dependencies = data["project"]["dependencies"]
 
     assert "g2lex>=0.1.8,<0.2.0" in dependencies
+    semantic_packages = (
+        "spokenform",
+        "abbr2words",
+        "num2words",
+        "cn2an",
+        "lingua-language-detector",
+    )
     assert not any(
-        dependency.startswith(("spokenform", "abbr2words"))
+        dependency.split("=", 1)[0].split(">", 1)[0].split("<", 1)[0]
+        in semantic_packages
         for dependency in dependencies
     )
 

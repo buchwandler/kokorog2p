@@ -7,8 +7,6 @@ import warnings
 
 from jamo import h2j
 
-from .english import convert_eng
-from .numerals import convert_num
 from .regular import link1, link2, link4
 from .special import (
     balb,
@@ -24,7 +22,7 @@ from .special import (
     vowel_ui,
     ye,
 )
-from .utils import annotate, compose, get_rule_id2text, group, parse_table
+from .utils import annotate, compose, group, parse_table
 
 
 class _MecabKoAdapter:
@@ -49,35 +47,6 @@ class G2p:
             morphology=morphology, morphology_backend=morphology_backend
         )
         self.table = parse_table()
-        self._cmu = None
-
-        self.rule2text = get_rule_id2text()  # for comments of main rules
-
-        # Load idioms from Python data module
-        from .data.idioms import IDIOMS
-
-        self.idioms_list = IDIOMS
-
-    @property
-    def cmu(self):
-        """Load CMUdict on first English conversion without downloading it."""
-        if self._cmu is None:
-            try:
-                from nltk.corpus import cmudict
-
-                self._cmu = cmudict.dict()
-            except ImportError as exc:
-                raise LookupError(
-                    "NLTK CMUdict is required for Korean English conversion. "
-                    "Install it explicitly with: python -m pip install nltk "
-                    "then python -m nltk.downloader cmudict"
-                ) from exc
-            except LookupError as exc:
-                raise LookupError(
-                    "NLTK CMUdict is not installed. Install it explicitly with: "
-                    "python -m nltk.downloader cmudict"
-                ) from exc
-        return self._cmu
 
     def get_mecab(self, morphology="auto", morphology_backend="auto"):
         if morphology == "off":
@@ -116,24 +85,6 @@ class G2p:
         )
         return None
 
-    def idioms(self, string, descriptive=False, verbose=False):
-        """Process idioms from IDIOMS list.
-        Each tuple in IDIOMS contains (pattern, replacement).
-        inp: input string.
-        descriptive: not used.
-        verbose: boolean.
-
-        >>> idioms("지금 mp3 파일을 다운받고 있어요")
-        지금 엠피쓰리 파일을 다운받고 있어요
-        """
-        out = string
-
-        for str1, str2 in self.idioms_list:
-            out = re.sub(str1, str2, out)
-        # gloss(verbose, out, string, rule)
-
-        return out
-
     def __call__(
         self,
         string,
@@ -142,7 +93,6 @@ class G2p:
         group_vowels=False,
         to_syl=False,
         use_dict=True,
-        convert_numbers=True,
     ):
         """Main function
         string: input string
@@ -153,39 +103,11 @@ class G2p:
         to_syl: boolean. If True, hangul letters or jamo
         are assembled to form syllables.
 
-        For example, given an input string "나의 친구가 mp3 file 3개를 다운받고 있다",
-        STEP 1. idioms
-        -> 나의 친구가 엠피쓰리 file 3개를 다운받고 있다
-
-        STEP 2. English to Hangul
-        -> 나의 친구가 엠피쓰리 파일 3개를 다운받고 있다
-
-        STEP 3. annotate
-        -> 나의/J 친구가 엠피쓰리 파일 3개/B를 다운받고 있다
-
-        STEP 4. Spell out arabic numbers
-        -> 나의/J 친구가 엠피쓰리 파일 세개/B를 다운받고 있다
-
-        STEP 5. decompose
-        -> 나의/J 친구가 엠피쓰리 파일 세개/B를 다운받고 있다
-
-        STEP 6-9. Hangul
-        -> 나의 친구가 엠피쓰리 파일 세개를 다운받꼬 읻따
+        The caller must provide prepared, speakable text.
         """
-        # 1. idioms
-        string = self.idioms(string, descriptive, verbose)
-
-        # 2 English to Hangul
-        if re.search(r"[A-Za-z]", string):
-            string = convert_eng(string, self.cmu)
-
         # 3. annotate
         if use_dict and self.mecab is not None:
             string = annotate(string, self.mecab)
-
-        # 4. Spell out arabic numbers
-        if convert_numbers:
-            string = convert_num(string)
 
         # 5. decompose
         inp = h2j(string)

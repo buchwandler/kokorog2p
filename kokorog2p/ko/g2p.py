@@ -22,14 +22,9 @@ from .model_profile import KOKORO_V1_VOICE, encode_for_model
 class KoreanG2P(G2PBase):
     """Korean G2P using MeCab and Korean phonological rules.
 
-    This class converts Korean text to phonemes using:
-    1. Idiom/abbreviation replacement
-    2. English to Hangul conversion
-    3. MeCab POS tagging
-    4. Number spelling
-    5. Hangul decomposition
-    6. Phonological rules application
-    7. Jamo composition
+    This class applies MeCab POS tagging and intrinsic Korean phonological rules to
+    prepared text. Semantic normalization is owned by the caller.
+
 
     Example:
         >>> g2p = KoreanG2P()
@@ -158,7 +153,6 @@ class KoreanG2P(G2PBase):
             group_vowels=self.group_vowels,
             to_syl=self.to_syl,
             use_dict=self.use_dict,
-            convert_numbers=not getattr(self, "_kokorog2p_prepared_input", False),
         )
 
         # Convert jamo to IPA phonemes
@@ -197,7 +191,6 @@ class KoreanG2P(G2PBase):
             group_vowels=self.group_vowels,
             to_syl=self.to_syl,
             use_dict=self.use_dict,
-            convert_numbers=not getattr(self, "_kokorog2p_prepared_input", False),
         )
 
         # Convert to the requested linguistic or model representation
@@ -222,7 +215,6 @@ class KoreanG2P(G2PBase):
             group_vowels=self.group_vowels,
             to_syl=self.to_syl,
             use_dict=self.use_dict,
-            convert_numbers=not getattr(self, "_kokorog2p_prepared_input", False),
         )
 
         # Convert to the requested linguistic or model representation

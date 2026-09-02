@@ -443,26 +443,3 @@ class TestJapaneseG2P:
         g2p = get_g2p("ja", use_spacy=True, spacy_model="ja_core_news_lg")
         assert isinstance(g2p, JapaneseG2P)
         assert g2p.spacy_model is None
-
-
-def test_kazakh_distinctive_cyrillic_shortcut() -> None:
-    from kokorog2p.multilang import _detect_script_language
-
-    assert _detect_script_language("Сәлем", ["ru", "kk"]) == "kk"
-    assert _detect_script_language("Қазақстан", ["kk"]) == "kk"
-
-
-def test_generic_cyrillic_is_ambiguous_between_russian_and_kazakh() -> None:
-    from kokorog2p.multilang import _detect_script_language
-
-    assert _detect_script_language("Москва", ["ru", "kk"]) is None
-    assert _detect_script_language("Москва", ["ru"]) == "ru"
-    assert _detect_script_language("сөз", ["kk"]) == "kk"
-
-
-def test_lingua_maps_kazakh_when_available() -> None:
-    multilang = pytest.importorskip("kokorog2p.multilang")
-    if not multilang.LINGUA_AVAILABLE:
-        pytest.skip("lingua-language-detector is not installed")
-    assert multilang.KOKOROG2P_TO_LINGUA["kk"].name == "KAZAKH"
-    assert multilang.LINGUA_TO_KOKOROG2P[multilang.Language.KAZAKH] == "kk"
