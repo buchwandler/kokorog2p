@@ -137,6 +137,22 @@
       "phoneme_encoding": "none",
       "source_entry_count": 147571,
       "source_sha256": "f4a05f1b1473f4b3797e9149e472c9343d5ad43093cbce83fe01e96dacfae334"
+    },
+    "sv-se:nst": {
+      "asset_bytes": 10200756,
+      "asset_sha256": "40e823bd01333bb1e329d8d43ca99250b0b9c1c088138b23c2141520c041c329",
+      "attribution": "Joakim; NST Swedish pronunciation lexicon published in kokoro-sv-g2p",
+      "consumer_invalid_policy": "error",
+      "entry_count": 812343,
+      "generator": "g2lex 0.1.8",
+      "license_expression": "Apache-2.0",
+      "license_url": "https://www.apache.org/licenses/LICENSE-2.0",
+      "logical_sha256": "c583677e9ed2e60300924bca4a8514dfed0bbe3de05d7083024ab6901647c2da",
+      "phoneme_encoding": "ipa",
+      "revision": "d19dd10",
+      "source_entry_count": 812343,
+      "source_sha256": "65eb3aae9c737f6d04c22a44b2ab836d1ec01f682b1cdee07bb2209852355296",
+      "source_url": "https://huggingface.co/Joakim/kokoro-sv-g2p/blob/d19dd10/g2p/lexicon.tsv"
     }
   },
   "g2lex_version": "0.1.8",

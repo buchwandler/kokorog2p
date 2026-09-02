@@ -262,7 +262,7 @@ def build_de_crane_intermediate(
 
     lexicon = Lexicon(str(record["language"]).split("-", 1)[0])
     artifact = Path(lexicon.path)
-    artifact_id = "/".join(artifact.parts[-5:])
+    artifact_id = "/".join(artifact.parts[artifact.parts.index("datasets") + 1 :])
     lexhint_metadata = {
         "lexhint_language": str(record["language"]).split("-", 1)[0],
         "lexhint_artifact": artifact_id,

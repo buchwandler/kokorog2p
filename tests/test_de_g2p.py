@@ -4,8 +4,11 @@ from importlib.util import find_spec
 
 import pytest
 
+from kokorog2p import phonemize
+
 from kokorog2p.de import GermanG2P, GermanLexicon
 from kokorog2p.pipeline_api import phonemize_to_result
+from kokorog2p.vocab import validate_for_kokoro
 from kokorog2p.spacy_models import SpacyModelResolution, SpacyModelSize
 from kokorog2p.token import GToken
 from kokorog2p.types import OverrideSpan
@@ -93,6 +96,34 @@ class TestGermanG2P:
         ps = g2p.lookup("Haus")
         assert ps is not None
         assert isinstance(ps, str)
+
+    def test_tagged_lookup_normalizes_selected_source_pronunciation(self):
+        class TaggedLexicon:
+            def __init__(self):
+                self.tag = None
+                self.word = None
+
+            def lookup(self, word, tag=None):
+                self.word = word
+                self.tag = tag
+                return "aɪ̯"
+
+            def close(self):
+                pass
+
+        g2p = GermanG2P(
+            use_lexicon=False,
+            use_espeak_fallback=False,
+            use_goruut_fallback=False,
+        )
+        lexicon = TaggedLexicon()
+        g2p._lexicon = lexicon
+        try:
+            assert g2p.lookup("Test", "NN") == "I"
+            assert lexicon.word == "Test"
+            assert lexicon.tag == "NN"
+        finally:
+            g2p.close()
 
     def test_repr(self, g2p):
         """Test string representation."""
@@ -474,3 +505,57 @@ def test_german_strip_stress_then_explicit_stress():
         g2p.close()
 
     assert result == "ʦvˈI"
+
+@pytest.mark.parametrize("source", ["gold", "crane", "espeak", "olaph"])
+def test_named_german_lexicons_are_vocab_safe_with_token_ids(source):
+    text = "Haus fünf Zeit"
+    g2p = GermanG2P(
+        lexicons=(source,),
+        strip_stress=False,
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+    )
+    try:
+        result = phonemize(
+            text,
+            language="de",
+            g2p=g2p,
+            return_phonemes=True,
+            return_ids=True,
+        )
+    finally:
+        g2p.close()
+
+    assert result.token_ids
+    assert result.phonemes
+    assert validate_for_kokoro(result.phonemes) == (True, [])
+    assert not any(
+        warning.startswith("[VOCAB] invalid chars") for warning in result.warnings
+    )
+    assert all(char not in result.phonemes for char in "̩̯͡ʏ")
+
+
+@pytest.mark.parametrize("source", ["gold", "crane", "espeak", "olaph"])
+def test_named_german_lexicons_match_direct_and_public_pipeline(source):
+    text = "Haus fünf Zeit"
+    g2p = GermanG2P(
+        lexicons=(source,),
+        strip_stress=False,
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+    )
+    try:
+        direct = " ".join(
+            token.phonemes or "" for token in g2p(text) if token.phonemes
+        )
+        result = phonemize(
+            text,
+            language="de",
+            g2p=g2p,
+            return_phonemes=True,
+            return_ids=True,
+        )
+    finally:
+        g2p.close()
+
+    assert result.phonemes == direct

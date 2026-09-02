@@ -111,6 +111,21 @@ GENERATED_LEXICONS = (
         "attribution": "OLaPh (Optimal Language Phonemizer), IISYS Hof; source redistributed by cstr/g2p-dicts",  # noqa: E501
     },
     {
+        "id": "sv-se:nst",
+        "language": "sv-se",
+        "name": "nst",
+        "resource": "sv_nst.g2lex",
+        "kind": "pronunciation",
+        "case_aliases": False,
+        "phoneme_encoding": "ipa",
+        "provider": "Joakim/kokoro-sv-g2p",
+        "revision": "d19dd10",
+        "source_url": "https://huggingface.co/Joakim/kokoro-sv-g2p/blob/d19dd10/g2p/lexicon.tsv",
+        "license_expression": "Apache-2.0",
+        "license_url": "https://www.apache.org/licenses/LICENSE-2.0",
+        "attribution": "Joakim; NST Swedish pronunciation lexicon published in kokoro-sv-g2p",  # noqa: E501
+    },
+    {
         "id": "fr-fr:gold",
         "language": "fr-fr",
         "name": "gold",

@@ -30,6 +30,16 @@ def test_german_third_party_lexicons_are_opt_in_and_selectable() -> None:
     assert normalize_lexicon_selection("de", "olaph") == ("olaph",)
 
 
+def test_swedish_nst_is_opt_in_and_available_through_aliases() -> None:
+    assert available_lexicons("sv") == ("nst",)
+    assert available_lexicons("swedish") == ("nst",)
+    spec = get_lexicon_spec("sv-se", "nst")
+    assert spec.default_priority is None
+    assert spec.phoneme_encoding == "ipa"
+    assert normalize_lexicon_selection("sv", None) == ()
+    assert normalize_lexicon_selection("sv", "nst") == ("nst",)
+
+
 def test_registry_tier_metadata() -> None:
     assert get_lexicon_spec("en-us", "silver").rating == 3
 

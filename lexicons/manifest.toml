@@ -130,6 +130,26 @@ license_expression = "MIT"
 license_url = "https://opensource.org/license/mit/"
 attribution = "OLaPh (Optimal Language Phonemizer), IISYS Hof; source redistributed by cstr/g2p-dicts"
 
+
+[[lexicon]]
+id = "sv-se:nst"
+language = "sv-se"
+name = "nst"
+kind = "pronunciation"
+source = "lexicons/sources/sv/sv_nst.tsv"
+source_format = "tsv"
+asset = "kokorog2p/lexicons/data/sv_nst.g2lex"
+case_aliases = false
+phoneme_encoding = "ipa"
+source_sha256 = "65eb3aae9c737f6d04c22a44b2ab836d1ec01f682b1cdee07bb2209852355296"
+source_size = 38008908
+provider = "Joakim/kokoro-sv-g2p"
+revision = "d19dd10"
+source_url = "https://huggingface.co/Joakim/kokoro-sv-g2p/blob/d19dd10/g2p/lexicon.tsv"
+license_expression = "Apache-2.0"
+license_url = "https://www.apache.org/licenses/LICENSE-2.0"
+attribution = "Joakim; NST Swedish pronunciation lexicon published in kokoro-sv-g2p"
+
 [[lexicon]]
 id = "fr-fr:gold"
 language = "fr-fr"

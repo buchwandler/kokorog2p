@@ -484,6 +484,17 @@ class GermanG2P(G2PBase):
             )
         return self._spacy_tokenizer
 
+
+    def _decode_lexicon_pronunciation(self, phonemes: str) -> str | None:
+        """Normalize a raw lexicon pronunciation for the target vocabulary."""
+        normalized = normalize_internal(
+            phonemes,
+            use_tie_replacement=True,
+            vocabulary=self._vocabulary,
+        )
+        if not normalized.valid:
+            return None
+        return normalized.value
     def __call__(self, text: str) -> list[GToken]:
         """Convert text to a list of tokens with phonemes.
 
@@ -521,21 +532,19 @@ class GermanG2P(G2PBase):
             # Try lexicon first
             phonemes = None
             if self._lexicon:
-                phonemes = self._lexicon.lookup(word, token.tag)
+                raw_phonemes = self._lexicon.lookup(word, token.tag)
+                phonemes = (
+                    self._decode_lexicon_pronunciation(raw_phonemes)
+                    if raw_phonemes
+                    else None
+                )
                 if phonemes:
-                    normalized = normalize_internal(
-                        phonemes,
-                        use_tie_replacement=True,
-                        vocabulary=self._vocabulary,
-                    )
-                    if normalized.valid:
-                        phonemes = normalized.value
-                        token.phonemes = phonemes
-                        token.set("rating", 5)  # Dictionary lookup = highest rating
-                    else:
-                        # An invalid first source variant is a failed hit; never
-                        # let it suppress fallback or become an empty success.
-                        phonemes = None
+                    token.phonemes = phonemes
+                    token.set("rating", 5)  # Dictionary lookup = highest rating
+                else:
+                    # An invalid first source variant is a failed hit; never
+                    # let it suppress fallback or become an empty success.
+                    phonemes = None
 
             # Fallback to espeak or goruut
             if not phonemes and self._fallback:
@@ -873,14 +882,17 @@ class GermanG2P(G2PBase):
 
         Args:
             word: The word to look up.
-            tag: Optional POS tag (not used for German).
+            The optional POS tag is forwarded to the source lexicon.
 
         Returns:
-            Phoneme string if found, None otherwise.
+            Target-ready phoneme string if found and valid, None otherwise.
         """
-        if self._lexicon:
-            return self._lexicon.lookup(word)
-        return None
+        if self._lexicon is None:
+            return None
+        raw_phonemes = self._lexicon.lookup(word, tag)
+        if raw_phonemes is None:
+            return None
+        return self._decode_lexicon_pronunciation(raw_phonemes)
 
     def phonemize(self, text: str) -> str:
         """Convert text to a phoneme string.

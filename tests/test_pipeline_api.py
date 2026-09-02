@@ -1291,3 +1291,38 @@ def test_custom_stress_span_metadata_is_preserved():
 
     assert result.tokens[0].meta["custom"] == "kept"
     assert result.tokens[0].meta["stress"] == "+2"
+
+def test_invalid_tagged_lookup_keeps_mapped_phonemes():
+    from kokorog2p.de import GermanG2P
+
+    class BadLexicon:
+        def lookup(self, word, tag=None):
+            return "§"
+
+        def close(self):
+            pass
+
+    g2p = GermanG2P(
+        use_lexicon=False,
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+    )
+    g2p._lexicon = BadLexicon()
+    token_spans = [TokenSpan("Haus", 0, 4, meta={"tag": "NN"})]
+    g2p_token_spans = [
+        TokenSpan(
+            "Haus",
+            0,
+            4,
+            meta={"phonemes": "hWs", "tag": "NN", "whitespace": ""},
+        )
+    ]
+    try:
+        mapped, warnings, _ = _phonemize_token_spans(
+            token_spans, g2p_token_spans, g2p, "de"
+        )
+    finally:
+        g2p.close()
+
+    assert warnings == []
+    assert mapped[0].meta["phonemes"] == "hWs"

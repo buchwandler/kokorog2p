@@ -57,6 +57,9 @@ _LANGUAGE_ALIASES = {
     "ja": "ja-jp",
     "jpn": "ja-jp",
     "japanese": "ja-jp",
+    "sv": "sv-se",
+    "swe": "sv-se",
+    "swedish": "sv-se",
 }
 
 

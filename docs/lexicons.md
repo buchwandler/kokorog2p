@@ -53,3 +53,20 @@ is excluded, including the large CSTR dictionaries. Provenance and license notic
 remain included for redistributed third-party assets. See
 `lexicons/sources/de/PROVENANCE.md` for exact revisions, hashes, import policies, and
 attribution.
+
+## Swedish NST lexicon
+
+The Swedish NST pronunciation lexicon is shipped as an opt-in G2Lex asset:
+
+```python
+from kokorog2p import available_lexicons
+from kokorog2p.lexicons.runtime import open_selected
+
+available_lexicons("sv")  # ("nst",)
+with open_selected("sv", ("nst",)) as lexicons:
+    pronunciation = lexicons.get_hit("hej").value
+```
+
+The `sv-se:nst` asset is generated from the Apache-2.0 source published at the pinned
+`d19dd10` revision of `Joakim/kokoro-sv-g2p`. The native Swedish rule-based frontend
+remains the default and does not load this asset implicitly.
