@@ -88,6 +88,7 @@ zh = [
 th = [
     "tltk>=1.10,<2",
     "pythainlp>=5.3,<6",
+    "scikit-learn>=1.5.2",
     "kokorog2p[espeak]",
 ]
 ru = [

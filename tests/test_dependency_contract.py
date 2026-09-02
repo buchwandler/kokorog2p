@@ -34,6 +34,7 @@ def test_thai_dependency_extra_is_optional() -> None:
     assert extras["th"] == [
         "tltk>=1.10,<2",
         "pythainlp>=5.3,<6",
+        "scikit-learn>=1.5.2",
         "kokorog2p[espeak]",
     ]
     assert "th" in extras["all"][-1]
