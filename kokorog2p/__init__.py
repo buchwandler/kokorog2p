@@ -375,7 +375,7 @@ def _stable_repr(value: Any) -> object:
 
 
 def get_g2p(  # noqa: C901
-    language: str = "en-us",
+    language: str,
     use_espeak_fallback: bool | None = None,
     use_goruut_fallback: bool = False,
     use_cli: bool = False,
@@ -815,8 +815,7 @@ def get_g2p(  # noqa: C901
 
 def phonemize(
     text: str,
-    language: str = "en-us",
-    *,
+    language: str,
     overrides: Sequence[OverrideSpanLike] | None = None,
     annotations: Sequence[TokenAnnotationLike] | None = None,
     return_ids: bool = True,
@@ -943,19 +942,19 @@ def phonemize(
 
         Token IDs (model-ready):
 
-        >>> phonemize("Hello world!").token_ids
+        >>> phonemize("Hello world!", language="en-us").token_ids
         [ ... ]
 
         Reusing a cached G2P instance:
 
         >>> g2p = get_g2p(language="en-us")
-        >>> phonemize("Hello world!", g2p=g2p).phonemes
+        >>> phonemize("Hello world!", language="en-us", g2p=g2p).phonemes
         'h…'
 
         Full traceable result (tokens + warnings):
 
         >>> span = [OverrideSpan(6, 10, {"lang": "de"})]
-        >>> r = phonemize("Hello Welt!", overrides=span)
+        >>> r = phonemize("Hello Welt!", language="en-us", overrides=span)
         >>> r.tokens[1].lang
         'de'
     """
@@ -1003,8 +1002,7 @@ def phonemize(
 
 def phonemize_prepared(
     text: str,
-    language: str = "en-us",
-    *,
+    language: str,
     overrides: Sequence[OverrideSpanLike] | None = None,
     annotations: Sequence[TokenAnnotationLike] | None = None,
     return_ids: bool = True,
@@ -1092,8 +1090,7 @@ def phoneme_ids(*args: Any, **kwargs: Any) -> list[int]:
 
 def tokenize(
     text: str,
-    language: str = "en-us",
-    *,
+    language: str,
     keep_punct: bool = True,
 ) -> list[TokenSpan]:
     """Convert text to a list of tokens with phonemes.

@@ -343,7 +343,7 @@ def _align_tokens_to_normalized_text(
 def phonemize_to_result(
     clean_text: str,
     *,
-    lang: str | None = None,
+    lang: str,
     overrides: Sequence[OverrideSpanLike] | None = None,
     annotations: Sequence[TokenAnnotationLike] | None = None,
     return_ids: bool = True,
@@ -366,7 +366,7 @@ def phonemize_to_result(
 
     Args:
         clean_text: Clean text (no markup) to phonemize.
-        lang: Language code (e.g., 'en-us', 'de', 'fr'). Default: 'en-us'.
+        lang: Explicit language code (e.g., 'en-us', 'de', 'fr').
         overrides: Optional list of OverrideSpan to apply.
         return_ids: Whether to return token IDs in result.
         return_phonemes: Whether to return phoneme string in result.
@@ -409,7 +409,6 @@ def phonemize_to_result(
     """
     from kokorog2p import get_g2p
 
-    lang = lang or "en-us"
     warnings: list[str] = []
     result_clean_text = clean_text
 

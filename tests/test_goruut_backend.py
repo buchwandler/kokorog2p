@@ -233,7 +233,7 @@ class TestMainAPIWithGoruutBackend:
         """Test phonemize function with goruut backend."""
         from kokorog2p import phonemize
 
-        result = phonemize("Hello world", backend="goruut")
+        result = phonemize("Hello world", backend="goruut", language="en-us")
         assert isinstance(result.phonemes, str)
         assert result  # Non-empty
 

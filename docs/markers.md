@@ -236,7 +236,7 @@ clean_text, ranges, _ = parse_delimited(text)
 assignments = {1: {"ph": "pɪˈkɑːn"}}
 overrides = apply_marker_overrides(clean_text, ranges, assignments)
 
-result = phonemize(clean_text, overrides=overrides)
+result = phonemize(clean_text, language="en-us", overrides=overrides)
 # "pecan" pronounced as /pɪˈkɑːn/
 ```
 
@@ -305,7 +305,7 @@ assignments = {
     2: {"ph": "ði"},  # Second "the" (emphasized)
 }
 overrides = apply_marker_overrides(clean_text, ranges, assignments)
-result = phonemize(clean_text, overrides=overrides)
+result = phonemize(clean_text, language="en-us", overrides=overrides)
 ```
 
 ### Multi-Word Spans
@@ -364,7 +364,7 @@ for warning in warnings:
 text = "I like @coffee@."
 clean_text, ranges, _ = parse_delimited(text)
 overrides = apply_marker_overrides(clean_text, ranges, {1: {"ph": "ˈkɔfi"}})
-result = phonemize(clean_text, overrides=overrides)
+result = phonemize(clean_text, language="en-us", overrides=overrides)
 ```
 
 ### Direct Spans (More Control)
@@ -372,7 +372,7 @@ result = phonemize(clean_text, overrides=overrides)
 ```python
 text = "I like coffee."
 overrides = [OverrideSpan(7, 13, {"ph": "ˈkɔfi"})]
-result = phonemize(text, overrides=overrides)
+result = phonemize(text, language="en-us", overrides=overrides)
 ```
 
 **When to Use Markers:**

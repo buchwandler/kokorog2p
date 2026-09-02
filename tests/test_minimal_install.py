@@ -25,6 +25,7 @@ def test_core_phonemize_works_without_spacy_model(monkeypatch):
         use_espeak_fallback=False,
         load_gold=False,
         load_silver=False,
+        language="en-us",
     )
 
     assert result.clean_text == "Hello"

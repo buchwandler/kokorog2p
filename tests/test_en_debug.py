@@ -237,7 +237,7 @@ class TestDebugRenderOutput:
     @pytest.fixture
     def g2p(self):
         """Create an EnglishG2P instance."""
-        return EnglishG2P(use_spacy=False, fallback=None)
+        return EnglishG2P(use_spacy=False, use_espeak_fallback=False)
 
     def test_render_includes_section_headers(self, g2p):
         """Test that render output includes clear section headers."""

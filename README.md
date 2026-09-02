@@ -111,9 +111,29 @@ language-specific frontends. See [Language support](docs/languages.md).
 - [Span guide](docs/spans.md)
 - [Advanced usage](docs/advanced.md)
 
-For the `0.8.x -> 0.9.0` migration, remove `input_mode`, `migrated_semantics`, semantic
-expansion flags, and abbreviation-registry calls. Prepare text before calling the core
-API.
+## Migration from 0.8.x
+
+In 0.8.x, callers could pass written text directly to the main API:
+
+```python
+result = phonemize("Meet Dr. Smith at 2 kg.")
+```
+
+In 0.9.0, prepare written semantics in the owning application and pass the result with
+an explicit language:
+
+```python
+from spokenform import prepare_for_kokorog2p
+from kokorog2p import phonemize_prepared
+
+prepared = prepare_for_kokorog2p(
+    "Meet Dr. Smith at 2 kg.", language="en"
+).spoken_text
+result = phonemize_prepared(prepared, language="en-us")
+```
+
+Remove `input_mode`, `migrated_semantics`, semantic expansion flags, and
+abbreviation-registry calls.
 
 ## Development
 

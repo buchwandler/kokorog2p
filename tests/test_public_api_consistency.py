@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 import pytest
 
+import kokorog2p
 from kokorog2p import get_g2p, phonemize, phonemize_prepared, tokenize
 from kokorog2p.types import PhonemizeResult, TokenSpan
 
@@ -23,6 +24,36 @@ phonemes: Callable[..., str] | None
 phoneme_ids: Callable[..., list[int]] | None
 phonemize_to_result: Callable[..., PhonemizeResult] | None
 tokenize_with_offsets: Callable[..., list[TokenSpan]] | None
+
+
+def test_public_prepared_apis_require_language():
+    with pytest.raises(TypeError):
+        phonemize("hello")
+    with pytest.raises(TypeError):
+        phonemize_prepared("hello")
+    with pytest.raises(TypeError):
+        tokenize("hello")
+
+
+def test_get_g2p_requires_language():
+    with pytest.raises(TypeError):
+        get_g2p()
+
+
+def test_public_api_excludes_removed_semantic_names():
+    prohibited = {
+        "preprocess_multilang",
+        "reset_abbreviations",
+        "prepare_for_kokorog2p",
+        "number_to_french",
+        "expand_numbers",
+        "expand_currency",
+        "expand_time",
+        "process_num",
+        "convert_num",
+    }
+    assert prohibited.isdisjoint(set(kokorog2p.__all__))
+    assert not hasattr(kokorog2p, "reset_abbreviations")
 
 
 def test_phonemize_returns_result_shape():
@@ -54,10 +85,10 @@ def test_phonemize_prepared_returns_result_shape():
 
 def test_phonemize_prepared_return_flags_match_phonemize():
     phonemes_only = phonemize_prepared(
-        "Hello world!", return_ids=False, return_phonemes=True
+        "Hello world!", return_ids=False, return_phonemes=True, language="en-us"
     )
     ids_only = phonemize_prepared(
-        "Hello world!", return_ids=True, return_phonemes=False
+        "Hello world!", return_ids=True, return_phonemes=False, language="en-us"
     )
 
     assert phonemes_only.phonemes
@@ -118,10 +149,10 @@ def test_phoneme_ids_wrapper_matches_result():
 
 def test_phonemize():
     text = "Hello . . . world!"
-    result = phonemize(text, alignment="span")
+    result = phonemize(text, alignment="span", language="en-us")
     assert result.clean_text == text
     assert "..." in result.phonemes or "…" in result.phonemes
-    result = phonemize(text, alignment="legacy")
+    result = phonemize(text, alignment="legacy", language="en-us")
     assert result.clean_text == text
     assert "..." in result.phonemes or "…" in result.phonemes
 

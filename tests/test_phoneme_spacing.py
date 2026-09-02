@@ -28,7 +28,7 @@ class TestPhonemeSpacing:
         if request.param == "english_g2p":
             return g2p.phonemize
 
-        return lambda text: phonemize(text, g2p=g2p).phonemes or ""
+        return lambda text: phonemize(text, g2p=g2p, language="en-us").phonemes or ""
 
     def test_double_quotes_no_extra_spaces(self, phonemizer):
         """Double quotes should not have extra spaces around them."""

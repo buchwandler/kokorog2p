@@ -29,7 +29,7 @@ def phonemize_with_mode(
         )
     if mode == "g2p":
         return g2p.phonemize(text)
-    return phonemize_to_result(text, g2p=g2p).phonemes or ""
+    return phonemize_to_result(text, g2p=g2p, lang="en-us").phonemes or ""
 
 
 @pytest.fixture(params=["g2p", "pipeline"])

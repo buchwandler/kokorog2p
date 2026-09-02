@@ -43,6 +43,10 @@ text. It retains kokorog2p tokenization, G2P, model punctuation handling, overri
 phoneme construction, and token IDs, but does not run written-to-spoken semantic
 expansion again.
 
+All canonical public entry points require the language to be supplied explicitly.
+`phonemize`, `phonemize_prepared`, and `tokenize` require `language=...`; the
+convenience wrappers `phonemes` and `phoneme_ids` follow the same rule.
+
 ```{eval-rst}
 .. autofunction:: kokorog2p.phonemize_prepared
 ```
@@ -61,10 +65,6 @@ currency, or abbreviation expansion is expected.
 
 ```{eval-rst}
 .. autofunction:: kokorog2p.clear_cache
-```
-
-```{eval-rst}
-.. autofunction:: kokorog2p.reset_abbreviations
 ```
 
 ## Pipeline integration adapters

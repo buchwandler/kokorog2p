@@ -17,7 +17,7 @@ def phonemize_with_backend(
 ) -> str:
     if backend == "g2p":
         return g2p.phonemize(text)
-    return phonemize_to_result(text, g2p=g2p).phonemes or ""
+    return phonemize_to_result(text, g2p=g2p, lang="en-us").phonemes or ""
 
 
 @pytest.fixture(params=["g2p", "pipeline"])
@@ -569,7 +569,9 @@ class TestMainAPI:
         """Test phonemize convenience function."""
         from kokorog2p import phonemize
 
-        result = phonemize("hello", use_espeak_fallback=False, use_spacy=False)
+        result = phonemize(
+            "hello", use_espeak_fallback=False, use_spacy=False, language="en-us"
+        )
         assert isinstance(result.phonemes, str)
         assert len(result.phonemes) > 0
 
@@ -582,6 +584,7 @@ class TestMainAPI:
             use_espeak_fallback=False,
             use_spacy=False,
             spacy_model="en_core_web_sm",
+            language="en-us",
         )
         assert isinstance(result.phonemes, str)
         assert len(result.phonemes) > 0
@@ -590,7 +593,7 @@ class TestMainAPI:
         """Test tokenize convenience function."""
         from kokorog2p import TokenSpan, tokenize
 
-        tokens = tokenize("hello world")
+        tokens = tokenize("hello world", language="en-us")
         assert isinstance(tokens, list)
         assert all(isinstance(t, TokenSpan) for t in tokens)
 

@@ -396,7 +396,7 @@ overrides = [
     OverrideSpan(0, 4, {"ph": "ɹˈEd"}),  # "read" as past tense
 ]
 
-result = phonemize(text, overrides=overrides)
+result = phonemize(text, language="en-us", overrides=overrides)
 # Uses provided phonemes for "read" instead of G2P lookup
 ```
 
@@ -421,7 +421,7 @@ overrides = [
     })
 ]
 
-result = phonemize(text, overrides=overrides)
+result = phonemize(text, language="en-us", overrides=overrides)
 # Custom attributes stored in token.meta
 for token in result.tokens:
     print(token.meta)  # {"ph": "həlˈO", "speaker": "male", "emphasis": "strong", ...}
@@ -435,10 +435,10 @@ Always use span-based alignment unless you have a specific reason to use legacy 
 
 ```python
 # ✅ Good
-result = phonemize(text, overrides=overrides)
+result = phonemize(text, language="en-us", overrides=overrides)
 
 # ❌ Avoid (unless backward compatibility required)
-result = phonemize(text, overrides=overrides, alignment="legacy")
+result = phonemize(text, language="en-us", overrides=overrides, alignment="legacy")
 ```
 
 ### 2. Compute Offsets from Clean Text
@@ -479,7 +479,7 @@ for tok in tokens:
 Always inspect `result.warnings` to catch alignment issues:
 
 ```python
-result = phonemize(text, overrides=overrides)
+result = phonemize(text, language="en-us", overrides=overrides)
 
 if result.warnings:
     print("Alignment warnings:")
@@ -498,7 +498,7 @@ overrides = [
     OverrideSpan(0, 3, {"ph": "ðə"}),    # First "the"
     OverrideSpan(12, 15, {"ph": "ði"}),  # Second "the"
 ]
-result = phonemize(text, overrides=overrides)
+result = phonemize(text, language="en-us", overrides=overrides)
 assert len(result.warnings) == 0
 ```
 
@@ -550,11 +550,11 @@ overrides = [
     OverrideSpan(0, 3, {"ph": "ðə"}),
     OverrideSpan(8, 11, {"ph": "ði"}),
 ]
-result = phonemize(text, overrides=overrides, alignment="legacy")
+result = phonemize(text, language="en-us", overrides=overrides, alignment="legacy")
 # Both overrides apply to first "the" only!
 
 # RIGHT: Use span alignment (default)
-result = phonemize(text, overrides=overrides)
+result = phonemize(text, language="en-us", overrides=overrides)
 # Correctly applies to each "the" instance
 ```
 

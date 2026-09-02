@@ -197,6 +197,7 @@ def test_installed_phrasplit_and_ssmd_pipeline_uses_clean_text_coordinates():
                     segment.char_start, segment.char_end, overrides
                 ),
                 use_spacy=None,
+                language="en-us",
             )
         )
 
