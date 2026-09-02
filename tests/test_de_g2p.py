@@ -5,13 +5,12 @@ from importlib.util import find_spec
 import pytest
 
 from kokorog2p import phonemize
-
 from kokorog2p.de import GermanG2P, GermanLexicon
 from kokorog2p.pipeline_api import phonemize_to_result
-from kokorog2p.vocab import validate_for_kokoro
 from kokorog2p.spacy_models import SpacyModelResolution, SpacyModelSize
 from kokorog2p.token import GToken
 from kokorog2p.types import OverrideSpan
+from kokorog2p.vocab import validate_for_kokoro
 
 
 @pytest.fixture(scope="module")
@@ -506,6 +505,7 @@ def test_german_strip_stress_then_explicit_stress():
 
     assert result == "ʦvˈI"
 
+
 @pytest.mark.parametrize("source", ["gold", "crane", "espeak", "olaph"])
 def test_named_german_lexicons_are_vocab_safe_with_token_ids(source):
     text = "Haus fünf Zeit"
@@ -545,9 +545,7 @@ def test_named_german_lexicons_match_direct_and_public_pipeline(source):
         use_goruut_fallback=False,
     )
     try:
-        direct = " ".join(
-            token.phonemes or "" for token in g2p(text) if token.phonemes
-        )
+        direct = " ".join(token.phonemes or "" for token in g2p(text) if token.phonemes)
         result = phonemize(
             text,
             language="de",

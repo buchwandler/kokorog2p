@@ -1292,6 +1292,7 @@ def test_custom_stress_span_metadata_is_preserved():
     assert result.tokens[0].meta["custom"] == "kept"
     assert result.tokens[0].meta["stress"] == "+2"
 
+
 def test_invalid_tagged_lookup_keeps_mapped_phonemes():
     from kokorog2p.de import GermanG2P
 

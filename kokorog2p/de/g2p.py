@@ -484,7 +484,6 @@ class GermanG2P(G2PBase):
             )
         return self._spacy_tokenizer
 
-
     def _decode_lexicon_pronunciation(self, phonemes: str) -> str | None:
         """Normalize a raw lexicon pronunciation for the target vocabulary."""
         normalized = normalize_internal(
@@ -495,6 +494,7 @@ class GermanG2P(G2PBase):
         if not normalized.valid:
             return None
         return normalized.value
+
     def __call__(self, text: str) -> list[GToken]:
         """Convert text to a list of tokens with phonemes.
 
