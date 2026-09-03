@@ -9,8 +9,10 @@ Licensed under the Apache License, Version 2.0
 
 import logging
 import re
+from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
 from kokorog2p.backends.espeak.cli_wrapper import CliPhonemizer
 from kokorog2p.backends.espeak.phonemizer_base import EspeakPhonemizerBase
@@ -18,6 +20,18 @@ from kokorog2p.backends.espeak.wrapper import Phonemizer
 from kokorog2p.phonemes import from_espeak
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class EspeakBackendInfo:
+    """Stable, non-initializing description of the selected eSpeak backend."""
+
+    implementation: Literal["native", "cli", "uninitialized"]
+    executable: str | None
+    library_path: str | None
+    data_path: str | None
+    native_error_type: str | None
+    native_error: str | None
 
 
 class EspeakBackend:
@@ -57,6 +71,8 @@ class EspeakBackend:
         self.data_path = Path(data_path) if data_path is not None else None
         self._phonemizer: EspeakPhonemizerBase | None = None
 
+        self._native_error: Exception | None = None
+
     @property
     def wrapper(self) -> EspeakPhonemizerBase:
         """Get the underlying Phonemizer instance (lazy initialization)."""
@@ -64,7 +80,14 @@ class EspeakBackend:
             try:
                 self._phonemizer = Phonemizer(data_path=self.data_path)
                 self._phonemizer.set_voice(self.language)
-            except Exception:
+            except Exception as exc:
+                self._native_error = exc
+                logger.debug(
+                    "native eSpeak backend initialization failed "
+                    "(%s: %s); using CLI backend",
+                    type(exc).__name__,
+                    exc,
+                )
                 self._phonemizer = CliPhonemizer(
                     language=self.language, tie_char=self.tie, data_path=self.data_path
                 )
@@ -75,14 +98,57 @@ class EspeakBackend:
         if self._phonemizer is not None and self._phonemizer.voice is None:
             try:
                 self._phonemizer.set_voice(self.language)
-            except Exception:
+            except Exception as exc:
                 if not isinstance(self._phonemizer, CliPhonemizer):
+                    self._native_error = exc
+                    logger.debug(
+                        "native eSpeak voice selection failed "
+                        "(%s: %s); using CLI backend",
+                        type(exc).__name__,
+                        exc,
+                    )
                     self._phonemizer = CliPhonemizer(
                         language=self.language,
                         tie_char=self.tie,
                         data_path=self.data_path,
                     )
         return cast(EspeakPhonemizerBase, self._phonemizer)
+
+    @property
+    def native_error(self) -> Exception | None:
+        """Return the native setup error that caused an automatic CLI downgrade."""
+        return self._native_error
+
+    @property
+    def info(self) -> EspeakBackendInfo:
+        """Return backend metadata without resolving the lazy wrapper."""
+        wrapper = self._phonemizer
+        if wrapper is None:
+            implementation: Literal["native", "cli", "uninitialized"] = "uninitialized"
+        elif isinstance(wrapper, CliPhonemizer):
+            implementation = "cli"
+        else:
+            implementation = "native"
+        executable = (
+            getattr(wrapper, "executable", None) if implementation == "cli" else None
+        )
+        library_path = None
+        if implementation == "native":
+            path = getattr(wrapper, "library_path", None)
+            library_path = str(path) if path is not None else None
+        error = self._native_error
+        return EspeakBackendInfo(
+            implementation=implementation,
+            executable=str(executable) if executable is not None else None,
+            library_path=library_path,
+            data_path=str(self.data_path) if self.data_path is not None else None,
+            native_error_type=type(error).__name__ if error is not None else None,
+            native_error=str(error) if error is not None else None,
+        )
+
+    def diagnostics(self) -> EspeakBackendInfo:
+        """Compatibility method returning :attr:`info`."""
+        return self.info
 
     @property
     def is_british(self) -> bool:
@@ -204,6 +270,18 @@ class EspeakBackend:
             List of phoneme strings.
         """
         return [self.phonemize(text, convert_to_kokoro) for text in texts]
+
+    def phonemize_many(
+        self,
+        texts: Sequence[str],
+        convert_to_kokoro: bool = True,
+    ) -> list[str]:
+        """Convert independently framed texts while reusing one eSpeak backend."""
+        use_tie = self.tie == "^"
+        raw_results = self.wrapper.phonemize_many(texts, use_tie=use_tie)
+        if not convert_to_kokoro:
+            return raw_results
+        return [from_espeak(raw, british=self.is_british) for raw in raw_results]
 
     def word_phonemes(
         self,

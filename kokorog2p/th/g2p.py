@@ -64,13 +64,21 @@ class ThaiG2P(G2PBase):
         self.version = "1.0"
         self.latin_fallback = latin_fallback
         self._normalizer = ThaiNormalizer()
-        self._engine = engine or ThaiEngine(strict=strict)
+        self._engine = engine
+        self._engine_strict = strict
         self._english_g2p: G2PBase | None = None
         self.warnings: list[str] = []
 
     def get_target_model(self) -> str:
         """Return the model profile required for Thai token IDs."""
         return TARGET_MODEL
+
+    @property
+    def engine(self) -> ThaiEngine:
+        """Lazily construct the default Thai engine on first Thai use."""
+        if self._engine is None:
+            self._engine = ThaiEngine(strict=self._engine_strict)
+        return self._engine
 
     @property
     def english_g2p(self) -> G2PBase | None:
@@ -156,7 +164,7 @@ class ThaiG2P(G2PBase):
             if getattr(self, "_kokorog2p_prepared_input", False)
             else self._normalizer.normalize(source)
         )
-        result: EngineResult = self._engine.pronounce_thai_chunk(normalized)
+        result: EngineResult = self.engine.pronounce_thai_chunk(normalized)
         phonemes = result.phonemes
         valid, invalid = validate_output(phonemes)
         warnings = list(result.warnings)

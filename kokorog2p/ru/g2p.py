@@ -75,17 +75,27 @@ class RussianG2P(G2PBase):
         self.strict_stress = strict_stress
         self.espeak_data = espeak_data
         self._accentuator_spec = accentuator
-        self._accentuator = make_accentuator(
-            accentuator,
-            model_size=omograph_model_size,
-            use_stress_dictionary=use_stress_dictionary,
-            strict=strict,
-        )
+        self._accentuator_model_size = omograph_model_size
+        self._use_stress_dictionary = use_stress_dictionary
+        if isinstance(accentuator, str):
+            self._accentuator = None
+            self._accentuator_initialized = False
+        else:
+            self._accentuator = accentuator
+            self._accentuator_initialized = True
         self._engine = engine
         self.warnings: list[str] = []
 
     @property
     def accentuator(self) -> RussianAccentuator:
+        if not self._accentuator_initialized:
+            self._accentuator = make_accentuator(
+                self._accentuator_spec,
+                model_size=self._accentuator_model_size,
+                use_stress_dictionary=self._use_stress_dictionary,
+                strict=self.strict,
+            )
+            self._accentuator_initialized = True
         return self._accentuator
 
     @property

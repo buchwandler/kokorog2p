@@ -6,7 +6,7 @@ Copyright 2024 kokorog2p contributors
 Licensed under the Apache License, Version 2.0
 """
 
-from kokorog2p.backends.espeak.backend import EspeakBackend
+from kokorog2p.backends.espeak.backend import EspeakBackend, EspeakBackendInfo
 from kokorog2p.backends.espeak.voice import Voice, EspeakVoice
 from kokorog2p.backends.espeak.wrapper import Phonemizer, EspeakWrapper
 from kokorog2p.backends.espeak.cli_wrapper import CliPhonemizer
@@ -14,6 +14,7 @@ from kokorog2p.backends.espeak.cli_wrapper import CliPhonemizer
 __all__ = [
     "CliPhonemizer",
     "EspeakBackend",
+    "EspeakBackendInfo",
     "EspeakVoice",
     "EspeakWrapper",
     "Phonemizer",

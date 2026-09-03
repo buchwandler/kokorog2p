@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from collections import OrderedDict
+from collections.abc import Sequence
 from typing import Generic, TypeVar
 
 logger = logging.getLogger(__name__)
@@ -47,6 +49,11 @@ class FallbackBase(ABC, Generic[B]):
     def __init__(self, use_cli: bool = False) -> None:
         self.use_cli = use_cli
         self._backend: B | None = None
+
+        self._word_cache: OrderedDict[tuple[object, ...], tuple[str | None, int]] = (
+            OrderedDict()
+        )
+        self._word_cache_maxsize = 1024
 
     @property
     def backend(self) -> B:
@@ -85,6 +92,10 @@ class FallbackBase(ABC, Generic[B]):
         """Convert/normalize backend output for a text string."""
         return self._postprocess_word(phonemes)
 
+    def _postprocess_batch_raw(self, phonemes: str) -> str:
+        """Normalize one raw result returned by a batch backend."""
+        return phonemes
+
     # ---- logging hooks ----
 
     def _log_backend_error(self, word: str, err: Exception) -> None:
@@ -105,21 +116,109 @@ class FallbackBase(ABC, Generic[B]):
             err,
         )
 
+    def _word_cache_key(self, word: str) -> tuple[object, ...]:
+        backend = self.backend
+        info = getattr(backend, "info", None)
+        implementation = getattr(info, "implementation", type(backend).__name__)
+        version = getattr(backend, "version", None)
+        data_path = getattr(backend, "data_path", None)
+        voice = getattr(backend, "language", None)
+        voice_language = getattr(backend, "voice_language", None)
+        return (
+            self.__class__.__qualname__,
+            voice,
+            voice_language,
+            implementation,
+            version,
+            str(data_path) if data_path is not None else None,
+            word,
+            getattr(backend, "tie", None),
+            getattr(backend, "sep", None),
+            self.backend_word_kokoro,
+            self.backend_text_kokoro,
+        )
+
+    def _cache_get(self, key: tuple[object, ...]) -> tuple[str | None, int] | None:
+        result = self._word_cache.get(key)
+        if result is not None:
+            self._word_cache.move_to_end(key)
+        return result
+
+    def _cache_put(
+        self, key: tuple[object, ...], result: tuple[str | None, int]
+    ) -> None:
+        self._word_cache[key] = result
+        self._word_cache.move_to_end(key)
+        while len(self._word_cache) > self._word_cache_maxsize:
+            self._word_cache.popitem(last=False)
+
     # ---- public API ----
 
     def __call__(self, word: str) -> tuple[str | None, int]:
         """Return (phonemes|None, rating). Rating is 0 on failure."""
         try:
+            key = self._word_cache_key(word)
+            cached = self._cache_get(key)
+            if cached is not None:
+                return cached
             raw = self._backend_word_phonemes(word)
-            if not raw:
-                return (None, 0)
-            return (self._postprocess_word(raw), self.success_rating)
+            result = (
+                (None, 0)
+                if not raw
+                else (self._postprocess_word(raw), self.success_rating)
+            )
+            self._cache_put(key, result)
+            return result
         except RuntimeError as e:
             self._log_backend_error(word, e)
             return (None, 0)
         except Exception as e:
             self._log_word_error(word, e)
             return (None, 0)
+
+    def phonemize_many(self, words: Sequence[str]) -> list[tuple[str | None, int]]:
+        """Phonemize independently framed words through one backend instance."""
+        values = list(words)
+        backend_many = getattr(self.backend, "phonemize_many", None)
+        if not callable(backend_many):
+            return [self(word) for word in values]
+
+        keys: list[tuple[object, ...]] = []
+        results: list[tuple[str | None, int] | None] = [None] * len(values)
+        pending: list[tuple[int, str]] = []
+        for index, word in enumerate(values):
+            key = self._word_cache_key(word)
+            keys.append(key)
+            cached = self._cache_get(key)
+            if cached is None:
+                pending.append((index, word))
+            else:
+                results[index] = cached
+        if pending:
+            try:
+                raw_results = backend_many(
+                    [word for _, word in pending],
+                    convert_to_kokoro=self.backend_text_kokoro,
+                )
+            except Exception as exc:
+                self._log_backend_error("<batch>", exc)
+                for index, word in pending:
+                    results[index] = self(word)
+            else:
+                if len(raw_results) != len(pending):
+                    raise RuntimeError("Backend returned an invalid batch length")
+                for (index, _), raw in zip(pending, raw_results, strict=True):
+                    result = (
+                        (None, 0)
+                        if not raw
+                        else (
+                            self._postprocess_word(self._postprocess_batch_raw(raw)),
+                            self.success_rating,
+                        )
+                    )
+                    self._cache_put(keys[index], result)
+                    results[index] = result
+        return [result for result in results if result is not None]
 
     def phonemize(self, text: str) -> str:
         """Phonemize text using backend + postprocessing."""

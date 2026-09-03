@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 
 from kokorog2p.backends.espeak.phonemizer_base import EspeakPhonemizerBase
@@ -179,3 +180,57 @@ class CliPhonemizer(EspeakPhonemizerBase):
         if not use_tie:
             out = out.replace(self.tie_char, "")
         return out
+
+    def phonemize_many(self, texts: Sequence[str], use_tie: bool = False) -> list[str]:
+        """Phonemize one source item per CLI input line in one process."""
+        values = list(texts)
+        nonempty = [text for text in values if text and text.strip()]
+        if not nonempty:
+            return [""] * len(values)
+        if any("\n" in text or "\r" in text for text in nonempty):
+            raise ValueError("phonemize_many inputs must not contain line breaks")
+        if use_tie and self.version < (1, 49):
+            raise RuntimeError("Tie option requires espeak >= 1.49")
+
+        exe = self._exe()
+        voice = self._voice_name or self.language
+        cmd = [exe, "-q", "-x", "--ipa", f"-v{voice}"]
+        cmd.append(f"--tie={self.tie_char}" if use_tie else f"--sep={self.sep}")
+        if self.data_path:
+            cmd.append(f"--path={self.data_path}")
+        try:
+            process = subprocess.run(
+                cmd,
+                input="\n".join(nonempty) + "\n",
+                text=True,
+                encoding="utf-8",
+                capture_output=True,
+                check=False,
+            )
+        except FileNotFoundError as exc:
+            raise EspeakCliError(
+                "espeak-ng CLI executable not found. Install espeak-ng (or espeak) "
+                "or set KOKOROG2P_ESPEAK_EXECUTABLE to the full path of the binary."
+            ) from exc
+        if process.returncode != 0:
+            raise EspeakCliError(
+                f"espeak-ng failed (rc={process.returncode}): {process.stderr.strip()}"
+            )
+
+        lines = process.stdout.splitlines()
+        if len(lines) != len(nonempty):
+            raise EspeakCliError(
+                f"espeak-ng returned {len(lines)} lines for {len(nonempty)} inputs"
+            )
+        iterator = iter(lines)
+        results: list[str] = []
+        for text in values:
+            if not text or not text.strip():
+                results.append("")
+                continue
+            result = next(iterator)
+            result = re.sub(r"\s+", " ", result.strip())
+            if not use_tie:
+                result = result.replace(self.tie_char, "")
+            results.append(result)
+        return results

@@ -316,6 +316,7 @@ def _resolve_factory_spacy(
             language,
             spacy_model=spacy_model or None,
             spacy_model_size=spacy_model_size,
+            probe_loadability=False,
         )
     except SpacyModelResolutionError:
         if strict_request:

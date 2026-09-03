@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -64,6 +65,10 @@ class EspeakPhonemizerBase(ABC):
         - Remove/avoid tie characters when use_tie is False
         """
         raise NotImplementedError
+
+    def phonemize_many(self, texts: Sequence[str], use_tie: bool = False) -> list[str]:
+        """Phonemize independently framed inputs while reusing this backend."""
+        return [self.phonemize(text, use_tie=use_tie) for text in texts]
 
     # --- Optional diagnostics / compatibility ----------------------------
 

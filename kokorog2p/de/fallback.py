@@ -43,6 +43,9 @@ class GermanEspeakFallback(_GermanNormalizeMixin, FallbackBase["EspeakBackend"])
     def _postprocess_word(self, phonemes: str) -> str:
         return self._normalize_german_phonemes(phonemes)
 
+    def _postprocess_batch_raw(self, phonemes: str) -> str:
+        return phonemes.strip().replace("_", "")
+
 
 class GermanGoruutFallback(_GermanNormalizeMixin, FallbackBase["GoruutBackend"]):
     """Fallback G2P using goruut for German."""

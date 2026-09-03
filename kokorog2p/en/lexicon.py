@@ -205,8 +205,10 @@ class Lexicon:
         )
         self.lexicons = names
         self._selected: SelectedLexicons = open_selected(language, names)
-        self.golds: LexiconMapping = self._selected.layer("gold") or EMPTY_LEXICON
-        self.silvers: LexiconMapping = self._selected.layer("silver") or EMPTY_LEXICON
+        gold = self._selected.layer("gold")
+        silver = self._selected.layer("silver")
+        self.golds: LexiconMapping = EMPTY_LEXICON if gold is None else gold
+        self.silvers: LexiconMapping = EMPTY_LEXICON if silver is None else silver
 
     def _selected_hit(self, word: str) -> LexiconHit | None:
         """Return the hit selected by the configured ordered stack."""

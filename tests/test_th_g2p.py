@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import pytest
 
+from kokorog2p import clear_cache, get_g2p
 from kokorog2p.th.engine import EngineResult, ThaiG2PError
 from kokorog2p.th.g2p import ThaiG2P
 
@@ -80,3 +81,29 @@ def test_thai_script_segmentation_is_deterministic() -> None:
         (" ", "WHITESPACE"),
         ("ทดสอบ", "THAI"),
     ]
+
+
+def test_factory_defers_default_thai_engine(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[bool] = []
+
+    class LazyEngine:
+        def __init__(self, *, strict: bool) -> None:
+            calls.append(strict)
+
+        def pronounce_thai_chunk(self, source: str) -> EngineResult:
+            return EngineResult(source=source, raw_ipa="a2")
+
+    monkeypatch.setattr("kokorog2p.th.g2p.ThaiEngine", LazyEngine)
+    clear_cache()
+    g2p = get_g2p(
+        "th",
+        use_spacy=False,
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+    )
+
+    assert calls == []
+    g2p("ไทย")
+    assert calls == [True]
+    g2p("ทดสอบ")
+    assert calls == [True]

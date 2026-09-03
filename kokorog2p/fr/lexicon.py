@@ -128,8 +128,10 @@ class FrenchLexicon:
             else tuple(lexicons)
         )
         self._selected: SelectedLexicons = open_selected("fr-fr", names)
-        self.golds: LexiconMapping = self._selected.layer("gold") or EMPTY_LEXICON
-        self.silvers: LexiconMapping = self._selected.layer("silver") or EMPTY_LEXICON
+        gold = self._selected.layer("gold")
+        silver = self._selected.layer("silver")
+        self.golds: LexiconMapping = EMPTY_LEXICON if gold is None else gold
+        self.silvers: LexiconMapping = EMPTY_LEXICON if silver is None else silver
         self.load_silver = False
         self.load_gold = "gold" in names
         self.lexicons = names

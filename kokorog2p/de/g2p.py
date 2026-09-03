@@ -18,9 +18,13 @@ https://en.wikipedia.org/wiki/Standard_German_phonology
 
 from __future__ import annotations
 
+import time
 import unicodedata
-from collections.abc import Collection
-from dataclasses import dataclass
+from collections import defaultdict
+from collections.abc import Collection, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any, Final
 
 from kokorog2p._optional import load_spacy_model
@@ -330,6 +334,52 @@ def normalize_to_kokoro(
     return result.value
 
 
+@dataclass
+class GermanG2PStats:
+    """Opt-in aggregate diagnostics for one or more German G2P calls."""
+
+    words: int = 0
+    lexicon_calls: int = 0
+    lexicon_hits: int = 0
+    lexicon_misses: int = 0
+    lexicon_ns: int = 0
+    fallback_calls: int = 0
+    fallback_hits: int = 0
+    fallback_misses: int = 0
+    fallback_ns: int = 0
+    rule_calls: int = 0
+    rules_ns: int = 0
+    source_counts: dict[str, int] = field(default_factory=lambda: defaultdict(int))
+    slow_tokens: list[dict[str, Any]] = field(default_factory=list)
+    max_slow_tokens: int = 15
+
+    def add_slow_token(self, token: str, source: str, elapsed_ns: int) -> None:
+        self.slow_tokens.append(
+            {"token": token, "source": source, "elapsed_ms": elapsed_ns / 1_000_000}
+        )
+        self.slow_tokens.sort(key=lambda item: item["elapsed_ms"], reverse=True)
+        del self.slow_tokens[self.max_slow_tokens :]
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+_ACTIVE_DIAGNOSTICS: ContextVar[GermanG2PStats | None] = ContextVar(
+    "kokorog2p_german_diagnostics", default=None
+)
+
+
+@contextmanager
+def capture_diagnostics(*, max_slow_tokens: int = 15) -> Iterator[GermanG2PStats]:
+    """Collect German source and timing counters for the enclosed calls."""
+    stats = GermanG2PStats(max_slow_tokens=max_slow_tokens)
+    token = _ACTIVE_DIAGNOSTICS.set(stats)
+    try:
+        yield stats
+    finally:
+        _ACTIVE_DIAGNOSTICS.reset(token)
+
+
 class GermanG2P(G2PBase):
     """German G2P converter using dictionary lookup with fallback options.
 
@@ -495,7 +545,7 @@ class GermanG2P(G2PBase):
             return None
         return normalized.value
 
-    def __call__(self, text: str) -> list[GToken]:
+    def __call__(self, text: str) -> list[GToken]:  # noqa: C901
         """Convert text to a list of tokens with phonemes.
 
         Args:
@@ -520,56 +570,113 @@ class GermanG2P(G2PBase):
             else self._tokenize_simple(text)
         )
 
+        diagnostics = _ACTIVE_DIAGNOSTICS.get()
+        fallback_tokens: list[GToken] = []
         for token in tokens:
             word = token.text
+            is_word = any(c.isalnum() for c in word)
+            if diagnostics is not None and is_word:
+                diagnostics.words += 1
 
-            # Handle punctuation
-            if not any(c.isalnum() for c in word):
+            if not is_word:
                 token.phonemes = self._get_punct_phonemes(word)
                 token.set("rating", 4)
                 continue
 
-            # Try lexicon first
             phonemes = None
-            if self._lexicon:
+            if self._lexicon is not None:
+                if diagnostics is not None:
+                    diagnostics.lexicon_calls += 1
+                    lookup_started = time.perf_counter_ns()
                 raw_phonemes = self._lexicon.lookup(word, token.tag)
+                if diagnostics is not None:
+                    elapsed = time.perf_counter_ns() - lookup_started
+                    diagnostics.lexicon_ns += elapsed
+                    diagnostics.add_slow_token(word, "lexicon", elapsed)
                 phonemes = (
                     self._decode_lexicon_pronunciation(raw_phonemes)
                     if raw_phonemes
                     else None
                 )
                 if phonemes:
+                    if diagnostics is not None:
+                        diagnostics.lexicon_hits += 1
                     token.phonemes = phonemes
-                    token.set("rating", 5)  # Dictionary lookup = highest rating
+                    token.set("rating", 5)
                 else:
-                    # An invalid first source variant is a failed hit; never
-                    # let it suppress fallback or become an empty success.
+                    if diagnostics is not None:
+                        diagnostics.lexicon_misses += 1
                     phonemes = None
 
-            # Fallback to espeak or goruut
-            if not phonemes and self._fallback:
-                fallback_result = self._fallback(word)
+            if not phonemes and self._fallback is not None:
+                fallback_tokens.append(token)
+            elif not phonemes:
+                token.set("rating", 0)
+
+        if fallback_tokens and self._fallback is not None:
+            fallback_words = [token.text for token in fallback_tokens]
+            if diagnostics is not None:
+                diagnostics.fallback_calls += len(fallback_words)
+                fallback_started = time.perf_counter_ns()
+            fallback_many = getattr(self._fallback, "phonemize_many", None)
+            fallback_results = (
+                fallback_many(fallback_words)
+                if callable(fallback_many)
+                else [self._fallback(word) for word in fallback_words]
+            )
+            if diagnostics is not None:
+                elapsed = time.perf_counter_ns() - fallback_started
+                diagnostics.fallback_ns += elapsed
+                diagnostics.add_slow_token("<batch>", "fallback", elapsed)
+            if len(fallback_results) != len(fallback_tokens):
+                raise RuntimeError("Fallback returned an invalid batch length")
+            for token, fallback_result in zip(
+                fallback_tokens, fallback_results, strict=True
+            ):
                 phonemes = fallback_result[0]
                 if phonemes:
+                    if diagnostics is not None:
+                        diagnostics.fallback_hits += 1
                     token.phonemes = phonemes
-                    token.set("rating", 3)  # Fallback
+                    token.set("rating", 3)
+                elif diagnostics is not None:
+                    diagnostics.fallback_misses += 1
+                    token.set("rating", 0)
 
-            # Fallback to rules
-            if not phonemes:
-                phonemes = self._word_to_phonemes(word)
-                if phonemes:
-                    normalized = normalize_internal(
-                        phonemes, vocabulary=self._vocabulary
-                    )
-                    if normalized.valid:
-                        token.phonemes = normalized.value
-                        token.set("rating", 2)  # Rule-based
-                    else:
-                        phonemes = None
-
+        for token in tokens:
+            if not any(c.isalnum() for c in token.text) or token.phonemes:
+                continue
+            word = token.text
+            if diagnostics is not None:
+                diagnostics.rule_calls += 1
+                rules_started = time.perf_counter_ns()
+            phonemes = self._word_to_phonemes(word)
+            if diagnostics is not None:
+                elapsed = time.perf_counter_ns() - rules_started
+                diagnostics.rules_ns += elapsed
+                diagnostics.add_slow_token(word, "rules", elapsed)
+            if phonemes:
+                normalized = normalize_internal(phonemes, vocabulary=self._vocabulary)
+                if normalized.valid:
+                    token.phonemes = normalized.value
+                    token.set("rating", 2)
+                else:
+                    phonemes = None
             if not phonemes:
                 token.phonemes = "?"
                 token.set("rating", 0)
+
+        if diagnostics is not None:
+            for token in tokens:
+                if not any(c.isalnum() for c in token.text):
+                    continue
+                if token.get("rating") == 0:
+                    diagnostics.source_counts["unresolved"] += 1
+                else:
+                    source = {5: "lexicon", 3: "espeak_fallback", 2: "german_rules"}[
+                        token.get("rating")
+                    ]
+                    diagnostics.source_counts[source] += 1
 
         ensure_gtoken_positions(tokens, text)
         return tokens
