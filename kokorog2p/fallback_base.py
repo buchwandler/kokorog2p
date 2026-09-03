@@ -120,7 +120,6 @@ class FallbackBase(ABC, Generic[B]):
         backend = self.backend
         info = getattr(backend, "info", None)
         implementation = getattr(info, "implementation", type(backend).__name__)
-        version = getattr(backend, "version", None)
         data_path = getattr(backend, "data_path", None)
         voice = getattr(backend, "language", None)
         voice_language = getattr(backend, "voice_language", None)
@@ -129,7 +128,6 @@ class FallbackBase(ABC, Generic[B]):
             voice,
             voice_language,
             implementation,
-            version,
             str(data_path) if data_path is not None else None,
             word,
             getattr(backend, "tie", None),

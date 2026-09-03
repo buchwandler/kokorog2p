@@ -196,3 +196,31 @@ def test_fallback_cache_reuses_pronunciation_state() -> None:
     assert fallback("Haus") == ("Haus", 1)
     assert fallback("Haus") == ("Haus", 1)
     assert fallback.backend.calls == 1
+
+
+def test_batch_cache_key_does_not_initialize_backend_version() -> None:
+    from kokorog2p.fallback_base import FallbackBase
+
+    class Backend:
+        language = "de"
+        tie = "^"
+        data_path = None
+
+        @property
+        def version(self) -> str:
+            raise AssertionError("cache keys must not initialize the backend")
+
+        def phonemize_many(
+            self, words: list[str], convert_to_kokoro: bool = False
+        ) -> list[str]:
+            del convert_to_kokoro
+            return ["a" for _ in words]
+
+    class Fallback(FallbackBase[Backend]):
+        def _create_backend(self) -> Backend:
+            return Backend()
+
+        def _postprocess_word(self, phonemes: str) -> str:
+            return phonemes
+
+    assert Fallback().phonemize_many(["Haus"]) == [("a", 1)]
