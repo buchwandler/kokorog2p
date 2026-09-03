@@ -12,15 +12,15 @@ status: accepted
 audience: null
 scopes: []
 source_refs:
-- git:07205fd20a1f1199cae3c733dfb5c5e496338410
+  - git:07205fd20a1f1199cae3c733dfb5c5e496338410
 paths:
-- kokorog2p/de/g2p.py
-- tests/test_de_g2p.py
-- tests/test_pipeline_api.py
+  - kokorog2p/de/g2p.py
+  - tests/test_de_g2p.py
+  - tests/test_pipeline_api.py
 issues: []
 prs: []
 sources:
-- git:07205fd20a1f1199cae3c733dfb5c5e496338410
+  - git:07205fd20a1f1199cae3c733dfb5c5e496338410
 contributors: []
 breaking: false
 internal: true
