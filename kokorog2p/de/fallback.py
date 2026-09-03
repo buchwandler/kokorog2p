@@ -16,6 +16,7 @@ class _GermanNormalizeMixin:
         """Normalize German phonemes from backends."""
         from kokorog2p.de.g2p import normalize_to_kokoro
 
+        phonemes = phonemes.replace("͡", "").replace("^", "")
         result = normalize_to_kokoro(phonemes)
 
         # Additional backend-agnostic normalizations

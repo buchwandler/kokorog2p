@@ -1,0 +1,209 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 3
+release_version: 0.9.1
+git_base_ref: v0.9.0
+git_base_sha: 743cd8f38046bd4ab132f73bf142a66b4a945216
+git_head_ref: HEAD
+git_head_sha: 7231fda0a017899fc7a414864c7a298177031c2c
+git_range: 743cd8f38046bd4ab132f73bf142a66b4a945216..7231fda0a017899fc7a414864c7a298177031c2c
+commit_count: 4
+rows:
+  - sha: a1f1e5db14b44d0952e401e212e96ea05c051496
+    source_ref: git:a1f1e5db14b44d0952e401e212e96ea05c051496
+    short_sha: a1f1e5d
+    changed_paths:
+      - docs/lexicons.md
+      - kokorog2p/de/g2p.py
+      - kokorog2p/lexicons/_generated_registry.py
+      - kokorog2p/lexicons/data/THIRD_PARTY_NOTICES.md
+      - kokorog2p/lexicons/data/sv_nst.g2lex
+      - kokorog2p/lexicons/registry.py
+      - lexicons/lock.json
+      - lexicons/manifest.toml
+      - lexicons/sources/sv/sv_nst.tsv
+      - scripts/build_g2lex_assets.py
+      - tests/test_de_g2p.py
+      - tests/test_g2lex_assets.py
+      - tests/test_lexicon_registry.py
+      - tests/test_pipeline_api.py
+    stats:
+      files_changed: 0
+      insertions: 812612
+      deletions: 20
+    inspected: true
+    inspected_paths:
+      - docs/lexicons.md
+      - kokorog2p/de/g2p.py
+      - kokorog2p/lexicons/_generated_registry.py
+      - kokorog2p/lexicons/data/THIRD_PARTY_NOTICES.md
+      - kokorog2p/lexicons/data/sv_nst.g2lex
+      - kokorog2p/lexicons/registry.py
+      - lexicons/lock.json
+      - lexicons/manifest.toml
+      - lexicons/sources/sv/sv_nst.tsv
+      - scripts/build_g2lex_assets.py
+      - tests/test_de_g2p.py
+      - tests/test_g2lex_assets.py
+      - tests/test_lexicon_registry.py
+      - tests/test_pipeline_api.py
+    observed_behavior:
+      Added an opt-in Swedish NST G2Lex pronunciation asset with aliases, manifest and
+      lock metadata, documentation, and registry coverage; normalized German lexicon
+      pronunciations before use and preserved fallback behavior for invalid lookups with
+      regression coverage.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: sv g2lex and fix german phoneme creation"
+    target_entry_key: entry-0001
+    target_entry_id: entry-0001
+    notes:
+      Reviewed the Swedish asset metadata and German normalization and fallback diffs.
+  - sha: 07205fd20a1f1199cae3c733dfb5c5e496338410
+    source_ref: git:07205fd20a1f1199cae3c733dfb5c5e496338410
+    short_sha: 07205fd
+    changed_paths:
+      - kokorog2p/de/g2p.py
+      - tests/test_de_g2p.py
+      - tests/test_pipeline_api.py
+    stats:
+      files_changed: 0
+      insertions: 5
+      deletions: 6
+    inspected: true
+    inspected_paths:
+      - kokorog2p/de/g2p.py
+      - tests/test_de_g2p.py
+      - tests/test_pipeline_api.py
+    observed_behavior:
+      Applied formatting-only pre-commit changes to German G2P and regression tests; no
+      runtime behavior changed.
+    public_impact: none
+    decision: internal
+    evidence_subject: "chore: pre-commit"
+    target_entry_id: entry-0002
+    notes: Reviewed the diff and classified it as non-user-facing formatting.
+  - sha: dfaba72f986da8e053b970f7e768c04baadc7c15
+    source_ref: git:dfaba72f986da8e053b970f7e768c04baadc7c15
+    short_sha: dfaba72
+    changed_paths:
+      - pyproject.toml
+      - tests/test_dependency_contract.py
+    stats:
+      files_changed: 0
+      insertions: 2
+      deletions: 0
+    inspected: true
+    inspected_paths:
+      - pyproject.toml
+      - tests/test_dependency_contract.py
+    observed_behavior:
+      Added scikit-learn version 1.5.2 or newer to the Thai optional dependency extra
+      and updated its dependency contract test.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "chore: fix scikit dep"
+    target_entry_key: entry-0002
+    target_entry_id: entry-0003
+    notes: Reviewed the dependency metadata and matching contract test.
+  - sha: 7231fda0a017899fc7a414864c7a298177031c2c
+    source_ref: git:7231fda0a017899fc7a414864c7a298177031c2c
+    short_sha: 7231fda
+    changed_paths:
+      - benchmarks/benchmark_all_stations.py
+      - benchmarks/benchmark_ar_stations.py
+      - benchmarks/benchmark_cs_stations.py
+      - benchmarks/benchmark_de_gold_stations.py
+      - benchmarks/benchmark_de_stations.py
+      - benchmarks/benchmark_en_gb_stations.py
+      - benchmarks/benchmark_en_us_stations.py
+      - benchmarks/benchmark_es_stations.py
+      - benchmarks/benchmark_fr_stations.py
+      - benchmarks/benchmark_he_stations.py
+      - benchmarks/benchmark_it_stations.py
+      - benchmarks/benchmark_ja_stations.py
+      - benchmarks/benchmark_kk_stations.py
+      - benchmarks/benchmark_ko_stations.py
+      - benchmarks/benchmark_language_stations.py
+      - benchmarks/benchmark_pt_br_stations.py
+      - benchmarks/benchmark_pt_pt_stations.py
+      - benchmarks/benchmark_ru_stations.py
+      - benchmarks/benchmark_sv_stations.py
+      - benchmarks/benchmark_th_stations.py
+      - benchmarks/benchmark_vi_stations.py
+      - benchmarks/benchmark_zh_stations.py
+      - kokorog2p/__init__.py
+      - kokorog2p/backends/espeak/__init__.py
+      - kokorog2p/backends/espeak/backend.py
+      - kokorog2p/backends/espeak/cli_wrapper.py
+      - kokorog2p/backends/espeak/phonemizer_base.py
+      - kokorog2p/de/__init__.py
+      - kokorog2p/de/fallback.py
+      - kokorog2p/de/g2p.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/fallback_base.py
+      - kokorog2p/fr/lexicon.py
+      - kokorog2p/ru/g2p.py
+      - kokorog2p/th/g2p.py
+      - tests/test_de_gold_performance.py
+      - tests/test_factory_performance_contract.py
+      - tests/test_th_g2p.py
+    stats:
+      files_changed: 0
+      insertions: 2898
+      deletions: 48
+    inspected: true
+    inspected_paths:
+      - benchmarks/benchmark_all_stations.py
+      - benchmarks/benchmark_ar_stations.py
+      - benchmarks/benchmark_cs_stations.py
+      - benchmarks/benchmark_de_gold_stations.py
+      - benchmarks/benchmark_de_stations.py
+      - benchmarks/benchmark_en_gb_stations.py
+      - benchmarks/benchmark_en_us_stations.py
+      - benchmarks/benchmark_es_stations.py
+      - benchmarks/benchmark_fr_stations.py
+      - benchmarks/benchmark_he_stations.py
+      - benchmarks/benchmark_it_stations.py
+      - benchmarks/benchmark_ja_stations.py
+      - benchmarks/benchmark_kk_stations.py
+      - benchmarks/benchmark_ko_stations.py
+      - benchmarks/benchmark_language_stations.py
+      - benchmarks/benchmark_pt_br_stations.py
+      - benchmarks/benchmark_pt_pt_stations.py
+      - benchmarks/benchmark_ru_stations.py
+      - benchmarks/benchmark_sv_stations.py
+      - benchmarks/benchmark_th_stations.py
+      - benchmarks/benchmark_vi_stations.py
+      - benchmarks/benchmark_zh_stations.py
+      - kokorog2p/__init__.py
+      - kokorog2p/backends/espeak/__init__.py
+      - kokorog2p/backends/espeak/backend.py
+      - kokorog2p/backends/espeak/cli_wrapper.py
+      - kokorog2p/backends/espeak/phonemizer_base.py
+      - kokorog2p/de/__init__.py
+      - kokorog2p/de/fallback.py
+      - kokorog2p/de/g2p.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/fallback_base.py
+      - kokorog2p/fr/lexicon.py
+      - kokorog2p/ru/g2p.py
+      - kokorog2p/th/g2p.py
+      - tests/test_de_gold_performance.py
+      - tests/test_factory_performance_contract.py
+      - tests/test_th_g2p.py
+    observed_behavior:
+      Added reusable station benchmarks across supported languages; introduced lazy
+      optional backend initialization, batched eSpeak fallback processing, bounded
+      fallback caching, German diagnostics and backend introspection, with regression
+      and performance contract tests.
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: benchmark and performance improvements"
+    target_entry_key: entry-0003
+    target_entry_id: entry-0004
+    notes:
+      Reviewed the implementation and test coverage for batching, caching, lazy
+      initialization, diagnostics, and benchmarks.

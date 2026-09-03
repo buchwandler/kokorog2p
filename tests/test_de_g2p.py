@@ -51,6 +51,13 @@ def test_crane_ipa_normalization(value, expected):
     assert normalize_to_kokoro(value, use_tie_replacement=True) == expected
 
 
+def test_german_fallback_removes_espeak_tie_markers_before_normalization():
+    from kokorog2p.de.fallback import GermanEspeakFallback
+
+    fallback = GermanEspeakFallback()
+    assert fallback._postprocess_word("t^ʃ") == "tʃ"
+
+
 class TestGermanG2P:
     """Tests for GermanG2P."""
 
