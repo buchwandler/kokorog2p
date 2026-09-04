@@ -111,6 +111,19 @@ class TestJapaneseFrontendMapping:
         with pytest.raises(ValueError, match="Unsupported Japanese pronunciation"):
             g2p.phonemize("未知")
 
+    @pytest.mark.parametrize("pron", ["デス’", "’デス"])
+    def test_frontend_boundary_quote_is_ignored(self, pron: str) -> None:
+        frontend = frontend_for(record("デス", pron, 2))
+        g2p = JapaneseG2P(frontend=frontend)
+
+        assert g2p.phonemize("デス")
+
+    def test_internal_quote_is_still_reported(self) -> None:
+        frontend = frontend_for(record("デス", "デ’ス", 2))
+        g2p = JapaneseG2P(frontend=frontend)
+        with pytest.raises(ValueError, match="Unsupported Japanese pronunciation"):
+            g2p.phonemize("デス")
+
     def test_leading_whitespace_does_not_index_empty_tokens(self) -> None:
         frontend = frontend_for(
             record(" ", "", 0, pos="記号"),

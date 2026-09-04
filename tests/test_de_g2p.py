@@ -25,6 +25,15 @@ def g2p_no_lexicon():
     return GermanG2P(use_lexicon=False, use_espeak_fallback=False)
 
 
+def test_missing_german_lexphon_data_has_installation_error(tmp_path) -> None:
+    from lexphon import DataStore, LexiconNotInstalledError
+
+    with pytest.raises(
+        LexiconNotInstalledError, match="lexphon data install de-de:gold"
+    ):
+        GermanLexicon(store=DataStore(tmp_path))
+
+
 @pytest.fixture(scope="module")
 def lexicon():
     """Create one shared German lexicon for lookup tests."""
@@ -342,22 +351,21 @@ class TestGermanLexicon:
             g2p.close()
 
     def test_tuple_lookup_uses_first_ordered_pronunciation(self):
-        from kokorog2p.lexicons.runtime import LexiconHit
+        from lexphon import PronunciationToken
 
-        class Selected:
-            def get_hit_candidates(self, words):
-                return LexiconHit(
-                    ("hˈaʊs", "haʊs"),
-                    "fixture",
-                    None,
-                    "pronunciation",
-                    "ipa",
-                    "de-de:fixture",
-                    {},
+        class Backend:
+            def lookup(self, word, tag=None):
+                return PronunciationToken(
+                    text=word,
+                    pronunciation="hˈaʊs",
+                    source="lexicon",
+                    lexicon_id="de-de:fixture",
+                    variants=("hˈaʊs", "haʊs"),
+                    selector_tag=tag,
                 )
 
         lexicon = GermanLexicon.__new__(GermanLexicon)
-        lexicon._selected = Selected()
+        lexicon._backend = Backend()
         lexicon._strip_stress = False
         assert lexicon.lookup("Haus") == "hˈaʊs"
 

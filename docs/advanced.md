@@ -230,25 +230,28 @@ phonemes_verb = g2p_gold.lexicon.lookup("read", tag="VB")   # ɹˈid (present)
 phonemes_past = g2p_gold.lexicon.lookup("read", tag="VBD")  # ɹˈɛd (past)
 ```
 
-### German Lexicon
+## German Lexicon
 
-```python
-from kokorog2p.de import GermanLexicon
+German dictionaries are externally managed by `g2lex-data` and installed explicitly
+through Lexphon. KokoroG2P does not bundle or download German dictionary data.
 
-lexicon = GermanLexicon(strip_stress=False)
-
-phonemes = lexicon.lookup("Haus")
-print(phonemes)  # haʊ̯s
-
-print(f"Dictionary has {len(lexicon):,} entries")  # 738,427
+```bash
+python -m pip install "kokorog2p[de]"
+lexphon data install de-de:gold
+lexphon data verify de-de:gold
 ```
 
-The opt-in Crane dictionary preserves its canonical TSV unchanged for provenance, but
-the packaged runtime asset is derived with NFC-plus-lowercase keys. Case-colliding
-pronunciations may be enriched at build time with POS selectors from a pinned LexHint
-German artifact. Runtime KokoroG2P does not depend on LexHint. The `DEFAULT` selector is
-authoritative when no POS tag is available, including sentence-initial `Die`; raw TSV
-logical parity is not expected for this asset.
+```python
+from kokorog2p import get_g2p
+
+g2p = get_g2p("de")
+print(g2p.phonemize("Guten Tag"))
+```
+
+The runtime uses the installed local store without network access. Install
+`de-de:crane`, `de-de:espeak`, or `de-de:olaph` before selecting those names.
+`lexicons="espeak"` selects the static Lexphon dictionary and is distinct from
+`use_espeak_fallback=True`. Use `use_lexicon=False` for fallback-only operation.
 
 ## Phoneme Utilities
 

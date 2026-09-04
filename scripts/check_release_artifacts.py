@@ -26,6 +26,16 @@ LEGACY_SOURCE_ROOTS = (
 )
 
 
+MIGRATED_GERMAN_ASSETS = frozenset(
+    {
+        "kokorog2p/lexicons/data/de_gold.g2lex",
+        "kokorog2p/lexicons/data/de_crane.g2lex",
+        "kokorog2p/lexicons/data/de_espeak.g2lex",
+        "kokorog2p/lexicons/data/de_olaph.g2lex",
+    }
+)
+
+
 def required_wheel_files() -> set[str]:
     return STATIC_REQUIRED_WHEEL_FILES | {
         f"kokorog2p/lexicons/data/{spec.resource}" for spec in iter_lexicon_specs()
@@ -45,6 +55,11 @@ def check_wheel(path: Path, *, require_release_version: bool) -> None:
         )
         metadata = Parser().parsestr(wheel.read(metadata_name).decode("utf-8"))
     required = required_wheel_files()
+    requires_dist = tuple(metadata.get_all("Requires-Dist") or ())
+    if not any(
+        requirement.lower().startswith("lexphon") for requirement in requires_dist
+    ):
+        raise SystemExit(f"{path}: Lexphon runtime dependency is missing")
     missing = sorted(required - members)
     forbidden = sorted(
         member
@@ -63,6 +78,11 @@ def check_wheel(path: Path, *, require_release_version: bool) -> None:
         raise SystemExit(f"{path}: missing wheel resources: {', '.join(missing)}")
     if forbidden:
         raise SystemExit(f"{path}: forbidden source resources: {', '.join(forbidden)}")
+    german_assets = sorted(MIGRATED_GERMAN_ASSETS & members)
+    if german_assets:
+        raise SystemExit(
+            f"{path}: migrated German assets are forbidden: {', '.join(german_assets)}"
+        )
     if unknown_assets:
         raise SystemExit(f"{path}: unknown lexicon assets: {', '.join(unknown_assets)}")
     if require_release_version and metadata.get("Version") == "0.0.0":
@@ -73,6 +93,17 @@ def check_sdist(path: Path) -> None:
     """Require notices while enforcing the generated-asset-only sdist policy."""
     with tarfile.open(path, "r:gz") as sdist:
         members = {member.name for member in sdist.getmembers()}
+    german_payloads = sorted(
+        name
+        for name in members
+        if Path(name).name in {Path(item).name for item in MIGRATED_GERMAN_ASSETS}
+        or "/lexicons/audits/de-" in f"/{name}"
+    )
+    if german_payloads:
+        raise SystemExit(
+            f"{path}: migrated German payloads are forbidden: "
+            f"{', '.join(german_payloads[:5])}"
+        )
     canonical_sources = sorted(
         name for name in members if "/lexicons/sources/" in f"/{name}"
     )
@@ -122,7 +153,15 @@ def check_installed(*, require_release_version: bool) -> None:
     english_stack = get_g2p("en-us", lexicons=("gold", "silver"), **options)
     assert english_gold.lookup("hello")
     assert english_stack.lookup("hello")
-    assert get_g2p("de", **options)("Haus")
+    from kokorog2p.de import GermanG2P
+
+    german = GermanG2P(
+        use_lexicon=False, use_espeak_fallback=False, use_goruut_fallback=False
+    )
+    try:
+        assert german("Haus")
+    finally:
+        german.close()
     assert get_g2p("fr", **options)("Bonjour")
 
 

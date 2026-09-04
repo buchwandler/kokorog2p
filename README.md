@@ -32,6 +32,17 @@ python -m pip install "kokorog2p[ja]"
 python -m pip install "kokorog2p[espeak]"
 ```
 
+German dictionaries are no longer bundled. Install the Lexphon runtime data explicitly
+before German dictionary lookup:
+
+```bash
+lexphon data install de-de:gold
+lexphon data verify de-de:gold
+```
+
+Optional named dictionaries use the same explicit provisioning flow. Runtime German
+lookup is offline and never downloads data implicitly.
+
 See [Installation](docs/installation.md) for development and optional integration setup.
 
 ## Quick start

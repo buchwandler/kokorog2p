@@ -1,37 +1,71 @@
-"""German lexicon for G2P lookup."""
+"""German lexicon backed by explicitly provisioned Lexphon data."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from types import MappingProxyType
+from collections.abc import Sequence
 
-import g2lex
+from lexphon import DataStore, PronunciationToken
 
 from kokorog2p.lexicons.registry import normalize_lexicon_selection
-from kokorog2p.lexicons.runtime import SelectedLexicons, open_selected
 
-_EMPTY: Mapping[str, str] = MappingProxyType({})
-
-
-def clear_lexicon_cache() -> None:
-    """Compatibility wrapper for the shared G2Lex resource cache."""
-    from kokorog2p.lexicons.runtime import clear_resource_cache
-
-    clear_resource_cache()
+from .lexphon_backend import GermanLexphonBackend
 
 
-def lexicon_cache_info():
-    """Return diagnostics for the shared resource-backed lexicon cache."""
-    from kokorog2p.lexicons.runtime import resource_cache_info
+class GermanLexicon:
+    """German pronunciation lexicon backed by Lexphon's local data store."""
 
-    return resource_cache_info()
+    def __init__(
+        self,
+        strip_stress: bool = False,
+        load_silver: bool | None = None,
+        load_gold: bool | None = None,
+        lexicons: Sequence[str] | None = None,
+        *,
+        store: DataStore | None = None,
+    ) -> None:
+        """Initialize the German lexicon without installing or downloading data."""
+        names = normalize_lexicon_selection(
+            "de-de",
+            lexicons,
+            load_gold=load_gold,
+            load_silver=load_silver,
+        )
+        self._backend = GermanLexphonBackend(names, store=store)
+        self._strip_stress = strip_stress
+        self.load_silver = "silver" in names
+        self.load_gold = "gold" in names
+        self.lexicons = names
 
+    def lookup(self, word: str, tag: str | None = None) -> str | None:
+        """Look up a word using Lexphon's ordered layers and German tag mapping."""
+        token: PronunciationToken | None = self._backend.lookup(
+            word, tag=_normalize_german_lexicon_tag(tag)
+        )
+        if token is None or not token.known:
+            return None
+        phonemes = token.pronunciation
+        if phonemes is None:
+            return None
+        if self._strip_stress:
+            phonemes = phonemes.replace("ˈ", "").replace("ˌ", "")
+        return phonemes
 
-def _lookup_spellings(word: str) -> tuple[str, ...]:
-    """Return deterministic German spelling candidates without casefolding."""
-    lowercase = word.lower()
-    candidates = (word, lowercase, lowercase.capitalize(), word.upper())
-    return tuple(dict.fromkeys(candidates))
+    def __call__(self, word: str, tag: str | None = None) -> str | None:
+        return self.lookup(word, tag)
+
+    def is_known(self, word: str) -> bool:
+        """Return whether Lexphon has a pronunciation for ``word``."""
+        token = self._backend.lookup(word)
+        return token is not None and token.known
+
+    def __len__(self) -> int:
+        return len(self._backend)
+
+    def close(self) -> None:
+        self._backend.close()
+
+    def __repr__(self) -> str:
+        return f"GermanLexicon(entries={len(self)})"
 
 
 _UNIVERSAL_POS = frozenset(
@@ -86,55 +120,4 @@ def _normalize_german_lexicon_tag(tag: str | None) -> str | None:
     return _GERMAN_STTS_TO_POS.get(normalized, normalized)
 
 
-class GermanLexicon:
-    """German pronunciation lexicon backed by a lazy G2Lex asset."""
-
-    def __init__(
-        self,
-        strip_stress: bool = False,
-        load_silver: bool | None = None,
-        load_gold: bool | None = None,
-        lexicons: Sequence[str] | None = None,
-    ) -> None:
-        """Initialize the German lexicon."""
-        names = normalize_lexicon_selection(
-            "de-de",
-            lexicons,
-            load_gold=load_gold,
-            load_silver=load_silver,
-        )
-        self._selected: SelectedLexicons = open_selected("de-de", names)
-        self._gold: Mapping[str, object] = self._selected.layer("gold") or _EMPTY
-        self._strip_stress = strip_stress
-        self.load_silver = "silver" in names
-        self.load_gold = "gold" in names
-        self.lexicons = names
-
-    def lookup(self, word: str, tag: str | None = None) -> str | None:
-        """Look up a word using selected-layer and German casing precedence."""
-        hit = self._selected.get_hit_candidates(_lookup_spellings(word))
-        if hit is None:
-            return None
-        phonemes = g2lex.first_pronunciation(
-            hit.value, tag=_normalize_german_lexicon_tag(tag)
-        )
-        if phonemes is None:
-            return None
-        if self._strip_stress:
-            phonemes = phonemes.replace("ˈ", "").replace("ˌ", "")
-        return phonemes
-
-    def __call__(self, word: str, tag: str | None = None) -> str | None:
-        return self.lookup(word, tag)
-
-    def is_known(self, word: str) -> bool:
-        return self._selected.get_hit_candidates(_lookup_spellings(word)) is not None
-
-    def __len__(self) -> int:
-        return len(self._selected)
-
-    def close(self) -> None:
-        self._selected.close()
-
-    def __repr__(self) -> str:
-        return f"GermanLexicon(entries={len(self)})"
+__all__ = ["GermanLexicon"]

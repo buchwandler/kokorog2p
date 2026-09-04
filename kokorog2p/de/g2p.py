@@ -36,8 +36,9 @@ from kokorog2p.tokenization import ensure_gtoken_positions
 from kokorog2p.vocab import get_vocab
 
 if TYPE_CHECKING:
-    from kokorog2p.de.lexicon import GermanLexicon
+    from lexphon import DataStore
 
+    from kokorog2p.de.lexicon import GermanLexicon
 # =============================================================================
 # German Phoneme Mappings
 # =============================================================================
@@ -407,6 +408,7 @@ class GermanG2P(G2PBase):
         load_gold: bool | None = None,
         lexicons: tuple[str, ...] | None = None,
         version: str = "1.0",
+        store: DataStore | None = None,
     ) -> None:
         """Initialize the German G2P converter.
 
@@ -471,18 +473,16 @@ class GermanG2P(G2PBase):
         )
 
         if use_lexicon:
-            try:
-                from kokorog2p.de.lexicon import GermanLexicon
+            from kokorog2p.de.lexicon import GermanLexicon
 
-                self._lexicon = GermanLexicon(
-                    strip_stress=strip_stress,
-                    load_silver=load_silver,
-                    load_gold=load_gold,
-                    lexicons=lexicons,
-                )
-                self.lexicon = self._lexicon
-            except ImportError:
-                pass
+            self._lexicon = GermanLexicon(
+                strip_stress=strip_stress,
+                load_silver=load_silver,
+                load_gold=load_gold,
+                lexicons=lexicons,
+                store=store,
+            )
+            self.lexicon = self._lexicon
 
         # Initialize fallback (lazy)
         if use_goruut_fallback:

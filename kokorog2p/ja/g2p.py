@@ -260,6 +260,12 @@ PUNCT_STOPS = frozenset('!),.:;?"')
 TAILS = frozenset([v[-1] for v in M2P.values()])
 VOWELS = frozenset("aeiou")
 
+_FRONTEND_BOUNDARY_QUOTES = "'’"
+
+
+def _normalize_frontend_pronunciation(pron: str) -> str:
+    return pron.strip(_FRONTEND_BOUNDARY_QUOTES)
+
 
 class JapaneseG2P(G2PBase):
     """Japanese G2P using pyopenjtalk or cutlet.
@@ -445,7 +451,7 @@ class JapaneseG2P(G2PBase):
     @staticmethod
     def _word_moras(word: Mapping[str, Any]) -> list[str]:
         """Parse and validate the pronunciation and mora metadata of a word."""
-        pron = word["pron"]
+        pron = _normalize_frontend_pronunciation(word["pron"])
         mora_size = word["mora_size"]
         if mora_size <= 0:
             return []

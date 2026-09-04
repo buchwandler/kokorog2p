@@ -198,7 +198,7 @@ _LANGUAGE_ALIASES = {
 _FACTORY_KWARGS_BY_LANGUAGE = {
     "en": frozenset({"unk"}),
     "fr": frozenset({"unk"}),
-    "de": frozenset({"use_lexicon", "strip_stress"}),
+    "de": frozenset({"use_lexicon", "strip_stress", "store"}),
     "cs": frozenset({"unk"}),
     "es": frozenset(),
     "it": frozenset({"mark_stress", "mark_gemination"}),

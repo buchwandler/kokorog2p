@@ -23,6 +23,7 @@ authors = [
 keywords = ["g2p", "grapheme-to-phoneme", "tts", "text-to-speech", "kokoro", "phonemizer", "espeak"]
 dependencies = [
     "g2lex>=0.1.8,<0.2.0",
+    "lexphon>=0.1.0,<0.2",
 ]
 classifiers=[
     'Development Status :: 4 - Beta',
@@ -49,9 +50,6 @@ docs = [
     "sphinx>=7",
     "sphinx-rtd-theme>=2",
     "myst-parser>=2.0.0",
-]
-lexicon-build = [
-    "lexhint==0.4.2",
 ]
 espeak = [
     "espeakng-loader>=0.1.0",

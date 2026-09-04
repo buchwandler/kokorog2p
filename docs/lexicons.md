@@ -1,62 +1,85 @@
 # Lexicon assets and release policy
 
-KokoroG2P keeps canonical lexicon sources outside the importable package. Runtime code
-opens only generated `.g2lex` resources through `importlib.resources`; it never
-downloads or reads canonical source files.
+KokoroG2P packages only the generated G2Lex assets it still owns. Runtime code opens
+those resources through `importlib.resources`; it never downloads or reads canonical
+source files.
 
 ## Named German lexicons
 
-The German registry contains four names:
+German names are application-facing choices backed by externally managed Lexphon IDs:
 
-| Name     | Default | Encoding | Upstream                     | Notes                                    |
-| -------- | ------- | -------- | ---------------------------- | ---------------------------------------- |
-| `gold`   | yes     | IPA      | KokoroG2P legacy source      | Compatibility default                    |
-| `crane`  | no      | IPA      | Crane German Wiktionary      | Ordered IPA variants                     |
-| `espeak` | no      | IPA      | CSTR `g2p-dicts`             | Bundled static eSpeak-derived dictionary |
-| `olaph`  | no      | IPA      | CSTR redistribution of OLaPh | Large MIT-licensed dictionary            |
+| Name     | Lexphon ID     | Default |
+| -------- | -------------- | ------- |
+| `gold`   | `de-de:gold`   | yes     |
+| `crane`  | `de-de:crane`  | no      |
+| `espeak` | `de-de:espeak` | no      |
+| `olaph`  | `de-de:olaph`  | no      |
 
-`gold` is the only implicit German layer. `crane`, `espeak`, and `olaph` are opt-in. For
-an explicit `lexicons=(...)` selection, the first layer containing a word wins. This
-order is caller-defined and is not changed by provider, rating, coverage, or source
-size.
+German datasets are produced and published by `g2lex-data`. KokoroG2P does not contain,
+generate, audit, or redistribute these dictionaries. Provision them explicitly before
+using a named dictionary:
+
+```bash
+python -m pip install kokorog2p
+lexphon data install de-de:gold
+lexphon data verify de-de:gold
+```
+
+Install optional layers explicitly when needed:
+
+```bash
+lexphon data install de-de:crane de-de:espeak de-de:olaph
+lexphon data verify de-de:crane de-de:espeak de-de:olaph
+```
+
+Runtime lookup is offline. `get_g2p()` and ordinary German phonemization never fetch a
+catalog, download an asset, invoke the Lexphon CLI, or build a source dictionary.
+Missing selected data raises an actionable installation error. Use `use_lexicon=False`
+for fallback-only operation without German Lexphon data.
 
 ```python
 from kokorog2p import available_lexicons, get_g2p
 
 available_lexicons("de")  # ("gold", "crane", "espeak", "olaph")
-get_g2p("de")  # gold only
-get_g2p("de", lexicons="crane")
-get_g2p("de", lexicons="espeak")
-get_g2p("de", lexicons="olaph")
-get_g2p("de", lexicons=("gold", "olaph"))
+g2p = get_g2p("de")  # logical default: gold
+g2p = get_g2p("de", lexicons="crane")
+g2p = get_g2p("de", lexicons=("gold", "olaph"))
 ```
 
-`espeak` is a static packaged dictionary and is unrelated to `use_espeak_fallback=True`.
-All named lexicons work offline. German source IPA is converted by the strict Kokoro
-consumer. Unsupported pronunciations are rejected without silent deletion and may fall
-through to configured fallback.
+For an explicit selection, the first layer containing a word wins. Caller order is not
+changed by provider, rating, coverage, or catalog order. `lexicons="espeak"` selects the
+static `de-de:espeak` dictionary and is distinct from `use_espeak_fallback=True`, which
+is KokoroG2P's dynamic fallback path.
 
-## German IPA consumer contract
+KokoroG2P retains German tag mapping, case handling, ordered primary variants, strict
+IPA-to-Kokoro conversion, stress controls, source/rating policy, and fallback behavior.
+The German adapter passes generic selectors such as `DET` and `PRON` to Lexphon;
+Kokoro's spaCy `ART` mapping remains in KokoroG2P.
 
-German assets store source-ordered IPA variants losslessly. The consumer selects the
-first variant and applies its target-profile conversion. Mapped affricates and
-diphthongs use the established Kokoro tokens, explicit source marks are classified as
-ignored, and unsupported material remains visible and invalid. An invalid or empty first
-pronunciation cannot suppress fallback.
+## Packaged lexicons
+
+`lexicons/manifest.toml` and `lexicons/lock.json` describe only packaged assets owned by
+KokoroG2P. Regenerate and validate them with:
+
+```bash
+python scripts/build_g2lex_assets.py --all
+python scripts/build_g2lex_assets.py --check
+python scripts/validate_g2lex_assets.py --all
+```
+
+The generated registry contains only packaged-resource specifications. German external
+specifications are kept separate and are never passed to the packaged-resource opener.
 
 ## Distribution policy
 
-The wheel contains generated `.g2lex` assets and
-`kokorog2p/lexicons/data/THIRD_PARTY_NOTICES.md`, but not canonical source data. The
-source distribution follows the same generated-asset-centric policy: `lexicons/sources/`
-is excluded, including the large CSTR dictionaries. Provenance and license notices
-remain included for redistributed third-party assets. See
-`lexicons/sources/de/PROVENANCE.md` for exact revisions, hashes, import policies, and
-attribution.
+Wheels contain the remaining generated `.g2lex` assets and the third-party notice file.
+They do not contain German dictionaries, German source data, or German producer audits.
+Source distributions exclude canonical lexicon sources. German data provenance and
+release metadata belong to `g2lex-data` and Lexphon.
 
 ## Swedish NST lexicon
 
-The Swedish NST pronunciation lexicon is shipped as an opt-in G2Lex asset:
+The Swedish NST pronunciation lexicon remains an opt-in packaged G2Lex asset:
 
 ```python
 from kokorog2p import available_lexicons
@@ -66,7 +89,3 @@ available_lexicons("sv")  # ("nst",)
 with open_selected("sv", ("nst",)) as lexicons:
     pronunciation = lexicons.get_hit("hej").value
 ```
-
-The `sv-se:nst` asset is generated from the Apache-2.0 source published at the pinned
-`d19dd10` revision of `Joakim/kokoro-sv-g2p`. The native Swedish rule-based frontend
-remains the default and does not load this asset implicitly.

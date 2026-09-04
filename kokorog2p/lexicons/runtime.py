@@ -46,6 +46,10 @@ _ResourceCacheInfo = namedtuple("ResourceCacheInfo", "hits misses maxsize currsi
 
 
 def _resource_key(spec: LexiconSpec) -> tuple[str, str, bool]:
+    if spec.resource is None or spec.backend is not None:
+        raise ValueError(
+            f"external lexicon {spec.id!r} cannot be opened as a packaged resource"
+        )
     return (spec.id, spec.resource, spec.case_aliases)
 
 
@@ -244,62 +248,6 @@ def open_selected(language: str, names: Sequence[str]) -> SelectedLexicons:
     return SelectedLexicons(language, names)
 
 
-def _consumer_decode_parity(
-    layer: Mapping[str, object],
-    *,
-    language: str,
-    phoneme_encoding: str,
-    invalid_policy: str = "error",
-) -> dict[str, Any]:
-    """Validate packaged values through the registered consumer decoder."""
-    result: dict[str, Any] = {
-        "decoded_entries": 0,
-        "invalid_first_pronunciations": 0,
-        "empty_first_pronunciations": 0,
-        "unsupported_source_sequences": {},
-        "target_vocabulary_violations": 0,
-        "ok": True,
-        "errors": [],
-        "invalid_policy": invalid_policy,
-    }
-    if phoneme_encoding != "ipa" or normalize_language(language) != "de-de":
-        return result
-    from kokorog2p.de.g2p import normalize_internal
-    from kokorog2p.vocab import get_vocab
-
-    target = set(get_vocab())
-    unsupported: dict[str, int] = {}
-    errors: list[str] = []
-    for word, value in layer.items():
-        variants = tuple(g2lex.pronunciation_variants(value))
-        if not variants:
-            result["empty_first_pronunciations"] += 1
-            errors.append(f"{word}: no pronunciation variants")
-            continue
-        result["decoded_entries"] += 1
-        first = normalize_internal(
-            str(variants[0]), vocabulary=target, use_tie_replacement=True
-        )
-        if first.unsupported:
-            result["invalid_first_pronunciations"] += 1
-            for sequence in first.unsupported:
-                unsupported[sequence] = unsupported.get(sequence, 0) + 1
-        if not first.value:
-            result["empty_first_pronunciations"] += 1
-        if not first.valid:
-            errors.append(f"{word}: invalid first pronunciation")
-        if any(char not in target for char in first.value):
-            result["target_vocabulary_violations"] += 1
-    result["unsupported_source_sequences"] = dict(sorted(unsupported.items()))
-    result["errors"] = errors[:20]
-    result["ok"] = not (
-        result["empty_first_pronunciations"]
-        or (invalid_policy == "error" and result["target_vocabulary_violations"])
-        or (invalid_policy == "error" and result["invalid_first_pronunciations"])
-    )
-    return result
-
-
 def validate_runtime_parity(
     records: list[dict[str, Any]], root: Path
 ) -> list[dict[str, Any]]:
@@ -328,13 +276,6 @@ def validate_runtime_parity(
                         missing += 1
                     elif actual != expected:
                         mismatches += 1
-            if layer is not None:
-                consumer = _consumer_decode_parity(
-                    layer,
-                    language=str(record["language"]),
-                    phoneme_encoding=str(record["phoneme_encoding"]),
-                    invalid_policy=str(record.get("consumer_invalid_policy", "error")),
-                )
         finally:
             selected.close()
         storage_ok = not (missing or mismatches)

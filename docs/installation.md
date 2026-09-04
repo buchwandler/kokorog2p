@@ -14,14 +14,29 @@ prepared by the calling application before phonemization.
 
 Language and backend integrations are optional extras:
 
-```bash
+````bash
 python -m pip install "kokorog2p[en]"
 python -m pip install "kokorog2p[de]"
 python -m pip install "kokorog2p[fr]"
-python -m pip install "kokorog2p[ko]"
-python -m pip install "kokorog2p[ja]"
-python -m pip install "kokorog2p[espeak]"
+
+German pronunciation dictionaries are not bundled with KokoroG2P. Install the default data explicitly through Lexphon:
+
+```bash
+lexphon data install de-de:gold
+lexphon data verify de-de:gold
+````
+
+Install optional named layers only when needed:
+
+```bash
+lexphon data install de-de:crane de-de:espeak de-de:olaph
 ```
+
+Provision these assets during image or container construction. German lookup is offline
+at runtime and performs no implicit download. python -m pip install "kokorog2p[ko]"
+python -m pip install "kokorog2p[ja]" python -m pip install "kokorog2p[espeak]"
+
+````
 
 See `pyproject.toml` for the complete list of language extras. Optional spaCy models are
 never downloaded by KokoroG2P; install the model required by your application
@@ -33,7 +48,7 @@ If the application uses Spokenform, install and invoke it independently:
 
 ```bash
 python -m pip install "spokenform>=0.3.5,<0.4"
-```
+````
 
 ```python
 from spokenform import prepare_for_kokorog2p

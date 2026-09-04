@@ -218,7 +218,8 @@ jobs:
       - name: Run Japanese Cutlet smoke tests
         run: python -m pytest -q tests/test_ja_g2p.py -k cutlet
 
-  lexicon-migration:
+  packaged-lexicons:
+    name: Remaining packaged lexicons and release artifacts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -228,42 +229,16 @@ jobs:
           python-version: "3.13"
       - name: Install package and development dependencies
         run: python -m pip install -e ".[dev]"
-      - name: Install exact G2Lex asset builder
-        run: |
-          python -m pip install "g2lex==0.1.8" "lexhint==0.4.2"
-      - name: Download German LexHint dataset
-        run: lexhint dataset download de
-      - name: Align generated G2Lex lock metadata
-        run: |
-          python - <<'PY'
-          import json
-          from pathlib import Path
-
-          path = Path("lexicons/lock.json")
-          lock = json.loads(path.read_text(encoding="utf-8"))
-          lock["g2lex_version"] = "0.1.8"
-          for asset in lock["assets"].values():
-              asset["generator"] = "g2lex 0.1.8"
-          path.write_text(
-              json.dumps(lock, indent=2, sort_keys=True) + "\n",
-              encoding="utf-8",
-          )
-          PY
-      - name: Check deterministic lexicon assets
+      - name: Check deterministic packaged lexicons
         run: python scripts/build_g2lex_assets.py --check
-      - name: Validate lexicon assets
+      - name: Validate packaged lexicons
         run: python scripts/validate_g2lex_assets.py --all --runtime-parity
-      - name: Audit German IPA lexicon inventories
-        run: |
-          python scripts/audit_lexicon_phoneme_inventory.py --id de-de:crane
-          python scripts/audit_lexicon_phoneme_inventory.py --id de-de:espeak
-          python scripts/audit_lexicon_phoneme_inventory.py --id de-de:olaph
       - name: Build and inspect wheel and sdist
         run: |
           rm -rf dist
           python -m build
           python scripts/check_release_artifacts.py --wheel "$(ls dist/*.whl)" --sdist "$(ls dist/*.tar.gz)"
-      - name: Run focused lexicon tests
+      - name: Run packaged and German adapter tests
         run: |
           python -m pytest -q \
             tests/test_lexicon_registry.py \
@@ -274,9 +249,35 @@ jobs:
             tests/test_lexicon_precedence.py \
             tests/test_lexicon_manifest_generation.py \
             tests/test_de_g2p.py \
-            tests/test_en_arpabet.py \
-            tests/test_cmudict_lexicon.py \
             tests/test_de_g2p_hardening.py \
             tests/test_release_artifacts.py \
-            tests/test_dependency_contract.py \
-            tests/test_benchmark_de_lexicon_sources.py
+            tests/test_dependency_contract.py
+  german-lexphon-integration:
+    name: Released German Lexphon integration
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    env:
+      LEXPHON_DATA_HOME: ${{ runner.temp }}/lexphon-data
+      KOKOROG2P_EXTERNAL_LEXPHON_DATA: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install package and development dependencies
+        run: python -m pip install -e ".[de,dev]"
+      - name: Provision released German data
+        run: |
+          lexphon data install \
+            de-de:gold \
+            de-de:crane \
+            de-de:espeak \
+            de-de:olaph
+          lexphon data verify \
+            de-de:gold \
+            de-de:crane \
+            de-de:espeak \
+            de-de:olaph
+      - name: Run German integration tests
+        run: python -m pytest -q tests/test_de_lexphon_integration.py

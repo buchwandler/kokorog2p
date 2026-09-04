@@ -14,7 +14,7 @@ from ._generated_registry import GENERATED_LEXICONS
 class LexiconSpec:
     language: str
     name: str
-    resource: str
+    resource: str | None
     kind: Literal["pronunciation", "membership"]
     rating: int | None
     case_aliases: bool
@@ -22,6 +22,7 @@ class LexiconSpec:
     metadata: Mapping[str, object]
     id: str
     default_priority: int | None
+    backend: str | None = None
 
 
 _SPECS: tuple[LexiconSpec, ...] = tuple(
@@ -40,6 +41,68 @@ _SPECS: tuple[LexiconSpec, ...] = tuple(
     for record in GENERATED_LEXICONS
 )
 
+_EXTERNAL_SPECS: tuple[LexiconSpec, ...] = (
+    LexiconSpec(
+        language="de-de",
+        name="gold",
+        resource=None,
+        kind="pronunciation",
+        rating=4,
+        case_aliases=False,
+        phoneme_encoding="ipa",
+        metadata=MappingProxyType(
+            {"id": "de-de:gold", "language": "de-de", "name": "gold"}
+        ),
+        id="de-de:gold",
+        default_priority=10,
+        backend="lexphon",
+    ),
+    LexiconSpec(
+        language="de-de",
+        name="crane",
+        resource=None,
+        kind="pronunciation",
+        rating=None,
+        case_aliases=False,
+        phoneme_encoding="ipa",
+        metadata=MappingProxyType(
+            {"id": "de-de:crane", "language": "de-de", "name": "crane"}
+        ),
+        id="de-de:crane",
+        default_priority=None,
+        backend="lexphon",
+    ),
+    LexiconSpec(
+        language="de-de",
+        name="espeak",
+        resource=None,
+        kind="pronunciation",
+        rating=None,
+        case_aliases=False,
+        phoneme_encoding="ipa",
+        metadata=MappingProxyType(
+            {"id": "de-de:espeak", "language": "de-de", "name": "espeak"}
+        ),
+        id="de-de:espeak",
+        default_priority=None,
+        backend="lexphon",
+    ),
+    LexiconSpec(
+        language="de-de",
+        name="olaph",
+        resource=None,
+        kind="pronunciation",
+        rating=None,
+        case_aliases=False,
+        phoneme_encoding="ipa",
+        metadata=MappingProxyType(
+            {"id": "de-de:olaph", "language": "de-de", "name": "olaph"}
+        ),
+        id="de-de:olaph",
+        default_priority=None,
+        backend="lexphon",
+    ),
+)
 _LANGUAGE_ALIASES = {
     "en": "en-us",
     "eng": "en-us",
@@ -71,7 +134,10 @@ def normalize_language(language: str) -> str:
 
 def _specs_for(language: str) -> tuple[LexiconSpec, ...]:
     canonical = normalize_language(language)
-    return tuple(spec for spec in _SPECS if spec.language == canonical)
+    specs = tuple(spec for spec in _SPECS if spec.language == canonical)
+    if canonical == "de-de":
+        return _EXTERNAL_SPECS
+    return specs
 
 
 def available_lexicons(language: str) -> tuple[str, ...]:
@@ -147,6 +213,7 @@ def lexicon_info(language: str, name: str) -> Mapping[str, object]:
             "case_aliases": spec.case_aliases,
             "phoneme_encoding": spec.phoneme_encoding,
             "default_priority": spec.default_priority,
+            "backend": spec.backend,
         }
     )
 

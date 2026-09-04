@@ -92,29 +92,3 @@ def test_static_espeak_lexicon_works_without_espeak_fallback() -> None:
         assert token.get("rating") == 5
     finally:
         g2p.close()
-
-
-def test_consumer_parity_validates_first_variant_and_target_vocab() -> None:
-    from kokorog2p.lexicons.runtime import _consumer_decode_parity
-
-    result = _consumer_decode_parity(
-        {"Haus": ("h aʊ s", "h ə s")},
-        language="de-de",
-        phoneme_encoding="ipa",
-    )
-    assert result["decoded_entries"] == 1
-    assert result["invalid_first_pronunciations"] == 0
-    assert result["ok"] is True
-
-
-def test_consumer_parity_reports_invalid_fixture() -> None:
-    from kokorog2p.lexicons.runtime import _consumer_decode_parity
-
-    result = _consumer_decode_parity(
-        {"fixture": "a§b"},
-        language="de-de",
-        phoneme_encoding="ipa",
-    )
-    assert result["invalid_first_pronunciations"] == 1
-    assert result["unsupported_source_sequences"] == {"§": 1}
-    assert result["ok"] is False

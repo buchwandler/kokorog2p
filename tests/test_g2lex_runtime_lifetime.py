@@ -55,19 +55,3 @@ def test_cached_g2p_survives_cache_clear() -> None:
     assert g2p.lookup("the") == before
     g2p.close()
     gc.collect()
-
-
-def test_shared_german_third_party_resources_survive_close_and_clear() -> None:
-    clear_cache(deep=True)
-    first = open_selected("de", ("espeak", "olaph"))
-    second = open_selected("de", ("espeak", "olaph"))
-    try:
-        assert first.get_hit("Haus") is not None
-        assert second.get_hit("Haus") is not None
-        first.close()
-        assert second.get_hit("Haus") is not None
-        clear_cache(deep=True)
-        assert second.get_hit("Haus") is not None
-    finally:
-        second.close()
-        clear_cache(deep=True)
