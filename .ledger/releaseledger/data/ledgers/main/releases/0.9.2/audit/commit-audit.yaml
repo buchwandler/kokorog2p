@@ -2,14 +2,14 @@ schema_version: 1
 object_type: commit_audit_sheet
 versioning:
   schema_version: 1
-  revision: 2
+  revision: 4
 release_version: 0.9.2
 git_base_ref: v0.9.1
 git_base_sha: deaf53c088da395478515aae90993dcda20f58c4
 git_head_ref: HEAD
-git_head_sha: 567fbd3c00dd2835843967b5af9b502ab002d4ab
-git_range: deaf53c088da395478515aae90993dcda20f58c4..567fbd3c00dd2835843967b5af9b502ab002d4ab
-commit_count: 3
+git_head_sha: 20179d9b27008aab179b6d4ffb33b81fc67edce3
+git_range: deaf53c088da395478515aae90993dcda20f58c4..20179d9b27008aab179b6d4ffb33b81fc67edce3
+commit_count: 4
 rows:
   - sha: 5474e6e1b36498a1985cb3e459b17ff5369a8a9a
     source_ref: git:5474e6e1b36498a1985cb3e459b17ff5369a8a9a
@@ -261,3 +261,46 @@ rows:
     notes:
       Reviewed Swedish adapter and registry changes, provenance and lexicon
       documentation, and focused behavior and artifact tests.
+  - sha: 20179d9b27008aab179b6d4ffb33b81fc67edce3
+    source_ref: git:20179d9b27008aab179b6d4ffb33b81fc67edce3
+    short_sha: 20179d9
+    changed_paths:
+      - .github/workflows/tests.yml
+      - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.0/release.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.0/audit/commit-audit.yaml
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.0/entries/entry-0002.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.0/entries/entry-0003.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.0/entries/entry-0007.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.0/entries/entry-0008.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.0/release.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.1/audit/commit-audit.yaml
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.1/entries/entry-0005.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.1/entries/entry-0006.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.1/entries/entry-0007.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.1/release.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.2/audit/commit-audit.yaml
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.2/entries/entry-0001.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.2/entries/entry-0002.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.2/entries/entry-0003.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.2/release.md
+      - docs/changelog.md
+    stats:
+      files_changed: 0
+      insertions: 1017
+      deletions: 130
+    inspected: true
+    inspected_paths:
+      - .github/workflows/tests.yml
+      - docs/changelog.md
+    observed_behavior:
+      CI now exports the Lexphon data home through the workflow environment before
+      provisioning external pronunciation data; the generated changelog history is
+      synchronized without adding product behavior.
+    public_impact: internal
+    decision: internal
+    evidence_subject: "chore: pre-commit, ci and changelog"
+    notes:
+      Reviewed the workflow environment setup and generated changelog update;
+      implementation and release-maintenance changes are intentionally excluded from
+      public notes.
