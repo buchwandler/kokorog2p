@@ -16,7 +16,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import ModuleType, TracebackType
-from typing import Any, Self
+from typing import Any
 
 try:
     import resource
@@ -272,7 +272,7 @@ class PatchSet:
             self._restorers.pop()()
         self._class_patches.clear()
 
-    def __enter__(self) -> Self:
+    def __enter__(self) -> PatchSet:
         return self
 
     def __exit__(
@@ -301,7 +301,7 @@ class SubprocessProbe:
             head = str(command).split(maxsplit=1)[0].lower() if command else ""
         return "espeak" in Path(head).name
 
-    def __enter__(self) -> Self:
+    def __enter__(self) -> SubprocessProbe:
         self._original = subprocess.run
         original = self._original
 
