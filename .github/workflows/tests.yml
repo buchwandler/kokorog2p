@@ -257,7 +257,6 @@ jobs:
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
     env:
-      LEXPHON_DATA_HOME: ${{ runner.temp }}/lexphon-data
       KOKOROG2P_EXTERNAL_LEXPHON_DATA: "1"
     steps:
       - uses: actions/checkout@v4
@@ -265,6 +264,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+      - name: Configure Lexphon data home
+        shell: bash
+        run: echo "LEXPHON_DATA_HOME=${RUNNER_TEMP}/lexphon-data" >> "$GITHUB_ENV"
       - name: Install package and development dependencies
         run: python -m pip install -e ".[dev]"
       - name: Provision released LexHint data
@@ -275,7 +277,7 @@ jobs:
             vi:lexhint \
             ja:lexhint \
             ko:lexhint \
-            pt:lexhint
+            pt:lexhint \
             de-de:gold \
             de-de:crane \
             de-de:espeak \
@@ -286,7 +288,7 @@ jobs:
             vi:lexhint \
             ja:lexhint \
             ko:lexhint \
-            pt:lexhint
+            pt:lexhint \
             de-de:gold \
             de-de:crane \
             de-de:espeak \

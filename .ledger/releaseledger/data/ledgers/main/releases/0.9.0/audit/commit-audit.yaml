@@ -1,0 +1,283 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 2
+release_version: 0.9.0
+git_base_ref: v0.8.4
+git_base_sha: 4a24d2bbec1998a39565fb6a3232a3194c00043b
+git_head_ref: v0.9.0
+git_head_sha: 743cd8f38046bd4ab132f73bf142a66b4a945216
+git_range: 4a24d2bbec1998a39565fb6a3232a3194c00043b..743cd8f38046bd4ab132f73bf142a66b4a945216
+commit_count: 4
+rows:
+  - sha: 091da638fe27a657dbced413d3d4dd3ed19d9676
+    source_ref: git:091da638fe27a657dbced413d3d4dd3ed19d9676
+    short_sha: 091da63
+    changed_paths:
+      - .github/workflows/tests.yml
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0018.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0019.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0020.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.8.4/entries/entry-0021.md
+      - README.md
+      - docs/installation.md
+      - docs/prepared_phonemization.md
+      - kokorog2p/__init__.py
+      - kokorog2p/abbreviation_utils.py
+      - kokorog2p/cs/normalizer.py
+      - kokorog2p/de/normalizer.py
+      - kokorog2p/en/normalizer.py
+      - kokorog2p/es/normalizer.py
+      - kokorog2p/fr/normalizer.py
+      - kokorog2p/integrations.py
+      - kokorog2p/it/normalizer.py
+      - kokorog2p/ko/numerals.py
+      - kokorog2p/multilang.py
+      - kokorog2p/pipeline_api.py
+      - kokorog2p/pt/normalizer.py
+      - kokorog2p/th/normalizer.py
+      - kokorog2p/tokenization.py
+      - kokorog2p/types.py
+      - pyproject.toml
+      - tests/test_abbr2words_source_of_truth.py
+      - tests/test_abbreviation_customization.py
+      - tests/test_cs_normalizer.py
+      - tests/test_de_g2p.py
+      - tests/test_de_normalizer.py
+      - tests/test_dependency_contract.py
+      - tests/test_en_abbreviations.py
+      - tests/test_en_g2p.py
+      - tests/test_en_normalizer.py
+      - tests/test_factory_languages.py
+      - tests/test_phoneme_spacing.py
+      - tests/test_pipeline_api.py
+      - tests/test_prepared_core.py
+      - tests/test_pt_g2p.py
+      - tests/test_public_api_consistency.py
+      - tests/test_spokenform_migration.py
+      - tests/test_ssmd_phrasplit_integration.py
+      - tests/test_temperature_normalization.py
+      - tests/test_th_normalizer.py
+    stats:
+      files_changed: 0
+      insertions: 751
+      deletions: 2590
+    inspected: true
+    inspected_paths:
+      - kokorog2p/pipeline_api.py
+      - kokorog2p/tokenization.py
+      - kokorog2p/types.py
+      - kokorog2p/integrations.py
+      - kokorog2p/__init__.py
+      - pyproject.toml
+      - tests/test_prepared_core.py
+      - docs/prepared_phonemization.md
+    observed_behavior:
+      Core phonemization accepts caller-prepared text and external token annotations,
+      while semantic expansion and the Spokenform runtime dependency are removed from
+      the core path
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: spokenform is optional and other simplifications"
+    target_entry_key: entry-0001
+    notes:
+      The same commit also supports the optional composition path documented by the
+      release
+  - sha: 79b5731db77d28ac3b205b7c4dd2bb03c6b155f7
+    source_ref: git:79b5731db77d28ac3b205b7c4dd2bb03c6b155f7
+    short_sha: 79b5731
+    changed_paths:
+      - .github/workflows/tests.yml
+      - README.md
+      - docs/abbreviation_customization.md
+      - docs/advanced.md
+      - docs/api/english.md
+      - docs/api/french.md
+      - docs/api/german.md
+      - docs/api/italian.md
+      - docs/api/korean.md
+      - docs/api/mixed.md
+      - docs/api/russian.md
+      - docs/api/spanish.md
+      - docs/contributing.md
+      - docs/index.md
+      - docs/installation.md
+      - docs/languages.md
+      - docs/prepared_phonemization.md
+      - docs/quickstart.md
+      - docs/spans.md
+      - kokorog2p/__init__.py
+      - kokorog2p/abbreviation_utils.py
+      - kokorog2p/base.py
+      - kokorog2p/cs/abbreviations.py
+      - kokorog2p/cs/g2p.py
+      - kokorog2p/cs/normalizer.py
+      - kokorog2p/de/__init__.py
+      - kokorog2p/de/abbreviations.py
+      - kokorog2p/de/g2p.py
+      - kokorog2p/de/normalizer.py
+      - kokorog2p/de/numbers.py
+      - kokorog2p/de/text_rules.py
+      - kokorog2p/en/__init__.py
+      - kokorog2p/en/abbreviations.py
+      - kokorog2p/en/g2p.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/en/normalizer.py
+      - kokorog2p/en/numbers.py
+      - kokorog2p/es/abbreviations.py
+      - kokorog2p/es/g2p.py
+      - kokorog2p/es/normalizer.py
+      - kokorog2p/fr/__init__.py
+      - kokorog2p/fr/abbreviations.py
+      - kokorog2p/fr/g2p.py
+      - kokorog2p/fr/lexicon.py
+      - kokorog2p/fr/normalizer.py
+      - kokorog2p/fr/numbers.py
+      - kokorog2p/it/abbreviations.py
+      - kokorog2p/it/g2p.py
+      - kokorog2p/it/normalizer.py
+      - kokorog2p/ko/data/idioms.py
+      - kokorog2p/ko/english.py
+      - kokorog2p/ko/g2p.py
+      - kokorog2p/ko/g2pk.py
+      - kokorog2p/ko/numerals.py
+      - kokorog2p/ko/semantic.py
+      - kokorog2p/multilang.py
+      - kokorog2p/pipeline/abbreviations.py
+      - kokorog2p/pipeline/tokenizer.py
+      - kokorog2p/pipeline_api.py
+      - kokorog2p/pt/abbreviations.py
+      - kokorog2p/pt/g2p.py
+      - kokorog2p/pt/normalizer.py
+      - kokorog2p/th/g2p.py
+      - kokorog2p/tokenization.py
+      - pyproject.toml
+      - tests/conftest.py
+      - tests/test_abbr2words_source_of_truth.py
+      - tests/test_abbreviation_customization.py
+      - tests/test_de_g2p.py
+      - tests/test_de_g2p_hardening.py
+      - tests/test_dependency_contract.py
+      - tests/test_en_abbreviations.py
+      - tests/test_en_g2p.py
+      - tests/test_en_lexicon.py
+      - tests/test_en_normalizer.py
+      - tests/test_en_numbers.py
+      - tests/test_guarded_abbreviation_merging.py
+      - tests/test_ko_contract.py
+      - tests/test_ko_g2p.py
+      - tests/test_multilang.py
+      - tests/test_multilang_preprocess.py
+      - tests/test_offset_tokenization.py
+      - tests/test_pipeline_api.py
+      - tests/test_ru_multilang.py
+      - tests/test_semantic_ownership.py
+      - tests/test_spokenform_composition.py
+      - tests/test_spokenform_migration.py
+      - tests/test_tokenizer.py
+    stats:
+      files_changed: 0
+      insertions: 546
+      deletions: 10350
+    inspected: true
+    inspected_paths:
+      - kokorog2p/pipeline_api.py
+      - kokorog2p/__init__.py
+      - kokorog2p/tokenization.py
+      - pyproject.toml
+      - tests/test_public_api_consistency.py
+      - docs/quickstart.md
+      - docs/prepared_phonemization.md
+      - kokorog2p/multilang.py
+    observed_behavior:
+      Core APIs stop performing written-to-spoken normalization and automatic
+      mixed-language detection, and require callers to provide explicit language and
+      prepared text
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: prepare 0.9.0 without text normalization"
+    target_entry_key: entry-0002
+    notes:
+      The large deletion removes the old semantic preparation and mixed-language
+      convenience surfaces
+  - sha: d44e2857f56be1d8f7d09bc84de035f62b9c9bf8
+    source_ref: git:d44e2857f56be1d8f7d09bc84de035f62b9c9bf8
+    short_sha: d44e285
+    changed_paths:
+      - .github/workflows/tests.yml
+      - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.0/entries/entry-0001.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.0/entries/entry-0002.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.0/entries/entry-0003.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.0/entries/entry-0004.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.0/entries/entry-0005.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.0/entries/entry-0006.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.0/release.md
+      - README.md
+      - docs/api/core.md
+      - docs/changelog.md
+      - docs/markers.md
+      - docs/spans.md
+      - examples/abbreviation_customization.py
+      - examples/demo_both_features.py
+      - examples/explicit_language_spans.py
+      - examples/multilang_preprocess.py
+      - examples/new_api_demo.py
+      - examples/quick_demo_dr_to_drive.py
+      - kokorog2p/__init__.py
+      - kokorog2p/pipeline_api.py
+      - tests/test_en_debug.py
+      - tests/test_en_g2p.py
+      - tests/test_examples_contract.py
+      - tests/test_goruut_backend.py
+      - tests/test_minimal_install.py
+      - tests/test_phoneme_spacing.py
+      - tests/test_pipeline_api.py
+      - tests/test_public_api_consistency.py
+      - tests/test_quote_phonemes.py
+      - tests/test_ssmd_phrasplit_integration.py
+    stats:
+      files_changed: 0
+      insertions: 487
+      deletions: 581
+    inspected: true
+    inspected_paths:
+      - kokorog2p/__init__.py
+      - kokorog2p/pipeline_api.py
+      - kokorog2p/types.py
+      - kokorog2p/integrations.py
+      - examples
+      - tests/test_examples_contract.py
+      - docs/api/core.md
+      - docs/prepared_phonemization.md
+    observed_behavior:
+      Public examples, API documentation, and contract tests were migrated to the
+      prepared-text and explicit-language interface, including annotation routing
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: prepare release 0.9.0, adapt examples and docs"
+    target_entry_key: entry-0003
+    notes:
+      Release-note records introduced in this commit are provenance only and are not
+      treated as behavior evidence
+  - sha: 743cd8f38046bd4ab132f73bf142a66b4a945216
+    source_ref: git:743cd8f38046bd4ab132f73bf142a66b4a945216
+    short_sha: 743cd8f
+    changed_paths:
+      - examples/new_api_demo.py
+      - scripts/de_crane_transform.py
+    stats:
+      files_changed: 0
+      insertions: 0
+      deletions: 0
+    inspected: true
+    inspected_paths:
+      - examples/new_api_demo.py
+      - scripts/de_crane_transform.py
+    observed_behavior:
+      File executable modes changed; no source content or runtime behavior changed
+    public_impact: internal
+    decision: internal
+    evidence_subject: "chore: pre-commit"
+    notes: No public changelog entry required

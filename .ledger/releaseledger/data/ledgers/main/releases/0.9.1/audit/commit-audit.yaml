@@ -2,14 +2,14 @@ schema_version: 1
 object_type: commit_audit_sheet
 versioning:
   schema_version: 1
-  revision: 3
+  revision: 5
 release_version: 0.9.1
 git_base_ref: v0.9.0
 git_base_sha: 743cd8f38046bd4ab132f73bf142a66b4a945216
-git_head_ref: HEAD
-git_head_sha: 7231fda0a017899fc7a414864c7a298177031c2c
-git_range: 743cd8f38046bd4ab132f73bf142a66b4a945216..7231fda0a017899fc7a414864c7a298177031c2c
-commit_count: 4
+git_head_ref: v0.9.1
+git_head_sha: deaf53c088da395478515aae90993dcda20f58c4
+git_range: 743cd8f38046bd4ab132f73bf142a66b4a945216..deaf53c088da395478515aae90993dcda20f58c4
+commit_count: 9
 rows:
   - sha: a1f1e5db14b44d0952e401e212e96ea05c051496
     source_ref: git:a1f1e5db14b44d0952e401e212e96ea05c051496
@@ -37,30 +37,23 @@ rows:
     inspected_paths:
       - docs/lexicons.md
       - kokorog2p/de/g2p.py
-      - kokorog2p/lexicons/_generated_registry.py
-      - kokorog2p/lexicons/data/THIRD_PARTY_NOTICES.md
-      - kokorog2p/lexicons/data/sv_nst.g2lex
       - kokorog2p/lexicons/registry.py
-      - lexicons/lock.json
+      - kokorog2p/lexicons/data/sv_nst.g2lex
       - lexicons/manifest.toml
+      - lexicons/lock.json
       - lexicons/sources/sv/sv_nst.tsv
-      - scripts/build_g2lex_assets.py
-      - tests/test_de_g2p.py
       - tests/test_g2lex_assets.py
       - tests/test_lexicon_registry.py
-      - tests/test_pipeline_api.py
     observed_behavior:
-      Added an opt-in Swedish NST G2Lex pronunciation asset with aliases, manifest and
-      lock metadata, documentation, and registry coverage; normalized German lexicon
-      pronunciations before use and preserved fallback behavior for invalid lookups with
-      regression coverage.
+      Added an opt-in Swedish NST G2Lex pronunciation asset with registry and dependency
+      metadata, and normalized German lexicon pronunciations before fallback processing
     public_impact: public
     decision: accepted
     evidence_subject: "feat: sv g2lex and fix german phoneme creation"
     target_entry_key: entry-0001
-    target_entry_id: entry-0001
     notes:
-      Reviewed the Swedish asset metadata and German normalization and fallback diffs.
+      Reviewed the Swedish asset metadata, German normalization, fallback behavior, and
+      regression coverage
   - sha: 07205fd20a1f1199cae3c733dfb5c5e496338410
     source_ref: git:07205fd20a1f1199cae3c733dfb5c5e496338410
     short_sha: 07205fd
@@ -78,13 +71,13 @@ rows:
       - tests/test_de_g2p.py
       - tests/test_pipeline_api.py
     observed_behavior:
-      Applied formatting-only pre-commit changes to German G2P and regression tests; no
-      runtime behavior changed.
+      Formatting-only pre-commit changes were applied to German G2P and regression
+      tests; runtime behavior did not change
     public_impact: none
     decision: internal
     evidence_subject: "chore: pre-commit"
-    target_entry_id: entry-0002
-    notes: Reviewed the diff and classified it as non-user-facing formatting.
+    target_entry_key: entry-0002
+    notes: No public release note required
   - sha: dfaba72f986da8e053b970f7e768c04baadc7c15
     source_ref: git:dfaba72f986da8e053b970f7e768c04baadc7c15
     short_sha: dfaba72
@@ -100,14 +93,13 @@ rows:
       - pyproject.toml
       - tests/test_dependency_contract.py
     observed_behavior:
-      Added scikit-learn version 1.5.2 or newer to the Thai optional dependency extra
-      and updated its dependency contract test.
+      The Thai optional dependency extra now declares scikit-learn version 1.5.2 or
+      newer and its dependency contract test reflects that requirement
     public_impact: public
     decision: accepted
     evidence_subject: "chore: fix scikit dep"
-    target_entry_key: entry-0002
-    target_entry_id: entry-0003
-    notes: Reviewed the dependency metadata and matching contract test.
+    target_entry_key: entry-0003
+    notes: Reviewed the dependency metadata and matching contract test
   - sha: 7231fda0a017899fc7a414864c7a298177031c2c
     source_ref: git:7231fda0a017899fc7a414864c7a298177031c2c
     short_sha: 7231fda
@@ -156,6 +148,129 @@ rows:
       deletions: 48
     inspected: true
     inspected_paths:
+      - benchmarks/benchmark_language_stations.py
+      - benchmarks/benchmark_all_stations.py
+      - kokorog2p/backends/espeak/backend.py
+      - kokorog2p/backends/espeak/cli_wrapper.py
+      - kokorog2p/fallback_base.py
+      - kokorog2p/de/g2p.py
+      - kokorog2p/ru/g2p.py
+      - kokorog2p/th/g2p.py
+      - tests/test_factory_performance_contract.py
+      - tests/test_de_gold_performance.py
+    observed_behavior:
+      Added reusable station benchmarks across supported languages, lazy optional
+      backend initialization, batched eSpeak fallback processing, bounded fallback
+      caching, and diagnostics with regression and performance contract coverage
+    public_impact: public
+    decision: accepted
+    evidence_subject: "feat: benchmark and performance improvements"
+    target_entry_key: entry-0004
+    notes:
+      Reviewed the implementation and tests for batching, caching, lazy initialization,
+      diagnostics, and benchmark coverage
+  - sha: 69638aab585aa5162a79d7501781afd396cff211
+    source_ref: git:69638aab585aa5162a79d7501781afd396cff211
+    short_sha: 69638aa
+    changed_paths:
+      - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.1/audit/commit-audit.yaml
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.1/entries/entry-0001.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.1/entries/entry-0002.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.1/entries/entry-0003.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.1/entries/entry-0004.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.1/release.md
+      - docs/changelog.md
+      - kokorog2p/de/fallback.py
+      - tests/test_de_g2p.py
+    stats:
+      files_changed: 0
+      insertions: 419
+      deletions: 0
+    inspected: true
+    inspected_paths:
+      - kokorog2p/de/fallback.py
+      - tests/test_de_g2p.py
+    observed_behavior:
+      German eSpeak fallback output now removes tie markers before Kokoro normalization,
+      with a regression test covering the conversion
+    public_impact: public
+    decision: accepted
+    evidence_subject: "chore: changelog and pytest fix"
+    target_entry_key: entry-0005
+    notes:
+      Releaseledger and changelog edits in this commit were treated as provenance, not
+      as release behavior
+  - sha: 327da6abd84db9b16e44587f2c2fe2034e66ddfe
+    source_ref: git:327da6abd84db9b16e44587f2c2fe2034e66ddfe
+    short_sha: 327da6a
+    changed_paths:
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.1/entries/entry-0002.md
+      - docs/changelog.md
+    stats:
+      files_changed: 0
+      insertions: 10
+      deletions: 6
+    inspected: true
+    inspected_paths:
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.1/entries/entry-0002.md
+      - docs/changelog.md
+    observed_behavior:
+      Formatting-only changes were applied to the internal release entry and generated
+      changelog layout
+    public_impact: none
+    decision: internal
+    evidence_subject: "chore: pre-commit"
+    target_entry_key: entry-0007
+    notes: No public runtime behavior changed
+  - sha: 0a2532e3d3f5e559bd4b45c6a19026c01aa12ea8
+    source_ref: git:0a2532e3d3f5e559bd4b45c6a19026c01aa12ea8
+    short_sha: 0a2532e
+    changed_paths:
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.1/release.md
+    stats:
+      files_changed: 0
+      insertions: 1
+      deletions: 1
+    inspected: true
+    inspected_paths:
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.1/release.md
+    observed_behavior:
+      Release metadata quote formatting changed without changing the stored release
+      value or runtime behavior
+    public_impact: none
+    decision: internal
+    evidence_subject: "chore: pre-commit"
+    target_entry_key: entry-0007
+    notes: No public release note required
+  - sha: 6cfff62ed6ca1f40f456da2f92eb43ea0836caaf
+    source_ref: git:6cfff62ed6ca1f40f456da2f92eb43ea0836caaf
+    short_sha: 6cfff62
+    changed_paths:
+      - kokorog2p/fallback_base.py
+      - tests/test_de_gold_performance.py
+    stats:
+      files_changed: 0
+      insertions: 28
+      deletions: 2
+    inspected: true
+    inspected_paths:
+      - kokorog2p/fallback_base.py
+      - tests/test_de_gold_performance.py
+    observed_behavior:
+      Fallback cache key construction no longer reads backend version metadata,
+      preserving lazy backend initialization during batch phonemization
+    public_impact: public
+    decision: accepted
+    evidence_subject: "fix: version"
+    target_entry_key: entry-0006
+    notes:
+      Reviewed the cache-key change and regression test that fails if backend version is
+      initialized
+  - sha: deaf53c088da395478515aae90993dcda20f58c4
+    source_ref: git:deaf53c088da395478515aae90993dcda20f58c4
+    short_sha: deaf53c
+    changed_paths:
       - benchmarks/benchmark_all_stations.py
       - benchmarks/benchmark_ar_stations.py
       - benchmarks/benchmark_cs_stations.py
@@ -178,32 +293,19 @@ rows:
       - benchmarks/benchmark_th_stations.py
       - benchmarks/benchmark_vi_stations.py
       - benchmarks/benchmark_zh_stations.py
-      - kokorog2p/__init__.py
-      - kokorog2p/backends/espeak/__init__.py
-      - kokorog2p/backends/espeak/backend.py
-      - kokorog2p/backends/espeak/cli_wrapper.py
-      - kokorog2p/backends/espeak/phonemizer_base.py
-      - kokorog2p/de/__init__.py
-      - kokorog2p/de/fallback.py
-      - kokorog2p/de/g2p.py
-      - kokorog2p/en/lexicon.py
-      - kokorog2p/fallback_base.py
-      - kokorog2p/fr/lexicon.py
-      - kokorog2p/ru/g2p.py
-      - kokorog2p/th/g2p.py
-      - tests/test_de_gold_performance.py
-      - tests/test_factory_performance_contract.py
-      - tests/test_th_g2p.py
+    stats:
+      files_changed: 0
+      insertions: 0
+      deletions: 0
+    inspected: true
+    inspected_paths:
+      - benchmarks/benchmark_all_stations.py
+      - benchmarks/benchmark_language_stations.py
     observed_behavior:
-      Added reusable station benchmarks across supported languages; introduced lazy
-      optional backend initialization, batched eSpeak fallback processing, bounded
-      fallback caching, German diagnostics and backend introspection, with regression
-      and performance contract tests.
-    public_impact: public
-    decision: accepted
-    evidence_subject: "feat: benchmark and performance improvements"
-    target_entry_key: entry-0003
-    target_entry_id: entry-0004
-    notes:
-      Reviewed the implementation and test coverage for batching, caching, lazy
-      initialization, diagnostics, and benchmarks.
+      Benchmark launcher scripts received executable permission changes only; source
+      content and runtime behavior did not change
+    public_impact: none
+    decision: internal
+    evidence_subject: "chore: pre-commit"
+    target_entry_key: entry-0007
+    notes: No public release note required
