@@ -25,6 +25,12 @@ LEXHINT_TONE_MAP: Final[dict[str, str]] = {
     "˨": "↘",
 }
 
+LEXHINT_SYMBOL_MAP: Final[dict[str, str]] = {
+    "\u031a": "",  # IPA unreleased-stop diacritic; no Wayu tokenizer token
+    "\u0361": "",  # IPA combining tie bar; Wayu uses the untied affricate sequence
+    "\u032f": "",  # IPA non-syllabic mark; Wayu encodes the vowel sequence itself
+}
+
 
 def adapt_lexhint_ipa(text: str) -> str:
     """Normalize observed LexHint IPA and map its standard tone contours."""
@@ -33,6 +39,8 @@ def adapt_lexhint_ipa(text: str) -> str:
         LEXHINT_TONE_MAP.items(), key=lambda item: -len(item[0])
     ):
         adapted = adapted.replace(source, target)
+
+    adapted = "".join(LEXHINT_SYMBOL_MAP.get(char, char) for char in adapted)
     return " ".join(adapted.split())
 
 
@@ -52,6 +60,7 @@ def encode_output(text: str, model: str = TARGET_MODEL) -> list[int]:
 
 
 __all__ = [
+    "LEXHINT_SYMBOL_MAP",
     "LEXHINT_TONE_MAP",
     "LOW_TONE",
     "RESERVED_TOKEN_IDS",

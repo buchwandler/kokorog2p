@@ -78,6 +78,24 @@ def test_invalid_lexhint_ipa_is_not_silently_dropped() -> None:
     assert "¤" in g2p.warnings[0]
 
 
+def test_strict_thai_accepts_reviewed_unreleased_stop_diacritic() -> None:
+    g2p = _g2p({"ไทย": "k\u031a"})
+    token = g2p("ไทย")[0]
+
+    assert token.phonemes == "k"
+    assert "\u031a" not in token.phonemes
+    assert not g2p.warnings
+
+
+def test_strict_thai_accepts_reviewed_tie_bar() -> None:
+    g2p = _g2p({"ไทย": "t\u0361ɕ"})
+    token = g2p("ไทย")[0]
+
+    assert token.phonemes == "tɕ"
+    assert "\u0361" not in token.phonemes
+    assert not g2p.warnings
+
+
 def test_latin_fallback_can_be_disabled_and_runs_are_preserved() -> None:
     g2p = _g2p({}, latin_fallback="none", strict=False)
     token = g2p("hello")[0]

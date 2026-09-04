@@ -28,3 +28,21 @@ def test_lexhint_tones_are_explicit_and_valid() -> None:
         valid, invalid = validate_for_kokoro(symbol, model=TARGET_MODEL)
         assert valid, invalid
     assert phonemes_to_ids(LOW_TONE, model=TARGET_MODEL) == [7]
+
+
+def test_lexhint_unreleased_stop_is_explicitly_adapted() -> None:
+    assert adapt_lexhint_ipa("k\u031a") == "k"
+
+
+def test_lexhint_unreleased_stop_adaptation_remains_model_valid() -> None:
+    adapted = adapt_lexhint_ipa("k\u031a")
+    valid, invalid = validate_for_kokoro(adapted, model=TARGET_MODEL)
+    assert valid, invalid
+
+
+def test_lexhint_tie_bar_is_explicitly_adapted() -> None:
+    assert adapt_lexhint_ipa("t\u0361ɕ") == "tɕ"
+
+
+def test_lexhint_non_syllabic_mark_is_explicitly_adapted() -> None:
+    assert adapt_lexhint_ipa("a\u032f") == "a"

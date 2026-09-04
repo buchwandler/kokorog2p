@@ -55,6 +55,48 @@ jobs:
             tests/test_pipeline_api.py \
             tests/test_examples_contract.py \
             tests/test_public_api_consistency.py
+            tests/test_station_benchmarks.py \
+
+  station-performance:
+    name: Scheduled station benchmark
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y espeak-ng
+      - name: Install benchmark dependencies
+        run: |
+          python -m pip install -e ".[all,dev]"
+          python -m nltk.downloader cmudict
+          python -m spacy download en_core_web_sm
+      - name: Provision reviewed LexHint assets
+        run: |
+          lexphon data install ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint
+          lexphon data verify ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint
+      - name: Run scaled station benchmark
+        run: |
+          python benchmarks/benchmark_all_stations.py \
+            --fallback on \
+            --runs 3 \
+            --corpus scaled \
+            --target-chars 2000 \
+            --call-shape paragraph \
+            --keep-going \
+            --json benchmark-results.json
+      - name: Upload station benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: station-benchmark-results
+          path: benchmark-results.json
+
 
   full-suite:
     name: Exhaustive isolated suite
