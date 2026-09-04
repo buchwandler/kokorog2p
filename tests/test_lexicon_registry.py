@@ -44,6 +44,9 @@ def test_swedish_nst_is_opt_in_and_available_through_aliases() -> None:
     spec = get_lexicon_spec("sv-se", "nst")
     assert spec.default_priority is None
     assert spec.phoneme_encoding == "ipa"
+    assert spec.id == "sv-se:nst"
+    assert spec.backend == "lexphon"
+    assert spec.resource is None
     assert normalize_lexicon_selection("sv", None) == ()
     assert normalize_lexicon_selection("sv", "nst") == ("nst",)
 

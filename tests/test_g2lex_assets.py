@@ -1,4 +1,3 @@
-import hashlib
 import json
 from importlib.resources import files
 from pathlib import Path
@@ -31,25 +30,3 @@ def test_all_packaged_assets_open_and_match_lock() -> None:
             assert lexicon.metadata["logical_sha256"] == metadata["logical_sha256"]
         finally:
             lexicon.close()
-
-
-def test_swedish_nst_source_and_asset_match_pins() -> None:
-    source = Path("lexicons/sources/sv/sv_nst.tsv")
-    lock = json.loads(Path("lexicons/lock.json").read_text(encoding="utf-8"))
-    metadata = lock["assets"]["sv-se:nst"]
-
-    assert hashlib.sha256(source.read_bytes()).hexdigest() == metadata["source_sha256"]
-    assert source.stat().st_size == 38008908
-
-    parsed = g2lex.read_typed_lexicon(source, format="tsv", source_id="sv-se:nst")
-    asset = g2lex.open("kokorog2p/lexicons/data/sv_nst.g2lex")
-    try:
-        assert len(asset) == 812343
-        assert len(asset) == metadata["entry_count"]
-        assert asset.metadata["logical_sha256"] == metadata["logical_sha256"]
-        assert asset.metadata["provider"] == "Joakim/kokoro-sv-g2p"
-        assert asset.metadata["revision"] == "d19dd10"
-        assert asset.metadata["source"]["source_sha256"] == metadata["source_sha256"]
-        assert asset.get("hej") == parsed.entries["hej"]
-    finally:
-        asset.close()

@@ -69,3 +69,21 @@ def test_wheel_rejects_migrated_german_payloads(tmp_path: Path) -> None:
     _make_wheel(invalid, ["kokorog2p/lexicons/data/de_gold.g2lex"])
     with pytest.raises(SystemExit, match="migrated German assets"):
         check_wheel(invalid, require_release_version=False)
+
+
+def test_release_artifacts_exclude_swedish_payloads(tmp_path: Path) -> None:
+    wheel = tmp_path / "swedish.whl"
+    _make_wheel(wheel, ["kokorog2p/lexicons/data/sv_nst.g2lex"])
+    with pytest.raises(SystemExit, match="migrated Swedish assets"):
+        check_wheel(wheel, require_release_version=False)
+
+    sdist = tmp_path / "swedish.tar.gz"
+    _make_sdist(
+        sdist,
+        [
+            "kokorog2p/lexicons/data/THIRD_PARTY_NOTICES.md",
+            "kokorog2p/lexicons/data/sv_nst.g2lex",
+        ],
+    )
+    with pytest.raises(SystemExit, match="migrated Swedish data"):
+        check_sdist(sdist)

@@ -14,6 +14,7 @@ LEXPHON_LANGUAGE_BY_KOKORO = {
     "ko-kr": "ko",
     "pt-br": "pt",
     "pt-pt": "pt",
+    "sv-se": "sv",
 }
 
 LEXPHON_IDS = {
@@ -23,6 +24,7 @@ LEXPHON_IDS = {
     "ja-jp": {"lexhint": "ja:lexhint"},
     "ko-kr": {"lexhint": "ko:lexhint"},
     "pt-br": {"lexhint": "pt:lexhint"},
+    "sv-se": {"nst": "sv-se:nst"},
     "pt-pt": {"lexhint": "pt:lexhint"},
 }
 

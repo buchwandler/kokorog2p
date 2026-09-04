@@ -232,7 +232,7 @@ _FACTORY_KWARGS_BY_LANGUAGE = {
     "ru": frozenset({"preserve_stress", "latin_policy", "reduction", "store"}),
     "ja": frozenset({"store"}),
     "kk": frozenset(),
-    "sv": frozenset({"dialect", "preserve_stress"}),
+    "sv": frozenset({"dialect", "preserve_stress", "store"}),
 }
 
 _SPACY_DEFAULTS_BY_FAMILY = {
@@ -720,6 +720,7 @@ def get_g2p(  # noqa: C901
         from kokorog2p.sv import SwedishG2P
 
         g2p = SwedishG2P(
+            lexicons=selected_lexicons,
             language=implementation_language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,

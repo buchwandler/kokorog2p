@@ -1,5 +1,8 @@
+import pytest
+from lexphon import DataStore, LexiconNotInstalledError, PronunciationToken
+
 from kokorog2p import get_g2p, phonemize
-from kokorog2p.sv import SwedishG2P
+from kokorog2p.sv import SwedishG2P, normalize_nst_ipa_for_kokoro
 
 
 def test_public_swedish_g2p_tokenizes_words_and_punctuation() -> None:
@@ -52,3 +55,54 @@ def test_unknown_word_is_nonfatal_by_default_and_strict_when_requested() -> None
         assert "Swedish" in str(exc)
     else:
         raise AssertionError("strict Swedish rules must reject unsupported letters")
+
+
+def test_factory_forwards_explicit_swedish_selection() -> None:
+    g2p = get_g2p(
+        "sv",
+        lexicons="nst",
+        store=object(),
+        use_spacy=False,
+        strict=False,
+    )
+    try:
+        assert isinstance(g2p, SwedishG2P)
+        assert g2p.lexicons == ("nst",)
+    finally:
+        g2p.close()
+
+
+def test_nst_phone_separators_are_removed() -> None:
+    assert normalize_nst_ipa_for_kokoro("h e j") == "hej"
+
+
+def test_missing_explicit_swedish_nst_data_is_actionable(tmp_path) -> None:
+    g2p = SwedishG2P(lexicons=("nst",), store=DataStore(tmp_path / "store"))
+    try:
+        with pytest.raises(
+            LexiconNotInstalledError, match="lexphon data install sv-se:nst"
+        ):
+            g2p.lookup("hej")
+    finally:
+        g2p.close()
+
+
+def test_selected_nst_pronunciation_is_converted(monkeypatch) -> None:
+    class FakeBackend:
+        def __init__(self, language, names, *, store=None) -> None:
+            assert language == "sv-se"
+            assert tuple(names) == ("nst",)
+            self.ids = ("sv-se:nst",)
+
+        def lookup(self, word):
+            return PronunciationToken(word, "h e j", "lexicon")
+
+        def close(self) -> None:
+            return
+
+    monkeypatch.setattr("kokorog2p.sv.g2p.LexphonBackend", FakeBackend)
+    g2p = SwedishG2P(lexicons=("nst",))
+    try:
+        assert g2p.lookup("hej") == "hɛj"
+    finally:
+        g2p.close()

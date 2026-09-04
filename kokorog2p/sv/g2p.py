@@ -2,14 +2,22 @@
 
 from __future__ import annotations
 
+import unicodedata
+from collections.abc import Sequence
 from typing import Any
 
 from kokorog2p.base import G2PBase
+from kokorog2p.lexicons.lexphon_backend import LexphonBackend
 from kokorog2p.punctuation import normalize_punctuation
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions, tokenize_with_offsets
 
 from .rules import SwedishRuleEngine, SwedishRuleResult, to_kokoro
+
+
+def normalize_nst_ipa_for_kokoro(ipa: str) -> str:
+    """Remove NST phone separators before validating Kokoro IPA inventory."""
+    return "".join(unicodedata.normalize("NFC", ipa).split(" "))
 
 
 class SwedishG2P(G2PBase):
@@ -28,6 +36,8 @@ class SwedishG2P(G2PBase):
         dialect: str = "standard",
         preserve_stress: bool = True,
         use_cli: bool = False,
+        lexicons: Sequence[str] | None = None,
+        store: object | None = None,
         **kwargs: Any,
     ) -> None:
         if kwargs:
@@ -50,24 +60,45 @@ class SwedishG2P(G2PBase):
         self.version = version
         self.dialect = dialect
         self.preserve_stress = preserve_stress
+        self.lexicons = () if lexicons is None else tuple(lexicons)
         self._rules = SwedishRuleEngine()
+        self._lexphon = (
+            LexphonBackend("sv-se", self.lexicons, store=store)
+            if self.lexicons
+            else None
+        )
 
     def phonemize_word_raw(
         self, word: str, *, trace: bool = False
     ) -> SwedishRuleResult:
         return self._rules.phonemize_word_raw(word, trace=trace)
 
-    def _word_to_phonemes(self, word: str) -> str | None:
-        result = self.phonemize_word_raw(word)
-        if result.unknown_characters:
-            return self._fallback_or_unknown(word)
+    def _render_kokoro(self, ipa: str) -> str | None:
         try:
-            rendered = to_kokoro(result.ipa, model=self.version)
+            rendered = to_kokoro(ipa, model=self.version)
         except ValueError:
-            return self._fallback_or_unknown(word)
+            return None
         if not self.preserve_stress:
             rendered = rendered.replace("ˈ", "").replace("ˌ", "")
         return rendered or None
+
+    def _word_to_phonemes(self, word: str) -> str | None:
+        if self._lexphon is not None:
+            token = self._lexphon.lookup(word)
+            if token is not None and token.known and token.pronunciation:
+                rendered = self._render_kokoro(
+                    normalize_nst_ipa_for_kokoro(token.pronunciation)
+                )
+                if rendered is not None:
+                    return rendered
+
+        result = self.phonemize_word_raw(word)
+        if result.unknown_characters:
+            return self._fallback_or_unknown(word)
+        rendered = self._render_kokoro(result.ipa)
+        if rendered is not None:
+            return rendered
+        return self._fallback_or_unknown(word)
 
     def _fallback_or_unknown(self, word: str) -> str | None:
         if self.use_espeak_fallback:
@@ -123,7 +154,8 @@ class SwedishG2P(G2PBase):
         return tokens
 
     def lookup(self, word: str, tag: str | None = None) -> str | None:
-        """Return the rule-derived Kokoro pronunciation for a word."""
+        """Return the selected lexicon or rule-derived Kokoro pronunciation."""
+        del tag
         return self._word_to_phonemes(word)
 
     def get_target_model(self) -> str:
@@ -136,8 +168,12 @@ class SwedishG2P(G2PBase):
             "dialect": self.dialect,
             "version": self.version,
             "rule_based": True,
-            "runtime_lexicon": False,
+            "runtime_lexicon": bool(self.lexicons),
         }
+
+    def close(self) -> None:
+        if self._lexphon is not None:
+            self._lexphon.close()
 
     def __repr__(self) -> str:
         return f"SwedishG2P(language={self.language!r}, version={self.version!r})"

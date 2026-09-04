@@ -33,6 +33,18 @@ def test_backend_keeps_phonemizer_lazy() -> None:
     assert fake.closed
 
 
+def test_swedish_backend_maps_nst_external_id() -> None:
+    backend = LexphonBackend(
+        "sv-se",
+        ("nst",),
+        phonemizer=_FakePhonemizer(),  # type: ignore[arg-type]
+    )
+    try:
+        assert backend.ids == ("sv-se:nst",)
+    finally:
+        backend.close()
+
+
 def test_backend_does_not_open_missing_data_until_lookup(tmp_path: Path) -> None:
     backend = LexphonBackend("th-th", ("lexhint",), store=DataStore(tmp_path / "store"))
     try:

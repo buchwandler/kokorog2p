@@ -35,6 +35,9 @@ MIGRATED_GERMAN_ASSETS = frozenset(
     }
 )
 
+MIGRATED_SWEDISH_ASSETS = frozenset({"kokorog2p/lexicons/data/sv_nst.g2lex"})
+SWEDISH_DATA_NAMES = frozenset({"sv_nst.g2lex", "sv_nst.tsv"})
+
 
 def required_wheel_files() -> set[str]:
     packaged_specs = (
@@ -88,6 +91,12 @@ def check_wheel(path: Path, *, require_release_version: bool) -> None:
         raise SystemExit(
             f"{path}: migrated German assets are forbidden: {', '.join(german_assets)}"
         )
+    swedish_assets = sorted(MIGRATED_SWEDISH_ASSETS & members)
+    if swedish_assets:
+        raise SystemExit(
+            f"{path}: migrated Swedish assets are forbidden: "
+            f"{', '.join(swedish_assets)}"
+        )
     if unknown_assets:
         raise SystemExit(f"{path}: unknown lexicon assets: {', '.join(unknown_assets)}")
     if require_release_version and metadata.get("Version") == "0.0.0":
@@ -121,6 +130,14 @@ def check_sdist(path: Path) -> None:
         raise SystemExit(
             f"{path}: canonical lexicon sources are forbidden in sdist: "
             f"{', '.join(canonical_sources[:5])}"
+        )
+    swedish_data = sorted(
+        name for name in members if Path(name).name in SWEDISH_DATA_NAMES
+    )
+    if swedish_data:
+        raise SystemExit(
+            f"{path}: migrated Swedish data is forbidden in sdist: "
+            f"{', '.join(swedish_data[:5])}"
         )
     if not notices:
         raise SystemExit(f"{path}: missing bundled third-party notice")

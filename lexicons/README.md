@@ -10,6 +10,11 @@ store. KokoroG2P only maps its public German names to the external Lexphon IDs a
 consumes them at runtime. It does not download, generate, audit, or package German
 dictionaries.
 
+The Swedish NST pronunciation lexicon is also produced and published by `g2lex-data`.
+Install it explicitly with `lexphon data install sv-se:nst` and verify it with
+`lexphon data verify sv-se:nst`. KokoroG2P keeps Swedish NST opt-in and does not package
+its source TSV or generated G2Lex asset.
+
 Regenerate remaining packaged assets with:
 
 ```bash

@@ -79,13 +79,20 @@ release metadata belong to `g2lex-data` and Lexphon.
 
 ## Swedish NST lexicon
 
-The Swedish NST pronunciation lexicon remains an opt-in packaged G2Lex asset:
+The Swedish NST lexicon is produced and published by `g2lex-data` and installed
+explicitly through Lexphon. KokoroG2P does not package or redistribute the source TSV or
+generated G2Lex asset. Swedish rules remain the default.
+
+```bash
+lexphon data install sv-se:nst
+lexphon data verify sv-se:nst
+```
+
+For direct lookup, use the installed Lexphon data explicitly:
 
 ```python
-from kokorog2p import available_lexicons
-from kokorog2p.lexicons.runtime import open_selected
+from lexphon import Phonemizer
 
-available_lexicons("sv")  # ("nst",)
-with open_selected("sv", ("nst",)) as lexicons:
-    pronunciation = lexicons.get_hit("hej").value
+with Phonemizer("sv", lexicons=("sv-se:nst",), fallback=None) as phonemizer:
+    pronunciation = phonemizer.lookup("hej")
 ```
