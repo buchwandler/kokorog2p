@@ -272,7 +272,7 @@ class PatchSet:
             self._restorers.pop()()
         self._class_patches.clear()
 
-    def __enter__(self) -> PatchSet:
+    def __enter__(self) -> Any:
         return self
 
     def __exit__(
@@ -301,7 +301,7 @@ class SubprocessProbe:
             head = str(command).split(maxsplit=1)[0].lower() if command else ""
         return "espeak" in Path(head).name
 
-    def __enter__(self) -> SubprocessProbe:
+    def __enter__(self) -> Any:
         self._original = subprocess.run
         original = self._original
 
