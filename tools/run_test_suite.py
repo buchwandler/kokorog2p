@@ -97,6 +97,7 @@ def run_test_files(
 ) -> int:
     """Run selected test modules sequentially and return the first failure code."""
     first_failure = 0
+    failures: list[tuple[str, int]] = []
     for test_file in test_files:
         relative_path = _relative_test_path(test_file, root)
         print(f"Running {relative_path}", flush=True)
@@ -106,10 +107,21 @@ def run_test_files(
             check=False,
         )
         if result.returncode != 0:
+            failures.append((relative_path, result.returncode))
             if first_failure == 0:
                 first_failure = result.returncode
             if fail_fast:
                 break
+
+    if failures:
+        print("\nFailed test modules:", file=sys.stderr, flush=True)
+        for relative_path, returncode in failures:
+            print(
+                f"  - {relative_path} (exit {returncode})",
+                file=sys.stderr,
+                flush=True,
+            )
+
     return first_failure
 
 

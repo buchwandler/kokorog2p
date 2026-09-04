@@ -41,43 +41,25 @@ def test_factory_reuses_identical_frontend() -> None:
     assert second is first
 
 
-def test_factory_defers_russian_accentuator_and_caches_none(
+def test_factory_defers_russian_lexphon_engine(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls: list[str] = []
+    def forbidden_phonemizer(*args: object, **kwargs: object) -> object:
+        raise AssertionError(
+            "Russian factory construction must not open Lexphon data"
+        )
 
-    class FakeAccent:
-        def accentuate(self, text: str) -> str:
-            return text
-
-    def fake_make_accentuator(spec: object, **kwargs: object) -> FakeAccent | None:
-        del kwargs
-        calls.append(str(spec))
-        return None if spec == "none" else FakeAccent()
-
-    monkeypatch.setattr("kokorog2p.ru.g2p.make_accentuator", fake_make_accentuator)
-
-    automatic = RussianG2P(
-        accentuator="auto",
-        engine=object(),
-        strict_stress=False,
+    monkeypatch.setattr(
+        "kokorog2p.lexicons.lexphon_backend.Phonemizer",
+        forbidden_phonemizer,
     )
-    assert calls == []
-    assert automatic.accentuator is not None
-    assert calls == ["auto"]
-    _ = automatic.accentuator
-    assert calls == ["auto"]
+    clear_cache(deep=True)
 
-    none = RussianG2P(
-        accentuator="none",
-        engine=object(),
-        strict_stress=False,
-    )
-    assert calls == ["auto"]
-    assert none.accentuator is None
-    _ = none.accentuator
-    assert calls == ["auto", "none"]
+    g2p = get_g2p("ru")
 
+    assert isinstance(g2p, RussianG2P)
+    assert g2p._lexphon is not None
+    assert g2p._lexphon._phonemizer is None
 
 def test_automatic_spacy_factory_resolution_does_not_probe_loader(
     monkeypatch: pytest.MonkeyPatch,

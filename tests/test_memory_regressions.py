@@ -177,3 +177,61 @@ def test_full_suite_runs_modules_sequentially(monkeypatch, tmp_path: Path) -> No
         "tests/test_b.py",
     ]
     assert all("-n" not in command for command in calls)
+
+
+def test_full_suite_reports_all_failures_and_returns_first_code(
+    monkeypatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    """Exhaustive runs list every failed module and keep the first code."""
+    test_files = [
+        tmp_path / "tests" / "test_a.py",
+        tmp_path / "tests" / "test_b.py",
+        tmp_path / "tests" / "test_c.py",
+    ]
+    calls: list[list[str]] = []
+    results = iter([2, 0, 3])
+
+    def fake_run(command: list[str], **kwargs: object) -> object:
+        calls.append(command)
+        return type("Result", (), {"returncode": next(results)})()
+
+    monkeypatch.setattr(run_test_suite.subprocess, "run", fake_run)
+
+    assert run_test_suite.run_test_files(test_files, ["-q"], root=tmp_path) == 2
+    assert [command[-1] for command in calls] == [
+        "tests/test_a.py",
+        "tests/test_b.py",
+        "tests/test_c.py",
+    ]
+    stderr = capsys.readouterr().err
+    assert "Failed test modules:" in stderr
+    assert "  - tests/test_a.py (exit 2)" in stderr
+    assert "  - tests/test_c.py (exit 3)" in stderr
+    assert "tests/test_b.py" not in stderr
+
+
+def test_full_suite_fail_fast_reports_only_first_failure(
+    monkeypatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    """Fail-fast runs stop after and report the first failed module."""
+    test_files = [tmp_path / "tests" / name for name in ("test_a.py", "test_b.py")]
+    calls: list[list[str]] = []
+    results = iter([7, 0])
+
+    def fake_run(command: list[str], **kwargs: object) -> object:
+        calls.append(command)
+        return type("Result", (), {"returncode": next(results)})()
+
+    monkeypatch.setattr(run_test_suite.subprocess, "run", fake_run)
+
+    assert run_test_suite.run_test_files(
+        test_files, ["-q"], fail_fast=True, root=tmp_path
+    ) == 7
+    assert [command[-1] for command in calls] == ["tests/test_a.py"]
+    stderr = capsys.readouterr().err
+    assert "  - tests/test_a.py (exit 7)" in stderr
+    assert "tests/test_b.py" not in stderr

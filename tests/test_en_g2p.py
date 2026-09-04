@@ -521,11 +521,26 @@ class TestMainAPI:
         with pytest.raises(TypeError, match="Unsupported get_g2p options"):
             get_g2p("en-us", use_spacy=False, enable_context_detection=False)
 
-    def test_get_g2p_cache_includes_explicit_spacy_model(self):
+    def test_get_g2p_cache_includes_explicit_spacy_model(self, monkeypatch):
         """Test explicit spacy_model is included in get_g2p cache key."""
         from kokorog2p import clear_cache, get_g2p
         from kokorog2p.en import EnglishG2P
+        from kokorog2p.spacy_models import SpacyModelResolution, SpacyModelSize
 
+        def resolve(_language, **kwargs):
+            package = kwargs["spacy_model"]
+            return SpacyModelResolution(
+                language="en",
+                package=package,
+                size=SpacyModelSize(package.rsplit("_", 1)[-1]),
+                automatic=False,
+                candidates=(package,),
+                checked=(package,),
+                errors=(),
+                spacy_available=True,
+            )
+
+        monkeypatch.setattr("kokorog2p.resolve_spacy_model", resolve)
         clear_cache()
         g2p_md = get_g2p(
             "en-us",

@@ -174,7 +174,7 @@ class TestJapaneseFrontendMapping:
     reason="Cutlet dependencies are not installed",
 )
 def test_cutlet_smoke() -> None:
-    g2p = JapaneseG2P(backend="cutlet")
+    g2p = JapaneseG2P(backend="cutlet", lexicons=())
     try:
         result = g2p.phonemize("こんにちは")
     except RuntimeError as exc:
