@@ -1,7 +1,8 @@
-"""Wayu Thai model vocabulary and TLTK adaptation policy."""
+"""Wayu Thai model vocabulary and LexHint IPA adaptation policy."""
 
 from __future__ import annotations
 
+import unicodedata
 from typing import Final
 
 from kokorog2p.vocab import phonemes_to_ids, validate_for_kokoro
@@ -10,35 +11,29 @@ TARGET_MODEL: Final[str] = "wayu-kokoro-thai-v1"
 TARGET_MODEL_ALIASES: Final[frozenset[str]] = frozenset({TARGET_MODEL, "wayu-thai"})
 LOW_TONE: Final[str] = "˩"
 RESERVED_TOKEN_IDS: Final[dict[str, int]] = {LOW_TONE: 7}
-TLTK_TONE_MAP: Final[dict[str, str]] = {
-    "1": "→",
-    "2": LOW_TONE,
-    "3": "↘",
-    "4": "↗",
-    "5": "↓",
+
+# LexHint uses standard IPA tone letters. These are the only observed tone
+# contours that need a representation change for the Wayu vocabulary.
+LEXHINT_TONE_MAP: Final[dict[str, str]] = {
+    "˥˩": "↓",
+    "˩˥": "↗",
+    "˥˧": "↘",
+    "˧˥": "↗",
+    "˥": "↗",
+    "˦": "→",
+    "˧": "→",
+    "˨": "↘",
 }
-TLTK_PHONE_REMAP: Final[dict[str, str]] = {"ᴐ": "ɔ"}
-TONE_SYMBOLS: Final[frozenset[str]] = frozenset(TLTK_TONE_MAP.values())
 
 
-def clean_engine_output(text: str) -> str:
-    """Remove formatting artifacts and apply the model's phone spelling."""
-    cleaned = text.replace("ᴐ", "ɔ")
-    for marker in ("|", "/", "<syl>", "</syl>", "<s>", "</s>"):
-        cleaned = cleaned.replace(marker, "")
-    return " ".join(cleaned.split())
-
-
-def adapt_tltk_output(text: str) -> str:
-    """Convert TLTK tone digits only when they follow a phone character."""
-    cleaned = clean_engine_output(text)
-    output: list[str] = []
-    for index, char in enumerate(cleaned):
-        if char in TLTK_TONE_MAP and index > 0 and not cleaned[index - 1].isdigit():
-            output.append(TLTK_TONE_MAP[char])
-        else:
-            output.append(char)
-    return "".join(output)
+def adapt_lexhint_ipa(text: str) -> str:
+    """Normalize observed LexHint IPA and map its standard tone contours."""
+    adapted = unicodedata.normalize("NFC", text)
+    for source, target in sorted(
+        LEXHINT_TONE_MAP.items(), key=lambda item: -len(item[0])
+    ):
+        adapted = adapted.replace(source, target)
+    return " ".join(adapted.split())
 
 
 def validate_output(text: str, model: str = TARGET_MODEL) -> tuple[bool, list[str]]:
@@ -57,15 +52,12 @@ def encode_output(text: str, model: str = TARGET_MODEL) -> list[int]:
 
 
 __all__ = [
+    "LEXHINT_TONE_MAP",
     "LOW_TONE",
     "RESERVED_TOKEN_IDS",
     "TARGET_MODEL",
     "TARGET_MODEL_ALIASES",
-    "TLTK_PHONE_REMAP",
-    "TLTK_TONE_MAP",
-    "TONE_SYMBOLS",
-    "adapt_tltk_output",
-    "clean_engine_output",
+    "adapt_lexhint_ipa",
     "encode_output",
     "validate_output",
 ]

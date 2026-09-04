@@ -31,14 +31,14 @@ included.
 | Czech           | `cs`             | rule-based                   |
 | Vietnamese      | `vi`, `vi-vn`    | native rule-based            |
 | Swedish         | `sv-se`          | native rule-based            |
-| Russian         | `ru`             | stress and eSpeak adapter    |
+| Russian         | `ru`             | LexHint with eSpeak fallback |
 | Kazakh          | `kk`             | eSpeak adapter               |
 | Hebrew          | `he`             | Phonikud adapter             |
 | Arabic          | `ar`             | optional diacritizer adapter |
 | Chinese         | `zh`             | pypinyin/Zhuyin frontend     |
 | Japanese        | `ja`             | pyopenjtalk or Cutlet        |
-| Korean          | `ko`             | g2pK phonological rules      |
-| Thai            | `th`             | optional TLTK frontend       |
+| Korean          | `ko`             | LexHint fast path plus g2pK  |
+| Thai            | `th`             | LexHint with native fallback |
 
 Install language-specific optional dependencies from the matching extras in
 `pyproject.toml`, for example `pip install "kokorog2p[ja]"`.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 
 from kokorog2p.vocab import get_vocab, validate_for_kokoro
@@ -10,9 +11,8 @@ from kokorog2p.vocab import get_vocab, validate_for_kokoro
 TARGET_MODEL = "1.0"
 PROFILE_NAME = "KokoroRussianV2"
 
-# These are raw eSpeak spellings observed across supported installations. Each
-# conversion targets a symbol already present in the Kokoro 1.0 vocabulary.
-_ESPEAK_SYMBOL_MAP = {
+# Model compatibility substitutions for IPA symbols observed in LexHint data.
+_MODEL_SYMBOL_MAP = {
     "ɫ": "l",  # hard-l allophone is represented by the ordinary lateral label.
     "ɨ": "ɪ",  # central high vowel uses the model's front reduced-vowel label.
     "ᵻ": "ɪ",  # eSpeak's internal near-high notation is not a target symbol.
@@ -49,11 +49,19 @@ class RussianVocabularyError(ValueError):
         )
 
 
-def normalize_espeak_symbols(raw: str) -> str:
-    """Fold known eSpeak-only symbols into the Kokoro Russian vocabulary."""
-    normalized = "".join(_ESPEAK_SYMBOL_MAP.get(char, char) for char in raw)
+def normalize_russian_lexicon_ipa(ipa: str, *, preserve_stress: bool = True) -> str:
+    """Normalize LexHint IPA into the Russian Kokoro model vocabulary."""
+    normalized = unicodedata.normalize("NFC", ipa)
+    normalized = "".join(_MODEL_SYMBOL_MAP.get(char, char) for char in normalized)
     normalized = re.sub(r"([bcdfghjklmnpqrstvwxyzɡʃʒʂɕɣʁʎɹɾ])ʲʲ+", r"\1ʲ", normalized)
+    if not preserve_stress:
+        normalized = normalized.translate({ord(char): None for char in _STRESS})
     return normalized
+
+
+def normalize_espeak_symbols(raw: str) -> str:
+    """Backward-compatible alias for the model symbol normalization."""
+    return normalize_russian_lexicon_ipa(raw)
 
 
 def _stress_vowels(word: str) -> list[tuple[int, str | None]]:

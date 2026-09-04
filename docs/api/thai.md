@@ -19,7 +19,8 @@ print(result.token_ids)
 
 ## Behavior
 
-Thai runs use TLTK with PyThaiNLP segmentation for recovery. Latin runs use the existing
+Thai runs use the provisioned Lexphon `th:lexhint` dictionary with dictionary-driven
+segmentation and the existing Thai tone adaptation. Latin runs use the existing
 EnglishG2P lazily, so ordinary phrases such as `text to speech` are pronounced as
 English rather than spelled as Thai letter names. Whitespace and supported punctuation
 remain source-aligned.
@@ -39,12 +40,18 @@ required Thai semantics.
 
 ## Strictness and diagnostics
 
-`strict=True` raises after a lexical Thai unit remains unrecovered or the engine
+`strict=True` raises after a lexical Thai unit remains unrecovered or the frontend
 produces an invalid model symbol. `strict=False` retains recovered material and places
 diagnostic warnings on the frontend and public `PhonemizeResult` where available.
-Diagnostics include engine exceptions, empty or truncated output, unrecovered words,
 invalid model symbols, unsupported source symbols, and unrecovered Latin fallback runs.
 
-TLTK and PyThaiNLP are optional and are loaded only by the Thai frontend. A missing
-installation raises an actionable error recommending `kokorog2p[th]`. The pinned Wayu
-behavior baseline and clean-room deviations are documented in {doc}`../th/PROVENANCE`.
+Thai pronunciation data is provisioned through Lexphon and is not downloaded by
+KokoroG2P. Install and verify the released asset before Thai dictionary use:
+
+```bash
+lexphon data install th:lexhint
+lexphon data verify th:lexhint
+```
+
+The pinned Wayu behavior baseline and clean-room deviations are documented in
+{doc}`../th/PROVENANCE`.

@@ -8,7 +8,15 @@ from kokorog2p.lexicons import (
 def test_registry_aliases_and_order() -> None:
     assert available_lexicons("en") == ("gold", "silver")
     assert available_lexicons("english") == ("gold", "silver")
-    assert available_lexicons("ja_jp") == ("words",)
+    assert available_lexicons("ja_jp") == ("lexhint",)
+    assert available_lexicons("ru") == ("lexhint",)
+    assert available_lexicons("th") == ("lexhint",)
+    assert available_lexicons("vi") == ("lexhint",)
+    assert available_lexicons("ko") == ("lexhint",)
+    assert available_lexicons("pt") == ("lexhint",)
+    assert get_lexicon_spec("ru", "lexhint").id == "ru:lexhint"
+    assert get_lexicon_spec("ru", "lexhint").backend == "lexphon"
+    assert get_lexicon_spec("ru", "lexhint").resource is None
     assert get_lexicon_spec("en-us", "gold").rating == 4
 
 

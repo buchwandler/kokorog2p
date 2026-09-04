@@ -113,6 +113,10 @@ Korean (`ko`), Vietnamese (`vi`), Swedish (`sv-se`), Hebrew (`he`), Arabic (`ar`
 Russian (`ru`), Kazakh (`kk`), and optional Thai (`th`) are supported by
 language-specific frontends. See [Language support](docs/languages.md).
 
+Russian, Thai, Vietnamese, Japanese, Korean, and Portuguese pronunciation uses released
+LexHint dictionaries provisioned separately through Lexphon. KokoroG2P does not bundle
+or download these assets. See [installation](docs/installation.md).
+
 ## API and migration guides
 
 - [Quick Start](docs/quickstart.md)

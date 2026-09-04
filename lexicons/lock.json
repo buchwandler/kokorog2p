@@ -55,17 +55,6 @@
       "source_entry_count": 15011,
       "source_sha256": "0d5dcd4a6fec8c8decde6403880e41c7b8d6f6c300928eb81f2edc42f811e081"
     },
-    "ja-jp:words": {
-      "asset_bytes": 1087452,
-      "asset_sha256": "4a9d7e3bb5f85b3141eab21afe3ce83139303f9e56fb94863d12fdb3cc603b4e",
-      "consumer_invalid_policy": "error",
-      "entry_count": 147571,
-      "generator": "g2lex 0.1.8",
-      "logical_sha256": "06626c41087fd7d441ce3241b3b4ecb39236d970d9cb69824756d6a26bc60dca",
-      "phoneme_encoding": "none",
-      "source_entry_count": 147571,
-      "source_sha256": "f4a05f1b1473f4b3797e9149e472c9343d5ad43093cbce83fe01e96dacfae334"
-    },
     "sv-se:nst": {
       "asset_bytes": 10200756,
       "asset_sha256": "40e823bd01333bb1e329d8d43ca99250b0b9c1c088138b23c2141520c041c329",

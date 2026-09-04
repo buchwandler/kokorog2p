@@ -73,14 +73,4 @@ GENERATED_LEXICONS = (
         "phoneme_encoding": "kokoro-v1",
         "default_priority": 10,
     },
-    {
-        "id": "ja-jp:words",
-        "language": "ja-jp",
-        "name": "words",
-        "resource": "ja_words.g2lex",
-        "kind": "membership",
-        "case_aliases": False,
-        "phoneme_encoding": "none",
-        "default_priority": 10,
-    },
 )

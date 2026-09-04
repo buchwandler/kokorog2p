@@ -168,10 +168,20 @@ def run_all_benchmarks(
 ) -> list[BenchmarkResult]:
     """Run Japanese benchmarks using the primary OpenJTalk backend."""
     random.seed(seed)
-    data_dir = Path(__file__).parent.parent / "kokorog2p" / "ja" / "data"
-    word_list_path = data_dir / "ja_words.txt"
-    all_words = load_word_list(word_list_path)
-    sample_words = random.sample(all_words, min(sample_size, len(all_words)))
+    sample_words = [
+        "こんにちは",
+        "世界",
+        "今日は",
+        "いい天気",
+        "東京",
+        "日本",
+        "首都",
+        "日本語",
+        "勉強",
+    ]
+    random.seed(seed)
+    random.shuffle(sample_words)
+    sample_words = sample_words[:sample_size]
 
     from kokorog2p.ja import JapaneseG2P
 

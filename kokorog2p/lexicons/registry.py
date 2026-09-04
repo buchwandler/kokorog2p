@@ -41,67 +41,53 @@ _SPECS: tuple[LexiconSpec, ...] = tuple(
     for record in GENERATED_LEXICONS
 )
 
-_EXTERNAL_SPECS: tuple[LexiconSpec, ...] = (
-    LexiconSpec(
-        language="de-de",
-        name="gold",
+
+def _external_spec(
+    language: str,
+    name: str,
+    *,
+    external_language: str | None = None,
+    rating: int | None = 5,
+    default_priority: int | None = 10,
+    backend: str = "lexphon",
+    case_aliases: bool = False,
+    phoneme_encoding: str = "ipa",
+) -> LexiconSpec:
+    identifier = f"{external_language or language}:{name}"
+    return LexiconSpec(
+        language=language,
+        name=name,
         resource=None,
         kind="pronunciation",
-        rating=4,
-        case_aliases=False,
-        phoneme_encoding="ipa",
+        rating=rating,
+        case_aliases=case_aliases,
+        phoneme_encoding=phoneme_encoding,
         metadata=MappingProxyType(
-            {"id": "de-de:gold", "language": "de-de", "name": "gold"}
+            {"id": identifier, "language": language, "name": name, "backend": backend}
         ),
-        id="de-de:gold",
-        default_priority=10,
-        backend="lexphon",
+        id=identifier,
+        default_priority=default_priority,
+        backend=backend,
+    )
+
+
+_EXTERNAL_SPECS_BY_LANGUAGE: dict[str, tuple[LexiconSpec, ...]] = {
+    "de-de": (
+        _external_spec("de-de", "gold", rating=4),
+        _external_spec("de-de", "crane", rating=None, default_priority=None),
+        _external_spec("de-de", "espeak", rating=None, default_priority=None),
+        _external_spec("de-de", "olaph", rating=None, default_priority=None),
     ),
-    LexiconSpec(
-        language="de-de",
-        name="crane",
-        resource=None,
-        kind="pronunciation",
-        rating=None,
-        case_aliases=False,
-        phoneme_encoding="ipa",
-        metadata=MappingProxyType(
-            {"id": "de-de:crane", "language": "de-de", "name": "crane"}
-        ),
-        id="de-de:crane",
-        default_priority=None,
-        backend="lexphon",
-    ),
-    LexiconSpec(
-        language="de-de",
-        name="espeak",
-        resource=None,
-        kind="pronunciation",
-        rating=None,
-        case_aliases=False,
-        phoneme_encoding="ipa",
-        metadata=MappingProxyType(
-            {"id": "de-de:espeak", "language": "de-de", "name": "espeak"}
-        ),
-        id="de-de:espeak",
-        default_priority=None,
-        backend="lexphon",
-    ),
-    LexiconSpec(
-        language="de-de",
-        name="olaph",
-        resource=None,
-        kind="pronunciation",
-        rating=None,
-        case_aliases=False,
-        phoneme_encoding="ipa",
-        metadata=MappingProxyType(
-            {"id": "de-de:olaph", "language": "de-de", "name": "olaph"}
-        ),
-        id="de-de:olaph",
-        default_priority=None,
-        backend="lexphon",
-    ),
+    "ru-ru": (_external_spec("ru-ru", "lexhint", external_language="ru"),),
+    "th-th": (_external_spec("th-th", "lexhint", external_language="th"),),
+    "vi-vn": (_external_spec("vi-vn", "lexhint", external_language="vi"),),
+    "ja-jp": (_external_spec("ja-jp", "lexhint", external_language="ja"),),
+    "ko-kr": (_external_spec("ko-kr", "lexhint", external_language="ko"),),
+    "pt-br": (_external_spec("pt-br", "lexhint", external_language="pt"),),
+    "pt-pt": (_external_spec("pt-pt", "lexhint", external_language="pt"),),
+}
+_EXTERNAL_SPECS: tuple[LexiconSpec, ...] = tuple(
+    spec for specs in _EXTERNAL_SPECS_BY_LANGUAGE.values() for spec in specs
 )
 _LANGUAGE_ALIASES = {
     "en": "en-us",
@@ -120,6 +106,21 @@ _LANGUAGE_ALIASES = {
     "ja": "ja-jp",
     "jpn": "ja-jp",
     "japanese": "ja-jp",
+    "ko": "ko-kr",
+    "kor": "ko-kr",
+    "korean": "ko-kr",
+    "pt": "pt-br",
+    "por": "pt-br",
+    "portuguese": "pt-br",
+    "ru": "ru-ru",
+    "rus": "ru-ru",
+    "russian": "ru-ru",
+    "th": "th-th",
+    "tha": "th-th",
+    "thai": "th-th",
+    "vi": "vi-vn",
+    "vie": "vi-vn",
+    "vietnamese": "vi-vn",
     "sv": "sv-se",
     "swe": "sv-se",
     "swedish": "sv-se",
@@ -134,10 +135,10 @@ def normalize_language(language: str) -> str:
 
 def _specs_for(language: str) -> tuple[LexiconSpec, ...]:
     canonical = normalize_language(language)
-    specs = tuple(spec for spec in _SPECS if spec.language == canonical)
-    if canonical == "de-de":
-        return _EXTERNAL_SPECS
-    return specs
+    external = _EXTERNAL_SPECS_BY_LANGUAGE.get(canonical)
+    if external is not None:
+        return external
+    return tuple(spec for spec in _SPECS if spec.language == canonical)
 
 
 def available_lexicons(language: str) -> tuple[str, ...]:
@@ -219,8 +220,8 @@ def lexicon_info(language: str, name: str) -> Mapping[str, object]:
 
 
 def iter_lexicon_specs() -> tuple[LexiconSpec, ...]:
-    """Return all registry specifications in generated manifest order."""
-    return _SPECS
+    """Return generated and external registry specifications."""
+    return _SPECS + _EXTERNAL_SPECS
 
 
 __all__ = [

@@ -2,15 +2,15 @@ from kokorog2p import get_g2p
 from kokorog2p.ru import RussianG2P
 
 
-def test_russian_factory_aliases_are_native_and_lazy():
+def test_russian_factory_aliases_are_native_and_lazy() -> None:
     for alias in ("ru", "ru-ru", "rus", "russian"):
-        assert isinstance(get_g2p(alias), RussianG2P)
+        g2p = get_g2p(alias)
+        assert isinstance(g2p, RussianG2P)
+        assert g2p._lexphon is not None
+        assert g2p._lexphon._phonemizer is None
 
 
-def test_russian_factory_cache_distinguishes_options():
-    first = get_g2p("ru", accentuator="none", strict_stress=False)
-    second = get_g2p("ru-ru", accentuator="none", strict_stress=False)
-    assert first is second
-    assert first is not get_g2p(
-        "ru", accentuator="none", reduction=False, strict_stress=False
-    )
+def test_russian_factory_cache_distinguishes_store_identity() -> None:
+    first = get_g2p("ru", store=object())
+    second = get_g2p("ru", store=object())
+    assert first is not second

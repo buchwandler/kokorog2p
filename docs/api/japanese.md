@@ -30,7 +30,16 @@ for token in tokens:
 - Automatic pitch accent assignment
 - Japanese numeral handling
 
-## Cutlet membership asset
+## Cutlet membership dictionary
 
-The optional Cutlet backend uses a lazy G2Lex membership asset containing `WORD_ONLY`
-entries. The canonical `ja_words.txt` source is not a runtime package resource.
+The optional Cutlet backend uses the provisioned Lexphon `ja:lexhint` dictionary for
+lazy known-word membership checks. KokoroG2P does not package a Japanese word-list
+source or generated membership asset. Install the local asset before using Cutlet:
+
+```bash
+lexphon data install ja:lexhint
+lexphon data verify ja:lexhint
+```
+
+The default PyOpenJTalk backend retains its existing pronunciation and pitch path and
+does not require the LexHint asset.

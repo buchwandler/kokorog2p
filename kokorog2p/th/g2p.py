@@ -1,27 +1,32 @@
-"""Native Thai G2P frontend for the Wayu Kokoro model."""
+"""Lexphon-backed native Thai G2P frontend for the Wayu Kokoro model."""
 
 from __future__ import annotations
 
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
 
+from lexphon import PronunciationToken
+
 from kokorog2p.base import G2PBase
+from kokorog2p.lexicons.lexphon_backend import LexphonBackend
 from kokorog2p.punctuation import normalize_punctuation
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
 
-from .engine import EngineResult, ThaiEngine, ThaiG2PError
-from .model_profile import TARGET_MODEL, validate_output
+from .model_profile import TARGET_MODEL, adapt_lexhint_ipa, validate_output
 from .normalizer import ThaiNormalizer
 
 LatinFallback = Literal["english", "none"]
 
 
+class ThaiG2PError(RuntimeError):
+    """Raised when Thai pronunciation cannot be provided or represented."""
+
+
 @dataclass(frozen=True)
 class ThaiAnalysis:
-    """Inspectable result for one Thai source run."""
-
     source: str
     normalized: str
     phonemes: str
@@ -30,8 +35,15 @@ class ThaiAnalysis:
     warnings: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class _Segment:
+    start: int
+    end: int
+    token: PronunciationToken | None
+
+
 class ThaiG2P(G2PBase):
-    """Thai TLTK frontend with English pronunciation for Latin runs."""
+    """Thai frontend using dictionary-driven ``th:lexhint`` segmentation."""
 
     aliases = frozenset(("th", "th-th", "tha", "thai"))
 
@@ -45,7 +57,8 @@ class ThaiG2P(G2PBase):
         use_cli: bool = False,
         strict: bool = True,
         version: str = "1.0",
-        engine: ThaiEngine | None = None,
+        lexicons: Sequence[str] | None = None,
+        store: object | None = None,
     ) -> None:
         normalized = language.lower().replace("_", "-")
         if normalized not in self.aliases:
@@ -61,28 +74,25 @@ class ThaiG2P(G2PBase):
             use_cli=use_cli,
             strict=strict,
         )
-        self.version = "1.0"
+        self.version = version
         self.latin_fallback = latin_fallback
         self._normalizer = ThaiNormalizer()
-        self._engine = engine
-        self._engine_strict = strict
+        self.lexicons = ("lexhint",) if lexicons is None else tuple(lexicons)
+        self.store = store
+        self._lexphon = (
+            LexphonBackend("th-th", self.lexicons, store=store)
+            if self.lexicons
+            else None
+        )
         self._english_g2p: G2PBase | None = None
         self.warnings: list[str] = []
 
     def get_target_model(self) -> str:
-        """Return the model profile required for Thai token IDs."""
         return TARGET_MODEL
 
     @property
-    def engine(self) -> ThaiEngine:
-        """Lazily construct the default Thai engine on first Thai use."""
-        if self._engine is None:
-            self._engine = ThaiEngine(strict=self._engine_strict)
-        return self._engine
-
-    @property
     def english_g2p(self) -> G2PBase | None:
-        """Create the English frontend only when a Latin run needs it."""
+        """Create the packaged English fallback only when a Latin run needs it."""
         if self.latin_fallback == "none":
             return None
         if self._english_g2p is None:
@@ -90,8 +100,8 @@ class ThaiG2P(G2PBase):
 
             self._english_g2p = EnglishG2P(
                 language="en-us",
-                use_espeak_fallback=self.use_espeak_fallback,
-                use_goruut_fallback=self.use_goruut_fallback,
+                use_espeak_fallback=False,
+                use_goruut_fallback=False,
                 use_cli=self.use_cli,
                 use_spacy=False,
                 load_silver=False,
@@ -132,7 +142,6 @@ class ThaiG2P(G2PBase):
                     cls._is_latin(text[index]) or text[index] in "'’-"
                 ):
                     index += 1
-                # Keep a contiguous phrase together for contextual English G2P.
                 while index < len(text) and text[index].isspace():
                     gap_end = index
                     while gap_end < len(text) and text[gap_end].isspace():
@@ -156,38 +165,109 @@ class ThaiG2P(G2PBase):
             runs.append((text[start:index], start, index, "PUNCTUATION"))
         return runs
 
-    def _thai_analysis(self, source: str) -> ThaiAnalysis:
-        # Spokenform owns semantic preparation for prepared input.  Keep the
-        # legacy normalizer on the raw convenience path only.
+    def _prefixes(self, text: str, position: int) -> tuple[PronunciationToken, ...]:
+        if self._lexphon is None:
+            return ()
+        return self._lexphon.lookup_prefixes(text, position=position)
+
+    def _segment(self, source: str) -> list[_Segment]:
+        """Select the best complete segmentation using dictionary prefixes."""
+        n = len(source)
+        paths: list[
+            tuple[int, int, int, tuple[int, ...], tuple[_Segment, ...]] | None
+        ] = [None] * (n + 1)
+        paths[n] = (0, 0, 0, (), ())
+        for position in range(n - 1, -1, -1):
+            choices: list[
+                tuple[int, int, int, tuple[int, ...], tuple[_Segment, ...]]
+            ] = []
+            for token in self._prefixes(source, position):
+                end = position + len(token.text)
+                if end > n or paths[end] is None:
+                    continue
+                covered, unknown, segments, tie, tail = paths[end]
+                choices.append(
+                    (
+                        covered + end - position,
+                        unknown,
+                        segments + 1,
+                        (-(end - position), *tie),
+                        (_Segment(position, end, token), *tail),
+                    )
+                )
+            tail = paths[position + 1]
+            assert tail is not None
+            covered, unknown, segments, tie, rest = tail
+            choices.append(
+                (
+                    covered,
+                    unknown + 1,
+                    segments + 1,
+                    (0, *tie),
+                    (_Segment(position, position + 1, None), *rest),
+                )
+            )
+            paths[position] = min(
+                choices, key=lambda item: (-item[0], item[1], item[2], item[3])
+            )
+        assert paths[0] is not None
+        segments = list(paths[0][4])
+        merged: list[_Segment] = []
+        for segment in segments:
+            if merged and segment.token is None and merged[-1].token is None:
+                previous = merged[-1]
+                merged[-1] = _Segment(previous.start, segment.end, None)
+            else:
+                merged.append(segment)
+        return merged
+
+    def _thai_tokens(self, source: str, start: int) -> list[GToken]:
         normalized = (
             source
             if getattr(self, "_kokorog2p_prepared_input", False)
             else self._normalizer.normalize(source)
         )
-        result: EngineResult = self.engine.pronounce_thai_chunk(normalized)
-        phonemes = result.phonemes
-        valid, invalid = validate_output(phonemes)
-        warnings = list(result.warnings)
-        if not valid:
-            symbols = "".join(sorted(set(invalid)))
-            warnings.append(f"TH_INVALID_MODEL_SYMBOL: {symbols}")
-            if self.strict:
-                raise ThaiG2PError(
-                    f"Thai output for {source!r} contains unsupported symbols: "
-                    f"{symbols}"
-                )
-            phonemes = "".join(char for char in phonemes if char not in invalid)
-        if result.unrecovered and self.strict:
-            raise ThaiG2PError(
-                "Thai pronunciation could not recover lexical source units: "
-                f"{result.unrecovered!r}"
+        tokens: list[GToken] = []
+        for segment in self._segment(normalized):
+            surface = normalized[segment.start : segment.end]
+            phonemes: str | None = None
+            if segment.token is None:
+                message = f"Thai source run {source!r} has unresolved span {surface!r}."
+                if self.strict:
+                    raise ThaiG2PError(message)
+                self.warnings.append(message)
+            else:
+                raw = segment.token.pronunciation
+                assert raw is not None
+                phonemes = adapt_lexhint_ipa(raw)
+                valid, invalid = validate_output(phonemes)
+                if not valid:
+                    symbols = "".join(sorted(set(invalid)))
+                    message = (
+                        f"Thai LexHint IPA for {surface!r} contains "
+                        f"unsupported symbols: {symbols}"
+                    )
+                    if self.strict:
+                        raise ThaiG2PError(message)
+                    self.warnings.append(message)
+                    phonemes = None
+            token = GToken(
+                surface,
+                tag="TH",
+                phonemes=phonemes,
+                rating="5" if phonemes else None,
             )
-        return ThaiAnalysis(
-            source=source,
-            normalized=normalized,
-            phonemes=phonemes,
-            warnings=tuple(warnings),
-        )
+            token.set("classification", "THAI")
+            token.set("normalized_source", surface)
+            token.set("source", "lexicon")
+            token.set("lexicon_id", "th:lexhint")
+            if segment.token is not None:
+                token.set("matched_key", segment.token.matched_key)
+                token.set("variants", segment.token.variants)
+            token.set("char_start", start + segment.start)
+            token.set("char_end", start + segment.end)
+            tokens.append(token)
+        return tokens
 
     def _latin_phonemes(self, source: str) -> tuple[str | None, str | None, list[str]]:
         backend = self.english_g2p
@@ -210,33 +290,20 @@ class ThaiG2P(G2PBase):
         runs = self._runs(text)
         tokens: list[GToken] = []
         for index, (source, start, end, classification) in enumerate(runs):
-            if classification == "WHITESPACE":
-                continue
             next_start = len(text)
-            for (
-                _next_source,
-                next_run_start,
-                _next_run_end,
-                next_classification,
-            ) in runs[index + 1 :]:
+            for next_source, next_run_start, _next_run_end, next_classification in runs[
+                index + 1 :
+            ]:
+                del next_source
                 if next_classification == "WHITESPACE":
                     continue
                 next_start = next_run_start
                 break
             whitespace = text[end:next_start]
             if classification == "THAI":
-                analysis = self._thai_analysis(source)
-                token = GToken(
-                    source,
-                    tag="TH",
-                    whitespace=whitespace,
-                    phonemes=analysis.phonemes or None,
-                )
-                token.set("classification", "THAI")
-                token.set("normalized_source", analysis.normalized)
-                token.set("engine", "tltk")
-                token.set("fallback", None)
-                self.warnings.extend(analysis.warnings)
+                tokens.extend(self._thai_tokens(source, start))
+                if tokens:
+                    tokens[-1].whitespace = whitespace
             elif classification == "LATIN":
                 phonemes, fallback, warnings = self._latin_phonemes(source)
                 token = GToken(
@@ -245,19 +312,21 @@ class ThaiG2P(G2PBase):
                 token.set("classification", "LATIN")
                 token.set("fallback", fallback)
                 self.warnings.extend(warnings)
+                tokens.append(token)
             else:
-                punctuation = normalize_punctuation(source)
                 token = GToken(
                     source,
                     tag="PUNCT",
                     whitespace=whitespace,
-                    phonemes=punctuation or None,
+                    phonemes=normalize_punctuation(source) or None,
                     rating="4",
                 )
                 token.set("classification", "PUNCTUATION")
-            token.set("char_start", start)
-            token.set("char_end", end)
-            tokens.append(token)
+                tokens.append(token)
+            if classification == "THAI" and len(tokens) > 1:
+                for token in tokens[:-1]:
+                    if token.get("char_end") == start:
+                        token.whitespace = ""
         ensure_gtoken_positions(tokens, text)
         return tokens
 
@@ -265,7 +334,8 @@ class ThaiG2P(G2PBase):
         del tag
         if not word or not all(self._is_thai(char) for char in word):
             return None
-        return self._thai_analysis(word).phonemes or None
+        values = self._thai_tokens(word, 0)
+        return " ".join(token.phonemes for token in values if token.phonemes) or None
 
     def capabilities(self) -> dict[str, object]:
         return {
@@ -273,10 +343,18 @@ class ThaiG2P(G2PBase):
             "native": True,
             "model": TARGET_MODEL,
             "tones": 5,
+            "dictionary_segmentation": True,
+            "lexphon": True,
             "bilingual_latin": self.latin_fallback == "english",
-            "primary_engine": "tltk",
+            "primary_engine": "lexphon",
             "latin_fallback": self.latin_fallback,
         }
+
+    def close(self) -> None:
+        if self._lexphon is not None:
+            self._lexphon.close()
+        if self._english_g2p is not None:
+            self._english_g2p.close()
 
     def __repr__(self) -> str:
         return f"ThaiG2P(language={self.language!r}, model={TARGET_MODEL!r})"

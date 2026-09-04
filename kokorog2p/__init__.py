@@ -202,7 +202,7 @@ _FACTORY_KWARGS_BY_LANGUAGE = {
     "cs": frozenset({"unk"}),
     "es": frozenset(),
     "it": frozenset({"mark_stress", "mark_gemination"}),
-    "pt": frozenset({"mark_stress", "affricate_ti_di", "dialect"}),
+    "pt": frozenset({"mark_stress", "affricate_ti_di", "dialect", "store"}),
     "he": frozenset({"preserve_punctuation", "preserve_stress", "some_extra_param"}),
     "ko": frozenset(
         {
@@ -215,9 +215,10 @@ _FACTORY_KWARGS_BY_LANGUAGE = {
             "to_syl",
             "output",
             "model_profile",
+            "store",
         }
     ),
-    "vi": frozenset({"foreign_fallback"}),
+    "vi": frozenset({"foreign_fallback", "store"}),
     "ar": frozenset(
         {
             "diacritizer",
@@ -227,20 +228,9 @@ _FACTORY_KWARGS_BY_LANGUAGE = {
             "model_profile",
         }
     ),
-    "th": frozenset({"latin_fallback"}),
-    "ru": frozenset(
-        {
-            "accentuator",
-            "omograph_model_size",
-            "use_stress_dictionary",
-            "espeak_data",
-            "strict_stress",
-            "reduction",
-            "preserve_stress",
-            "latin_policy",
-            "engine",
-        }
-    ),
+    "th": frozenset({"latin_fallback", "store"}),
+    "ru": frozenset({"preserve_stress", "latin_policy", "reduction", "store"}),
+    "ja": frozenset({"store"}),
     "kk": frozenset(),
     "sv": frozenset({"dialect", "preserve_stress"}),
 }
@@ -510,7 +500,7 @@ def get_g2p(  # noqa: C901
     if kwargs:
         kwargs_items = []
         for key, value in kwargs.items():
-            if key in {"accentuator", "engine"} and not isinstance(
+            if key in {"accentuator", "engine", "store"} and not isinstance(
                 value, str | int | float | bool | type(None)
             ):
                 value_key = (type(value).__qualname__, id(value))
@@ -681,6 +671,7 @@ def get_g2p(  # noqa: C901
 
         g2p = PortugueseG2P(
             language=implementation_language,
+            lexicons=selected_lexicons,
             use_espeak_fallback=use_espeak_fallback,
             use_spacy=effective_use_spacy,
             **extra_kwargs,
@@ -717,6 +708,7 @@ def get_g2p(  # noqa: C901
 
         g2p = VietnameseG2P(
             language="vi-vn",
+            lexicons=selected_lexicons,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
             use_cli=use_cli,
@@ -741,6 +733,7 @@ def get_g2p(  # noqa: C901
 
         g2p = ThaiG2P(
             language=implementation_language,
+            lexicons=selected_lexicons,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
             use_cli=use_cli,
@@ -763,6 +756,7 @@ def get_g2p(  # noqa: C901
 
         g2p = RussianG2P(
             language=implementation_language,
+            lexicons=selected_lexicons,
             strict=strict,
             version=version,
             use_cli=use_cli,
@@ -772,6 +766,7 @@ def get_g2p(  # noqa: C901
         from kokorog2p.ko import KoreanG2P
 
         g2p = KoreanG2P(
+            lexicons=selected_lexicons,
             language=implementation_language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,

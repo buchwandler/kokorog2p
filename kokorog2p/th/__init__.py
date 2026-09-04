@@ -2,8 +2,7 @@
 
 from typing import Any
 
-from .engine import ThaiG2PError
-from .g2p import ThaiAnalysis, ThaiG2P
+from .g2p import ThaiAnalysis, ThaiG2P, ThaiG2PError
 from .normalizer import ThaiNormalizer
 
 

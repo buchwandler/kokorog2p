@@ -37,13 +37,18 @@ MIGRATED_GERMAN_ASSETS = frozenset(
 
 
 def required_wheel_files() -> set[str]:
+    packaged_specs = (
+        spec for spec in iter_lexicon_specs() if spec.resource is not None
+    )
     return STATIC_REQUIRED_WHEEL_FILES | {
-        f"kokorog2p/lexicons/data/{spec.resource}" for spec in iter_lexicon_specs()
+        f"kokorog2p/lexicons/data/{spec.resource}" for spec in packaged_specs
     }
 
 
 def asset_names() -> tuple[str, ...]:
-    return tuple(spec.resource for spec in iter_lexicon_specs())
+    return tuple(
+        spec.resource for spec in iter_lexicon_specs() if spec.resource is not None
+    )
 
 
 def check_wheel(path: Path, *, require_release_version: bool) -> None:

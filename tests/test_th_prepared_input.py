@@ -1,27 +1,42 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from lexphon import PronunciationToken
 
-from kokorog2p.th.engine import EngineResult
 from kokorog2p.th.g2p import ThaiG2P
 
 
-@dataclass
-class RecordingEngine:
-    sources: list[str] | None = None
+class RecordingLexphon:
+    def __init__(self) -> None:
+        self.sources: list[str] = []
 
-    def pronounce_thai_chunk(self, source: str) -> EngineResult:
-        if self.sources is None:
-            self.sources = []
-        self.sources.append(source)
-        return EngineResult(source=source, raw_ipa="a2")
+    def lookup_prefixes(self, text: str, *, position: int = 0, tag: str | None = None):
+        del tag
+        self.sources.append(text)
+        return (
+            (
+                PronunciationToken(
+                    text=text[position:],
+                    pronunciation="a",
+                    source="lexicon",
+                    lexicon_id="th:lexhint",
+                    matched_key=text[position:],
+                    source_encoding="ipa",
+                ),
+            )
+            if position == 0
+            else ()
+        )
 
 
 def test_prepared_thai_input_skips_legacy_semantic_normalizer() -> None:
-    engine = RecordingEngine()
-    g2p = ThaiG2P(engine=engine, latin_fallback="none")
+    lexphon = RecordingLexphon()
+    g2p = ThaiG2P(latin_fallback="none")
+    g2p._lexphon = lexphon  # type: ignore[assignment]
     g2p._kokorog2p_prepared_input = True
 
-    g2p("สิบสอง นาฬิกา ศูนย์ ห้า นาที")
+    g2p("สิบสอง นาฬิกา ศูนย์")
 
-    assert engine.sources == ["สิบสอง", "นาฬิกา", "ศูนย์", "ห้า", "นาที"]
+    assert set(lexphon.sources) == {"สิบสอง", "นาฬิกา", "ศูนย์"}
+    assert lexphon.sources.count("สิบสอง") == len("สิบสอง")
+    assert lexphon.sources.count("นาฬิกา") == len("นาฬิกา")
+    assert lexphon.sources.count("ศูนย์") == len("ศูนย์")

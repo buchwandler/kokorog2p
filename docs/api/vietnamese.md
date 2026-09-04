@@ -26,7 +26,16 @@ default), tokens that fail structural Vietnamese parsing use the existing lazy E
 frontend. `"espeak"` and `"none"` are also supported. Use `strict=True` to raise when no
 fallback pronunciation is available.
 
-The model profile uses Kokoro's supported characters and tone arrows directly.
+The model profile uses Kokoro's supported characters and tone arrows directly. The
+provisioned Lexphon `vi:lexhint` dictionary is consulted first for known words; invalid
+or missing LexHint output falls back to the native Vietnamese rules and configured
+English fallback. The dictionary is managed outside KokoroG2P:
+
+```bash
+lexphon data install vi:lexhint
+lexphon data verify vi:lexhint
+```
+
 `validate_output()` and `encode_output()` in `kokorog2p.vi.model_profile` expose
 explicit model checks. The frontend does not add a `vig2p` dependency and does not
 implement a second semantic number, date, URL, or currency normalizer.

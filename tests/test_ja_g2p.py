@@ -7,6 +7,7 @@ import sys
 from dataclasses import dataclass
 
 import pytest
+from lexphon import LexiconNotInstalledError, PronunciationToken
 
 from kokorog2p.ja import JapaneseG2P
 from kokorog2p.vocab import validate_for_kokoro
@@ -181,11 +182,62 @@ def test_cutlet_smoke() -> None:
     assert result
 
 
-def test_japanese_runtime_resource_exists() -> None:
+def test_cutlet_uses_lexhint_for_known_word_grouping() -> None:
+    from kokorog2p.ja.cutlet import HEPBURN, Cutlet, Word
+
+    class FakeLexphon:
+        def __init__(self) -> None:
+            self.lookups: list[str] = []
+
+        def lookup(self, word: str) -> PronunciationToken | None:
+            self.lookups.append(word)
+            if word == "東京大学":
+                return PronunciationToken(
+                    text=word,
+                    pronunciation="toːkjoː daigaku",
+                    source="lexicon",
+                    lexicon_id="ja:lexhint",
+                    matched_key=word,
+                    source_encoding="ipa",
+                    variants=("toːkjoː daigaku",),
+                )
+            return None
+
+    fake = FakeLexphon()
+    cutlet = object.__new__(Cutlet)
+    cutlet.table = dict(HEPBURN)
+    cutlet.exceptions = {}
+    cutlet._lexphon = fake  # type: ignore[assignment]
+    tokens = cutlet._romaji_tokens(
+        [
+            Word("東京", "とうきょう", 6),
+            Word("大学", "だいがく", 6),
+        ]
+    )
+    assert "東京大学" in fake.lookups
+    assert len(tokens) == 1
+
+
+def test_cutlet_lexhint_missing_data_is_actionable() -> None:
+    from kokorog2p.ja.cutlet import Cutlet, Word
+
+    class MissingLexphon:
+        def lookup(self, word: str) -> None:
+            raise LexiconNotInstalledError("missing ja:lexhint")
+
+    cutlet = object.__new__(Cutlet)
+    cutlet.table = {}
+    cutlet.exceptions = {}
+    cutlet._lexphon = MissingLexphon()  # type: ignore[assignment]
+    with pytest.raises(LexiconNotInstalledError, match="ja:lexhint"):
+        cutlet._romaji_tokens([Word("東京", "とうきょう", 6)])
+
+
+def test_japanese_word_list_resource_is_absent() -> None:
     resource = importlib.resources.files("kokorog2p.lexicons.data").joinpath(
         "ja_words.g2lex"
     )
-    assert resource.is_file()
+    assert not resource.is_file()
     assert (
         not importlib.resources.files("kokorog2p.ja.data")
         .joinpath("ja_words.txt")

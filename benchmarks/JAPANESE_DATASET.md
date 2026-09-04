@@ -70,17 +70,19 @@ The current synthetic fixture is not a substitute for that hand-reviewed set.
 
 ## Resource and installation contract
 
-`lexicons/sources/ja/ja_words.txt` is the canonical source for the Cutlet membership
-asset. The generated `.g2lex` asset is included in built artifacts. The primary
-installation is:
+The benchmark uses a small checked-in smoke sample. Cutlet known-word grouping uses the
+provisioned Lexphon `ja:lexhint` dictionary, which is intentionally not packaged by
+KokoroG2P. Provision and verify it locally:
+
+```bash
+lexphon data install ja:lexhint
+lexphon data verify ja:lexhint
+```
+
+The Japanese backend dependencies remain separate:
 
 ```bash
 pip install "kokorog2p[ja]"
-```
-
-Cutlet with the pip-only dictionary is:
-
-```bash
 pip install "kokorog2p[ja-cutlet]"
 ```
 

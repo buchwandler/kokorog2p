@@ -15,6 +15,19 @@ PROFILE_NAME: Final[str] = "VietnameseNorthern"
 TONE_RENDER_KOKORO_10: Final[dict[VietnameseTone, str]] = TONE_RENDER
 
 
+def adapt_lexhint_ipa(text: str, model: str = TARGET_MODEL) -> str:
+    """Normalize LexHint IPA before the Vietnamese model boundary."""
+    import unicodedata
+
+    normalized = unicodedata.normalize("NFC", text)
+    valid, invalid = validate_output(normalized, model=model)
+    if not valid:
+        raise ValueError(
+            f"Kokoro model {model} does not support LexHint IPA: {''.join(invalid)}"
+        )
+    return normalized
+
+
 def model_vocabulary(model: str = TARGET_MODEL) -> frozenset[str]:
     """Return the verified Kokoro character vocabulary for *model*."""
     return frozenset(get_vocab(model=model))

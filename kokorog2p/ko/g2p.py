@@ -9,9 +9,13 @@ Copyright 2025 kokorog2p contributors
 Licensed under the Apache License, Version 2.0
 """
 
+from collections.abc import Sequence
 from typing import Literal
 
+from lexphon import LexiconNotInstalledError
+
 from kokorog2p.base import G2PBase
+from kokorog2p.lexicons.lexphon_backend import LexphonBackend
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
 
@@ -50,6 +54,8 @@ class KoreanG2P(G2PBase):
         model_profile: str = "kokoro-1.0",
         voice: str = KOKORO_V1_VOICE,
         version: str = "1.0",
+        lexicons: Sequence[str] | None = None,
+        store: object | None = None,
         **kwargs,
     ) -> None:
         """Initialize the Korean G2P.
@@ -114,6 +120,13 @@ class KoreanG2P(G2PBase):
         self.to_syl = to_syl
         self._g2pk_instance = None
 
+        self.lexicons = ("lexhint",) if lexicons is None else tuple(lexicons)
+        self.store = store
+        if self.lexicons:
+            self._lexphon = LexphonBackend("ko-kr", self.lexicons, store=store)
+        else:
+            self._lexphon = None
+
     @property
     def g2pk(self):
         """Lazy initialization of g2pK backend."""
@@ -133,6 +146,22 @@ class KoreanG2P(G2PBase):
             return ipa_phonemes
         return encode_for_model(ipa_phonemes)
 
+    def _lexhint_output(self, text: str) -> str | None:
+        if self._lexphon is None or self.output == "jamo":
+            return None
+        try:
+            token = self._lexphon.lookup(text)
+        except LexiconNotInstalledError:
+            return None
+        if token is None or not token.known or token.pronunciation is None:
+            return None
+        try:
+            if self.output == "ipa":
+                return token.pronunciation
+            return encode_for_model(token.pronunciation)
+        except ValueError:
+            return None
+
     def __call__(self, text: str) -> list[GToken]:
         """Convert Korean text to tokens with phonemes.
 
@@ -146,6 +175,15 @@ class KoreanG2P(G2PBase):
             return []
 
         # Convert to phonemes using g2pK (returns Hangul in phonetic form)
+        if not any(char.isspace() for char in text):
+            lexhint = self._lexhint_output(text)
+            if lexhint is not None:
+                token = GToken(text=text, tag="KO", whitespace="", phonemes=lexhint)
+                token.rating = "5"
+                token.set("source", "lexicon")
+                token.set("lexicon_id", "ko:lexhint")
+                ensure_gtoken_positions([token], text)
+                return [token]
         hangul_phonemes = self.g2pk(
             text,
             descriptive=self.descriptive,
@@ -182,6 +220,9 @@ class KoreanG2P(G2PBase):
         """
         if not word or not word.strip():
             return None
+        lexhint = self._lexhint_output(word)
+        if lexhint is not None:
+            return lexhint
 
         # Use g2pK to convert the word (returns Hangul in phonetic form)
         hangul_phonemes = self.g2pk(
@@ -230,6 +271,14 @@ class KoreanG2P(G2PBase):
         token.rating = "ko" if phonemes else None
 
         return phonemes, [token] if phonemes else None
+
+    def close(self) -> None:
+        if self._lexphon is not None:
+            self._lexphon.close()
+        if self._g2pk_instance is not None:
+            close = getattr(self._g2pk_instance, "close", None)
+            if close is not None:
+                close()
 
     @property
     def capabilities(self) -> dict[str, bool]:

@@ -84,15 +84,10 @@ zh = [
     "ordered-set>=4.1.0",
 ]
 th = [
-    "tltk>=1.10,<2",
-    "pythainlp>=5.3,<6",
-    "scikit-learn>=1.5.2",
     "kokorog2p[espeak]",
 ]
 ru = [
     "kokorog2p[espeak]",
-    "ruaccent>=1.5.8,<2; python_version < '3.14'",
-    "ruaccent>=1.5.8; python_version >= '3.14'",
 ]
 ja = [
     "pyopenjtalk>=0.4.1,<0.5",
@@ -161,6 +156,7 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "espeak: marks tests that require espeak-ng",
     "spacy: marks tests that require spaCy",
+    "integration: tests requiring provisioned external Lexphon data",
 ]
 
 [tool.ruff]

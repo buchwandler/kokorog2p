@@ -24,6 +24,15 @@ for token in tokens:
     print(f"{token.text} -> {token.phonemes}")
 ```
 
+Known words are checked against the provisioned Lexphon `pt:lexhint` dictionary before
+productive dialect rules. Missing or invalid dictionary data uses the existing
+rule-based path; KokoroG2P never downloads the dictionary:
+
+```bash
+lexphon data install pt:lexhint
+lexphon data verify pt:lexhint
+```
+
 ## Phonology Features
 
 Brazilian Portuguese phonology includes:

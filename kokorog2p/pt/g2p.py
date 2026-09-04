@@ -20,15 +20,20 @@ https://en.wikipedia.org/wiki/Brazilian_Portuguese
 
 import re
 import unicodedata
+from collections.abc import Sequence
 from typing import Final
+
+from lexphon import LexiconNotInstalledError
 
 from kokorog2p._optional import load_spacy_model
 from kokorog2p.base import G2PBase
+from kokorog2p.lexicons.lexphon_backend import LexphonBackend
 from kokorog2p.pipeline.tokenizer import SpacyTokenizer
 from kokorog2p.pt.normalizer import PortugueseNormalizer
 from kokorog2p.spacy_models import resolve_spacy_model
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
+from kokorog2p.vocab import validate_for_kokoro
 
 # =============================================================================
 # Brazilian Portuguese Grapheme-to-Phoneme Mappings
@@ -93,6 +98,8 @@ class PortugueseG2P(G2PBase):
         mark_stress: bool = True,
         affricate_ti_di: bool = True,  # Affricate t/d before i (Brazilian feature)
         dialect: str = "br",  # "br" for Brazilian, "pt" for European
+        lexicons: Sequence[str] | None = None,
+        store: object | None = None,
         version: str = "1.0",
     ) -> None:
         """Initialize the Portuguese G2P converter.
@@ -135,6 +142,18 @@ class PortugueseG2P(G2PBase):
         self._normalizer = PortugueseNormalizer(
             dialect=dialect,
         )
+        self.lexicons = ("lexhint",) if lexicons is None else tuple(lexicons)
+        self.store = store
+        self._lexphon = (
+            LexphonBackend(
+                "pt-pt" if normalized_language == "pt-pt" else "pt-br",
+                self.lexicons,
+                store=store,
+            )
+            if self.lexicons
+            else None
+        )
+        self._last_source = "rules"
 
     def __call__(self, text: str) -> list[GToken]:
         """Convert text to a list of tokens with phonemes.
@@ -165,7 +184,11 @@ class PortugueseG2P(G2PBase):
                 phonemes = self._word_to_phonemes(token.text)
                 if phonemes:
                     token.phonemes = phonemes
-                    token.set("rating", 3)  # Rule-based rating
+                    token.set("rating", 5 if self._last_source == "lexicon" else 3)
+                    token.rating = "5" if self._last_source == "lexicon" else "3"
+                    if self._last_source == "lexicon":
+                        token.set("source", "lexicon")
+                        token.set("lexicon_id", "pt:lexhint")
 
         # Handle remaining unknown words
         for token in tokens:
@@ -633,6 +656,19 @@ class PortugueseG2P(G2PBase):
 
         return [], i, False
 
+    def _lexhint_phonemes(self, word: str) -> str | None:
+        if self._lexphon is None:
+            return None
+        try:
+            token = self._lexphon.lookup(word)
+        except LexiconNotInstalledError:
+            return None
+        if token is None or not token.known or token.pronunciation is None:
+            return None
+        phonemes = unicodedata.normalize("NFC", token.pronunciation)
+        valid, _invalid = validate_for_kokoro(phonemes, model=self.version)
+        return phonemes if valid else None
+
     def _word_to_phonemes(self, word: str) -> str:
         """Convert a single word to phonemes.
 
@@ -645,13 +681,19 @@ class PortugueseG2P(G2PBase):
         if not word:
             return ""
 
+        self._last_source = "rules"
         # Check lexicon first
         word_lower = word.lower()
         if word_lower in self._LEXICON:
             base_phonemes = self._LEXICON[word_lower]
             if not self.mark_stress:
                 base_phonemes = base_phonemes.replace("ˈ", "")
+            self._last_source = "curated"
             return base_phonemes
+        lexhint = self._lexhint_phonemes(word_lower)
+        if lexhint is not None:
+            self._last_source = "lexicon"
+            return lexhint
 
         # Convert to lowercase for processing
         text = word.lower()
@@ -762,6 +804,14 @@ class PortugueseG2P(G2PBase):
             if token.phonemes:
                 result.append(token.phonemes)
         return " ".join(result)
+
+    def close(self) -> None:
+        if self._lexphon is not None:
+            self._lexphon.close()
+        if self._nlp is not None:
+            close = getattr(self._nlp, "close", None)
+            if close is not None:
+                close()
 
     def get_target_model(self) -> str:
         """Get the target Kokoro model variant for this G2P instance.

@@ -305,7 +305,6 @@ COMPONENT_METHODS = {
     "phonemize_word_raw",
     "run_frontend",
     "pronounce_thai_chunk",
-    "_call_tltk",
 }
 
 COMPONENT_HINTS = (

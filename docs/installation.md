@@ -32,9 +32,20 @@ Install optional named layers only when needed:
 lexphon data install de-de:crane de-de:espeak de-de:olaph
 ```
 
-Provision these assets during image or container construction. German lookup is offline
-at runtime and performs no implicit download. python -m pip install "kokorog2p[ko]"
-python -m pip install "kokorog2p[ja]" python -m pip install "kokorog2p[espeak]"
+## Released LexHint data
+
+Russian, Thai, Vietnamese, Japanese, Korean, and Portuguese pronunciation dictionaries
+are provisioned through Lexphon and are not bundled or downloaded by KokoroG2P:
+
+```bash
+lexphon data install ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint
+lexphon data verify ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint
+```
+
+The corresponding language extras only install frontend dependencies. Provision these
+assets during image or container construction. German lookup is offline at runtime and
+performs no implicit download. python -m pip install "kokorog2p[ko]" python -m pip
+install "kokorog2p[ja]" python -m pip install "kokorog2p[espeak]"
 
 ````
 

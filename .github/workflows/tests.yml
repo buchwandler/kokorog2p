@@ -252,8 +252,8 @@ jobs:
             tests/test_de_g2p_hardening.py \
             tests/test_release_artifacts.py \
             tests/test_dependency_contract.py
-  german-lexphon-integration:
-    name: Released German Lexphon integration
+  lexhint-released-integration:
+    name: Released LexHint integration
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
     env:
@@ -266,18 +266,30 @@ jobs:
         with:
           python-version: "3.13"
       - name: Install package and development dependencies
-        run: python -m pip install -e ".[de,dev]"
-      - name: Provision released German data
+        run: python -m pip install -e ".[dev]"
+      - name: Provision released LexHint data
         run: |
           lexphon data install \
+            ru:lexhint \
+            th:lexhint \
+            vi:lexhint \
+            ja:lexhint \
+            ko:lexhint \
+            pt:lexhint
             de-de:gold \
             de-de:crane \
             de-de:espeak \
             de-de:olaph
           lexphon data verify \
+            ru:lexhint \
+            th:lexhint \
+            vi:lexhint \
+            ja:lexhint \
+            ko:lexhint \
+            pt:lexhint
             de-de:gold \
             de-de:crane \
             de-de:espeak \
             de-de:olaph
-      - name: Run German integration tests
-        run: python -m pytest -q tests/test_de_lexphon_integration.py
+      - name: Run released LexHint integration tests
+        run: python -m pytest -q tests/test_lexhint_released_integration.py

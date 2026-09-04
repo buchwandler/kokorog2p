@@ -14,8 +14,9 @@ from dataclasses import dataclass
 import jaconv
 import mojimoji
 from fugashi import Tagger
+from lexphon import DataStore
 
-from kokorog2p.lexicons.runtime import SelectedLexicons, open_selected
+from kokorog2p.lexicons.lexphon_backend import LexphonBackend
 
 # Hiragana to IPA mapping
 HEPBURN = {
@@ -281,7 +282,12 @@ class Token:
 class Cutlet:
     """Japanese romaji/IPA converter using MeCab (via fugashi)."""
 
-    def __init__(self, lexicons: tuple[str, ...] = ("words",)) -> None:
+    def __init__(
+        self,
+        lexicons: tuple[str, ...] = ("lexhint",),
+        *,
+        store: DataStore | None = None,
+    ) -> None:
         try:
             self.tagger = Tagger()
         except Exception as exc:
@@ -292,16 +298,17 @@ class Cutlet:
             ) from exc
         self.table = dict(HEPBURN)  # make a copy so we can modify it
         self.lexicons = tuple(lexicons)
+        self.store = store
         self.exceptions = {}
-        self._ja_words: SelectedLexicons | None = None
+        self._lexphon: LexphonBackend | None = None
         self.prepared_input = False
 
     @property
-    def ja_words(self) -> SelectedLexicons:
-        """Open the packaged membership lexicon on first dictionary use."""
-        if self._ja_words is None:
-            self._ja_words = open_selected("ja-jp", self.lexicons)
-        return self._ja_words
+    def lexphon(self) -> LexphonBackend:
+        """Open the local LexHint dictionary on first membership use."""
+        if self._lexphon is None:
+            self._lexphon = LexphonBackend("ja-jp", self.lexicons, store=self.store)
+        return self._lexphon
 
     def __call__(self, text: str) -> tuple[str, None]:
         """Build a complete string from input text."""
@@ -324,8 +331,8 @@ class Cutlet:
         return ps, None
 
     def close(self) -> None:
-        if self._ja_words is not None:
-            self._ja_words.close()
+        if self._lexphon is not None:
+            self._lexphon.close()
 
     def _normalize_text(self, text: str) -> str:
         """Given text, normalize variations in Japanese."""
@@ -358,7 +365,15 @@ class Cutlet:
                 (
                     j
                     for j in range(z, i, -1)
-                    if "".join(w.surface for w in words[i:j]) in self.ja_words
+                    if (
+                        (
+                            token := self.lexphon.lookup(
+                                "".join(w.surface for w in words[i:j])
+                            )
+                        )
+                        is not None
+                        and token.known
+                    )
                 ),
                 None,
             )

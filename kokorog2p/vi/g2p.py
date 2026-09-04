@@ -3,17 +3,26 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Literal
 
+from lexphon import LexiconNotInstalledError
+
 from kokorog2p.base import G2PBase
 from kokorog2p.espeak_g2p import EspeakOnlyG2P
+from kokorog2p.lexicons.lexphon_backend import LexphonBackend
 from kokorog2p.punctuation import normalize_punctuation
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
 
-from .model_profile import PROFILE_NAME, TARGET_MODEL, validate_output
+from .model_profile import (
+    PROFILE_NAME,
+    TARGET_MODEL,
+    adapt_lexhint_ipa,
+    validate_output,
+)
 from .phonology import syllable_to_phones
 from .render import render_syllable
 from .syllable import (
@@ -74,6 +83,8 @@ class VietnameseG2P(G2PBase):
         use_espeak_fallback: bool = True,
         use_goruut_fallback: bool = False,
         use_cli: bool = False,
+        lexicons: Sequence[str] | None = None,
+        store: object | None = None,
         **kwargs: Any,
     ) -> None:
         if kwargs:
@@ -109,6 +120,13 @@ class VietnameseG2P(G2PBase):
         self.use_goruut_fallback = use_goruut_fallback
         self.use_cli = use_cli
         self._foreign_g2p: G2PBase | None = None
+
+        self.lexicons = ("lexhint",) if lexicons is None else tuple(lexicons)
+        self.store = store
+        if self.lexicons:
+            self._lexphon = LexphonBackend("vi-vn", self.lexicons, store=store)
+        else:
+            self._lexphon = None
 
     def get_target_model(self) -> str:
         """Return the model profile used for output validation."""
@@ -158,6 +176,31 @@ class VietnameseG2P(G2PBase):
         """Analyze one token without changing the caller's source text."""
         normalized = normalize_vietnamese(text)
         syllable = _cached_syllable(normalized)
+        if self._lexphon is not None:
+            try:
+                lexhint = self._lexphon.lookup(normalized)
+            except LexiconNotInstalledError:
+                lexhint = None
+            if (
+                lexhint is not None
+                and lexhint.known
+                and lexhint.pronunciation is not None
+            ):
+                try:
+                    rendered = adapt_lexhint_ipa(
+                        lexhint.pronunciation, model=self.version
+                    )
+                except ValueError:
+                    rendered = ""
+                if rendered:
+                    return VietnameseAnalysis(
+                        source=text,
+                        normalized=normalized,
+                        classification="VI_LEXHINT",
+                        syllable=None,
+                        phones=tuple(rendered),
+                        rendered=rendered,
+                    )
         if syllable is not None:
             phones = syllable_to_phones(syllable)
             rendered = _cached_render(syllable)
@@ -241,6 +284,10 @@ class VietnameseG2P(G2PBase):
                 token.rating = "4" if analysis.syllable is not None else "1"
                 token.set("classification", analysis.classification)
                 token.set("fallback", analysis.fallback)
+                if analysis.classification == "VI_LEXHINT":
+                    token.rating = "5"
+                    token.set("source", "lexicon")
+                    token.set("lexicon_id", "vi:lexhint")
                 if analysis.syllable is not None:
                     token.set("tone", analysis.syllable.tone.value)
                     token.set("syllable", analysis.syllable)
@@ -271,6 +318,12 @@ class VietnameseG2P(G2PBase):
             "foreign_fallback": self.foreign_fallback,
             "model": self.version,
         }
+
+    def close(self) -> None:
+        if self._lexphon is not None:
+            self._lexphon.close()
+        if self._foreign_g2p is not None:
+            self._foreign_g2p.close()
 
     def __repr__(self) -> str:
         return (

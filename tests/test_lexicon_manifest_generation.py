@@ -21,7 +21,7 @@ def test_asset_tools_use_distribution_version() -> None:
 
 def test_manifest_is_complete_registry_source() -> None:
     records = load_manifest()
-    specs = iter_lexicon_specs()
+    specs = [spec for spec in iter_lexicon_specs() if spec.resource is not None]
     assert [record["id"] for record in records] == [spec.id for spec in specs]
     assert [record.get("default_priority") for record in records] == [
         spec.default_priority for spec in specs

@@ -27,16 +27,19 @@ def test_core_dependency_contract() -> None:
     )
 
 
+def test_removed_language_dependencies_are_absent() -> None:
+    data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    text = repr(data["project"]["optional-dependencies"]).lower()
+    for package in ("ruaccent", "tltk", "pythainlp", "scikit-learn"):
+        assert package not in text
+
+
 def test_thai_dependency_extra_is_optional() -> None:
     data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
     extras = data["project"]["optional-dependencies"]
 
-    assert extras["th"] == [
-        "tltk>=1.10,<2",
-        "pythainlp>=5.3,<6",
-        "scikit-learn>=1.5.2",
-        "kokorog2p[espeak]",
-    ]
+    assert extras["th"] == ["kokorog2p[espeak]"]
+    assert "ruaccent" not in extras["ru"]
     assert "th" in extras["all"][-1]
 
 

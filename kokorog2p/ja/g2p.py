@@ -13,6 +13,8 @@ import warnings
 from collections.abc import Mapping, Sequence
 from typing import Any, Protocol
 
+from lexphon import DataStore
+
 from kokorog2p.base import G2PBase
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
@@ -288,6 +290,7 @@ class JapaneseG2P(G2PBase):
         lexicons: Sequence[str] | None = None,
         version: str = "1.0",
         frontend: JapaneseFrontend | None = None,
+        store: DataStore | None = None,
         **kwargs,
     ) -> None:
         """Initialize the Japanese G2P.
@@ -331,12 +334,13 @@ class JapaneseG2P(G2PBase):
         self.load_silver = load_silver
         self.load_gold = load_gold
         self.lexicons = (
-            ("words",)
-            if lexicons is None and load_gold
+            ("lexhint",)
+            if lexicons is None and backend == "cutlet"
             else ()
             if lexicons is None
             else tuple(lexicons)
         )
+        self.store = store
         self._frontend = frontend
         self._pyopenjtalk = None
         self._cutlet = None
@@ -368,7 +372,7 @@ class JapaneseG2P(G2PBase):
                     "Install it with `pip install 'kokorog2p[ja-cutlet]'`."
                 ) from exc
 
-            self._cutlet = Cutlet(self.lexicons)
+            self._cutlet = Cutlet(self.lexicons, store=self.store)
         return self._cutlet
 
     @staticmethod

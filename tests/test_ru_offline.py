@@ -1,8 +1,8 @@
-import sys
+from pathlib import Path
 
 
-def test_importing_russian_frontend_does_not_import_ruaccent():
-    import kokorog2p.ru
-
-    assert "ruaccent" not in sys.modules
-    assert kokorog2p.ru.RussianG2P is not None
+def test_russian_runtime_has_no_removed_special_imports() -> None:
+    root = Path(__file__).parents[1] / "kokorog2p" / "ru"
+    source = "\n".join(path.read_text(encoding="utf-8") for path in root.glob("*.py"))
+    assert "ruaccent" not in source
+    assert "RussianEspeak" not in source

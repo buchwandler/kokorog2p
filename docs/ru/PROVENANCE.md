@@ -38,17 +38,18 @@ references:
 The implementation documents a source note next to each lexical rule family. A mismatch
 with the behavioral oracle is not by itself evidence that a local rule is wrong.
 
-## RUAccent
+## LexHint
 
-RUAccent is an optional runtime dependency. The selected package and model revision must
-be recorded separately when an integration environment is chosen. No model is imported,
-downloaded, or loaded during `import kokorog2p` or `import kokorog2p.ru`. The final
-dependency bounds must reflect the tested Python and Transformers/ONNX Runtime
-combination rather than an unverified latest-version assumption.
+Russian pronunciation is owned by the provisioned Lexphon `ru:lexhint` dictionary.
+KokoroG2P opens local Lexphon data lazily and never downloads it. Install and verify the
+released asset separately:
 
-Current package metadata and model artifact terms must be checked at release time. This
-document intentionally does not make a blanket license claim for future RUAccent model
-artifacts.
+```bash
+lexphon data install ru:lexhint
+lexphon data verify ru:lexhint
+```
+
+eSpeak-ng remains an optional fallback for unresolved words.
 
 ## eSpeak-ng
 
