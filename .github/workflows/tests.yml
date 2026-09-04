@@ -54,7 +54,7 @@ jobs:
             tests/test_markers.py \
             tests/test_pipeline_api.py \
             tests/test_examples_contract.py \
-            tests/test_public_api_consistency.py
+            tests/test_public_api_consistency.py \
             tests/test_station_benchmarks.py \
 
   station-performance:
