@@ -4,11 +4,14 @@ import pytest
 
 from kokorog2p import phonemize_prepared
 
-spokenform = pytest.importorskip("spokenform")
-prepare_for_kokorog2p = spokenform.prepare_for_kokorog2p
-
 
 def test_released_spokenform_prepares_then_core_phonemizes() -> None:
+    spokenform = pytest.importorskip(
+        "spokenform",
+        reason="Spokenform is an optional composition dependency",
+    )
+    prepare_for_kokorog2p = spokenform.prepare_for_kokorog2p
+
     prepared = prepare_for_kokorog2p(
         "Meet Dr. Smith at 2 kg.", language="en"
     ).spoken_text
