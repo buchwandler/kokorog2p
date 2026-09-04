@@ -228,9 +228,10 @@ def test_full_suite_fail_fast_reports_only_first_failure(
 
     monkeypatch.setattr(run_test_suite.subprocess, "run", fake_run)
 
-    assert run_test_suite.run_test_files(
-        test_files, ["-q"], fail_fast=True, root=tmp_path
-    ) == 7
+    assert (
+        run_test_suite.run_test_files(test_files, ["-q"], fail_fast=True, root=tmp_path)
+        == 7
+    )
     assert [command[-1] for command in calls] == ["tests/test_a.py"]
     stderr = capsys.readouterr().err
     assert "  - tests/test_a.py (exit 7)" in stderr

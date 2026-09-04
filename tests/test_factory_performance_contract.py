@@ -45,9 +45,7 @@ def test_factory_defers_russian_lexphon_engine(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def forbidden_phonemizer(*args: object, **kwargs: object) -> object:
-        raise AssertionError(
-            "Russian factory construction must not open Lexphon data"
-        )
+        raise AssertionError("Russian factory construction must not open Lexphon data")
 
     monkeypatch.setattr(
         "kokorog2p.lexicons.lexphon_backend.Phonemizer",
@@ -60,6 +58,7 @@ def test_factory_defers_russian_lexphon_engine(
     assert isinstance(g2p, RussianG2P)
     assert g2p._lexphon is not None
     assert g2p._lexphon._phonemizer is None
+
 
 def test_automatic_spacy_factory_resolution_does_not_probe_loader(
     monkeypatch: pytest.MonkeyPatch,
