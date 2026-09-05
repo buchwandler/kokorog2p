@@ -81,6 +81,39 @@ overrides = [
 ]
 ```
 
+## Exact sub-token language spans
+
+The default `overlap="snap"` behavior is unchanged. Opt into exact source-aligned fragments with `overlap="split"`:
+
+```python
+from kokorog2p import OverrideSpan, phonemize_prepared
+
+result = phonemize_prepared(
+    "Manpowerdiskussion",
+    language="de",
+    overlap="split",
+    overrides=[OverrideSpan(0, 8, {"lang": "en"})],
+)
+```
+
+Each fragment satisfies `fragment.text == source[fragment.char_start:fragment.char_end]`. Explicit `ph` and `lang` overrides take precedence over automatic routing.
+
+## Automatic language routing
+
+Enable routing with an explicit candidate allowlist:
+
+```python
+result = phonemize_prepared(
+    text,
+    language="de",
+    language_routing={"mode": "auto", "languages": ["de", "en"]},
+)
+```
+
+Routing uses exact lexicon lookup, keeps the document language for ambiguity, and exposes `LanguageRoute` records in `result.language_routes`. Candidate frontends are lazy and may be supplied with `g2p_resolver`.
+
+Use `target_model="1.0"` to constrain every automatic candidate and the final token IDs to one fixed Kokoro vocabulary. Routing changes only G2P frontend selection. It never selects an acoustic model.
+
 ## Structured stress overrides
 
 Use `stress` in an `OverrideSpan` to change the relative stress of the resolved phonemes

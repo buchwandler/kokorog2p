@@ -51,6 +51,16 @@ convenience wrappers `phonemes` and `phoneme_ids` follow the same rule.
 .. autofunction:: kokorog2p.phonemize_prepared
 ```
 
+### Routing and target-model options
+
+`phonemize_prepared` accepts these optional controls:
+
+- `overlap="split"` applies partial language spans to exact source-aligned fragments. The default `"snap"` behavior remains compatible.
+- `language_routing={"mode": "auto", "languages": ["de", "en"]}` enables conservative lexical routing with an explicit allowlist. `LanguageRoutingConfig` is also accepted.
+- `g2p_resolver(language)` supplies and caches a frontend per canonical language for one call.
+- `target_model="1.0"` makes the caller-supplied Kokoro vocabulary authoritative for routed phonemes and token IDs.
+
+Language routing changes G2P frontend selection only. KokoroG2P does not select an acoustic model or ONNX model. Routing decisions are available as structured `LanguageRoute` objects in `PhonemizeResult.language_routes`.
 The supplied string is the coordinate authority: `clean_text` and token/override offsets
 refer to the prepared text. Do not pass arbitrary written text when number, date, unit,
 currency, or abbreviation expansion is expected.

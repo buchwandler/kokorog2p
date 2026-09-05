@@ -8,7 +8,7 @@ All character offsets refer to indices in the clean_text (after markup removal).
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 
 @dataclass
@@ -136,6 +136,31 @@ class OverrideSpan:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class LanguageFragment:
+    """One source-aligned fragment selected for pronunciation."""
+
+    char_start: int
+    char_end: int
+    text: str
+    language: str
+    source: Literal["default", "explicit", "auto"]
+    kind: Literal["whole-token", "compound-root", "stem", "affix"]
+
+
+@dataclass(frozen=True, slots=True)
+class LanguageRoute:
+    """Structured language-routing decision for one source range."""
+
+    char_start: int
+    char_end: int
+    text: str
+    default_language: str
+    fragments: tuple[LanguageFragment, ...]
+    reason: str
+    confidence: str
+
+
 @dataclass
 class PhonemizeResult:
     """Result of span-aware phonemization.
@@ -158,12 +183,15 @@ class PhonemizeResult:
     phonemes: str = ""
     token_ids: list[int] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    language_routes: list[LanguageRoute] = field(default_factory=list)
 
     def __str__(self) -> str:
         return self.phonemes or ""
 
 
 __all__ = [
+    "LanguageFragment",
+    "LanguageRoute",
     "OverrideSpan",
     "OverrideSpanLike",
     "PhonemizeResult",

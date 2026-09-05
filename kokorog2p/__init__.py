@@ -41,6 +41,7 @@ from threading import RLock
 from typing import Any, Literal, Optional, Union
 
 from kokorog2p.base import G2PBase
+from kokorog2p.language_codes import normalize_language_code
 from kokorog2p.lexicons.registry import (
     available_lexicons,
     get_lexicon_spec,
@@ -62,6 +63,7 @@ from kokorog2p.phonemes import (
 
 # New span-based API
 from kokorog2p.pipeline_api import phonemize_to_result
+from kokorog2p.language_routing import LanguageRoutingConfig
 from kokorog2p.integrations import (
     SegmentLike,
     annotations_for_segment,
@@ -84,6 +86,8 @@ from kokorog2p.punctuation import (
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import tokenize_with_offsets
 from kokorog2p.types import (
+    LanguageFragment,
+    LanguageRoute,
     OverrideSpan,
     OverrideSpanLike,
     PhonemizeResult,
@@ -129,71 +133,6 @@ _g2p_cache: OrderedDict[tuple[object, ...], G2PBase] = OrderedDict()
 _g2p_cache_lock = RLock()
 _G2PCacheInfo = namedtuple("_G2PCacheInfo", "size maxsize policy")
 
-_LANGUAGE_ALIASES = {
-    "en": "en-us",
-    "eng": "en-us",
-    "english": "en-us",
-    "gb": "en-gb",
-    "british": "en-gb",
-    "de": "de-de",
-    "de-at": "de-de",
-    "de-ch": "de-de",
-    "deu": "de-de",
-    "german": "de-de",
-    "fr": "fr-fr",
-    "fra": "fr-fr",
-    "french": "fr-fr",
-    "es": "es-es",
-    "spa": "es-es",
-    "spanish": "es-es",
-    "it": "it-it",
-    "ita": "it-it",
-    "italian": "it-it",
-    "pt": "pt-br",
-    "por": "pt-br",
-    "portuguese": "pt-br",
-    "cs": "cs-cz",
-    "ces": "cs-cz",
-    "czech": "cs-cz",
-    "vi": "vi-vn",
-    "vi-vn": "vi-vn",
-    "vie": "vi-vn",
-    "vietnamese": "vi-vn",
-    "ko": "ko-kr",
-    "kor": "ko-kr",
-    "korean": "ko-kr",
-    "he": "he",
-    "heb": "he",
-    "hebrew": "he",
-    "zh": "zh",
-    "cmn": "zh",
-    "chinese": "zh",
-    "ja": "ja-jp",
-    "jpn": "ja-jp",
-    "japanese": "ja-jp",
-    "ar": "ar",
-    "ara": "ar",
-    "arabic": "ar",
-    "ar-msa": "ar",
-    "msa": "ar",
-    "ar-sa": "ar",
-    "sv": "sv-se",
-    "sv-se": "sv-se",
-    "swe": "sv-se",
-    "swedish": "sv-se",
-    "th": "th-th",
-    "th-th": "th-th",
-    "tha": "th-th",
-    "thai": "th-th",
-    "ru": "ru-ru",
-    "ru-ru": "ru-ru",
-    "rus": "ru-ru",
-    "russian": "ru-ru",
-    "kk": "kk",
-    "kk-kz": "kk",
-    "kaz": "kk",
-    "kazakh": "kk",
-}
 
 _FACTORY_KWARGS_BY_LANGUAGE = {
     "en": frozenset({"unk"}),
@@ -251,8 +190,7 @@ BackendType = Literal["kokorog2p", "espeak", "goruut"]
 
 def _canonical_language(language: str) -> str:
     """Return the cache identity for a language alias."""
-    normalized = language.lower().replace("_", "-")
-    return _LANGUAGE_ALIASES.get(normalized, normalized)
+    return normalize_language_code(language)
 
 
 def _language_family(language: str) -> str:
@@ -1005,7 +943,7 @@ def phonemize_prepared(
     return_ids: bool = True,
     return_phonemes: bool = True,
     alignment: Literal["span", "legacy"] = "span",
-    overlap: Literal["snap", "strict"] = "snap",
+    overlap: Literal["snap", "strict", "split"] = "snap",
     use_normalizer_rules: bool = True,
     use_espeak_fallback: bool = True,
     use_goruut_fallback: bool = False,
@@ -1018,6 +956,9 @@ def phonemize_prepared(
     lexicons: str | Sequence[str] | None = None,
     backend: "BackendType" = "kokorog2p",
     g2p: "G2PBase | None" = None,
+    g2p_resolver: Callable[[str], "G2PBase"] | None = None,
+    language_routing: LanguageRoutingConfig | Mapping[str, Any] | None = None,
+    target_model: str | None = None,
     g2p_options: Mapping[str, Any] | None = None,
     strict_stress: bool = False,
 ) -> PhonemizeResult:
@@ -1029,19 +970,23 @@ def phonemize_prepared(
     token offsets refer directly to it.
     """
     if g2p is None:
-        g2p = get_g2p(
-            language=language,
-            use_espeak_fallback=use_espeak_fallback,
-            use_goruut_fallback=use_goruut_fallback,
-            use_cli=use_cli,
-            use_spacy=use_spacy,
-            spacy_model=spacy_model,
-            spacy_model_size=spacy_model_size,
-            load_silver=load_silver,
-            load_gold=load_gold,
-            lexicons=lexicons,
-            backend=backend,
-            **(dict(g2p_options) if g2p_options else {}),
+        g2p = (
+            g2p_resolver(normalize_language_code(language))
+            if g2p_resolver is not None
+            else get_g2p(
+                language=language,
+                use_espeak_fallback=use_espeak_fallback,
+                use_goruut_fallback=use_goruut_fallback,
+                use_cli=use_cli,
+                use_spacy=use_spacy,
+                spacy_model=spacy_model,
+                spacy_model_size=spacy_model_size,
+                load_silver=load_silver,
+                load_gold=load_gold,
+                lexicons=lexicons,
+                backend=backend,
+                **(dict(g2p_options) if g2p_options else {}),
+            )
         )
     return phonemize_to_result(
         clean_text=text,
@@ -1053,6 +998,9 @@ def phonemize_prepared(
         overlap=overlap,
         use_normalizer_rules=use_normalizer_rules,
         g2p=g2p,
+        g2p_resolver=g2p_resolver,
+        language_routing=language_routing,
+        target_model=target_model,
         g2p_options={
             "use_espeak_fallback": use_espeak_fallback,
             "use_goruut_fallback": use_goruut_fallback,
@@ -1153,6 +1101,9 @@ __all__ = [
     "VOWELS",
     "G2PBase",
     "GToken",
+    "LanguageFragment",
+    "LanguageRoute",
+    "LanguageRoutingConfig",
     "MismatchInfo",
     "MismatchMode",
     "MismatchStats",
@@ -1192,6 +1143,7 @@ __all__ = [
     "ids_to_phonemes",
     "is_kokoro_punctuation",
     "lexicon_info",
+    "normalize_language_code",
     "normalize_punctuation",
     "normalize_spacy_language",
     "overrides_for_segment",

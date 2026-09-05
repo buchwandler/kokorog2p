@@ -8,12 +8,19 @@ direct token ID output.
 import re
 import threading
 import unicodedata
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from typing import TYPE_CHECKING, Any, Literal
 from weakref import WeakKeyDictionary
 
+from kokorog2p.base import G2PBase
+from kokorog2p.language_codes import normalize_language_code
+from kokorog2p.language_routing import (
+    LanguageRoutingConfig,
+    coerce_language_routing,
+    route_languages,
+)
 from kokorog2p.punctuation import normalize_punctuation
 from kokorog2p.span_processing import (
     apply_overrides_to_tokens,
@@ -34,7 +41,6 @@ from kokorog2p.types import (
 from kokorog2p.vocab import filter_for_kokoro, phonemes_to_ids, validate_for_kokoro
 
 if TYPE_CHECKING:
-    from kokorog2p.base import G2PBase
     from kokorog2p.token import GToken
 
 
@@ -91,6 +97,27 @@ def _merge_target_model(current: str, candidate: str) -> str:
     )
 
 
+def _resolve_target_model(
+    default_g2p: Any,
+    candidate_g2p: Any,
+    *,
+    fixed_target_model: str | None,
+) -> str:
+    """Resolve a fixed target profile without promoting routed frontends."""
+    if fixed_target_model is not None:
+        return fixed_target_model
+    return _merge_target_model(
+        _get_target_model(default_g2p), _get_target_model(candidate_g2p)
+    )
+
+
+def _validate_target_model(model: str) -> str:
+    if not isinstance(model, str) or not model:
+        raise ValueError("target_model must be a non-empty model identifier")
+    validate_for_kokoro("", model=model)
+    return model
+
+
 def _normalize_punctuation_output(text: str) -> str:
     if not text:
         return text
@@ -109,7 +136,7 @@ _HYPHEN_AS_DASH_RE = re.compile(r"(?<!\w)-|-(?!\w)")
 def _normalize_lang(lang: str | None) -> str | None:
     if not lang:
         return None
-    return lang.lower().replace("_", "-")
+    return normalize_language_code(lang)
 
 
 @dataclass(frozen=True)
@@ -161,7 +188,7 @@ def _prepare_span_text(
     annotations: Sequence[TokenAnnotationLike] | None = None,
     use_normalizer_rules: bool = True,
     source_sensitive: bool = False,
-    overlap: Literal["snap", "strict"] = "snap",
+    overlap: Literal["snap", "strict", "split"] = "snap",
 ) -> PreparedSpanText:
     """Prepare only token/override coordinates; semantic text is caller-owned."""
     token_spans = (
@@ -349,9 +376,12 @@ def phonemize_to_result(
     return_ids: bool = True,
     return_phonemes: bool = True,
     alignment: Literal["span", "legacy"] = "span",
-    overlap: Literal["snap", "strict"] = "snap",
+    overlap: Literal["snap", "strict", "split"] = "snap",
     use_normalizer_rules: bool = True,
     g2p: "G2PBase | None" = None,
+    g2p_resolver: Callable[[str], "G2PBase"] | None = None,
+    language_routing: LanguageRoutingConfig | Mapping[str, Any] | None = None,
+    target_model: str | None = None,
     lexicons: str | Sequence[str] | None = None,
     g2p_options: dict[str, Any] | None = None,
     strict_stress: bool = False,
@@ -408,19 +438,46 @@ def phonemize_to_result(
         >>> result = phonemize_to_result("Hello Welt!", overrides=overrides)
     """
     from kokorog2p import get_g2p
+    from kokorog2p.integrations import coerce_override_spans
 
+    default_lang = normalize_language_code(lang)
+    routing_config = coerce_language_routing(
+        language_routing, default_language=default_lang
+    )
+    fixed_target_model = (
+        _validate_target_model(target_model) if target_model is not None else None
+    )
+    options = dict(g2p_options or {})
+    if lexicons is not None:
+        options["lexicons"] = lexicons
+
+    # Resolve the default frontend before punctuation normalization.
+    if g2p is None:
+        g2p = (
+            g2p_resolver(default_lang)
+            if g2p_resolver is not None
+            else get_g2p(lang, **options)
+        )
+    g2p_options = options
+    resolver_cache: dict[str, G2PBase] = {default_lang: g2p}
+
+    def resolve_language(language: str) -> G2PBase:
+        canonical = normalize_language_code(language)
+        if canonical not in resolver_cache:
+            if g2p_resolver is not None:
+                resolver_cache[canonical] = g2p_resolver(canonical)
+            else:
+                resolver_cache[canonical] = get_g2p(
+                    canonical,
+                    version=_get_frontend_version(g2p),
+                    **options,
+                )
+        return resolver_cache[canonical]
+
+    source_sensitive = _preserves_source_punctuation(g2p)
     warnings: list[str] = []
     result_clean_text = clean_text
-
-    # Resolve the frontend before model punctuation normalization so
-    # source-sensitive languages can classify punctuation from original text.
-    if g2p is None:
-        options = dict(g2p_options or {})
-        if lexicons is not None:
-            options["lexicons"] = lexicons
-        g2p = get_g2p(lang, **options)
-        g2p_options = options
-    source_sensitive = _preserves_source_punctuation(g2p)
+    language_routes = []
     g2p_token_spans: list[TokenSpan]
     extended_text: str = ""
 
@@ -428,7 +485,7 @@ def phonemize_to_result(
         # Build prepared-coordinate spans before invoking the G2P frontend.
         prepared_span = _prepare_span_text(
             clean_text,
-            lang=lang,
+            lang=default_lang,
             annotations=annotations,
             overrides=overrides or (),
             use_normalizer_rules=use_normalizer_rules,
@@ -469,13 +526,38 @@ def phonemize_to_result(
                 token_spans, overrides, mode=overlap
             )
             warnings.extend(override_warnings)
+    for token in token_spans:
+        if token.lang is not None and token.meta.get("language_source") != "explicit":
+            token.lang = normalize_language_code(token.lang)
+    if routing_config.mode == "auto":
+        explicit_spans = coerce_override_spans(overrides or ())
+        protected_ranges = [
+            (span.char_start, span.char_end)
+            for span in explicit_spans
+            if "ph" in span.attrs or "lang" in span.attrs
+        ]
+        routed = route_languages(
+            clean_text,
+            token_spans,
+            default_language=default_lang,
+            config=routing_config,
+            resolve_g2p=resolve_language,
+            target_model=fixed_target_model or _get_target_model(g2p),
+            fixed_target_model=fixed_target_model is not None,
+            protected_ranges=protected_ranges,
+        )
+        token_spans = list(routed.tokens)
+        language_routes = list(routed.routes)
+        warnings.extend(routed.warnings)
     # Phonemize tokens based on language and overrides
     phonemized_tokens, phonemize_warnings, target_model = _phonemize_token_spans(
         token_spans,
         g2p_token_spans,
         g2p,
-        lang,
+        default_lang,
         g2p_options=g2p_options,
+        g2p_resolver=resolve_language,
+        fixed_target_model=fixed_target_model,
         strict_stress=strict_stress,
     )
     warnings.extend(phonemize_warnings)
@@ -526,6 +608,7 @@ def phonemize_to_result(
         phonemes=phonemes,
         token_ids=token_ids,
         warnings=warnings,
+        language_routes=language_routes,
     )
 
 
@@ -577,7 +660,7 @@ def _apply_token_stress(
             f"[{token.char_start}:{token.char_end}]"
         )
         return phonemes
-    return apply_stress(phonemes, level, vowels=_stress_vowels(language))
+    return apply_stress(phonemes, level, vowels=_stress_vowels(language)) or ""
 
 
 def _phonemize_token_spans(  # noqa: C901
@@ -587,6 +670,8 @@ def _phonemize_token_spans(  # noqa: C901
     default_lang: str,
     *,
     g2p_options: dict[str, Any] | None = None,
+    g2p_resolver: Callable[[str], "G2PBase"] | None = None,
+    fixed_target_model: str | None = None,
     strict_stress: bool = False,
 ) -> tuple[list[TokenSpan], list[str], str]:
     """Phonemize token spans, handling per-span language switching.
@@ -604,14 +689,14 @@ def _phonemize_token_spans(  # noqa: C901
 
     warnings: list[str] = []
     phonemized_tokens: list[TokenSpan] = []
-    g2p_cache: dict[str, G2PBase] = {default_lang: g2p}
-    target_model = _get_target_model(g2p)
+    g2p_cache: dict[str, G2PBase] = {normalize_language_code(default_lang): g2p}
+    target_model = fixed_target_model or _get_target_model(g2p)
     g2p_index = 0
     carry_alnum_end: int | None = None
 
     for token in token_spans:
         # Determine language for this token
-        token_lang = token.lang or default_lang
+        token_lang = normalize_language_code(token.lang or default_lang)
         token_start = token.meta.get("_extended_char_start", token.char_start)
         token_end = token.meta.get("_extended_char_end", token.char_end)
         token_is_punct = _is_punctuation_token(token)
@@ -743,23 +828,27 @@ def _phonemize_token_spans(  # noqa: C901
             g2p_index = scan_index
 
         # Get G2P instance for this language
+        # Get G2P instance for this language.
         if token_lang not in g2p_cache:
             try:
-                g2p_cache[token_lang] = get_g2p(
-                    token_lang,
-                    version=_get_frontend_version(g2p),
-                    **(g2p_options or {}),
-                )
+                if g2p_resolver is not None:
+                    g2p_cache[token_lang] = g2p_resolver(token_lang)
+                else:
+                    g2p_cache[token_lang] = get_g2p(
+                        token_lang,
+                        version=_get_frontend_version(g2p),
+                        **(g2p_options or {}),
+                    )
             except Exception as e:
                 warnings.append(
                     f"[G2P] failed to load language '{token_lang}' for token "
                     f"'{token.text}' [{token.char_start}:{token.char_end}]: {e}"
                 )
-                # Fall back to default language
                 token_lang = default_lang
-
         token_g2p = g2p_cache[token_lang]
-        target_model = _merge_target_model(target_model, _get_target_model(token_g2p))
+        target_model = _resolve_target_model(
+            g2p, token_g2p, fixed_target_model=fixed_target_model
+        )
 
         # Check if phoneme override is present
         if drop_due_to_carry:
@@ -767,7 +856,7 @@ def _phonemize_token_spans(  # noqa: C901
         elif "ph" in token.meta:
             # Use override phonemes
             phonemes = str(token.meta["ph"])
-        elif token_lang != default_lang:
+        elif token_lang != default_lang or token.meta.get("_route_fragment"):
             # Re-phonemize using language-specific G2P
             try:
                 token_text = token.extended_text or token.text
@@ -838,6 +927,31 @@ def _phonemize_token_spans(  # noqa: C901
                         f"[G2P] fallback phonemization failed for token "
                         f"'{token.text}' [{token.char_start}:{token.char_end}]: {e}"
                     )
+
+        if (
+            fixed_target_model is not None
+            and token.meta.get("language_source") == "auto"
+            and phonemes
+            and not validate_for_kokoro(phonemes, model=fixed_target_model)[0]
+        ):
+            warnings.append(
+                f"[ROUTING] rejected auto pronunciation for '{token.text}' "
+                f"[{token.char_start}:{token.char_end}] for target model "
+                f"{fixed_target_model!r}; using default language"
+            )
+            token_lang = default_lang
+            token_g2p = g2p
+            fallback_tokens = _call_g2p_prepared(
+                token_g2p, token.extended_text or token.text
+            )
+            phonemes = "".join(
+                part
+                for fallback in fallback_tokens
+                for part in (
+                    fallback.phonemes or "",
+                    fallback.whitespace if fallback.phonemes else "",
+                )
+            ).strip()
 
         phonemes = _apply_token_stress(
             token,

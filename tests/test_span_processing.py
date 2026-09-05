@@ -182,6 +182,66 @@ class TestApplyOverridesToTokens:
         assert len(warnings) == 0
 
 
+class TestSplitOverrides:
+    def test_partial_language_span_preserves_source_slices(self):
+        source = "Manpowerdiskussion"
+        result, warnings = apply_overrides_to_tokens(
+            [TokenSpan(source, 0, len(source))],
+            [OverrideSpan(0, 8, {"lang": "en"})],
+            mode="split",
+        )
+        assert [
+            (token.text, token.char_start, token.char_end, token.lang)
+            for token in result
+        ] == [
+            ("Manpower", 0, 8, "en"),
+            ("diskussion", 8, 18, None),
+        ]
+        assert not warnings
+        assert all(
+            token.text == source[token.char_start : token.char_end] for token in result
+        )
+
+    def test_adjacent_and_middle_spans_partition_one_token(self):
+        result, warnings = apply_overrides_to_tokens(
+            [TokenSpan("abcdefgh", 0, 8)],
+            [
+                OverrideSpan(0, 2, {"lang": "en"}),
+                OverrideSpan(2, 6, {"lang": "fr"}),
+            ],
+            mode="split",
+        )
+        assert [(token.text, token.lang) for token in result] == [
+            ("ab", "en"),
+            ("cdef", "fr"),
+            ("gh", None),
+        ]
+        assert not warnings
+
+    def test_split_mode_keeps_multi_token_ph_collapse(self):
+        result, warnings = apply_overrides_to_tokens(
+            [TokenSpan("hello", 0, 5), TokenSpan("world", 6, 11)],
+            [OverrideSpan(0, 11, {"ph": "hɛloʊ wɝld"})],
+            mode="split",
+        )
+        assert len(result) == 1
+        assert result[0].meta["ph"] == "hɛloʊ wɝld"
+        assert not warnings
+
+    def test_snap_and_strict_remain_legacy_modes(self):
+        tokens = [TokenSpan("Hello", 0, 5), TokenSpan("world", 6, 11)]
+        override = [OverrideSpan(2, 11, {"ph": "test"})]
+        snapped, snap_warnings = apply_overrides_to_tokens(
+            tokens, override, mode="snap"
+        )
+        strict, strict_warnings = apply_overrides_to_tokens(
+            tokens, override, mode="strict"
+        )
+        assert len(snapped) == 1 and snapped[0].meta["ph"] == "test"
+        assert len(strict) == 2 and all("ph" not in token.meta for token in strict)
+        assert snap_warnings and strict_warnings
+
+
 class TestApplyTextReplacementsToTokens:
     def test_merges_source_tokens_and_keeps_original_offsets(self):
         source = "1,5 kg Kartoffeln"

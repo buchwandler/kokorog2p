@@ -85,8 +85,37 @@ result = phonemize_prepared(
 )
 ```
 
-Automatic document-language detection and mixed-language segmentation are outside the
-core package. Applications should identify foreign spans and route them explicitly.
+## Exact sub-token spans and automatic routing
+
+Use `overlap="split"` when a language span covers part of one orthographic token:
+
+```python
+from kokorog2p import OverrideSpan, phonemize_prepared
+
+result = phonemize_prepared(
+    "Manpowerdiskussion",
+    language="de",
+    overlap="split",
+    overrides=[OverrideSpan(0, 8, {"lang": "en"})],
+    return_ids=False,
+)
+```
+
+Automatic routing is opt-in and restricted to the configured candidates:
+
+```python
+result = phonemize_prepared(
+    text,
+    language="de",
+    language_routing={"mode": "auto", "languages": ["de", "en"]},
+)
+```
+
+Routing uses exact lexical evidence, defaults to the document language when uncertain, and
+exposes source-aligned decisions through `result.language_routes`. A `g2p_resolver` may
+supply language-specific frontends and settings. `target_model="1.0"` fixes the output
+vocabulary and rejects incompatible automatic candidates. Language routing only changes
+G2P frontend selection. KokoroG2P does not select an acoustic model.
 
 ## Annotations
 

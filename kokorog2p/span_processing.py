@@ -5,51 +5,150 @@ phoneme/language override application even with duplicates, punctuation, and
 mixed languages.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from itertools import pairwise
 from typing import Literal
 
 from kokorog2p.integrations import coerce_override_spans
-from kokorog2p.types import TextReplacement, TokenSpan
+from kokorog2p.types import OverrideSpan, TextReplacement, TokenSpan
+
+
+def _clone_token(
+    token: TokenSpan,
+    *,
+    text: str | None = None,
+    char_start: int | None = None,
+    char_end: int | None = None,
+) -> TokenSpan:
+    """Clone a token while removing metadata tied to whole-token output."""
+    meta = dict(token.meta)
+    for key in ("phonemes", "whitespace", "_extended_char_start", "_extended_char_end"):
+        meta.pop(key, None)
+    return TokenSpan(
+        text=token.text if text is None else text,
+        char_start=token.char_start if char_start is None else char_start,
+        char_end=token.char_end if char_end is None else char_end,
+        lang=token.lang,
+        extended_text=None if text is not None else token.extended_text,
+        meta=meta,
+    )
+
+
+def _override_boundaries(
+    token: TokenSpan, overrides: Sequence[OverrideSpan]
+) -> list[int]:
+    boundaries: set[int] = set()
+    for override in overrides:
+        start = override.char_start
+        end = override.char_end
+        if token.char_start < start < token.char_end:
+            boundaries.add(start)
+        if token.char_start < end < token.char_end:
+            boundaries.add(end)
+    return sorted(boundaries)
+
+
+def _split_token_at_boundaries(
+    token: TokenSpan, boundaries: Sequence[int]
+) -> list[TokenSpan]:
+    points = [token.char_start, *boundaries, token.char_end]
+    if len(points) == 2:
+        return [_clone_token(token)]
+    return [
+        _clone_token(
+            token,
+            text=token.text[start - token.char_start : end - token.char_start],
+            char_start=start,
+            char_end=end,
+        )
+        for start, end in pairwise(points)
+    ]
+
+
+def _split_tokens_for_overrides(
+    tokens: Sequence[TokenSpan], overrides: Sequence[OverrideSpan]
+ ) -> list[TokenSpan]:
+    split: list[TokenSpan] = []
+    for token in tokens:
+        split.extend(
+            _split_token_at_boundaries(token, _override_boundaries(token, overrides))
+        )
+    return split
+
+
+def _format_token(token: TokenSpan) -> str:
+    lang = f" lang='{token.lang}'" if token.lang else ""
+    return f"'{token.text}' [{token.char_start}:{token.char_end}]{lang}"
+
+
+def _apply_attrs_to_fragment(token: TokenSpan, attrs: Mapping[str, str]) -> None:
+    if "ph" in attrs or "lang" in attrs:
+        token.meta["language_source"] = "explicit"
+        token.meta["language_reason"] = "explicit override"
+    if "ph" in attrs:
+        token.meta["ph"] = attrs["ph"]
+        token.meta["rating"] = 5
+    if "lang" in attrs:
+        token.lang = attrs["lang"]
+    for key, value in attrs.items():
+        if key not in ("ph", "lang"):
+            token.meta[key] = value
+
+
+def _collapse_multi_token_ph_override(
+    tokens: list[TokenSpan], first_idx: int, last_idx: int, attrs: Mapping[str, str]
+) -> None:
+    covered = tokens[first_idx : last_idx + 1]
+    merged_parts = [covered[0].text]
+    for previous, current in pairwise(covered):
+        gap = current.char_start - previous.char_end
+        if gap > 0:
+            merged_parts.append(" " * gap)
+        merged_parts.append(current.text)
+    merged = _clone_token(
+        covered[0],
+        text="".join(merged_parts),
+        char_start=covered[0].char_start,
+        char_end=covered[-1].char_end,
+    )
+    _apply_attrs_to_fragment(merged, attrs)
+    tokens[first_idx : last_idx + 1] = [merged]
 
 
 def apply_overrides_to_tokens(
     tokens: list[TokenSpan],
     overrides: Sequence[object],
-    mode: Literal["snap", "strict"] = "snap",
+    mode: Literal["snap", "strict", "split"] = "snap",
 ) -> tuple[list[TokenSpan], list[str]]:
-    def _format_token(token: TokenSpan) -> str:
-        lang = f" lang='{token.lang}'" if token.lang else ""
-        return f"'{token.text}' [{token.char_start}:{token.char_end}]{lang}"
-
+    """Apply source-aligned language and phoneme overrides to token spans."""
+    if mode not in ("snap", "strict", "split"):
+        raise ValueError(f"unsupported overlap mode: {mode!r}")
     warnings: list[str] = []
-    modified_tokens = [
-        TokenSpan(
-            text=t.text,
-            char_start=t.char_start,
-            char_end=t.char_end,
-            lang=t.lang,
-            extended_text=t.extended_text,
-            meta=dict(t.meta),
-        )
-        for t in tokens
-    ]
-
-    # Normalize structurally compatible spans before applying them.
     normalized_overrides = sorted(
-        coerce_override_spans(overrides), key=lambda o: (o.char_start, o.char_end)
+        coerce_override_spans(overrides),
+        key=lambda item: (item.char_start, item.char_end),
+    )
+    modified_tokens = (
+        _split_tokens_for_overrides(tokens, normalized_overrides)
+        if mode == "split"
+        else [_clone_token(token) for token in tokens]
     )
 
     for override in normalized_overrides:
-        overlapping_indices: list[int] = [
-            i
-            for i, token in enumerate(modified_tokens)
+        overlapping_indices = [
+            index
+            for index, token in enumerate(modified_tokens)
             if not (
                 override.char_end <= token.char_start
                 or override.char_start >= token.char_end
             )
         ]
-
+        if not overlapping_indices and override.char_start == override.char_end:
+            overlapping_indices = [
+                index
+                for index, token in enumerate(modified_tokens)
+                if token.char_start <= override.char_start <= token.char_end
+            ]
         if not overlapping_indices:
             warnings.append(
                 f"[OVERRIDE] span [{override.char_start}:{override.char_end}] "
@@ -61,18 +160,15 @@ def apply_overrides_to_tokens(
         last_idx = overlapping_indices[-1]
         first_token = modified_tokens[first_idx]
         last_token = modified_tokens[last_idx]
-
         exact_match = (
             override.char_start == first_token.char_start
             and override.char_end == last_token.char_end
         )
-
         partial_overlap = (
             override.char_start > first_token.char_start
             or override.char_end < last_token.char_end
         )
-
-        if partial_overlap and not exact_match:
+        if mode != "split" and partial_overlap and not exact_match:
             if mode == "strict":
                 warnings.append(
                     f"[OVERRIDE] span [{override.char_start}:{override.char_end}] "
@@ -89,54 +185,26 @@ def apply_overrides_to_tokens(
                 f"{first_idx}-{last_idx}"
             )
 
-        # ---- NEW: if 'ph' spans multiple tokens, merge into one token ----
-        if "ph" in override.attrs and first_idx != last_idx:
-            covered_tokens = modified_tokens[first_idx : last_idx + 1]
-            merged_parts = [covered_tokens[0].text]
-            for previous, current in pairwise(covered_tokens):
-                gap = current.char_start - previous.char_end
-                if gap > 0:
-                    merged_parts.append(" " * gap)
-                merged_parts.append(current.text)
-            merged_text = "".join(merged_parts)
-            merged = TokenSpan(
-                text=merged_text,
-                char_start=first_token.char_start,
-                char_end=last_token.char_end,
-                lang=first_token.lang,
-                extended_text=None,
-                meta=dict(first_token.meta),
+        if mode == "split" and override.char_start == override.char_end:
+            warnings.append(
+                f"[OVERRIDE] zero-width span "
+                f"[{override.char_start}:{override.char_end}] "
+                "snapping to containing token"
             )
-
-            # Apply attrs to merged token
-            merged.meta["ph"] = override.attrs["ph"]
-            merged.meta["rating"] = 5
-            if "lang" in override.attrs:
-                merged.lang = override.attrs["lang"]
-
-            for key, value in override.attrs.items():
-                if key not in ("ph", "lang"):
-                    merged.meta[key] = value
-
-            # Replace the range with the merged token
-            modified_tokens[first_idx : last_idx + 1] = [merged]
+        if "ph" in override.attrs and first_idx != last_idx:
+            _collapse_multi_token_ph_override(
+                modified_tokens, first_idx, last_idx, override.attrs
+            )
             continue
 
-        # ---- Existing behavior for single-token ph or lang-only overrides ----
-        for idx in overlapping_indices:
-            token = modified_tokens[idx]
-
-            if "ph" in override.attrs:
-                token.meta["ph"] = override.attrs["ph"]
-                token.meta["rating"] = 5
-
-            if "lang" in override.attrs:
-                token.lang = override.attrs["lang"]
-
-            for key, value in override.attrs.items():
-                if key not in ("ph", "lang"):
-                    token.meta[key] = value
-
+        for index in overlapping_indices:
+            token = modified_tokens[index]
+            if mode == "split" and not (
+                override.char_start <= token.char_start
+                and token.char_end <= override.char_end
+            ):
+                continue
+            _apply_attrs_to_fragment(token, override.attrs)
     return modified_tokens, warnings
 
 
