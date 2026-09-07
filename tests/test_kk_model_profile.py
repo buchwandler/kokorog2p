@@ -21,6 +21,13 @@ def test_profile_preserves_non_english_symbols() -> None:
     assert transform_kazakh_ipa("rxeqʁ") == "rxeqʁ"
 
 
+def test_profile_maps_velarized_lateral_to_stock_model_lateral() -> None:
+    phonemes = transform_kazakh_ipa("ʒəɫdɑm")
+    assert phonemes == "ʒəldɑm"
+    assert validate_kazakh_symbols(phonemes) == []
+    assert transform_kazakh_ipa("sɵjlemdˈɪ") == "səjlemdˈɪ"
+
+
 def test_profile_validates_against_stock_model() -> None:
     assert validate_kazakh_symbols("rxeqʁ") == []
     assert set(model_profile_vocab()) >= set("rxeqʁ")

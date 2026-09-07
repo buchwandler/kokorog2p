@@ -272,6 +272,15 @@ def _normalize_frontend_pronunciation(pron: str) -> str:
     return pron.strip(_FRONTEND_BOUNDARY_QUOTES)
 
 
+_FRONTEND_PRON_SEPARATORS = frozenset("'’")
+
+
+def _valid_mora_size(moras: list[str], mora_size: int) -> bool:
+    return len(moras) == mora_size or (
+        bool(moras) and moras[0] == "ー" and len(moras) + 1 == mora_size
+    )
+
+
 class JapaneseG2P(G2PBase):
     """Japanese G2P using pyopenjtalk or cutlet.
 
@@ -349,6 +358,7 @@ class JapaneseG2P(G2PBase):
         self._cutlet = None
 
         self._evidence_lexphon: LexphonBackend | None = None
+
     @property
     def pyopenjtalk(self):
         """Lazy import of pyopenjtalk with an actionable installation error."""
@@ -465,15 +475,24 @@ class JapaneseG2P(G2PBase):
             return []
 
         moras, unsupported = JapaneseG2P._pron2moras(pron)
+        if unsupported and set(unsupported) <= _FRONTEND_PRON_SEPARATORS:
+            candidate = "".join(
+                char for char in pron if char not in _FRONTEND_PRON_SEPARATORS
+            )
+            candidate_moras, candidate_unsupported = JapaneseG2P._pron2moras(candidate)
+            if not candidate_unsupported and _valid_mora_size(
+                candidate_moras, mora_size
+            ):
+                pron = candidate
+                moras = candidate_moras
+                unsupported = []
+
         if unsupported:
             symbols = "".join(dict.fromkeys(unsupported))
             raise ValueError(
                 f"Unsupported Japanese pronunciation symbols in {pron!r}: {symbols!r}"
             )
-        valid_size = len(moras) == mora_size or (
-            bool(moras) and moras[0] == "ー" and len(moras) + 1 == mora_size
-        )
-        if not valid_size:
+        if not _valid_mora_size(moras, mora_size):
             raise ValueError(
                 f"Japanese mora count mismatch for {word['string']!r}: "
                 f"frontend={mora_size}, parsed={len(moras)}, "

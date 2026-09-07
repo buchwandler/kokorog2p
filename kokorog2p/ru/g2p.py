@@ -92,7 +92,8 @@ class RussianG2P(G2PBase):
 
     @staticmethod
     def _lookup_text(source: str) -> str:
-        return _STRESS_RE.sub("", unicodedata.normalize("NFC", source))
+        normalized = unicodedata.normalize("NFC", source)
+        return _STRESS_RE.sub("", normalized).casefold()
 
     def _word_analysis(self, source: str) -> RussianAnalysis:
         if self._lexphon is None:

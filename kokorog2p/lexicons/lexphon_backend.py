@@ -109,9 +109,7 @@ class LexphonBackend:
             else engine.lookup_prefixes(text, position=position, tag=tag)
         )
 
-    def lexicon_evidence(
-        self, word: str, tag: str | None = None
-    ):
+    def lexicon_evidence(self, word: str, tag: str | None = None):
         """Return evidence from the selected Lexphon layers only."""
         token = self.lookup_token(word, tag)
         return evidence_from_lexphon_token(
@@ -119,7 +117,6 @@ class LexphonBackend:
             token=token,
             selected_lexicons=self.ids,
         )
-
 
     def __len__(self) -> int:
         engine = self._engine()

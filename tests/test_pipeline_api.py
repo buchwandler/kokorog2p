@@ -1328,6 +1328,7 @@ def test_invalid_tagged_lookup_keeps_mapped_phonemes():
     assert warnings == []
     assert mapped[0].meta["phonemes"] == "hWs"
 
+
 def test_automatic_foreign_factory_does_not_receive_default_options(monkeypatch):
     from kokorog2p.lexicons.evidence import LexiconEvidence
     from kokorog2p.token import GToken

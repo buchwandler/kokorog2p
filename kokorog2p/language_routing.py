@@ -134,6 +134,7 @@ def _has_evidence_provider(g2p: Any) -> bool:
         return bool(capability())
     return callable(getattr(g2p, "lexicon_evidence", None))
 
+
 def _evidence_cached(
     evidence: Callable[[str, str, str | None], LexiconEvidence | None],
 ) -> Callable[[str, str, str | None], LexiconEvidence | None]:
@@ -185,6 +186,7 @@ def route_languages(  # noqa: C901
     resolver_failures: dict[str, str] = {}
 
     no_evidence_provider: set[str] = set()
+
     def evidence_uncaught(
         language: str, word: str, tag: str | None = None
     ) -> LexiconEvidence | None:

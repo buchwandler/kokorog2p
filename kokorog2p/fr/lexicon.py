@@ -254,16 +254,12 @@ class FrenchLexicon:
         return hit if hit is not None else self._selected.get_hit(normalized.lower())
 
     @staticmethod
-    def pronunciation_from_hit(
-        hit: LexiconHit, tag: str | None = None
-    ) -> str | None:
+    def pronunciation_from_hit(hit: LexiconHit, tag: str | None = None) -> str | None:
         """Decode a selected French hit without builtin or fallback paths."""
         value = hit.value
         if isinstance(value, Mapping):
             value = (
-                value.get(tag, value.get("DEFAULT"))
-                if tag
-                else value.get("DEFAULT")
+                value.get(tag, value.get("DEFAULT")) if tag else value.get("DEFAULT")
             )
             if value is None and isinstance(hit.value, Mapping):
                 value = next(iter(hit.value.values()), None)

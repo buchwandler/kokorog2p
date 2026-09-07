@@ -165,7 +165,8 @@ class VietnameseG2P(G2PBase):
         if backend is None:
             return None
         try:
-            return backend.lookup(word)
+            phonemes = backend.phonemize(word)
+            return phonemes or None
         except Exception as exc:
             if self.strict:
                 raise VietnameseG2PError(

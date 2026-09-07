@@ -96,6 +96,7 @@ def test_german_rule_only_frontend_has_no_evidence() -> None:
     g2p._lexicon = None
     assert g2p.lexicon_evidence("Haus") is None
 
+
 def test_french_evidence_uses_selected_hit_not_builtin_fix() -> None:
     hit = LexiconHit(
         value="dəmɑ̃de",

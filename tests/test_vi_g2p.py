@@ -60,6 +60,52 @@ def test_existing_english_frontend_is_lazy_foreign_fallback() -> None:
     assert g2p._foreign_g2p is not None
 
 
+def test_foreign_word_uses_complete_foreign_frontend() -> None:
+    class FakeForeign:
+        def __init__(self) -> None:
+            self.phonemize_calls: list[str] = []
+
+        def lookup(self, word: str) -> str | None:
+            raise AssertionError("must not stop at foreign lexical lookup")
+
+        def phonemize(self, word: str) -> str:
+            self.phonemize_calls.append(word)
+            return "k"
+
+    g2p = VietnameseG2P(
+        foreign_fallback="english",
+        strict=True,
+        lexicons=(),
+    )
+    fake = FakeForeign()
+    g2p._foreign_g2p = fake  # type: ignore[assignment]
+
+    assert g2p._foreign_word("Kokoro") == "k"
+    assert fake.phonemize_calls == ["Kokoro"]
+
+    class EmptyForeign:
+        def phonemize(self, word: str) -> str:
+            return ""
+
+    g2p._foreign_g2p = EmptyForeign()  # type: ignore[assignment]
+    assert g2p._foreign_word("Unknown") is None
+
+
+@pytest.mark.espeak
+def test_station_foreign_name_is_recoverable_with_fallback(has_espeak: bool) -> None:
+    if not has_espeak:
+        pytest.skip("eSpeak-NG is not provisioned")
+    g2p = get_g2p(
+        "vi",
+        use_spacy=False,
+        use_espeak_fallback=True,
+        strict=True,
+    )
+    assert g2p.phonemize(
+        "Kokoro đọc văn bản tiếng Việt đã chuẩn bị và phép đo theo dõi từng bước."
+    )
+
+
 @pytest.mark.parametrize("alias", ["vi", "vi-vn", "vie", "vietnamese"])
 def test_factory_aliases(alias: str) -> None:
     g2p = get_g2p(alias, use_spacy=False, foreign_fallback="none", strict=False)

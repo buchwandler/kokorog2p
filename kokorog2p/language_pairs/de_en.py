@@ -116,9 +116,7 @@ def decompose_token(
                 )
             )
 
-    morphology = _morphology_candidate(
-        token, lower, english_language, evidence
-    )
+    morphology = _morphology_candidate(token, lower, english_language, evidence)
     if morphology is not None:
         candidates.append(((len(morphology[1]), len(morphology[2]), 3), morphology[0]))
     if not candidates:

@@ -36,6 +36,11 @@ _ESPEAK_TIED_MAP = {
     "ɔ͡ɪ": "Y",
 }
 
+_MODEL_SYMBOL_MAP = {
+    "ɫ": "l",
+    "ɵ": "ə",  # centralized rounded vowel has no separate stock label.
+}
+
 
 @dataclass(frozen=True)
 class KazakhVocabularyError(ValueError):
@@ -65,7 +70,8 @@ def normalize_espeak_symbols(raw: str) -> str:
 
 def transform_kazakh_ipa(raw_ipa: str) -> str:
     """Normalize raw Kazakh eSpeak IPA for the stock Kokoro model."""
-    return normalize_espeak_symbols(raw_ipa)
+    normalized = normalize_espeak_symbols(raw_ipa)
+    return "".join(_MODEL_SYMBOL_MAP.get(char, char) for char in normalized)
 
 
 def validate_kazakh_symbols(

@@ -48,6 +48,26 @@ def test_preserve_stress_controls_dictionary_stress() -> None:
     assert _g2p(preserve_stress=False)._word_analysis("слово").phonemes == "slovo"
 
 
+def test_russian_lookup_key_is_casefolded() -> None:
+    class CapturingLexphon(FakeLexphon):
+        def __init__(self) -> None:
+            super().__init__()
+            self.lookups: list[str] = []
+
+        def lookup(self, word: str, tag: str | None = None):
+            self.lookups.append(word)
+            return super().lookup(word, tag)
+
+    g2p = RussianG2P()
+    backend = CapturingLexphon()
+    g2p._lexphon = backend  # type: ignore[assignment]
+
+    analysis = g2p._word_analysis("Быстрая")
+
+    assert analysis.phonemes
+    assert backend.lookups == ["быстрая"]
+
+
 def test_unknown_words_are_strict_or_unresolved() -> None:
     class UnknownLexphon(FakeLexphon):
         def lookup(self, word: str, tag: str | None = None):

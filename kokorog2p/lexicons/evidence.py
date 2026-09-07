@@ -48,7 +48,7 @@ class LexiconEvidence:
 
 def _selected_lexphon_layers(
     language: str, selected_lexicons: Sequence[str]
- ) -> tuple[tuple[str, str], ...]:
+) -> tuple[tuple[str, str], ...]:
     """Resolve selected Lexphon names or IDs to stable ``(id, name)`` pairs."""
     from kokorog2p.lexicons.registry import get_lexicon_spec
 
@@ -71,7 +71,7 @@ def evidence_from_lexphon_token(
     language: str,
     token: object | None,
     selected_lexicons: Sequence[str],
- ) -> LexiconEvidence | None:
+) -> LexiconEvidence | None:
     """Convert a known token from selected Lexphon layers into evidence.
 
     A token without a source identity is accepted only when the selected stack
@@ -105,14 +105,14 @@ def evidence_from_lexphon_token(
             return None
 
     from kokorog2p.lexicons.registry import get_lexicon_spec
+
     try:
         spec = get_lexicon_spec(language, lexicon_name)
     except ValueError:
         spec = None
     rating = None if spec is None else spec.rating
-    phoneme_encoding = (
-        getattr(token, "alphabet", None)
-        or (None if spec is None else spec.phoneme_encoding)
+    phoneme_encoding = getattr(token, "alphabet", None) or (
+        None if spec is None else spec.phoneme_encoding
     )
     pronunciation = getattr(token, "pronunciation", None)
     metadata = {

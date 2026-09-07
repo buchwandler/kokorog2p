@@ -116,11 +116,12 @@ def test_all_language_allowlist_resolves_each_frontend_once() -> None:
     assert sorted(constructed) == sorted(languages)
     assert len(constructed) == len(set(constructed)) == len(languages)
     evidence_counts = {
-        language: frontend.evidence_calls
-        for language, frontend in frontends.items()
+        language: frontend.evidence_calls for language, frontend in frontends.items()
     }
     assert evidence_counts == {language: 1 for language in languages}
     assert all(frontend.lookup_calls == 0 for frontend in frontends.values())
+
+
 def test_unique_foreign_selected_hit_routes_with_provenance() -> None:
     result, _ = _route("File", {"de-de": {}, "en-us": {"file": "f"}})
     assert [(token.text, token.lang) for token in result.tokens] == [("File", "en-us")]
