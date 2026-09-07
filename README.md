@@ -114,16 +114,30 @@ result = phonemize_prepared(
 
 The candidate list is a hard allowlist. KokoroG2P still requires the explicit
 document/default language; this option only routes individual pronunciation fragments.
-Evidence comes from the effective selected lexical resources through `LexiconEvidence`,
-never from generic fallback pronunciation. A spelling present in both stacks remains in
-the default language, and unresolved or ambiguous text also remains there. Explicit
-`ph`, `phonemes`, `lang`, and `language` spans outrank automatic routing.
+The canonical candidate inventory is `en-us`, `en-gb`, `de-de`, `fr-fr`, `es-es`, `it-it`,
+`pt-br`, `pt-pt`, `cs-cz`, `zh`, `ja-jp`, `ko-kr`, `vi-vn`, `sv-se`, `he`, `ar`,
+`ru-ru`, `kk`, and `th-th`. Aliases are normalized before the allowlist is applied.
+
+Evidence comes only from the effective selected lexical resources through `LexiconEvidence`:
+
+- Packaged G2Lex evidence: English US, English GB, and French.
+- Provisioned Lexphon evidence: German, Portuguese BR/PT, Russian, Thai, Vietnamese,
+  Japanese, Korean, and Swedish when NST is explicitly selected.
+- Native frontends without a selected evidence resource: Spanish, Italian, Czech, Hebrew,
+  Arabic, Chinese, and Kazakh. These frontends phonemize normally but cannot positively
+  claim foreign ownership through automatic routing.
+
+A spelling present in multiple selected stacks remains in the default language, and
+unresolved or ambiguous text also remains there. Generic lookup, rules, eSpeak, Goruut,
+pypinyin, Phonikud, g2pK, pyopenjtalk, and fallback pronunciation are not evidence.
+Explicit `ph`, `phonemes`, `lang`, and `language` spans outrank automatic routing.
 
 A `g2p_resolver(language)` can supply and cache the caller's configured frontends.
-`target_model` fixes the output vocabulary and rejects incompatible automatic candidates
-without changing the model. Routing changes only G2P frontend selection. KokoroG2P does
-not select an acoustic model. `PhonemizeResult.language_routes` contains structured
-route fragments and selected lexicon provenance for tracing.
+Without one, foreign frontends use their own defaults and do not inherit the default
+language's lexicons or language-specific options. `target_model` fixes the output
+vocabulary and rejects incompatible automatic candidates without changing the model.
+Routing changes only G2P frontend selection. KokoroG2P does not select an acoustic model.
+`PhonemizeResult.language_routes` contains structured route fragments and provenance.
 
 ## Annotations
 

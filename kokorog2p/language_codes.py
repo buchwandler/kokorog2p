@@ -25,6 +25,7 @@ _LANGUAGE_ALIASES: dict[str, str] = {
     "pt": "pt-br",
     "por": "pt-br",
     "portuguese": "pt-br",
+    "pt-pt": "pt-pt",
     "cs": "cs-cz",
     "ces": "cs-cz",
     "czech": "cs-cz",

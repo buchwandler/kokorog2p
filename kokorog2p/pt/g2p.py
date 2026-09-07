@@ -27,6 +27,7 @@ from lexphon import LexiconNotInstalledError
 
 from kokorog2p._optional import load_spacy_model
 from kokorog2p.base import G2PBase
+from kokorog2p.lexicons.evidence import LexiconEvidence
 from kokorog2p.lexicons.lexphon_backend import LexphonBackend
 from kokorog2p.pipeline.tokenizer import SpacyTokenizer
 from kokorog2p.pt.normalizer import PortugueseNormalizer
@@ -788,6 +789,15 @@ class PortugueseG2P(G2PBase):
             Phoneme string or None.
         """
         return self._word_to_phonemes(word)
+
+    def lexicon_evidence(
+        self, word: str, tag: str | None = None
+    ) -> LexiconEvidence | None:
+        """Return evidence from the selected Portuguese LexHint layer."""
+        del tag
+        if self._lexphon is None:
+            return None
+        return self._lexphon.lexicon_evidence(word.lower())
 
     def phonemize(self, text: str) -> str:
         """Convert text to phonemes.

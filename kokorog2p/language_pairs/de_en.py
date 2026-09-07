@@ -43,11 +43,17 @@ def decompose_token(
     evidence: Callable[[str, str], LexiconEvidence | None],
 ) -> Sequence[LanguageFragment] | None:
     """Return a unique bounded DE/EN decomposition from lexical evidence."""
-    if default_language not in {"de-de", "en-us"} or not {
-        "de-de",
-        "en-us",
-    }.issubset(candidate_languages):
+    if (
+        default_language not in {"de-de", "en-us", "en-gb"}
+        or "de-de" not in candidate_languages
+    ):
         return None
+    english_languages = tuple(
+        language for language in candidate_languages if language in {"en-us", "en-gb"}
+    )
+    if len(english_languages) != 1:
+        return None
+    english_language = english_languages[0]
     word = token.text
     if not word.isalpha() or len(word) > 48:
         return None
@@ -61,7 +67,7 @@ def decompose_token(
         right = lower[split:]
         if len(right) < 3:
             continue
-        left_en = evidence("en-us", left)
+        left_en = evidence(english_language, left)
         right_de = evidence("de-de", right)
         if left_en is not None and right_de is not None:
             candidates.append(
@@ -71,7 +77,7 @@ def decompose_token(
                         RouteFragment(
                             token.char_start,
                             token.char_start + split,
-                            "en-us",
+                            english_language,
                             "compound-root",
                             left_en,
                         ),
@@ -86,7 +92,7 @@ def decompose_token(
                 )
             )
         left_de = evidence("de-de", left)
-        right_en = evidence("en-us", right)
+        right_en = evidence(english_language, right)
         if left_de is not None and right_en is not None:
             candidates.append(
                 (
@@ -102,7 +108,7 @@ def decompose_token(
                         RouteFragment(
                             token.char_start + split,
                             token.char_end,
-                            "en-us",
+                            english_language,
                             "compound-root",
                             right_en,
                         ),
@@ -110,7 +116,9 @@ def decompose_token(
                 )
             )
 
-    morphology = _morphology_candidate(token, lower, evidence)
+    morphology = _morphology_candidate(
+        token, lower, english_language, evidence
+    )
     if morphology is not None:
         candidates.append(((len(morphology[1]), len(morphology[2]), 3), morphology[0]))
     if not candidates:
@@ -146,12 +154,13 @@ def decompose_token(
 def _morphology_candidate(
     token: TokenSpan,
     lower: str,
+    english_language: str,
     evidence: Callable[[str, str], LexiconEvidence | None],
 ) -> tuple[list[RouteFragment], str, str] | None:
     if lower.startswith("ge") and lower.endswith("t") and len(lower) > 7:
         stem = lower[2:-1]
         if len(stem) >= 5:
-            stem_evidence = evidence("en-us", stem)
+            stem_evidence = evidence(english_language, stem)
             if stem_evidence is not None:
                 return (
                     [
@@ -165,7 +174,7 @@ def _morphology_candidate(
                         RouteFragment(
                             token.char_start + 2,
                             token.char_end - 1,
-                            "en-us",
+                            english_language,
                             "stem",
                             stem_evidence,
                         ),
@@ -183,14 +192,14 @@ def _morphology_candidate(
     if lower.endswith("en") and len(lower) > 7:
         stem = lower[:-2]
         if len(stem) >= 5:
-            stem_evidence = evidence("en-us", stem)
+            stem_evidence = evidence(english_language, stem)
             if stem_evidence is not None:
                 return (
                     [
                         RouteFragment(
                             token.char_start,
                             token.char_end - 2,
-                            "en-us",
+                            english_language,
                             "stem",
                             stem_evidence,
                         ),

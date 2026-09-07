@@ -128,6 +128,12 @@ def _default_fragment(
     )
 
 
+def _has_evidence_provider(g2p: Any) -> bool:
+    capability = getattr(g2p, "has_lexicon_evidence", None)
+    if callable(capability):
+        return bool(capability())
+    return callable(getattr(g2p, "lexicon_evidence", None))
+
 def _evidence_cached(
     evidence: Callable[[str, str, str | None], LexiconEvidence | None],
 ) -> Callable[[str, str, str | None], LexiconEvidence | None]:
@@ -178,6 +184,7 @@ def route_languages(  # noqa: C901
     g2ps: dict[str, G2PBase] = {}
     resolver_failures: dict[str, str] = {}
 
+    no_evidence_provider: set[str] = set()
     def evidence_uncaught(
         language: str, word: str, tag: str | None = None
     ) -> LexiconEvidence | None:
@@ -185,7 +192,11 @@ def route_languages(  # noqa: C901
             canonical = normalize_language_code(language)
             if canonical not in g2ps:
                 g2ps[canonical] = resolve_g2p(canonical)
-            return g2ps[canonical].lexicon_evidence(word, tag)
+            frontend = g2ps[canonical]
+            if not _has_evidence_provider(frontend):
+                no_evidence_provider.add(canonical)
+                return None
+            return frontend.lexicon_evidence(word, tag)
         except Exception as exc:
             resolver_failures[normalize_language_code(language)] = str(exc)
             raise
@@ -351,6 +362,11 @@ def route_languages(  # noqa: C901
             f"[ROUTING] resolver failed for language '{language}'; "
             f"using default language: {error}"
         )
+    for language in sorted(no_evidence_provider):
+        warnings.append(
+            f"[ROUTING] language '{language}' has no selected lexical evidence "
+            "capability; treated as unavailable"
+        )
     return LanguageRoutingResult(tuple(result), tuple(routes), tuple(warnings))
 
 
@@ -369,10 +385,7 @@ def _try_pair_decomposition(
     languages: tuple[str, ...],
     evidence: Callable[[str, str], LexiconEvidence | None],
 ) -> Sequence[LanguageFragment] | None:
-    if default_language not in {"de-de", "en-us"} or not {
-        "de-de",
-        "en-us",
-    }.issubset(set(languages)):
+    if default_language not in {"de-de", "en-us", "en-gb"} or "de-de" not in languages:
         return None
     from kokorog2p.language_pairs.de_en import decompose_token
 

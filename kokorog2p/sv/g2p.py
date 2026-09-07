@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from kokorog2p.base import G2PBase
+from kokorog2p.lexicons.evidence import LexiconEvidence
 from kokorog2p.lexicons.lexphon_backend import LexphonBackend
 from kokorog2p.punctuation import normalize_punctuation
 from kokorog2p.token import GToken
@@ -152,6 +153,14 @@ class SwedishG2P(G2PBase):
             tokens.append(token)
         ensure_gtoken_positions(tokens, text)
         return tokens
+
+    def lexicon_evidence(
+        self, word: str, tag: str | None = None
+    ) -> LexiconEvidence | None:
+        """Return evidence only from an actually selected Swedish NST layer."""
+        if self._lexphon is None:
+            return None
+        return self._lexphon.lexicon_evidence(word, tag)
 
     def lookup(self, word: str, tag: str | None = None) -> str | None:
         """Return the selected lexicon or rule-derived Kokoro pronunciation."""

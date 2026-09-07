@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Final
 
-from kokorog2p.lexicons.runtime import SelectedLexicons, open_selected
+from kokorog2p.lexicons.runtime import LexiconHit, SelectedLexicons, open_selected
 
 # =============================================================================
 # Constants
@@ -246,6 +246,30 @@ class FrenchLexicon:
         elif isinstance(ps, tuple):
             ps = ps[0] if ps else None
         return (ps if isinstance(ps, str) else None, rating)
+
+    def lookup_hit(self, word: str) -> LexiconHit | None:
+        """Return an exact hit from the configured selected G2Lex stack."""
+        normalized = self.normalize_word(word)
+        hit = self._selected.get_hit(normalized)
+        return hit if hit is not None else self._selected.get_hit(normalized.lower())
+
+    @staticmethod
+    def pronunciation_from_hit(
+        hit: LexiconHit, tag: str | None = None
+    ) -> str | None:
+        """Decode a selected French hit without builtin or fallback paths."""
+        value = hit.value
+        if isinstance(value, Mapping):
+            value = (
+                value.get(tag, value.get("DEFAULT"))
+                if tag
+                else value.get("DEFAULT")
+            )
+            if value is None and isinstance(hit.value, Mapping):
+                value = next(iter(hit.value.values()), None)
+        elif isinstance(value, tuple):
+            value = value[0] if value else None
+        return value if isinstance(value, str) else None
 
     def close(self) -> None:
         self._selected.close()

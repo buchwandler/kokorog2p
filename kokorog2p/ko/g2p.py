@@ -15,6 +15,7 @@ from typing import Literal
 from lexphon import LexiconNotInstalledError
 
 from kokorog2p.base import G2PBase
+from kokorog2p.lexicons.evidence import LexiconEvidence
 from kokorog2p.lexicons.lexphon_backend import LexphonBackend
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
@@ -207,6 +208,15 @@ class KoreanG2P(G2PBase):
         tokens = [token]
         ensure_gtoken_positions(tokens, text)
         return tokens
+
+    def lexicon_evidence(
+        self, word: str, tag: str | None = None
+    ) -> LexiconEvidence | None:
+        """Return selected Korean LexHint evidence independent of output mode."""
+        del tag
+        if self._lexphon is None or not word:
+            return None
+        return self._lexphon.lexicon_evidence(word)
 
     def lookup(self, word: str, tag: str | None = None) -> str | None:
         """Look up a Korean word and return its phonetic representation.

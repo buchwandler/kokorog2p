@@ -120,6 +120,17 @@ class G2PBase(ABC):
         """Return positive membership evidence from selected lexical resources."""
         return None
 
+
+    def has_lexicon_evidence(self) -> bool:
+        """Return whether this frontend can query a selected evidence resource."""
+        selected = getattr(self, "lexicons", None)
+        if selected is not None:
+            return bool(selected)
+        lexicon = getattr(self, "lexicon", None)
+        selected = getattr(lexicon, "lexicons", None)
+        if selected is not None:
+            return bool(selected)
+        return self.__class__.lexicon_evidence is not G2PBase.lexicon_evidence
     def close(self) -> None:
         """Release resources owned by this G2P instance."""
         return

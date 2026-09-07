@@ -367,7 +367,7 @@ def _align_tokens_to_normalized_text(
     return warnings
 
 
-def phonemize_to_result(
+def phonemize_to_result(  # noqa: C901
     clean_text: str,
     *,
     lang: str,
@@ -467,11 +467,19 @@ def phonemize_to_result(
             if g2p_resolver is not None:
                 resolver_cache[canonical] = g2p_resolver(canonical)
             else:
-                resolver_cache[canonical] = get_g2p(
-                    canonical,
-                    version=_get_frontend_version(g2p),
-                    **options,
-                )
+                resolver_cache[canonical] = get_g2p(canonical)
+        return resolver_cache[canonical]
+
+    def resolve_explicit_language(language: str) -> G2PBase:
+        canonical = normalize_language_code(language)
+        if g2p_resolver is not None or routing_config.mode == "auto":
+            return resolve_language(canonical)
+        if canonical not in resolver_cache:
+            resolver_cache[canonical] = get_g2p(
+                canonical,
+                version=_get_frontend_version(g2p),
+                **options,
+            )
         return resolver_cache[canonical]
 
     source_sensitive = _preserves_source_punctuation(g2p)
@@ -562,7 +570,7 @@ def phonemize_to_result(
         g2p,
         default_lang,
         g2p_options=g2p_options,
-        g2p_resolver=resolve_language,
+        g2p_resolver=resolve_explicit_language,
         fixed_target_model=fixed_target_model,
         strict_stress=strict_stress,
     )
@@ -840,11 +848,7 @@ def _phonemize_token_spans(  # noqa: C901
                 if g2p_resolver is not None:
                     g2p_cache[token_lang] = g2p_resolver(token_lang)
                 else:
-                    g2p_cache[token_lang] = get_g2p(
-                        token_lang,
-                        version=_get_frontend_version(g2p),
-                        **(g2p_options or {}),
-                    )
+                    g2p_cache[token_lang] = get_g2p(token_lang)
             except Exception as e:
                 warnings.append(
                     f"[G2P] failed to load language '{token_lang}' for token "

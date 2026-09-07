@@ -6,6 +6,9 @@ from collections.abc import Sequence
 
 from lexphon import DataStore, LexiconNotInstalledError, Phonemizer, PronunciationToken
 
+from kokorog2p.language_codes import normalize_language_code
+from kokorog2p.lexicons.evidence import evidence_from_lexphon_token
+
 LEXPHON_LANGUAGE_BY_KOKORO = {
     "ru-ru": "ru",
     "th-th": "th",
@@ -45,7 +48,7 @@ class LexphonBackend:
         store: DataStore | None = None,
         phonemizer: Phonemizer | None = None,
     ) -> None:
-        self.language = language.lower().replace("_", "-")
+        self.language = normalize_language_code(language)
         if self.language not in LEXPHON_LANGUAGE_BY_KOKORO:
             raise ValueError(f"Lexphon is not configured for {language!r}")
         self.names = tuple(names)
@@ -105,6 +108,18 @@ class LexphonBackend:
             if engine is None
             else engine.lookup_prefixes(text, position=position, tag=tag)
         )
+
+    def lexicon_evidence(
+        self, word: str, tag: str | None = None
+    ):
+        """Return evidence from the selected Lexphon layers only."""
+        token = self.lookup_token(word, tag)
+        return evidence_from_lexphon_token(
+            language=self.language,
+            token=token,
+            selected_lexicons=self.ids,
+        )
+
 
     def __len__(self) -> int:
         engine = self._engine()

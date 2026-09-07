@@ -7,7 +7,8 @@ from lexphon import PronunciationToken
 from kokorog2p.base import G2PBase
 from kokorog2p.de.g2p import GermanG2P
 from kokorog2p.en.g2p import EnglishG2P
-from kokorog2p.lexicons.evidence import LexiconEvidence
+from kokorog2p.fr.g2p import FrenchG2P
+from kokorog2p.lexicons.evidence import LexiconEvidence, evidence_from_lexphon_token
 from kokorog2p.lexicons.runtime import LexiconHit
 from kokorog2p.token import GToken
 
@@ -94,3 +95,81 @@ def test_german_rule_only_frontend_has_no_evidence() -> None:
     g2p.language = "de-de"
     g2p._lexicon = None
     assert g2p.lexicon_evidence("Haus") is None
+
+def test_french_evidence_uses_selected_hit_not_builtin_fix() -> None:
+    hit = LexiconHit(
+        value="dəmɑ̃de",
+        name="gold",
+        rating=4,
+        kind="pronunciation",
+        phoneme_encoding="ipa",
+        lexicon_id="fr-fr:gold",
+        metadata={"selected": True},
+    )
+    lexicon = SimpleNamespace(
+        lookup_hit=lambda word: hit if word == "demander" else None,
+        pronunciation_from_hit=lambda selected, tag: selected.value,
+    )
+    g2p = FrenchG2P.__new__(FrenchG2P)
+    g2p.language = "fr-fr"
+    g2p.lexicon = lexicon
+    evidence = g2p.lexicon_evidence("demander")
+    assert evidence is not None
+    assert evidence.lexicon_id == "fr-fr:gold"
+    assert g2p.lexicon_evidence("monsieur") is None
+
+
+def test_lexphon_evidence_requires_selected_trustworthy_provenance() -> None:
+    token = PronunciationToken(
+        text="слово",
+        pronunciation="sloˈvo",
+        source="lexhint",
+        lexicon_id="ru:lexhint",
+    )
+    evidence = evidence_from_lexphon_token(
+        language="ru-ru", token=token, selected_lexicons=("ru:lexhint",)
+    )
+    assert evidence is not None
+    assert evidence.language == "ru-ru"
+    assert evidence.lexicon_id == "ru:lexhint"
+
+    unknown = PronunciationToken("слово", None, "lexhint", lexicon_id="ru:lexhint")
+    assert (
+        evidence_from_lexphon_token(
+            language="ru-ru",
+            token=unknown,
+            selected_lexicons=("ru:lexhint",),
+        )
+        is None
+    )
+    ambiguous = PronunciationToken("слово", "p", "other-source", lexicon_id=None)
+    assert (
+        evidence_from_lexphon_token(
+            language="ru-ru",
+            token=ambiguous,
+            selected_lexicons=("ru:lexhint", "ru:other"),
+        )
+        is None
+    )
+
+
+def test_rule_only_frontends_do_not_claim_lexicon_evidence() -> None:
+    from kokorog2p.ar.g2p import ArabicG2P
+    from kokorog2p.cs.g2p import CzechG2P
+    from kokorog2p.es.g2p import SpanishG2P
+    from kokorog2p.he.g2p import HebrewG2P
+    from kokorog2p.it.g2p import ItalianG2P
+    from kokorog2p.kk.g2p import KazakhG2P
+    from kokorog2p.zh.g2p import ChineseG2P
+
+    for frontend in (
+        SpanishG2P,
+        ItalianG2P,
+        CzechG2P,
+        HebrewG2P,
+        ArabicG2P,
+        ChineseG2P,
+        KazakhG2P,
+    ):
+        instance = frontend.__new__(frontend)
+        assert instance.lexicon_evidence("example") is None

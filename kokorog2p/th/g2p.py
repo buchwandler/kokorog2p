@@ -10,6 +10,7 @@ from typing import Literal
 from lexphon import PronunciationToken
 
 from kokorog2p.base import G2PBase
+from kokorog2p.lexicons.evidence import LexiconEvidence
 from kokorog2p.lexicons.lexphon_backend import LexphonBackend
 from kokorog2p.punctuation import normalize_punctuation
 from kokorog2p.token import GToken
@@ -329,6 +330,18 @@ class ThaiG2P(G2PBase):
                         token.whitespace = ""
         ensure_gtoken_positions(tokens, text)
         return tokens
+
+    def lexicon_evidence(
+        self, word: str, tag: str | None = None
+    ) -> LexiconEvidence | None:
+        """Return evidence only for an exact selected Thai LexHint hit."""
+        del tag
+        if self._lexphon is None:
+            return None
+        normalized = self._normalizer.normalize_token(word)
+        if not normalized or not all(self._is_thai(char) for char in normalized):
+            return None
+        return self._lexphon.lexicon_evidence(normalized)
 
     def lookup(self, word: str, tag: str | None = None) -> str | None:
         del tag

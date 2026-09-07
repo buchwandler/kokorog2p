@@ -9,6 +9,7 @@ Copyright 2024 kokorog2p contributors
 Licensed under the Apache License, Version 2.0
 """
 
+import unicodedata
 import warnings
 from collections.abc import Mapping, Sequence
 from typing import Any, Protocol
@@ -16,6 +17,8 @@ from typing import Any, Protocol
 from lexphon import DataStore
 
 from kokorog2p.base import G2PBase
+from kokorog2p.lexicons.evidence import LexiconEvidence
+from kokorog2p.lexicons.lexphon_backend import LexphonBackend
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
 
@@ -345,6 +348,7 @@ class JapaneseG2P(G2PBase):
         self._pyopenjtalk = None
         self._cutlet = None
 
+        self._evidence_lexphon: LexphonBackend | None = None
     @property
     def pyopenjtalk(self):
         """Lazy import of pyopenjtalk with an actionable installation error."""
@@ -592,9 +596,24 @@ class JapaneseG2P(G2PBase):
             )
         return result + pitch_str, tokens
 
+    def lexicon_evidence(
+        self, word: str, tag: str | None = None
+    ) -> LexiconEvidence | None:
+        """Return selected Japanese LexHint evidence without loading Cutlet."""
+        if not self.lexicons:
+            return None
+        if self._evidence_lexphon is None:
+            self._evidence_lexphon = LexphonBackend(
+                "ja-jp", self.lexicons, store=self.store
+            )
+        normalized = unicodedata.normalize("NFKC", word)
+        return self._evidence_lexphon.lexicon_evidence(normalized, tag)
+
     def close(self) -> None:
         if self._cutlet is not None:
             self._cutlet.close()
+        if self._evidence_lexphon is not None:
+            self._evidence_lexphon.close()
         super().close()
 
     def lookup(self, word: str, tag: str | None = None) -> str | None:

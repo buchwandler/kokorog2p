@@ -12,6 +12,7 @@ from lexphon import LexiconNotInstalledError
 
 from kokorog2p.base import G2PBase
 from kokorog2p.espeak_g2p import EspeakOnlyG2P
+from kokorog2p.lexicons.evidence import LexiconEvidence
 from kokorog2p.lexicons.lexphon_backend import LexphonBackend
 from kokorog2p.punctuation import normalize_punctuation
 from kokorog2p.token import GToken
@@ -297,6 +298,15 @@ class VietnameseG2P(G2PBase):
 
         ensure_gtoken_positions(tokens, text)
         return tokens
+
+    def lexicon_evidence(
+        self, word: str, tag: str | None = None
+    ) -> LexiconEvidence | None:
+        """Return selected Vietnamese LexHint evidence only."""
+        del tag
+        if self._lexphon is None:
+            return None
+        return self._lexphon.lexicon_evidence(normalize_vietnamese(word))
 
     def lookup(self, word: str, tag: str | None = None) -> str | None:
         """Look up a legal Vietnamese syllable or configured foreign word."""

@@ -116,12 +116,22 @@ result = phonemize_prepared(
 Routing uses positive evidence from the effective selected lexical resources, keeps the
 explicit document language for collisions and ambiguity, and exposes `LanguageRoute`
 records in `result.language_routes`. A hit is not exclusive ownership, so a word present
-in both selected stacks stays in the default language. Generic pronunciation fallback is
-never used as evidence. Candidate frontends are lazy and may be supplied with
-`g2p_resolver`.
+in multiple selected stacks stays in the default language.
 
-Use `target_model="1.0"` to constrain every automatic candidate and the final token IDs
-to one fixed Kokoro vocabulary. If evidence exists but the routed pronunciation is
+Evidence-capable resources are:
+- Packaged G2Lex: English US, English GB, and French.
+- Provisioned Lexphon: German, Portuguese BR/PT, Russian, Thai, Vietnamese, Japanese,
+  Korean, and Swedish when NST is explicitly selected.
+
+Spanish, Italian, Czech, Hebrew, Arabic, Chinese, and Kazakh still phonemize normally, but
+they have no selected lexical evidence provider and cannot positively claim a foreign token.
+Generic pronunciation, rules, eSpeak, Goruut, pypinyin, Phonikud, g2pK, pyopenjtalk,
+and fallback paths are never used as evidence. Candidate frontends are lazy and may be
+supplied with `g2p_resolver`; default foreign frontends do not inherit default-language
+lexicon or language-specific options.
+
+Use `target_model="1.0"` to constrain every automatic candidate and the final token IDs to
+one fixed Kokoro vocabulary. If evidence exists but the routed pronunciation is
 incompatible, the route is rejected with a diagnostic and the default route is used.
 Routing changes only G2P frontend selection. It never selects an acoustic model.
 Explicit `ph`, `phonemes`, `lang`, and `language` overrides take precedence.

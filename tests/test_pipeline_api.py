@@ -1327,3 +1327,56 @@ def test_invalid_tagged_lookup_keeps_mapped_phonemes():
 
     assert warnings == []
     assert mapped[0].meta["phonemes"] == "hWs"
+
+def test_automatic_foreign_factory_does_not_receive_default_options(monkeypatch):
+    from kokorog2p.lexicons.evidence import LexiconEvidence
+    from kokorog2p.token import GToken
+
+    class FakeG2P:
+        version = "1.1"
+
+        def __init__(self, language, evidence=False):
+            self.language = language
+            self.evidence = evidence
+
+        def __call__(self, text):
+            return [GToken(text=text, tag="WORD", whitespace="", phonemes="d")]
+
+        def lexicon_evidence(self, word, tag=None):
+            if not self.evidence:
+                return None
+            return LexiconEvidence(
+                language=self.language,
+                lexicon_id="ru:lexhint",
+                pronunciation="r",
+                kind="pronunciation",
+            )
+
+        def lookup(self, word, tag=None):
+            return "r" if self.evidence else "d"
+
+        def get_target_model(self):
+            return "1.0"
+
+        def has_lexicon_evidence(self):
+            return self.evidence
+
+    calls = []
+    default = FakeG2P("de-de")
+
+    def factory(language, **kwargs):
+        calls.append((language, kwargs))
+        return FakeG2P(language, evidence=True)
+
+    monkeypatch.setattr("kokorog2p.get_g2p", factory)
+    result = phonemize_to_result(
+        "слово",
+        lang="de",
+        g2p=default,
+        language_routing={"mode": "auto", "languages": ("de", "ru")},
+        g2p_options={"lexicons": ("crane",), "language_only": True},
+        return_ids=False,
+    )
+
+    assert result.tokens[0].lang == "ru-ru"
+    assert calls == [("ru-ru", {})]

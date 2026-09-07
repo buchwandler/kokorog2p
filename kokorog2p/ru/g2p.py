@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from kokorog2p.base import G2PBase
+from kokorog2p.lexicons.evidence import LexiconEvidence
 from kokorog2p.lexicons.lexphon_backend import LexphonBackend
 from kokorog2p.punctuation import normalize_punctuation
 from kokorog2p.ru.model_profile import (
@@ -189,6 +190,15 @@ class RussianG2P(G2PBase):
         tokens = self(text)
         phonemes = " ".join(token.phonemes or "" for token in tokens if token.is_word)
         return RussianAnalysis(text, text, phonemes)
+
+    def lexicon_evidence(
+        self, word: str, tag: str | None = None
+    ) -> LexiconEvidence | None:
+        """Return selected Russian LexHint evidence without pronunciation rules."""
+        del tag
+        if self._lexphon is None:
+            return None
+        return self._lexphon.lexicon_evidence(self._lookup_text(word))
 
     def lookup(self, word: str, tag: str | None = None) -> str | None:
         del tag
