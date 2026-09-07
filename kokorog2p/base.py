@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 
+from .lexicons.evidence import LexiconEvidence
 from .token import GToken
 
 
@@ -112,6 +113,12 @@ class G2PBase(ABC):
             Phoneme string or None if not found.
         """
         raise NotImplementedError
+
+    def lexicon_evidence(
+        self, word: str, tag: str | None = None
+    ) -> LexiconEvidence | None:
+        """Return positive membership evidence from selected lexical resources."""
+        return None
 
     def close(self) -> None:
         """Release resources owned by this G2P instance."""

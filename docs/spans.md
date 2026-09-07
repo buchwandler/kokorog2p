@@ -83,7 +83,8 @@ overrides = [
 
 ## Exact sub-token language spans
 
-The default `overlap="snap"` behavior is unchanged. Opt into exact source-aligned fragments with `overlap="split"`:
+The default `overlap="snap"` behavior is unchanged. Opt into exact source-aligned
+fragments with `overlap="split"`:
 
 ```python
 from kokorog2p import OverrideSpan, phonemize_prepared
@@ -96,7 +97,9 @@ result = phonemize_prepared(
 )
 ```
 
-Each fragment satisfies `fragment.text == source[fragment.char_start:fragment.char_end]`. Explicit `ph` and `lang` overrides take precedence over automatic routing.
+Each fragment satisfies
+`fragment.text == source[fragment.char_start:fragment.char_end]`. Explicit `ph` and
+`lang` overrides take precedence over automatic routing.
 
 ## Automatic language routing
 
@@ -110,9 +113,18 @@ result = phonemize_prepared(
 )
 ```
 
-Routing uses exact lexicon lookup, keeps the document language for ambiguity, and exposes `LanguageRoute` records in `result.language_routes`. Candidate frontends are lazy and may be supplied with `g2p_resolver`.
+Routing uses positive evidence from the effective selected lexical resources, keeps the
+explicit document language for collisions and ambiguity, and exposes `LanguageRoute`
+records in `result.language_routes`. A hit is not exclusive ownership, so a word present
+in both selected stacks stays in the default language. Generic pronunciation fallback is
+never used as evidence. Candidate frontends are lazy and may be supplied with
+`g2p_resolver`.
 
-Use `target_model="1.0"` to constrain every automatic candidate and the final token IDs to one fixed Kokoro vocabulary. Routing changes only G2P frontend selection. It never selects an acoustic model.
+Use `target_model="1.0"` to constrain every automatic candidate and the final token IDs
+to one fixed Kokoro vocabulary. If evidence exists but the routed pronunciation is
+incompatible, the route is rejected with a diagnostic and the default route is used.
+Routing changes only G2P frontend selection. It never selects an acoustic model.
+Explicit `ph`, `phonemes`, `lang`, and `language` overrides take precedence.
 
 ## Structured stress overrides
 

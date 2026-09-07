@@ -90,6 +90,12 @@ class LexphonBackend:
         engine = self._engine()
         return None if engine is None else engine.lookup(word, tag=tag)
 
+    def lookup_token(
+        self, word: str, tag: str | None = None
+    ) -> PronunciationToken | None:
+        """Return the structured selected-lexicon result without decoding it."""
+        return self.lookup(word, tag)
+
     def lookup_prefixes(
         self, text: str, *, position: int = 0, tag: str | None = None
     ) -> tuple[PronunciationToken, ...]:

@@ -55,15 +55,28 @@ convenience wrappers `phonemes` and `phoneme_ids` follow the same rule.
 
 `phonemize_prepared` accepts these optional controls:
 
-- `overlap="split"` applies partial language spans to exact source-aligned fragments. The default `"snap"` behavior remains compatible.
-- `language_routing={"mode": "auto", "languages": ["de", "en"]}` enables conservative lexical routing with an explicit allowlist. `LanguageRoutingConfig` is also accepted.
-- `g2p_resolver(language)` supplies and caches a frontend per canonical language for one call.
-- `target_model="1.0"` makes the caller-supplied Kokoro vocabulary authoritative for routed phonemes and token IDs.
+- `overlap="split"` applies partial language spans to exact source-aligned fragments.
+  The default `"snap"` behavior remains compatible.
+- `language_routing={"mode": "auto", "languages": ["de", "en"]}` enables optional
+  pronunciation-language routing with a hard candidate allowlist.
+  `LanguageRoutingConfig` is also accepted.
+- `g2p_resolver(language)` supplies and caches a frontend per canonical language for one
+  call.
+- `target_model="1.0"` makes the caller-supplied Kokoro vocabulary authoritative for
+  routed phonemes and token IDs.
 
-Language routing changes G2P frontend selection only. KokoroG2P does not select an acoustic model or ONNX model. Routing decisions are available as structured `LanguageRoute` objects in `PhonemizeResult.language_routes`.
-The supplied string is the coordinate authority: `clean_text` and token/override offsets
-refer to the prepared text. Do not pass arbitrary written text when number, date, unit,
-currency, or abbreviation expansion is expected.
+The document/default language is always explicit. Automatic routing does not detect the
+document language. It inspects positive membership in the effective selected lexical
+resources through `G2PBase.lexicon_evidence()`; generic lookup, proper-noun spelling,
+eSpeak, Goruut, and rule fallback are not evidence. Lexicon collisions and ambiguity
+stay in the default language. Explicit `ph`, `phonemes`, `lang`, and `language` spans
+take precedence.
+
+Language routing changes G2P frontend selection only. KokoroG2P does not select an
+acoustic model or ONNX model. Routing decisions are available as structured
+`LanguageRoute` objects in `PhonemizeResult.language_routes`, with fragment lexicon
+provenance. refer to the prepared text. Do not pass arbitrary written text when number,
+date, unit, currency, or abbreviation expansion is expected.
 
 ```{eval-rst}
 .. autofunction:: kokorog2p.tokenize

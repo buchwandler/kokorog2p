@@ -1,5 +1,7 @@
 """Named, packaged KokoroG2P lexicons."""
 
+from .evidence import LexiconEvidence
+
 from .registry import (
     LexiconSpec,
     available_lexicons,
@@ -15,6 +17,7 @@ from .runtime import (
 )
 
 __all__ = [
+    "LexiconEvidence",
     "LexiconHit",
     "LexiconSpec",
     "SelectedLexicons",

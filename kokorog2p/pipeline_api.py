@@ -534,8 +534,14 @@ def phonemize_to_result(
         protected_ranges = [
             (span.char_start, span.char_end)
             for span in explicit_spans
-            if "ph" in span.attrs or "lang" in span.attrs
+            if any(key in span.attrs for key in ("ph", "phonemes", "lang", "language"))
         ]
+        protected_ranges.extend(
+            (token.char_start, token.char_end)
+            for token in token_spans
+            if token.lang is not None
+            or any(key in token.meta for key in ("ph", "phonemes", "lang", "language"))
+        )
         routed = route_languages(
             clean_text,
             token_spans,

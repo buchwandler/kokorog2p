@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any, Final
 
 from kokorog2p._optional import load_spacy_model
 from kokorog2p.base import G2PBase
+from kokorog2p.lexicons.evidence import LexiconEvidence
 from kokorog2p.pipeline.tokenizer import RegexTokenizer, SpacyTokenizer
 from kokorog2p.spacy_models import resolve_spacy_model
 from kokorog2p.token import GToken
@@ -1000,6 +1001,38 @@ class GermanG2P(G2PBase):
         if raw_phonemes is None:
             return None
         return self._decode_lexicon_pronunciation(raw_phonemes)
+
+    def lexicon_evidence(
+        self, word: str, tag: str | None = None
+    ) -> LexiconEvidence | None:
+        """Return positive evidence from the selected German Lexphon stack."""
+        if self._lexicon is None:
+            return None
+        token = self._lexicon.lookup_token(word, tag)
+        if token is None or not token.known:
+            return None
+        lexicon_id = token.lexicon_id
+        if lexicon_id is None and self._lexicon.lexicons:
+            lexicon_id = f"de-de:{self._lexicon.lexicons[0]}"
+        if lexicon_id is None:
+            return None
+        metadata = {
+            "source": token.source,
+            "matched_key": token.matched_key,
+            "selector_tag": token.selector_tag,
+            "variants": token.variants,
+            "alphabet": token.alphabet,
+            "source_encoding": token.source_encoding,
+        }
+        kind = "pronunciation" if token.pronunciation is not None else "membership"
+        return LexiconEvidence(
+            language=self.language,
+            lexicon_id=lexicon_id,
+            pronunciation=token.pronunciation,
+            kind=kind,
+            lexicon_name=lexicon_id.rsplit(":", 1)[-1],
+            metadata=metadata,
+        )
 
     def phonemize(self, text: str) -> str:
         """Convert text to a phoneme string.

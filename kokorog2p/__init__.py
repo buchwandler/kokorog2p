@@ -41,7 +41,8 @@ from threading import RLock
 from typing import Any, Literal, Optional, Union
 
 from kokorog2p.base import G2PBase
-from kokorog2p.language_codes import normalize_language_code
+from kokorog2p.lexicons.evidence import LexiconEvidence
+from kokorog2p.language_codes import normalize_language_code, supported_languages
 from kokorog2p.lexicons.registry import (
     available_lexicons,
     get_lexicon_spec,
@@ -1104,6 +1105,7 @@ __all__ = [
     "LanguageFragment",
     "LanguageRoute",
     "LanguageRoutingConfig",
+    "LexiconEvidence",
     "MismatchInfo",
     "MismatchMode",
     "MismatchStats",
@@ -1156,6 +1158,7 @@ __all__ = [
     "phonemize_prepared",
     "phonemize_segments",
     "resolve_spacy_model",
+    "supported_languages",
     "to_espeak",
     "tokenize",
     "validate_for_kokoro",

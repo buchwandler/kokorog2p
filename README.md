@@ -108,14 +108,22 @@ result = phonemize_prepared(
     text,
     language="de",
     language_routing={"mode": "auto", "languages": ["de", "en"]},
-)
+    target_model="1.0",
+ )
 ```
 
-Routing uses exact lexical evidence, defaults to the document language when uncertain, and
-exposes source-aligned decisions through `result.language_routes`. A `g2p_resolver` may
-supply language-specific frontends and settings. `target_model="1.0"` fixes the output
-vocabulary and rejects incompatible automatic candidates. Language routing only changes
-G2P frontend selection. KokoroG2P does not select an acoustic model.
+The candidate list is a hard allowlist. KokoroG2P still requires the explicit
+document/default language; this option only routes individual pronunciation fragments.
+Evidence comes from the effective selected lexical resources through `LexiconEvidence`,
+never from generic fallback pronunciation. A spelling present in both stacks remains in
+the default language, and unresolved or ambiguous text also remains there. Explicit
+`ph`, `phonemes`, `lang`, and `language` spans outrank automatic routing.
+
+A `g2p_resolver(language)` can supply and cache the caller's configured frontends.
+`target_model` fixes the output vocabulary and rejects incompatible automatic candidates
+without changing the model. Routing changes only G2P frontend selection. KokoroG2P does
+not select an acoustic model. `PhonemizeResult.language_routes` contains structured
+route fragments and selected lexicon provenance for tracing.
 
 ## Annotations
 

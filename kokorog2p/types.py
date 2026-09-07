@@ -146,6 +146,10 @@ class LanguageFragment:
     language: str
     source: Literal["default", "explicit", "auto"]
     kind: Literal["whole-token", "compound-root", "stem", "affix"]
+    evidence_lexicon_id: str | None = None
+    evidence_kind: str | None = None
+    evidence_rating: int | None = None
+    phonemes: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

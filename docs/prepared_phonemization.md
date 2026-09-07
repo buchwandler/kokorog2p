@@ -40,8 +40,24 @@ configured spaCy model for that call.
 ## Explicit language routing
 
 Language switching is explicit. Use `OverrideSpan` or annotation `language` metadata for
-a foreign span. Generic automatic language detection and mixed-language segmentation are
-application responsibilities and are not provided by the core package.
+a foreign span. The core still requires an explicit document/default language and does
+not automatically select that document language.
+
+Optional automatic pronunciation-language routing can inspect selected lexical resources
+for individual words or exact sub-token fragments:
+
+```python
+result = phonemize_prepared(
+    text,
+    language="de",
+    language_routing={"mode": "auto", "languages": ["de", "en"]},
+    overlap="split",
+)
+```
+
+The candidate list is a hard allowlist. Lexicon collisions and ambiguity stay in the
+default language. Generic pronunciation fallback is not language evidence, and explicit
+`ph`, `phonemes`, `lang`, and `language` overrides take precedence.
 
 ## Migration from pre-v0.9
 

@@ -67,7 +67,7 @@ def _split_token_at_boundaries(
 
 def _split_tokens_for_overrides(
     tokens: Sequence[TokenSpan], overrides: Sequence[OverrideSpan]
- ) -> list[TokenSpan]:
+) -> list[TokenSpan]:
     split: list[TokenSpan] = []
     for token in tokens:
         split.extend(

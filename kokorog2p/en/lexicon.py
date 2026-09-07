@@ -244,6 +244,22 @@ class Lexicon:
     def _get_hit(self, word: str) -> LexiconHit | None:
         return self._selected_hit(word)
 
+    def lookup_hit(self, word: str) -> LexiconHit | None:
+        """Return only an exact selected lexical-layer hit."""
+        return self._selected_hit(word)
+
+    def pronunciation_from_hit(
+        self, hit: LexiconHit, tag: str | None = None
+    ) -> str | None:
+        """Decode a selected hit without invoking fallback or spelling rules."""
+        value = hit.value
+        if isinstance(value, Mapping):
+            selected_tag = tag if tag in value else self.get_parent_tag(tag)
+            value = value.get(selected_tag, value.get("DEFAULT"))
+        elif isinstance(value, tuple):
+            value = value[0] if value else None
+        return value if isinstance(value, str) else None
+
     @staticmethod
     def _grow_dictionary(d: dict[str, Any]) -> dict[str, Any]:
         """Expand dictionary with capitalization variants.

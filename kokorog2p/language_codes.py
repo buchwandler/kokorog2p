@@ -77,4 +77,9 @@ def normalize_language_code(language: str) -> str:
     return _LANGUAGE_ALIASES.get(normalized, normalized)
 
 
-__all__ = ["normalize_language_code"]
+def supported_languages() -> tuple[str, ...]:
+    """Return canonical language codes accepted by the factory."""
+    return tuple(sorted(set(_LANGUAGE_ALIASES.values())))
+
+
+__all__ = ["normalize_language_code", "supported_languages"]

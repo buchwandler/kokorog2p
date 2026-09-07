@@ -52,6 +52,10 @@ class GermanLexphonBackend:
             return None
         return self._phonemizer.lookup(word, tag=tag)
 
+    def lookup_token(self, word: str, tag: str | None = None):
+        """Return the structured selected-lexicon result without decoding it."""
+        return self.lookup(word, tag)
+
     def __len__(self) -> int:
         if self._phonemizer is None:
             return 0

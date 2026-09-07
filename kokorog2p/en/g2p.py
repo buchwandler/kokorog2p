@@ -5,6 +5,7 @@ from kokorog2p.base import G2PBase
 from kokorog2p.en.fallback import EspeakFallback, GoruutFallback
 from kokorog2p.en.lexicon import Lexicon, TokenContext
 from kokorog2p.en.normalizer import EnglishNormalizer
+from kokorog2p.lexicons.evidence import LexiconEvidence
 from kokorog2p.pipeline.models import PhonemeSource, ProcessedText
 from kokorog2p.pipeline.tokenizer import RegexTokenizer, SpacyTokenizer
 from kokorog2p.spacy_models import resolve_spacy_model
@@ -615,6 +616,25 @@ class EnglishG2P(G2PBase):
         """
         ps, _ = self.lexicon(word, tag, None, None)
         return ps
+
+    def lexicon_evidence(
+        self, word: str, tag: str | None = None
+    ) -> LexiconEvidence | None:
+        """Return evidence from the exact configured English lexicon stack."""
+        hit = self.lexicon.lookup_hit(word)
+        if hit is None:
+            return None
+        kind = hit.kind if hit.kind in {"pronunciation", "membership"} else "membership"
+        return LexiconEvidence(
+            language=self.language,
+            lexicon_id=hit.lexicon_id,
+            pronunciation=self.lexicon.pronunciation_from_hit(hit, tag),
+            kind=kind,
+            lexicon_name=hit.name,
+            rating=hit.rating,
+            phoneme_encoding=hit.phoneme_encoding,
+            metadata=hit.metadata,
+        )
 
     def __repr__(self) -> str:
         return f"EnglishG2P(language={self.language!r}, version={self.version!r})"

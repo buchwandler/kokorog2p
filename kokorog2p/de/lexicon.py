@@ -36,11 +36,16 @@ class GermanLexicon:
         self.load_gold = "gold" in names
         self.lexicons = names
 
+    def lookup_token(
+        self, word: str, tag: str | None = None
+    ) -> PronunciationToken | None:
+        """Return the structured selected Lexphon result for a word."""
+        lookup_token = getattr(self._backend, "lookup_token", self._backend.lookup)
+        return lookup_token(word, _normalize_german_lexicon_tag(tag))
+
     def lookup(self, word: str, tag: str | None = None) -> str | None:
         """Look up a word using Lexphon's ordered layers and German tag mapping."""
-        token: PronunciationToken | None = self._backend.lookup(
-            word, tag=_normalize_german_lexicon_tag(tag)
-        )
+        token: PronunciationToken | None = self.lookup_token(word, tag)
         if token is None or not token.known:
             return None
         phonemes = token.pronunciation
@@ -55,7 +60,7 @@ class GermanLexicon:
 
     def is_known(self, word: str) -> bool:
         """Return whether Lexphon has a pronunciation for ``word``."""
-        token = self._backend.lookup(word)
+        token = self.lookup_token(word)
         return token is not None and token.known
 
     def __len__(self) -> int:

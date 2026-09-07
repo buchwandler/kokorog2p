@@ -191,6 +191,10 @@ class SelectedLexicons:
             metadata,
         )
 
+    def lookup_hit(self, word: str) -> LexiconHit | None:
+        """Return only an exact hit from the configured selected stack."""
+        return self.get_hit(word)
+
     def get_hit_candidates(self, words: Sequence[str]) -> LexiconHit | None:
         """Search selected layers first, then candidate spellings upstream."""
         self._ensure_open()

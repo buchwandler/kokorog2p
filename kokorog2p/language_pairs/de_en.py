@@ -6,6 +6,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
+from kokorog2p.lexicons.evidence import LexiconEvidence
 from kokorog2p.types import LanguageFragment, TokenSpan
 
 
@@ -18,7 +19,7 @@ class LanguagePairAnalyzer(Protocol):
         *,
         default_language: str,
         candidate_languages: tuple[str, ...],
-        lookup: Callable[[str, str], str | None],
+        evidence: Callable[[str, str], LexiconEvidence | None],
     ) -> Sequence[LanguageFragment] | None: ...
 
 
@@ -30,10 +31,8 @@ class RouteFragment:
     end: int
     language: str
     kind: Literal["compound-root", "stem", "affix"]
+    evidence: LexiconEvidence | None = None
     phonemes: str | None = None
-
-
-_GERMAN_NATIVE_WORDS = frozenset({"gehen", "lernen", "warten", "reden", "kennen"})
 
 
 def decompose_token(
@@ -41,9 +40,9 @@ def decompose_token(
     *,
     default_language: str,
     candidate_languages: tuple[str, ...],
-    lookup: Callable[[str, str], str | None],
+    evidence: Callable[[str, str], LexiconEvidence | None],
 ) -> Sequence[LanguageFragment] | None:
-    """Return a unique DE/EN decomposition based only on exact lexicon hits."""
+    """Return a unique bounded DE/EN decomposition from lexical evidence."""
     if default_language not in {"de-de", "en-us"} or not {
         "de-de",
         "en-us",
@@ -53,16 +52,18 @@ def decompose_token(
     if not word.isalpha() or len(word) > 48:
         return None
     lower = word.casefold()
-    if lower in _GERMAN_NATIVE_WORDS:
+    if evidence(default_language, lower) is not None:
         return None
-    candidates: list[tuple[tuple[int, int, int], list[RouteFragment]]] = []
 
+    candidates: list[tuple[tuple[int, int, int], list[RouteFragment]]] = []
     for split in range(3, len(word) - 2):
         left = lower[:split]
         right = lower[split:]
         if len(right) < 3:
             continue
-        if lookup("en-us", left) is not None and lookup("de-de", right) is not None:
+        left_en = evidence("en-us", left)
+        right_de = evidence("de-de", right)
+        if left_en is not None and right_de is not None:
             candidates.append(
                 (
                     (len(left), len(right), 2),
@@ -72,17 +73,21 @@ def decompose_token(
                             token.char_start + split,
                             "en-us",
                             "compound-root",
+                            left_en,
                         ),
                         RouteFragment(
                             token.char_start + split,
                             token.char_end,
                             "de-de",
                             "compound-root",
+                            right_de,
                         ),
                     ],
                 )
             )
-        if lookup("de-de", left) is not None and lookup("en-us", right) is not None:
+        left_de = evidence("de-de", left)
+        right_en = evidence("en-us", right)
+        if left_de is not None and right_en is not None:
             candidates.append(
                 (
                     (len(right), len(left), 1),
@@ -92,18 +97,20 @@ def decompose_token(
                             token.char_start + split,
                             "de-de",
                             "compound-root",
+                            left_de,
                         ),
                         RouteFragment(
                             token.char_start + split,
                             token.char_end,
                             "en-us",
                             "compound-root",
+                            right_en,
                         ),
                     ],
                 )
             )
 
-    morphology = _morphology_candidate(token, lower, lookup)
+    morphology = _morphology_candidate(token, lower, evidence)
     if morphology is not None:
         candidates.append(((len(morphology[1]), len(morphology[2]), 3), morphology[0]))
     if not candidates:
@@ -113,12 +120,24 @@ def decompose_token(
         return None
     return tuple(
         LanguageFragment(
-            fragment.start,
-            fragment.end,
-            word[fragment.start - token.char_start : fragment.end - token.char_start],
-            fragment.language,
-            "auto",
-            fragment.kind,
+            char_start=fragment.start,
+            char_end=fragment.end,
+            text=word[
+                fragment.start - token.char_start : fragment.end - token.char_start
+            ],
+            language=fragment.language,
+            source="auto",
+            kind=fragment.kind,
+            evidence_lexicon_id=(
+                None if fragment.evidence is None else fragment.evidence.lexicon_id
+            ),
+            evidence_kind=(
+                None if fragment.evidence is None else fragment.evidence.kind
+            ),
+            evidence_rating=(
+                None if fragment.evidence is None else fragment.evidence.rating
+            ),
+            phonemes=fragment.phonemes,
         )
         for fragment in candidates[0][1]
     )
@@ -127,37 +146,65 @@ def decompose_token(
 def _morphology_candidate(
     token: TokenSpan,
     lower: str,
-    lookup: Callable[[str, str], str | None],
+    evidence: Callable[[str, str], LexiconEvidence | None],
 ) -> tuple[list[RouteFragment], str, str] | None:
-    if lower.startswith("ge") and lower.endswith("t") and len(lower) > 5:
+    if lower.startswith("ge") and lower.endswith("t") and len(lower) > 7:
         stem = lower[2:-1]
-        if len(stem) >= 3 and lookup("en-us", stem) is not None:
-            return (
-                [
-                    RouteFragment(
-                        token.char_start, token.char_start + 2, "de-de", "affix"
-                    ),
-                    RouteFragment(
-                        token.char_start + 2, token.char_end - 1, "en-us", "stem"
-                    ),
-                    RouteFragment(token.char_end - 1, token.char_end, "de-de", "affix"),
-                ],
-                stem,
-                "",
-            )
-    if lower.endswith("en") and len(lower) > 5:
+        if len(stem) >= 5:
+            stem_evidence = evidence("en-us", stem)
+            if stem_evidence is not None:
+                return (
+                    [
+                        RouteFragment(
+                            token.char_start,
+                            token.char_start + 2,
+                            "de-de",
+                            "affix",
+                            phonemes="ɡə",
+                        ),
+                        RouteFragment(
+                            token.char_start + 2,
+                            token.char_end - 1,
+                            "en-us",
+                            "stem",
+                            stem_evidence,
+                        ),
+                        RouteFragment(
+                            token.char_end - 1,
+                            token.char_end,
+                            "de-de",
+                            "affix",
+                            phonemes="t",
+                        ),
+                    ],
+                    stem,
+                    "",
+                )
+    if lower.endswith("en") and len(lower) > 7:
         stem = lower[:-2]
-        if len(stem) >= 3 and lookup("en-us", stem) is not None:
-            return (
-                [
-                    RouteFragment(
-                        token.char_start, token.char_end - 2, "en-us", "stem"
-                    ),
-                    RouteFragment(token.char_end - 2, token.char_end, "de-de", "affix"),
-                ],
-                stem,
-                "",
-            )
+        if len(stem) >= 5:
+            stem_evidence = evidence("en-us", stem)
+            if stem_evidence is not None:
+                return (
+                    [
+                        RouteFragment(
+                            token.char_start,
+                            token.char_end - 2,
+                            "en-us",
+                            "stem",
+                            stem_evidence,
+                        ),
+                        RouteFragment(
+                            token.char_end - 2,
+                            token.char_end,
+                            "de-de",
+                            "affix",
+                            phonemes="ən",
+                        ),
+                    ],
+                    stem,
+                    "",
+                )
     return None
 
 
