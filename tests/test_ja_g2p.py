@@ -7,7 +7,7 @@ import sys
 from dataclasses import dataclass
 
 import pytest
-from lexphon import LexiconNotInstalledError, PronunciationToken
+from lexphon import LexiconNotInstalledError, PronunciationToken, PronunciationVariant
 
 from kokorog2p.ja import JapaneseG2P
 from kokorog2p.vocab import validate_for_kokoro
@@ -200,12 +200,16 @@ def test_cutlet_uses_lexhint_for_known_word_grouping() -> None:
             if word == "東京大学":
                 return PronunciationToken(
                     text=word,
-                    pronunciation="toːkjoː daigaku",
                     source="lexicon",
                     lexicon_id="ja:lexhint",
                     matched_key=word,
                     source_encoding="ipa",
-                    variants=("toːkjoː daigaku",),
+                    variants=(
+                        PronunciationVariant(
+                            pronunciation="toːkjoː daigaku",
+                            source_pronunciation="toːkjoː daigaku",
+                        ),
+                    ),
                 )
             return None
 

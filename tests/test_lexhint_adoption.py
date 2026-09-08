@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from lexphon import PronunciationToken
+from lexphon import PronunciationToken, PronunciationVariant
 
 from kokorog2p.ko import KoreanG2P
 from kokorog2p.pt import PortugueseG2P
@@ -14,12 +14,16 @@ class FakeBackend:
     def lookup(self, word: str, tag: str | None = None) -> PronunciationToken:
         return PronunciationToken(
             text=word,
-            pronunciation=self.pronunciation,
             source="lexicon",
             lexicon_id="test:lexhint",
             matched_key=word,
             source_encoding="ipa",
-            variants=(self.pronunciation,),
+            variants=(
+                PronunciationVariant(
+                    pronunciation=self.pronunciation,
+                    source_pronunciation=self.pronunciation,
+                ),
+            ),
         )
 
     def close(self) -> None:

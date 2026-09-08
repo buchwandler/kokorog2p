@@ -75,10 +75,18 @@ def test_english_evidence_uses_exact_selected_hit_only() -> None:
 def test_german_evidence_requires_known_structured_token() -> None:
     token = PronunciationToken(
         text="Haus",
-        pronunciation="hˈaʊs",
-        source="gold",
+        source="lexicon",
         lexicon_id="de-de:gold",
-        variants=("hˈaʊs", "haʊs"),
+        variants=(
+            PronunciationVariant(
+                pronunciation="hˈaʊs",
+                source_pronunciation="hˈaʊs",
+            ),
+            PronunciationVariant(
+                pronunciation="haʊs",
+                source_pronunciation="haʊs",
+            ),
+        ),
         selector_tag="NOUN",
     )
     lexicon = SimpleNamespace(
@@ -104,10 +112,10 @@ def test_german_rule_only_frontend_has_no_evidence() -> None:
 def test_lexphon_evidence_serializes_released_language_markers() -> None:
     token = PronunciationToken(
         text="download",
-        pronunciation="dˈaʊnləʊd",
         source="lexicon",
         lexicon_id="de-de:gold",
-        variant_details=(
+        source_encoding="arpabet",
+        variants=(
             PronunciationVariant(
                 pronunciation="dˈaʊnləʊd",
                 source_pronunciation="(en)dˈaʊnləʊd(de)",
@@ -123,6 +131,20 @@ def test_lexphon_evidence_serializes_released_language_markers() -> None:
     )
     assert evidence is not None
     assert evidence.rating == 4
+    assert evidence.phoneme_encoding == "ipa"
+    assert evidence.metadata["source_encoding"] == "arpabet"
+    assert evidence.metadata["variants"] == [
+        {
+            "pronunciation": "dˈaʊnləʊd",
+            "source_pronunciation": "(en)dˈaʊnləʊd(de)",
+            "language_markers": [
+                {"language": "en", "ipa_offset": 0},
+                {"language": "de", "ipa_offset": 10},
+            ],
+        }
+    ]
+    assert "alphabet" not in evidence.metadata
+    assert "variant_details" not in evidence.metadata
     assert evidence.metadata["source_pronunciation"] == "(en)dˈaʊnləʊd(de)"
     assert evidence.metadata["pronunciation_language_markers"] == [
         {"language": "en", "ipa_offset": 0},
@@ -156,9 +178,14 @@ def test_french_evidence_uses_selected_hit_not_builtin_fix() -> None:
 def test_lexphon_evidence_requires_selected_trustworthy_provenance() -> None:
     token = PronunciationToken(
         text="слово",
-        pronunciation="sloˈvo",
-        source="lexhint",
+        source="lexicon",
         lexicon_id="ru:lexhint",
+        variants=(
+            PronunciationVariant(
+                pronunciation="sloˈvo",
+                source_pronunciation="sloˈvo",
+            ),
+        ),
     )
     evidence = evidence_from_lexphon_token(
         language="ru-ru", token=token, selected_lexicons=("ru:lexhint",)
@@ -167,7 +194,11 @@ def test_lexphon_evidence_requires_selected_trustworthy_provenance() -> None:
     assert evidence.language == "ru-ru"
     assert evidence.lexicon_id == "ru:lexhint"
 
-    unknown = PronunciationToken("слово", None, "lexhint", lexicon_id="ru:lexhint")
+    unknown = PronunciationToken(
+        text="слово",
+        source="lexicon",
+        lexicon_id="ru:lexhint",
+    )
     assert (
         evidence_from_lexphon_token(
             language="ru-ru",
@@ -176,7 +207,7 @@ def test_lexphon_evidence_requires_selected_trustworthy_provenance() -> None:
         )
         is None
     )
-    ambiguous = PronunciationToken("слово", "p", "other-source", lexicon_id=None)
+    ambiguous = PronunciationToken(text="слово", source="lexicon", lexicon_id=None)
     assert (
         evidence_from_lexphon_token(
             language="ru-ru",
@@ -185,6 +216,43 @@ def test_lexphon_evidence_requires_selected_trustworthy_provenance() -> None:
         )
         is None
     )
+def test_provider_and_unselected_tokens_do_not_become_evidence() -> None:
+    provider = PronunciationToken(
+        text="File",
+        source="provider",
+        provider="espeak",
+        requested_language="de-de",
+        variants=(
+            PronunciationVariant(
+                pronunciation="fˈIl",
+                source_pronunciation="(en)fˈIl(de)",
+            ),
+        ),
+    )
+    assert (
+        evidence_from_lexphon_token(
+            language="de-de", token=provider, selected_lexicons=("gold",)
+        )
+        is None
+    )
+
+    unselected = PronunciationToken(
+        text="Haus",
+        source="lexicon",
+        lexicon_id="de-de:silver",
+        variants=(
+            PronunciationVariant(
+                pronunciation="hˈaʊs", source_pronunciation="hˈaʊs"
+            ),
+        ),
+    )
+    assert (
+        evidence_from_lexphon_token(
+            language="de-de", token=unselected, selected_lexicons=("gold",)
+        )
+        is None
+    )
+
 
 
 def test_rule_only_frontends_do_not_claim_lexicon_evidence() -> None:

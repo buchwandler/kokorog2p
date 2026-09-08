@@ -157,28 +157,6 @@ class TestErrorHandling:
                 g2p.phonemize("test")
 
 
-class TestFallbackLogging:
-    """Test that fallback classes log errors appropriately."""
-
-    def test_espeak_fallback_logs_errors(self, caplog):
-        """EspeakFallback should log errors when failing."""
-        from unittest.mock import patch
-
-        from kokorog2p.en.fallback import EspeakFallback
-
-        fallback = EspeakFallback(british=False)
-
-        # Mock the backend to raise an exception
-        with patch.object(fallback, "_backend") as mock_backend:
-            mock_backend.word_phonemes.side_effect = RuntimeError("Test error")
-
-            # Should return (None, 0) but also log error
-            result = fallback("test")
-
-            assert result == (None, 0), "Fallback should return (None, 0) on error"
-            # Note: logging check would require proper logging setup in tests
-
-
 class TestStrictParameter:
     """Test the strict parameter functionality."""
 

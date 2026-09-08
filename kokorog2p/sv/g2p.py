@@ -6,9 +6,11 @@ import unicodedata
 from collections.abc import Sequence
 from typing import Any
 
+from lexphon import ProviderError
+
 from kokorog2p.base import G2PBase
 from kokorog2p.lexicons.evidence import LexiconEvidence
-from kokorog2p.lexicons.lexphon_backend import LexphonBackend
+from kokorog2p.lexicons.lexphon_backend import LexphonBackend, provider_metadata
 from kokorog2p.punctuation import normalize_punctuation
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions, tokenize_with_offsets
@@ -63,9 +65,15 @@ class SwedishG2P(G2PBase):
         self.preserve_stress = preserve_stress
         self.lexicons = () if lexicons is None else tuple(lexicons)
         self._rules = SwedishRuleEngine()
+        self._last_provider_metadata: dict[str, object] | None = None
         self._lexphon = (
-            LexphonBackend("sv-se", self.lexicons, store=store)
-            if self.lexicons
+            LexphonBackend(
+                "sv-se",
+                self.lexicons,
+                fallback_provider=self.fallback_provider,
+                store=store,
+            )
+            if self.lexicons or self.fallback_provider is not None
             else None
         )
 
@@ -84,12 +92,20 @@ class SwedishG2P(G2PBase):
         return rendered or None
 
     def _word_to_phonemes(self, word: str) -> str | None:
+        self._last_provider_metadata = None
         if self._lexphon is not None:
-            token = self._lexphon.lookup(word)
+            try:
+                token = self._lexphon.lookup(word)
+            except ProviderError:
+                if self.strict:
+                    raise
+                token = None
             if token is not None and token.known and token.pronunciation:
                 rendered = self._render_kokoro(
                     normalize_nst_ipa_for_kokoro(token.pronunciation)
                 )
+                if token.source == "provider":
+                    self._last_provider_metadata = provider_metadata(token)
                 if rendered is not None:
                     return rendered
 
@@ -102,16 +118,6 @@ class SwedishG2P(G2PBase):
         return self._fallback_or_unknown(word)
 
     def _fallback_or_unknown(self, word: str) -> str | None:
-        if self.use_espeak_fallback:
-            from kokorog2p.espeak_g2p import EspeakOnlyG2P
-
-            return EspeakOnlyG2P(
-                language="sv", strict=self.strict, use_cli=self.use_cli
-            ).lookup(word)
-        if self.use_goruut_fallback:
-            from kokorog2p.goruut_g2p import GoruutOnlyG2P
-
-            return GoruutOnlyG2P(language="sv", strict=self.strict).lookup(word)
         if self.strict:
             raise ValueError(f"Swedish rule engine cannot phonemize {word!r}")
         return None
@@ -145,6 +151,9 @@ class SwedishG2P(G2PBase):
                     rating="3" if phonemes else "0",
                 )
                 raw = self.phonemize_word_raw(span.text, trace=True)
+                if self._last_provider_metadata is not None:
+                    for key, value in self._last_provider_metadata.items():
+                        token.set(key, value)
                 token.set("raw_ipa", raw.ipa)
                 token.set("rule_ids", raw.rule_ids)
                 token.set("feature_tags", raw.feature_tags)

@@ -8,17 +8,26 @@ Based on misaki French implementation, adapted for kokorog2p architecture.
 import re
 import unicodedata
 
+from lexphon import ProviderError
+
 from kokorog2p._optional import load_spacy_model
 from kokorog2p.base import G2PBase
-from kokorog2p.fr.fallback import FrenchFallback, FrenchGoruutFallback
 from kokorog2p.fr.lexicon import FrenchLexicon, TokenContext
 from kokorog2p.fr.normalizer import FrenchNormalizer
 from kokorog2p.lexicons.evidence import LexiconEvidence
+from kokorog2p.lexicons.lexphon_backend import LexphonBackend, provider_metadata
+from kokorog2p.phonemes import from_espeak, from_goruut
 from kokorog2p.pipeline.tokenizer import RegexTokenizer, SpacyTokenizer
 from kokorog2p.spacy_models import resolve_spacy_model
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
 
+
+def normalize_french_provider_ipa(phonemes: str) -> str:
+    """Normalize clean provider IPA for the French target inventory."""
+    for old, new in {"ʀ": "ʁ", "r": "ʁ", "ɹ": "ʁ", "g": "ɡ"}.items():
+        phonemes = phonemes.replace(old, new)
+    return phonemes.replace("ˈ", "").replace("ˌ", "")
 
 class FrenchG2P(G2PBase):
     """French G2P converter using dictionary lookup with fallback options.
@@ -66,7 +75,8 @@ class FrenchG2P(G2PBase):
             language: Language code (default: 'fr-fr').
             use_espeak_fallback: Whether to use espeak for OOV words.
             use_goruut_fallback: Whether to use goruut for OOV words.
-            use_cli: Whether to force the espeak CLI for OOV fallback.
+            use_cli: Retained for direct backend compatibility. It does not select
+                the Lexphon-owned native fallback provider.
             use_spacy: Whether to use spaCy for tokenization and POS tagging.
             spacy_model: spaCy French model package to load when use_spacy=True
                 (e.g., "fr_core_news_sm", "fr_core_news_md", "fr_core_news_lg").
@@ -82,13 +92,6 @@ class FrenchG2P(G2PBase):
         Raises:
             ValueError: If both use_espeak_fallback and use_goruut_fallback are True.
         """
-        # Validate mutual exclusion
-        if use_espeak_fallback and use_goruut_fallback:
-            raise ValueError(
-                "Cannot use both espeak and goruut fallback simultaneously. "
-                "Please set only one of use_espeak_fallback or "
-                "use_goruut_fallback to True."
-            )
 
         super().__init__(
             language=language,
@@ -116,7 +119,7 @@ class FrenchG2P(G2PBase):
         )
 
         # Initialize fallback (lazy)
-        self._fallback: FrenchFallback | FrenchGoruutFallback | None = None
+        self._fallback: LexphonBackend | None = None
 
         # Initialize spaCy (lazy)
         self._nlp: object | None = None
@@ -126,14 +129,36 @@ class FrenchG2P(G2PBase):
         self._spacy_tokenizer: SpacyTokenizer | None = None
 
     @property
-    def fallback(self) -> FrenchFallback | FrenchGoruutFallback | None:
-        """Lazily initialize the appropriate fallback."""
-        if self._fallback is None:
-            if self.use_goruut_fallback:
-                self._fallback = FrenchGoruutFallback()
-            elif self.use_espeak_fallback:
-                self._fallback = FrenchFallback(use_cli=self.use_cli)
+    def fallback(self) -> LexphonBackend | None:
+        """Lazily initialize the Lexphon provider adapter."""
+        if self._fallback is None and self.fallback_provider is not None:
+            self._fallback = LexphonBackend(
+                self.language, fallback_provider=self.fallback_provider
+            )
         return self._fallback
+
+    def _fallback_result(
+        self, word: str
+    ) -> tuple[str | None, int, dict[str, object] | None]:
+        backend = self.fallback
+        if backend is None:
+            return None, 0, None
+        try:
+            token = backend.lookup_token(word)
+        except ProviderError:
+            if self.strict:
+                raise
+            return None, 0, None
+        if token is None or not token.known or token.pronunciation is None:
+            return None, 0, None
+        metadata = provider_metadata(token)
+        if token.provider == "espeak":
+            ipa = from_espeak(token.pronunciation)
+        elif token.provider == "goruut":
+            ipa = from_goruut(token.pronunciation)
+        else:
+            return None, 0, None
+        return normalize_french_provider_ipa(ipa), 3, metadata
 
     @property
     def nlp(self) -> object:
@@ -201,10 +226,13 @@ class FrenchG2P(G2PBase):
                 token.set("rating", rating)
             elif self.fallback is not None:
                 # Try espeak fallback
-                ps, rating = self.fallback(token.text)
+                ps, rating, metadata = self._fallback_result(token.text)
                 if ps is not None:
                     token.phonemes = ps
                     token.set("rating", rating)
+                    if metadata is not None:
+                        for key, value in metadata.items():
+                            token.set(key, value)
 
         # Handle remaining unknown words
         for token in tokens:
@@ -303,6 +331,8 @@ class FrenchG2P(G2PBase):
 
     def close(self) -> None:
         self.lexicon.close()
+        if self._fallback is not None:
+            self._fallback.close()
         super().close()
 
     def lookup(self, word: str, tag: str | None = None) -> str | None:

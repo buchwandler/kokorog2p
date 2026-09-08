@@ -1,5 +1,10 @@
 import pytest
-from lexphon import DataStore, LexiconNotInstalledError, PronunciationToken
+from lexphon import (
+    DataStore,
+    LexiconNotInstalledError,
+    PronunciationToken,
+    PronunciationVariant,
+)
 
 from kokorog2p import get_g2p, phonemize
 from kokorog2p.sv import SwedishG2P, normalize_nst_ipa_for_kokoro
@@ -89,13 +94,24 @@ def test_missing_explicit_swedish_nst_data_is_actionable(tmp_path) -> None:
 
 def test_selected_nst_pronunciation_is_converted(monkeypatch) -> None:
     class FakeBackend:
-        def __init__(self, language, names, *, store=None) -> None:
+        def __init__(
+            self, language, names, *, fallback_provider=None, store=None
+        ) -> None:
             assert language == "sv-se"
             assert tuple(names) == ("nst",)
             self.ids = ("sv-se:nst",)
 
         def lookup(self, word):
-            return PronunciationToken(word, "h e j", "lexicon")
+            return PronunciationToken(
+                word,
+                variants=(
+                    PronunciationVariant(
+                        pronunciation="h e j", source_pronunciation="h e j"
+                    ),
+                ),
+                source="lexicon",
+                lexicon_id="sv-se:nst",
+            )
 
         def close(self) -> None:
             return

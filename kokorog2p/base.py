@@ -1,10 +1,29 @@
 """Abstract base class for G2P (Grapheme-to-Phoneme) converters."""
 
 from abc import ABC, abstractmethod
+from typing import Literal
 
 from .lexicons.evidence import LexiconEvidence
 from .token import GToken
 
+FallbackProvider = Literal["espeak", "goruut"] | None
+
+
+def resolve_fallback_provider(
+    *,
+    use_espeak_fallback: bool,
+    use_goruut_fallback: bool,
+) -> FallbackProvider:
+    if use_espeak_fallback and use_goruut_fallback:
+        raise ValueError(
+            "Cannot use both espeak and goruut fallback simultaneously. "
+            "Please set only one of use_espeak_fallback or use_goruut_fallback to True."
+        )
+    if use_goruut_fallback:
+        return "goruut"
+    if use_espeak_fallback:
+        return "espeak"
+    return None
 
 class G2PBase(ABC):
     """
@@ -28,13 +47,17 @@ class G2PBase(ABC):
             language: Language code (e.g., 'en-us', 'en-gb').
             use_espeak_fallback: Whether to use espeak for OOV words.
             use_goruut_fallback: Whether to use goruut for OOV words.
-            use_cli: If True, use CLI phonemizer instead of library bindings.
+            use_cli: If True, use the CLI only for direct backend implementations.
             strict: If True, raise exceptions on errors. If False, log warnings
                 and return empty results (backward compatible mode).
         """
         self.language = language
         self.use_espeak_fallback = use_espeak_fallback
         self.use_goruut_fallback = use_goruut_fallback
+        self.fallback_provider = resolve_fallback_provider(
+            use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
+        )
         self.use_cli = use_cli
         self.strict = strict
         self.load_silver: bool | None = None

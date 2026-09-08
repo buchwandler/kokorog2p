@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from lexphon import PronunciationToken
+from lexphon import PronunciationToken, PronunciationVariant
 
 from kokorog2p.th.g2p import ThaiG2P
 
@@ -16,11 +16,15 @@ class RecordingLexphon:
             (
                 PronunciationToken(
                     text=text[position:],
-                    pronunciation="a",
                     source="lexicon",
                     lexicon_id="th:lexhint",
                     matched_key=text[position:],
                     source_encoding="ipa",
+                    variants=(
+                        PronunciationVariant(
+                            pronunciation="a", source_pronunciation="a"
+                        ),
+                    ),
                 ),
             )
             if position == 0

@@ -1,9 +1,7 @@
 """Tests for the French G2P module."""
 
-from unittest.mock import patch
 
 from kokorog2p.fr import FrenchG2P
-from kokorog2p.fr.fallback import FrenchFallback
 from kokorog2p.fr.lexicon import FrenchLexicon
 from kokorog2p.spacy_models import SpacyModelResolution, SpacyModelSize
 from kokorog2p.token import GToken
@@ -45,9 +43,7 @@ class TestFrenchG2P:
 
         assert g2p.use_cli is True
         assert g2p.fallback is not None
-        assert g2p.fallback.use_cli is True
-        assert g2p.fallback.backend.use_cli is True
-
+        assert g2p.fallback.fallback_provider == "espeak"
     def test_call_returns_tokens_without_spacy(self):
         """Test token output without requiring spaCy model."""
         g2p = FrenchG2P(use_spacy=False, use_espeak_fallback=False)
@@ -82,8 +78,7 @@ class TestFrenchGetG2P:
         assert isinstance(g2p, FrenchG2P)
         assert g2p.use_cli is True
         assert g2p.fallback is not None
-        assert g2p.fallback.use_cli is True
-
+        assert g2p.fallback.fallback_provider == "espeak"
     def test_get_g2p_french_forwards_spacy_model(self, monkeypatch):
         """Test get_g2p forwards custom French spaCy model name."""
         from kokorog2p import clear_cache, get_g2p
@@ -94,25 +89,6 @@ class TestFrenchGetG2P:
 
         assert isinstance(g2p, FrenchG2P)
         assert g2p.spacy_model == "fr_core_news_md"
-
-
-class TestFrenchFallback:
-    def test_uses_locale_specific_standard_espeak_language(self):
-        fallback = FrenchFallback()
-
-        assert fallback.backend.language == "fr-fr"
-
-    def test_rejects_empty_or_placeholder_phonemes(self):
-        fallback = FrenchFallback()
-
-        with patch.object(fallback, "_backend_word_phonemes", return_value=""):
-            assert fallback("xyzzy") == (None, 0)
-
-        with patch.object(fallback, "_backend_word_phonemes", return_value="?"):
-            assert fallback("xyzzy") == (None, 0)
-
-        with patch.object(fallback, "_backend_word_phonemes", return_value="  "):
-            assert fallback("xyzzy") == (None, 0)
 
 
 class TestFrenchGoldLexicon:

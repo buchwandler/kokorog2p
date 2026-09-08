@@ -10,15 +10,11 @@ This page documents utility modules and helper functions.
    :undoc-members:
 ```
 
-## Fallback Handling
+## Generic provider handling
 
-The fallback module provides functionality for handling out-of-vocabulary words:
+Generic eSpeak and Goruut fallback ownership is provided by Lexphon 0.2 through the shared `LexphonBackend` adapter. Native frontends retain target-language IPA normalization, Kokoro conversion, ratings, and diagnostics. Provider results are not lexical routing evidence.
 
-```{eval-rst}
-.. automodule:: kokorog2p.en.fallback
-   :members:
-   :undoc-members:
-```
+Direct `backend="espeak"` and `backend="goruut"` remain documented in the backend API and are independent compatibility paths.
 
 ## Internal Utilities
 

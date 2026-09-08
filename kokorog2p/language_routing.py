@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
 from kokorog2p.language_codes import normalize_language_code, supported_languages
+from kokorog2p.language_pairs.registry import get_pair_analyzer
 from kokorog2p.lexicons.evidence import LexiconEvidence
 from kokorog2p.types import LanguageFragment, LanguageRoute, TokenSpan
 from kokorog2p.vocab import validate_for_kokoro
@@ -404,11 +405,10 @@ def _try_pair_decomposition(
     languages: tuple[str, ...],
     evidence: Callable[[str, str], LexiconEvidence | None],
 ) -> Sequence[LanguageFragment] | None:
-    if default_language not in {"de-de", "en-us", "en-gb"} or "de-de" not in languages:
+    analyzer = get_pair_analyzer(default_language, languages)
+    if analyzer is None:
         return None
-    from kokorog2p.language_pairs.de_en import decompose_token
-
-    return decompose_token(
+    return analyzer(
         token,
         default_language=default_language,
         candidate_languages=languages,

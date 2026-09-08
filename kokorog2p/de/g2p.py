@@ -27,10 +27,12 @@ from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any, Final
 
+from lexphon import ProviderError
+
 from kokorog2p._optional import load_spacy_model
 from kokorog2p.base import G2PBase
 from kokorog2p.lexicons.evidence import LexiconEvidence, evidence_from_lexphon_token
-from kokorog2p.phonemes import strip_espeak_language_markers
+from kokorog2p.lexicons.lexphon_backend import LexphonBackend
 from kokorog2p.pipeline.tokenizer import RegexTokenizer, SpacyTokenizer
 from kokorog2p.spacy_models import resolve_spacy_model
 from kokorog2p.token import GToken
@@ -435,13 +437,6 @@ class GermanG2P(G2PBase):
         Raises:
             ValueError: If both use_espeak_fallback and use_goruut_fallback are True.
         """
-        # Validate mutual exclusion
-        if use_espeak_fallback and use_goruut_fallback:
-            raise ValueError(
-                "Cannot use both espeak and goruut fallback simultaneously. "
-                "Please set only one of use_espeak_fallback or "
-                "use_goruut_fallback to True."
-            )
 
         super().__init__(
             language=language,
@@ -452,7 +447,7 @@ class GermanG2P(G2PBase):
         self._vocabulary = frozenset(get_vocab(version))
         self._lexicon: GermanLexicon | None = None
         self.lexicon: GermanLexicon | None = None
-        self._fallback: Any = None
+        self._provider_backend: LexphonBackend | None = None
         self._strip_stress = strip_stress
         if use_spacy and (spacy_model is None or spacy_model.lower() == "auto"):
             spacy_model = resolve_spacy_model(
@@ -482,25 +477,11 @@ class GermanG2P(G2PBase):
                 load_silver=load_silver,
                 load_gold=load_gold,
                 lexicons=lexicons,
+                fallback_provider=self.fallback_provider,
                 store=store,
             )
             self.lexicon = self._lexicon
 
-        # Initialize fallback (lazy)
-        if use_goruut_fallback:
-            try:
-                from kokorog2p.de.fallback import GermanGoruutFallback
-
-                self._fallback = GermanGoruutFallback()
-            except ImportError:
-                pass
-        elif use_espeak_fallback:
-            try:
-                from kokorog2p.de.fallback import GermanEspeakFallback
-
-                self._fallback = GermanEspeakFallback()
-            except ImportError:
-                pass
 
     @property
     def nlp(self) -> object:
@@ -536,9 +517,19 @@ class GermanG2P(G2PBase):
             )
         return self._spacy_tokenizer
 
-    def _decode_lexicon_pronunciation(self, phonemes: str) -> str | None:
-        """Normalize a raw lexicon pronunciation for the target vocabulary."""
-        phonemes = strip_espeak_language_markers(phonemes)
+    @property
+    def pronunciation_backend(self) -> Any:
+        """Return the shared full pronunciation backend."""
+        if self._lexicon is not None:
+            return self._lexicon
+        if self._provider_backend is None and self.fallback_provider is not None:
+            self._provider_backend = LexphonBackend(
+                self.language, fallback_provider=self.fallback_provider
+            )
+        return self._provider_backend
+
+    def _decode_ipa_pronunciation(self, phonemes: str) -> str | None:
+        """Normalize clean IPA for the target vocabulary."""
         normalized = normalize_internal(
             phonemes,
             use_tie_replacement=True,
@@ -574,77 +565,95 @@ class GermanG2P(G2PBase):
         )
 
         diagnostics = _ACTIVE_DIAGNOSTICS.get()
-        fallback_tokens: list[GToken] = []
+        word_tokens: list[GToken] = []
         for token in tokens:
             word = token.text
             is_word = any(c.isalnum() for c in word)
             if diagnostics is not None and is_word:
                 diagnostics.words += 1
-
             if not is_word:
                 token.phonemes = self._get_punct_phonemes(word)
                 token.set("rating", 4)
-                continue
+            else:
+                word_tokens.append(token)
 
-            phonemes = None
-            if self._lexicon is not None:
-                if diagnostics is not None:
-                    diagnostics.lexicon_calls += 1
-                    lookup_started = time.perf_counter_ns()
-                raw_phonemes = self._lexicon.lookup(word, token.tag)
-                if diagnostics is not None:
-                    elapsed = time.perf_counter_ns() - lookup_started
-                    diagnostics.lexicon_ns += elapsed
-                    diagnostics.add_slow_token(word, "lexicon", elapsed)
-                phonemes = (
-                    self._decode_lexicon_pronunciation(raw_phonemes)
-                    if raw_phonemes
-                    else None
-                )
-                if phonemes:
-                    if diagnostics is not None:
-                        diagnostics.lexicon_hits += 1
-                    token.phonemes = phonemes
-                    token.set("rating", 5)
+        backend = self.pronunciation_backend
+        if word_tokens and backend is not None:
+            words = [token.text for token in word_tokens]
+            if diagnostics is not None:
+                diagnostics.lexicon_calls += 1
+                lookup_started = time.perf_counter_ns()
+            try:
+                pronounce_many = getattr(backend, "pronounce_many", None)
+                if pronounce_many is not None:
+                    results = pronounce_many(words)
                 else:
+                    lookup = getattr(backend, "lookup", None)
+                    if lookup is None:
+                        raise AttributeError(
+                            "German pronunciation backend lacks pronounce_many "
+                            "and lookup"
+                        )
+                    results = tuple(lookup(word) for word in words)
+            except ProviderError:
+                if self.strict:
+                    raise
+                results = tuple(None for _ in words)
+            if diagnostics is not None:
+                elapsed = time.perf_counter_ns() - lookup_started
+                diagnostics.lexicon_ns += elapsed
+                diagnostics.add_slow_token("<batch>", "lexphon", elapsed)
+            for token, result in zip(word_tokens, results, strict=True):
+                if isinstance(result, str):
+                    pronunciation = result
+                    source = "lexicon"
+                    lexicon_id = None
+                elif result is None or not result.known or result.pronunciation is None:
                     if diagnostics is not None:
                         diagnostics.lexicon_misses += 1
-                    phonemes = None
-
-            if not phonemes and self._fallback is not None:
-                fallback_tokens.append(token)
-            elif not phonemes:
-                token.set("rating", 0)
-
-        if fallback_tokens and self._fallback is not None:
-            fallback_words = [token.text for token in fallback_tokens]
-            if diagnostics is not None:
-                diagnostics.fallback_calls += len(fallback_words)
-                fallback_started = time.perf_counter_ns()
-            fallback_many = getattr(self._fallback, "phonemize_many", None)
-            fallback_results = (
-                fallback_many(fallback_words)
-                if callable(fallback_many)
-                else [self._fallback(word) for word in fallback_words]
-            )
-            if diagnostics is not None:
-                elapsed = time.perf_counter_ns() - fallback_started
-                diagnostics.fallback_ns += elapsed
-                diagnostics.add_slow_token("<batch>", "fallback", elapsed)
-            if len(fallback_results) != len(fallback_tokens):
-                raise RuntimeError("Fallback returned an invalid batch length")
-            for token, fallback_result in zip(
-                fallback_tokens, fallback_results, strict=True
-            ):
-                phonemes = fallback_result[0]
-                if phonemes:
+                    continue
+                else:
+                    pronunciation = result.pronunciation
+                    source = result.source
+                    lexicon_id = result.lexicon_id
+                phonemes = self._decode_ipa_pronunciation(pronunciation)
+                if phonemes is None:
+                    if diagnostics is not None:
+                        diagnostics.lexicon_misses += 1
+                    continue
+                token.phonemes = phonemes
+                if source == "lexicon":
+                    token.set("rating", 5)
+                    token.set("pronunciation_source", "lexicon")
+                    token.set("pronunciation_lexicon_id", lexicon_id)
+                    if diagnostics is not None:
+                        diagnostics.lexicon_hits += 1
+                elif source == "provider":
+                    token.set("rating", 3)
+                    token.set("pronunciation_source", "provider")
+                    token.set("pronunciation_provider", result.provider)
+                    token.set(
+                        "pronunciation_requested_language",
+                        result.requested_language,
+                    )
+                    token.set("pronunciation_source_ipa", result.source_pronunciation)
+                    token.set(
+                        "pronunciation_language_markers",
+                        [
+                            {
+                                "language": marker.language,
+                                "ipa_offset": marker.ipa_offset,
+                            }
+                            for marker in result.language_markers
+                        ],
+                    )
                     if diagnostics is not None:
                         diagnostics.fallback_hits += 1
-                    token.phonemes = phonemes
-                    token.set("rating", 3)
-                elif diagnostics is not None:
-                    diagnostics.fallback_misses += 1
+                else:
+                    token.phonemes = None
                     token.set("rating", 0)
+                    if diagnostics is not None:
+                        diagnostics.lexicon_misses += 1
 
         for token in tokens:
             if not any(c.isalnum() for c in token.text) or token.phonemes:
@@ -676,9 +685,14 @@ class GermanG2P(G2PBase):
                 if token.get("rating") == 0:
                     diagnostics.source_counts["unresolved"] += 1
                 else:
-                    source = {5: "lexicon", 3: "espeak_fallback", 2: "german_rules"}[
-                        token.get("rating")
-                    ]
+                    source = token.get("pronunciation_source")
+                    if source == "provider":
+                        provider = token.get("pronunciation_provider") or "unknown"
+                        source = f"provider:{provider}"
+                    elif source is None:
+                        source = {2: "german_rules"}.get(
+                            token.get("rating"), "unknown"
+                        )
                     diagnostics.source_counts[source] += 1
 
         ensure_gtoken_positions(tokens, text)
@@ -985,6 +999,8 @@ class GermanG2P(G2PBase):
     def close(self) -> None:
         if self._lexicon is not None:
             self._lexicon.close()
+        if self._provider_backend is not None:
+            self._provider_backend.close()
         super().close()
 
     def lookup(self, word: str, tag: str | None = None) -> str | None:
@@ -999,10 +1015,12 @@ class GermanG2P(G2PBase):
         """
         if self._lexicon is None:
             return None
-        raw_phonemes = self._lexicon.lookup(word, tag)
-        if raw_phonemes is None:
+        value = self._lexicon.lookup(word, tag)
+        if isinstance(value, str):
+            return self._decode_ipa_pronunciation(value)
+        if value is None or not value.known or value.pronunciation is None:
             return None
-        return self._decode_lexicon_pronunciation(raw_phonemes)
+        return self._decode_ipa_pronunciation(value.pronunciation)
 
     def lexicon_evidence(
         self, word: str, tag: str | None = None

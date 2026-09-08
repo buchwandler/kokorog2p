@@ -32,11 +32,16 @@ def get_gold_phonemes(word: str, language: str = "en-us") -> str | None:
 def get_espeak_phonemes(word: str) -> str | None:
     """Get phonemes using espeak backend."""
     try:
-        from kokorog2p.en.fallback import EspeakFallback
+        from kokorog2p.en import EnglishG2P
 
-        espeak = EspeakFallback(british=False)
-        phonemes, _rating = espeak(word)
-        return phonemes
+        g2p = EnglishG2P(
+            language="en-us",
+            use_espeak_fallback=True,
+            use_spacy=False,
+            load_gold=False,
+            load_silver=False,
+        )
+        return g2p.lookup(word)
     except Exception:
         return None
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from lexphon import PronunciationToken
+from lexphon import PronunciationToken, PronunciationVariant
 
 from kokorog2p import clear_cache, get_g2p
 from kokorog2p.th.g2p import ThaiG2P, ThaiG2PError
@@ -17,12 +17,16 @@ class FakeLexphon:
         return tuple(
             PronunciationToken(
                 text=key,
-                pronunciation=self.entries[key],
                 source="lexicon",
                 lexicon_id="th:lexhint",
                 matched_key=key,
                 source_encoding="ipa",
-                variants=(self.entries[key],),
+                variants=(
+                    PronunciationVariant(
+                        pronunciation=self.entries[key],
+                        source_pronunciation=self.entries[key],
+                    ),
+                ),
             )
             for key in sorted(
                 (key for key in self.entries if text.startswith(key, position)),

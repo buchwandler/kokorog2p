@@ -6,6 +6,7 @@ from collections.abc import Sequence
 
 from lexphon import DataStore, PronunciationToken
 
+from kokorog2p.base import FallbackProvider
 from kokorog2p.lexicons.registry import normalize_lexicon_selection
 
 from .lexphon_backend import GermanLexphonBackend
@@ -21,6 +22,7 @@ class GermanLexicon:
         load_gold: bool | None = None,
         lexicons: Sequence[str] | None = None,
         *,
+        fallback_provider: FallbackProvider = None,
         store: DataStore | None = None,
     ) -> None:
         """Initialize the German lexicon without installing or downloading data."""
@@ -30,7 +32,9 @@ class GermanLexicon:
             load_gold=load_gold,
             load_silver=load_silver,
         )
-        self._backend = GermanLexphonBackend(names, store=store)
+        self._backend = GermanLexphonBackend(
+            names, fallback_provider=fallback_provider, store=store
+        )
         self._strip_stress = strip_stress
         self.load_silver = "silver" in names
         self.load_gold = "gold" in names
@@ -40,17 +44,39 @@ class GermanLexicon:
         self, word: str, tag: str | None = None
     ) -> PronunciationToken | None:
         """Return the structured selected Lexphon result for a word."""
-        lookup_token = getattr(self._backend, "lookup_token", self._backend.lookup)
-        return lookup_token(word, _normalize_german_lexicon_tag(tag))
+        lookup = getattr(self._backend, "lookup_lexicon_token", None)
+        if lookup is None:
+            lookup = getattr(self._backend, "lookup_token", self._backend.lookup)
+        return lookup(word, _normalize_german_lexicon_tag(tag))
 
+    def pronounce_token(
+        self, word: str, tag: str | None = None
+    ) -> PronunciationToken | None:
+        """Return the selected-lexicon or provider pronunciation token."""
+        lookup = getattr(self._backend, "lookup_token", self._backend.lookup)
+        return lookup(word, _normalize_german_lexicon_tag(tag))
+
+    def pronounce_many(
+        self, words: Sequence[str], tag: str | None = None
+    ) -> tuple[PronunciationToken | None, ...]:
+        """Batch full pronunciation lookup with one normalized German tag."""
+        lookup_many = getattr(self._backend, "lookup_many", None)
+        if lookup_many is not None:
+            return lookup_many(
+                words, tag=_normalize_german_lexicon_tag(tag)
+            )
+        return tuple(self.pronounce_token(word, tag) for word in words)
     def lookup(self, word: str, tag: str | None = None) -> str | None:
         """Look up a word using Lexphon's ordered layers and German tag mapping."""
-        token: PronunciationToken | None = self.lookup_token(word, tag)
-        if token is None or not token.known:
-            return None
-        phonemes = token.pronunciation
-        if phonemes is None:
-            return None
+        value = self.lookup_token(word, tag)
+        if isinstance(value, str):
+            phonemes = value
+        else:
+            if value is None or not value.known:
+                return None
+            phonemes = value.pronunciation
+            if phonemes is None:
+                return None
         if self._strip_stress:
             phonemes = phonemes.replace("ˈ", "").replace("ˌ", "")
         return phonemes

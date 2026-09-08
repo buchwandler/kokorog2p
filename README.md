@@ -166,6 +166,19 @@ result = phonemize_prepared(
 Annotation offsets are ordered, non-overlapping, half-open offsets into the prepared
 text.
 
+## Generic pronunciation providers
+
+When `use_espeak_fallback` or `use_goruut_fallback` is enabled, supported native frontends use Lexphon 0.2 for generic provider execution. `use_cli` is retained for direct backend compatibility and does not select the Lexphon provider path.
+
+Provider output is clean IPA and is converted to the target Kokoro vocabulary by each language frontend. Provider results are realization data, not lexical routing evidence. Install provider extras explicitly when needed:
+
+```bash
+python -m pip install "kokorog2p[espeak]"
+python -m pip install "kokorog2p[goruut]"
+```
+
+Direct `backend="espeak"` and `backend="goruut"` remain available as compatibility paths. Lexphon data installation is also explicit; KokoroG2P does not provision dictionaries automatically.
+
 ## Supported languages
 
 English (`en-us`, `en-gb`), German (`de`), French (`fr`), Spanish (`es`), Italian

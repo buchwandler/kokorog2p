@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from kokorog2p.en.fallback import EspeakFallback
+from kokorog2p.en import EnglishG2P
 from scripts.rebuild_lexicon_base import rebuild_lexicon_file
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,11 +13,16 @@ LEXICON_PATH = ROOT / "lexicons" / "sources" / "en" / "gb_gold.json"
 
 
 def main() -> int:
-    fallback = EspeakFallback(british=True)
+    g2p = EnglishG2P(
+        language="en-gb",
+        use_espeak_fallback=True,
+        use_spacy=False,
+        load_gold=False,
+        load_silver=False,
+    )
 
     def phonemize(word: str) -> str | None:
-        phonemes, _rating = fallback(word)
-        return phonemes
+        return g2p.lookup(word)
 
     return rebuild_lexicon_file(LEXICON_PATH, LEXICON_PATH, phonemize)
 

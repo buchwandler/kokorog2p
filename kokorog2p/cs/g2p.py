@@ -15,10 +15,13 @@ https://cs.wikipedia.org/wiki/Fonologie_%C4%8De%C5%A1tiny
 """
 
 import re
-from typing import Any, Final
+from typing import Final
+
+from lexphon import ProviderError
 
 from kokorog2p.base import G2PBase
 from kokorog2p.cs.normalizer import CzechNormalizer
+from kokorog2p.lexicons.lexphon_backend import LexphonBackend, provider_metadata
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
 
@@ -276,40 +279,63 @@ class CzechG2P(G2PBase):
         Raises:
             ValueError: If both use_espeak_fallback and use_goruut_fallback are True.
         """
-        # Validate mutual exclusion
-        if use_espeak_fallback and use_goruut_fallback:
-            raise ValueError(
-                "Cannot use both espeak and goruut fallback simultaneously. "
-                "Please set only one of use_espeak_fallback or "
-                "use_goruut_fallback to True."
-            )
 
-        super().__init__(language=language, use_espeak_fallback=use_espeak_fallback)
+        super().__init__(
+            language=language,
+            use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
+        )
         self.version = version
         self.unk = unk
         self.load_silver = load_silver
         self.load_gold = load_gold
         self.use_goruut_fallback = use_goruut_fallback
-        self._fallback: Any = None
+        self._fallback: LexphonBackend | None = None
 
         # Initialize normalizer
         self._normalizer = CzechNormalizer()
 
-        # Initialize fallback (lazy)
-        if use_goruut_fallback:
-            try:
-                from kokorog2p.cs.fallback import CzechGoruutFallback
+    @property
+    def fallback(self) -> LexphonBackend | None:
+        """Lazily initialize the Lexphon provider adapter."""
+        if self._fallback is None and self.fallback_provider is not None:
+            self._fallback = LexphonBackend(
+                self.language, fallback_provider=self.fallback_provider
+            )
+        return self._fallback
 
-                self._fallback = CzechGoruutFallback()
-            except ImportError:
-                pass
-        elif use_espeak_fallback:
-            try:
-                from kokorog2p.cs.fallback import CzechEspeakFallback
+    @staticmethod
+    def _normalize_provider_ipa(phonemes: str) -> str:
+        for old, new in {
+            "g": "ɡ",
+            "͡": "",
+            "^": "",
+            "ˈ": "",
+            "ˌ": "",
+        }.items():
+            phonemes = phonemes.replace(old, new)
+        return phonemes
 
-                self._fallback = CzechEspeakFallback()
-            except ImportError:
-                pass
+    def _fallback_result(
+        self, word: str
+    ) -> tuple[str | None, dict[str, object] | None]:
+        backend = self.fallback
+        if backend is None:
+            return None, None
+        try:
+            token = backend.lookup_token(word)
+        except ProviderError:
+            if self.strict:
+                raise
+            return None, None
+        if token is None or not token.known or token.pronunciation is None:
+            return None, None
+        if token.provider not in {"espeak", "goruut"}:
+            return None, None
+        return (
+            self._normalize_provider_ipa(token.pronunciation),
+            provider_metadata(token),
+        )
 
     def __call__(self, text: str) -> list[GToken]:
         """Convert text to a list of tokens with phonemes.
@@ -352,16 +378,19 @@ class CzechG2P(G2PBase):
                 phonemes = self._word_to_phonemes(word)
 
                 # Optionally use fallback if enabled
-                # (Useful for loan words or foreign abbreviations)
-                if not phonemes and self._fallback:
-                    fallback_phonemes, _rating = self._fallback(word)
-                    if fallback_phonemes:
-                        phonemes = fallback_phonemes
-                        token.set("rating", 2)  # Fallback rating
+                if not phonemes:
+                    provider_phonemes, metadata = self._fallback_result(word)
+                    if provider_phonemes:
+                        phonemes = provider_phonemes
+                        token.set("rating", 3)
+                        token.set("pronunciation_source", "provider")
+                        if metadata is not None:
+                            for key, value in metadata.items():
+                                token.set(key, value)
                     else:
-                        token.set("rating", 4)  # Rule-based
+                        token.set("rating", 4)
                 else:
-                    token.set("rating", 4)  # Rule-based
+                    token.set("rating", 4)
 
                 token.phonemes = phonemes if phonemes else self.unk
 
@@ -369,6 +398,11 @@ class CzechG2P(G2PBase):
 
         ensure_gtoken_positions(tokens, text)
         return tokens
+
+    def close(self) -> None:
+        if self._fallback is not None:
+            self._fallback.close()
+        super().close()
 
     def _word_to_phonemes(self, word: str) -> str:  # noqa: C901
         """Convert a single word to phonemes using Czech rules.

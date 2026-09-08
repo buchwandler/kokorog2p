@@ -9,6 +9,11 @@ application or an optional cross-package tool, then pass the result to
 `phonemize_prepared()`. Core normalizers may apply only intrinsic typography and
 phonological normalization.
 
+## Lexphon provider fallback ownership
+
+Generic eSpeak and Goruut fallback flags configure Lexphon 0.2 providers for migrated native frontends. The frontends still perform language-specific IPA normalization and Kokoro vocabulary conversion. `use_cli` affects only the direct compatibility backends, not Lexphon provider execution.
+
+Provider results carry structured provenance metadata and are excluded from lexical routing evidence. Provider and Lexphon dictionary data are provisioned explicitly; KokoroG2P does not download or cache provider results.
 ## Custom G2P Configuration
 
 ### Tri-state spaCy model resolution
@@ -44,7 +49,7 @@ g2p = get_g2p("en-us")
 # Saves ~22-31 MB memory and ~400-470 ms initialization time
 g2p_fast = get_g2p("en-us", load_silver=False)
 
-# Ultra-fast initialization: No dictionaries (~7 MB, espeak fallback only)
+# Ultra-fast initialization: No dictionaries (~7 MB, Lexphon provider fallback only)
 # Saves ~50+ MB memory, fastest initialization
 g2p_minimal = get_g2p("en-us", load_silver=False, load_gold=False)
 
@@ -66,7 +71,7 @@ print(f"Silver entries: {len(g2p.lexicon.silvers):,}")
   (limited memory) \* Real-time applications (faster initialization) \* You only need
   common vocabulary \* Production deployments where performance is critical
 - **Disable both** (`load_gold=False, load_silver=False`): \* Ultra-fast initialization
-  is critical \* You're fine with espeak-only fallback \* Minimal memory footprint
+  is critical \* You're fine with Lexphon provider fallback
   required \* Testing or prototyping
 
 **Default (both enabled) provides:**
@@ -179,9 +184,9 @@ Tokens have a rating indicating the source of phonemes:
 
 - **5**: User-provided (via OverrideSpan) or gold dictionary (highest quality)
 - **4**: Punctuation
-- **3**: Silver dictionary or rule-based conversion
-- **2**: From espeak-ng fallback
-- **1**: From goruut backend
+- **3**: Silver dictionary, provider fallback, or rule-based conversion
+- **2**: Native language rule conversion (language-specific policy)
+- **1**: Reserved for frontend-specific low-confidence output
 - **0**: Unknown/failed
 
 ```python
@@ -195,9 +200,9 @@ for token in tokens:
     if rating == 5:
         print(f"{token.text}: High quality (gold dictionary)")
     elif rating == 3:
-        print(f"{token.text}: Silver dictionary")
+        print(f"{token.text}: Silver dictionary, provider, or rule-based")
     elif rating == 2:
-        print(f"{token.text}: Fallback (espeak)")
+        print(f"{token.text}: Native rule conversion")
     elif rating == 0:
         print(f"{token.text}: Unknown")
 ```

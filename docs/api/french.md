@@ -1,7 +1,7 @@
 # French API
 
 The French frontend phonemizes prepared French text using its dictionary and optional
-spaCy/espeak controls. Numbers, currencies, dates, units, and abbreviations are not
+spaCy controls. Generic eSpeak/Goruut fallback execution is owned by Lexphon 0.2.
 expanded by KokoroG2P.
 
 ```python

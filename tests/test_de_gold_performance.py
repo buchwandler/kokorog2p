@@ -86,7 +86,7 @@ def test_german_diagnostics_are_opt_in() -> None:
         with capture_diagnostics(max_slow_tokens=1) as stats:
             g2p("Haus OOV")
         assert stats.words == 2
-        assert stats.lexicon_calls == 2
+        assert stats.lexicon_calls == 1
         assert stats.lexicon_hits == 1
         assert stats.lexicon_misses == 1
         assert stats.rule_calls == 1
@@ -132,8 +132,7 @@ def test_cli_batch_uses_one_phonemization_process(
     assert phonemizer.phonemize_many(["Haus", "weiß", "Klein"])
     assert calls == 1
 
-
-def test_german_cli_fallback_batches_oov_words(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_german_fallback_uses_lexphon_provider_backend() -> None:
     from kokorog2p.de import GermanG2P
 
     g2p = GermanG2P(
@@ -141,86 +140,9 @@ def test_german_cli_fallback_batches_oov_words(monkeypatch: pytest.MonkeyPatch) 
         use_espeak_fallback=True,
         use_spacy=False,
     )
-    g2p._fallback.use_cli = True
-    backend = g2p._fallback.backend
-    import subprocess
-
-    _ = backend.wrapper.version
-
-    original_run = subprocess.run
-    calls = 0
-
-    def counted_run(*args: object, **kwargs: object):
-        nonlocal calls
-        command = args[0] if args else kwargs.get("args")
-        if (
-            isinstance(command, (list, tuple))
-            and command
-            and "espeak" in str(command[0])
-        ):
-            calls += 1
-        return original_run(*args, **kwargs)
-
-    monkeypatch.setattr(subprocess, "run", counted_run)
     try:
-        tokens = g2p("xylophonq blablaq")
-        assert len(tokens) == 2
-        assert calls <= 2
+        backend = g2p.pronunciation_backend
+        assert backend is not None
+        assert backend._backend.fallback_provider == "espeak"
     finally:
         g2p.close()
-
-
-def test_fallback_cache_reuses_pronunciation_state() -> None:
-    from kokorog2p.fallback_base import FallbackBase
-
-    class Backend:
-        version = "1.0"
-        language = "de"
-        tie = "^"
-        data_path = None
-        calls = 0
-
-        def word_phonemes(self, word: str, convert_to_kokoro: bool = False) -> str:
-            del convert_to_kokoro
-            self.calls += 1
-            return word
-
-    class Fallback(FallbackBase[Backend]):
-        def _create_backend(self) -> Backend:
-            return Backend()
-
-        def _postprocess_word(self, phonemes: str) -> str:
-            return phonemes
-
-    fallback = Fallback()
-    assert fallback("Haus") == ("Haus", 1)
-    assert fallback("Haus") == ("Haus", 1)
-    assert fallback.backend.calls == 1
-
-
-def test_batch_cache_key_does_not_initialize_backend_version() -> None:
-    from kokorog2p.fallback_base import FallbackBase
-
-    class Backend:
-        language = "de"
-        tie = "^"
-        data_path = None
-
-        @property
-        def version(self) -> str:
-            raise AssertionError("cache keys must not initialize the backend")
-
-        def phonemize_many(
-            self, words: list[str], convert_to_kokoro: bool = False
-        ) -> list[str]:
-            del convert_to_kokoro
-            return ["a" for _ in words]
-
-    class Fallback(FallbackBase[Backend]):
-        def _create_backend(self) -> Backend:
-            return Backend()
-
-        def _postprocess_word(self, phonemes: str) -> str:
-            return phonemes
-
-    assert Fallback().phonemize_many(["Haus"]) == [("a", 1)]

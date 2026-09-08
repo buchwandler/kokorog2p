@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from lexphon import PronunciationToken
+from lexphon import PronunciationToken, PronunciationVariant
 
 from kokorog2p.ru import RussianG2P
 
@@ -14,12 +14,16 @@ class FakeLexphon:
     def lookup(self, word: str, tag: str | None = None) -> PronunciationToken:
         return PronunciationToken(
             text=word,
-            pronunciation=self.pronunciation,
             source="lexicon",
             lexicon_id="ru:lexhint",
             matched_key=word,
             source_encoding="ipa",
-            variants=(self.pronunciation,),
+            variants=(
+                PronunciationVariant(
+                    pronunciation=self.pronunciation,
+                    source_pronunciation=self.pronunciation,
+                ),
+            ),
         )
 
     def close(self) -> None:
@@ -71,7 +75,7 @@ def test_russian_lookup_key_is_casefolded() -> None:
 def test_unknown_words_are_strict_or_unresolved() -> None:
     class UnknownLexphon(FakeLexphon):
         def lookup(self, word: str, tag: str | None = None):
-            return PronunciationToken(word, None, "unknown")
+            return PronunciationToken(word, "lexicon")
 
     strict = RussianG2P()
     strict._lexphon = UnknownLexphon()  # type: ignore[assignment]

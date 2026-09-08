@@ -3,6 +3,7 @@
 from importlib.util import find_spec
 
 import pytest
+from lexphon import PronunciationToken, PronunciationVariant
 
 from kokorog2p import phonemize
 from kokorog2p.de import GermanG2P, GermanLexicon
@@ -28,10 +29,14 @@ def g2p_no_lexicon():
 def test_missing_german_lexphon_data_has_installation_error(tmp_path) -> None:
     from lexphon import DataStore, LexiconNotInstalledError
 
-    with pytest.raises(
-        LexiconNotInstalledError, match="lexphon data install de-de:gold"
-    ):
-        GermanLexicon(store=DataStore(tmp_path))
+    lexicon = GermanLexicon(store=DataStore(tmp_path))
+    try:
+        with pytest.raises(
+            LexiconNotInstalledError, match="lexphon data install de-de:gold"
+        ):
+            lexicon.lookup("Haus")
+    finally:
+        lexicon.close()
 
 
 @pytest.fixture(scope="module")
@@ -60,34 +65,48 @@ def test_crane_ipa_normalization(value, expected):
     assert normalize_to_kokoro(value, use_tie_replacement=True) == expected
 
 
-def test_german_fallback_removes_espeak_tie_markers_before_normalization():
-    from kokorog2p.de.fallback import GermanEspeakFallback
+def test_german_normalization_replaces_tie_markers():
+    from kokorog2p.de.g2p import normalize_to_kokoro
 
-    fallback = GermanEspeakFallback()
-    assert fallback._postprocess_word("t^ʃ") == "tʃ"
+    assert normalize_to_kokoro("t^ʃ", use_tie_replacement=True) == "ʧ"
 
 
-def test_german_fallback_normalizes_clean_espeak_marker_output():
-    from kokorog2p.de.fallback import GermanEspeakFallback
+
+def test_direct_espeak_marker_sanitization_remains_available():
     from kokorog2p.phonemes import strip_espeak_language_markers
 
-    fallback = GermanEspeakFallback()
-    clean = strip_espeak_language_markers("(en)fˈa^ɪl(de)")
-
-    assert fallback._postprocess_word(clean) == "fˈIl"
+    assert strip_espeak_language_markers("(en)fˈa^ɪl(de)") == "fˈa^ɪl"
 
 
-def test_german_g2p_preserves_fallback_ownership_for_marker_free_result():
-    class FixedFallback:
-        def phonemize_many(self, words):
-            return [("fˈIl",) for _ in words]
+
+def test_german_g2p_uses_lexphon_provider_result_without_marker_controls():
+    class FixedBackend:
+        def pronounce_many(self, words):
+            return tuple(
+                PronunciationToken(
+                    text=word,
+                    source="provider",
+                    provider="espeak",
+                    requested_language="de-de",
+                    variants=(
+                        PronunciationVariant(
+                            pronunciation="fˈIl",
+                            source_pronunciation="(en)fˈIl(de)",
+                        ),
+                    ),
+                )
+                for word in words
+            )
+
+        def close(self):
+            pass
 
     g2p = GermanG2P(
         use_lexicon=False,
         use_espeak_fallback=False,
         use_goruut_fallback=False,
     )
-    g2p._fallback = FixedFallback()
+    g2p._provider_backend = FixedBackend()
     try:
         token = next(token for token in g2p("File") if token.is_word)
     finally:
@@ -96,13 +115,24 @@ def test_german_g2p_preserves_fallback_ownership_for_marker_free_result():
     assert token.text == "File"
     assert token.phonemes == "fˈIl"
     assert token.get("rating") == 3
-
+    assert token.get("pronunciation_source") == "provider"
+    assert token.get("pronunciation_provider") == "espeak"
 
 def test_german_lexicon_decode_removes_language_markers():
     class MarkerLexicon:
         def lookup(self, word, tag=None):
             del word, tag
-            return "(en)fˈIlde(de)"
+            return PronunciationToken(
+                text="File",
+                source="lexicon",
+                lexicon_id="de-de:fixture",
+                variants=(
+                    PronunciationVariant(
+                        pronunciation="fˈIlde",
+                        source_pronunciation="(en)fˈIlde(de)",
+                    ),
+                ),
+            )
 
         def close(self):
             pass
@@ -409,10 +439,18 @@ class TestGermanLexicon:
             def lookup(self, word, tag=None):
                 return PronunciationToken(
                     text=word,
-                    pronunciation="hˈaʊs",
                     source="lexicon",
                     lexicon_id="de-de:fixture",
-                    variants=("hˈaʊs", "haʊs"),
+                    variants=(
+                        PronunciationVariant(
+                            pronunciation="hˈaʊs",
+                            source_pronunciation="hˈaʊs",
+                        ),
+                        PronunciationVariant(
+                            pronunciation="haʊs",
+                            source_pronunciation="haʊs",
+                        ),
+                    ),
                     selector_tag=tag,
                 )
 

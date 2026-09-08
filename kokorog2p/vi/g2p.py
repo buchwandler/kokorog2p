@@ -11,9 +11,9 @@ from typing import Any, Literal
 from lexphon import LexiconNotInstalledError
 
 from kokorog2p.base import G2PBase
-from kokorog2p.espeak_g2p import EspeakOnlyG2P
 from kokorog2p.lexicons.evidence import LexiconEvidence
 from kokorog2p.lexicons.lexphon_backend import LexphonBackend
+from kokorog2p.phonemes import from_espeak
 from kokorog2p.punctuation import normalize_punctuation
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
@@ -101,12 +101,6 @@ class VietnameseG2P(G2PBase):
                 "foreign_fallback must be 'english', 'espeak', or 'none', "
                 f"got {foreign_fallback!r}"
             )
-        if (
-            use_espeak_fallback
-            and use_goruut_fallback
-            and foreign_fallback == "english"
-        ):
-            raise ValueError("English fallback cannot enable both espeak and goruut")
 
         super().__init__(
             language="vi-vn",
@@ -121,6 +115,7 @@ class VietnameseG2P(G2PBase):
         self.use_goruut_fallback = use_goruut_fallback
         self.use_cli = use_cli
         self._foreign_g2p: G2PBase | None = None
+        self._foreign_provider: LexphonBackend | None = None
 
         self.lexicons = ("lexhint",) if lexicons is None else tuple(lexicons)
         self.store = store
@@ -136,35 +131,41 @@ class VietnameseG2P(G2PBase):
     @property
     def foreign_g2p(self) -> G2PBase | None:
         """Lazily create the configured foreign-token frontend."""
-        if self.foreign_fallback == "none":
+        if self.foreign_fallback != "english":
             return None
         if self._foreign_g2p is None:
-            if self.foreign_fallback == "espeak":
-                self._foreign_g2p = EspeakOnlyG2P(
-                    language="en-us", strict=self.strict, use_cli=self.use_cli
-                )
-            else:
-                # Import the concrete class instead of the public factory. This
-                # avoids rebuilding the factory while processing a foreign word.
-                from kokorog2p.en import EnglishG2P
+            # Import the concrete class instead of the public factory. This
+            # avoids rebuilding the factory while processing a foreign word.
+            from kokorog2p.en import EnglishG2P
 
-                self._foreign_g2p = EnglishG2P(
-                    language="en-us",
-                    use_espeak_fallback=self.use_espeak_fallback,
-                    use_goruut_fallback=self.use_goruut_fallback,
-                    use_cli=self.use_cli,
-                    use_spacy=False,
-                    load_silver=False,
-                    load_gold=True,
-                    strict=self.strict,
-                )
+            self._foreign_g2p = EnglishG2P(
+                language="en-us",
+                use_espeak_fallback=self.use_espeak_fallback,
+                use_goruut_fallback=self.use_goruut_fallback,
+                use_cli=self.use_cli,
+                use_spacy=False,
+                load_silver=False,
+                load_gold=True,
+                strict=self.strict,
+            )
         return self._foreign_g2p
 
     def _foreign_word(self, word: str) -> str | None:
-        backend = self.foreign_g2p
-        if backend is None:
-            return None
         try:
+            if self.foreign_fallback == "espeak":
+                if self._foreign_provider is None:
+                    self._foreign_provider = LexphonBackend(
+                        "en-us", fallback_provider="espeak"
+                    )
+                token = self._foreign_provider.lookup_token(word)
+                if token is None or not token.known or token.pronunciation is None:
+                    return None
+                if token.provider != "espeak":
+                    return None
+                return from_espeak(token.pronunciation) or None
+            backend = self.foreign_g2p
+            if backend is None:
+                return None
             phonemes = backend.phonemize(word)
             return phonemes or None
         except Exception as exc:
@@ -335,6 +336,8 @@ class VietnameseG2P(G2PBase):
             self._lexphon.close()
         if self._foreign_g2p is not None:
             self._foreign_g2p.close()
+        if self._foreign_provider is not None:
+            self._foreign_provider.close()
 
     def __repr__(self) -> str:
         return (

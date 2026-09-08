@@ -484,15 +484,18 @@ def run_all_benchmarks(
     # Import kokorog2p components
     print("\nInitializing G2P components...")
     from kokorog2p.en import EnglishG2P
-    from kokorog2p.en.fallback import EspeakFallback
     from kokorog2p.phonemes import US_VOCAB
 
     g2p_no_spacy = EnglishG2P(
-        language="en-us", use_espeak_fallback=False, use_spacy=False
+        language="en-us",
+        use_espeak_fallback=True,
+        use_spacy=False,
+        load_gold=False,
+        load_silver=False
     )
 
-    # Initialize espeak fallback for accuracy testing (without dictionary)
-    espeak_fallback = EspeakFallback(british=False)
+    def espeak_fallback(word: str) -> tuple[str | None, int]:
+        return g2p_no_spacy.lookup(word), 3
 
     # Try to initialize goruut backend (optional)
     goruut_backend = None

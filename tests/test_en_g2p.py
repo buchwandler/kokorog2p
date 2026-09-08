@@ -3,6 +3,7 @@
 from typing import Literal
 
 import pytest
+from lexphon import PronunciationToken, PronunciationVariant
 
 from kokorog2p import phonemize_prepared, phonemize_to_result
 from kokorog2p.en.g2p import EnglishG2P
@@ -1232,6 +1233,32 @@ class TestContractionRobustness:
 class TestGoruutFallback:
     """Test goruut fallback functionality for English G2P."""
 
+    @pytest.fixture(autouse=True)
+    def fake_lexphon_provider(self, monkeypatch):
+        class FakeBackend:
+            fallback_provider = "goruut"
+
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def lookup_token(self, word: str):
+                return PronunciationToken(
+                    text=word,
+                    source="provider",
+                    provider="goruut",
+                    requested_language="en-us",
+                    variants=(
+                        PronunciationVariant(
+                            pronunciation="hˈɛloʊn",
+                            source_pronunciation="hˈɛloʊ",
+                        ),
+                    ),
+                )
+
+            def close(self):
+                pass
+
+        monkeypatch.setattr("kokorog2p.en.g2p.LexphonBackend", FakeBackend)
     @pytest.fixture
     def g2p_goruut(self):
         """Create EnglishG2P with goruut fallback."""
@@ -1341,9 +1368,7 @@ class TestGoruutFallback:
         assert g2p_goruut.fallback is not None
 
         # Should be GoruutFallback instance
-        from kokorog2p.en.fallback import GoruutFallback
-
-        assert isinstance(g2p_goruut.fallback, GoruutFallback)
+        assert g2p_goruut.fallback.fallback_provider == "goruut"
 
     def test_goruut_sentence_phonemization(self, g2p_goruut, phoneme_backend):
         """Test goruut fallback with full sentences."""

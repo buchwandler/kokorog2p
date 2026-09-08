@@ -40,7 +40,7 @@ from collections.abc import Callable, Mapping, Sequence
 from threading import RLock
 from typing import Any, Literal, Optional, Union
 
-from kokorog2p.base import G2PBase
+from kokorog2p.base import FallbackProvider, G2PBase, resolve_fallback_provider
 from kokorog2p.lexicons.evidence import LexiconEvidence
 from kokorog2p.language_codes import normalize_language_code, supported_languages
 from kokorog2p.lexicons.registry import (
@@ -411,6 +411,10 @@ def get_g2p(  # noqa: C901
     effective_load_gold = True if load_gold is None else load_gold
     if use_espeak_fallback is None:
         use_espeak_fallback = lang != "sv-se"
+    fallback_provider: FallbackProvider = resolve_fallback_provider(
+        use_espeak_fallback=use_espeak_fallback,
+        use_goruut_fallback=use_goruut_fallback,
+    )
     # Validate version parameter
     if version not in ("1.0", "1.1"):
         raise ValueError(
@@ -455,8 +459,7 @@ def get_g2p(  # noqa: C901
     )
     cache_key = (
         lang,
-        use_espeak_fallback,
-        use_goruut_fallback,
+        fallback_provider,
         use_cli,
         effective_use_spacy,
         forwarded_spacy_model,
