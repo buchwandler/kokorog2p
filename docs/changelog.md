@@ -13,6 +13,10 @@
 - Added selected-lexicon evidence and provenance-aware routing across additional
   language frontends
 
+### Changed
+
+- Use Lexphon 0.1.3 language markers for conservative German-English loanword routing
+
 ### Fixed
 
 - Fixed benchmark-found pronunciation and routing edge cases across Japanese, Kazakh,

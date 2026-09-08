@@ -30,6 +30,40 @@ def test_released_lexhint_assets_are_usable() -> None:
     not os.environ.get("KOKOROG2P_EXTERNAL_LEXPHON_DATA"),
     reason="released Lexphon data is not provisioned",
 )
+def test_released_german_gold_exposes_clean_pronunciation_and_markers() -> None:
+    g2p = get_g2p(
+        "de",
+        lexicons=("gold",),
+        use_spacy=False,
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+    )
+    try:
+        for word in ("downloaden", "cancel", "download"):
+            evidence = g2p.lexicon_evidence(word)
+            assert evidence is not None
+            assert evidence.lexicon_id == "de-de:gold"
+            assert evidence.rating == 4
+            assert evidence.pronunciation is not None
+            assert "(en)" not in evidence.pronunciation
+            assert "(de)" not in evidence.pronunciation
+            markers = evidence.metadata["pronunciation_language_markers"]
+            assert markers and markers[0]["language"] == "en"
+            rendered = g2p.lookup(word)
+            assert rendered is not None
+            assert not rendered.startswith("en")
+            assert not rendered.endswith("de")
+            assert "(en)" not in rendered
+            assert "(de)" not in rendered
+    finally:
+        g2p.close()
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(
+    not os.environ.get("KOKOROG2P_EXTERNAL_LEXPHON_DATA"),
+    reason="released Lexphon data is not provisioned",
+)
 @pytest.mark.parametrize("language", ["ru", "th", "vi"])
 def test_released_lexhint_covers_station_smoke_corpus(language: str) -> None:
     clear_cache()

@@ -27,7 +27,7 @@ def _make_wheel(path: Path, extra: list[str]) -> None:
     with zipfile.ZipFile(path, "w") as archive:
         for name in members:
             content = (
-                "Metadata-Version: 2.1\nRequires-Dist: lexphon>=0.1.0,<0.2\n"
+                "Metadata-Version: 2.1\nRequires-Dist: lexphon>=0.1.3,<0.2\n"
                 if name == metadata_name
                 else "fixture"
             )

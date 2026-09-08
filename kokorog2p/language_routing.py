@@ -118,13 +118,16 @@ def _fragment(
 def _default_fragment(
     token: TokenSpan, language: str, evidence: LexiconEvidence | None = None
 ) -> LanguageFragment:
-    return _fragment(
+    return LanguageFragment(
         token.char_start,
         token.char_end,
         token.text,
         language,
+        "auto",
         "whole-token",
-        evidence,
+        None if evidence is None else evidence.lexicon_id,
+        None if evidence is None else evidence.kind,
+        None if evidence is None else evidence.rating,
     )
 
 
@@ -258,13 +261,39 @@ def route_languages(  # noqa: C901
             for language, evidence in foreign_evidence
             if evidence is not None
         ]
+        pair_fragments: Sequence[LanguageFragment] | None = None
+        if default_evidence is not None or not foreign_hits:
+            pair_fragments = _try_pair_decomposition(
+                token,
+                default,
+                allowed,
+                lambda language, value: candidate_evidence(language, value),
+            )
         selected_language = default
         selected_evidence = default_evidence
-        fragments: Sequence[LanguageFragment] | None = None
+        fragments: Sequence[LanguageFragment] | None = pair_fragments
         reason = "default language"
         confidence = "default"
-
-        if default_evidence is not None:
+        if pair_fragments:
+            if len(pair_fragments) == 1 and pair_fragments[0].language != default:
+                selected_language = pair_fragments[0].language
+                selected_evidence = next(
+                    (
+                        candidate
+                        for language, candidate in foreign_hits
+                        if language == selected_language
+                    ),
+                    None,
+                )
+                reason = (
+                    "foreign pronunciation confirmed by default lexicon language marker"
+                )
+            elif default_evidence is not None:
+                reason = "DE/EN morphology confirmed by Lexphon language marker"
+            else:
+                reason = "unique DE/EN lexical decomposition"
+            confidence = "high"
+        elif default_evidence is not None:
             reason = "exact default-language lexicon evidence"
             confidence = "high"
         elif len(foreign_hits) == 1:
@@ -281,18 +310,6 @@ def route_languages(  # noqa: C901
                     selected_evidence,
                 ),
             )
-        elif not foreign_hits:
-            fragments = _try_pair_decomposition(
-                token,
-                default,
-                allowed,
-                lambda language, value: candidate_evidence(language, value),
-            )
-            if fragments:
-                selected_language = default
-                reason = "unique DE/EN lexical decomposition"
-                confidence = "high"
-
         if fragments is None:
             fragments = (
                 _default_fragment(token, selected_language, selected_evidence),

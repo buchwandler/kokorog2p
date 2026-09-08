@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
@@ -35,6 +35,23 @@ class RouteFragment:
     phonemes: str | None = None
 
 
+def _evidence_languages(evidence: LexiconEvidence | None) -> frozenset[str]:
+    """Return base languages from structured pronunciation marker evidence."""
+    if evidence is None or evidence.metadata is None:
+        return frozenset()
+    markers = evidence.metadata.get("pronunciation_language_markers", ())
+    if not isinstance(markers, Sequence) or isinstance(markers, (str, bytes)):
+        return frozenset()
+    languages: set[str] = set()
+    for marker in markers:
+        if not isinstance(marker, Mapping):
+            continue
+        language = marker.get("language")
+        if isinstance(language, str) and language:
+            languages.add(language.casefold().replace("_", "-").split("-", 1)[0])
+    return frozenset(languages)
+
+
 def decompose_token(
     token: TokenSpan,
     *,
@@ -42,7 +59,7 @@ def decompose_token(
     candidate_languages: tuple[str, ...],
     evidence: Callable[[str, str], LexiconEvidence | None],
 ) -> Sequence[LanguageFragment] | None:
-    """Return a unique bounded DE/EN decomposition from lexical evidence."""
+    """Return a bounded DE/EN decomposition from lexical evidence."""
     if (
         default_language not in {"de-de", "en-us", "en-gb"}
         or "de-de" not in candidate_languages
@@ -58,8 +75,37 @@ def decompose_token(
     if not word.isalpha() or len(word) > 48:
         return None
     lower = word.casefold()
-    if evidence(default_language, lower) is not None:
-        return None
+    whole_default = evidence(default_language, lower)
+    if whole_default is not None:
+        if default_language != "de-de":
+            return None
+        if "en" in _evidence_languages(whole_default):
+            english_whole = evidence(english_language, lower)
+            if english_whole is not None:
+                return (
+                    LanguageFragment(
+                        char_start=token.char_start,
+                        char_end=token.char_end,
+                        text=word,
+                        language=english_language,
+                        source="auto",
+                        kind="whole-token",
+                        evidence_lexicon_id=english_whole.lexicon_id,
+                        evidence_kind=english_whole.kind,
+                        evidence_rating=english_whole.rating,
+                    ),
+                )
+        morphology = _morphology_candidate(
+            token,
+            lower,
+            english_language,
+            evidence,
+            default_language=default_language,
+            whole_default_evidence=whole_default,
+        )
+        if morphology is None:
+            return None
+        return _fragments_from_route(token, word, morphology[0])
 
     candidates: list[tuple[tuple[int, int, int], list[RouteFragment]]] = []
     for split in range(3, len(word) - 2):
@@ -116,7 +162,14 @@ def decompose_token(
                 )
             )
 
-    morphology = _morphology_candidate(token, lower, english_language, evidence)
+    morphology = _morphology_candidate(
+        token,
+        lower,
+        english_language,
+        evidence,
+        default_language=default_language,
+        whole_default_evidence=None,
+    )
     if morphology is not None:
         candidates.append(((len(morphology[1]), len(morphology[2]), 3), morphology[0]))
     if not candidates:
@@ -124,6 +177,12 @@ def decompose_token(
     candidates.sort(key=lambda item: item[0], reverse=True)
     if len(candidates) > 1 and candidates[0][0] == candidates[1][0]:
         return None
+    return _fragments_from_route(token, word, candidates[0][1])
+
+
+def _fragments_from_route(
+    token: TokenSpan, word: str, fragments: Sequence[RouteFragment]
+) -> tuple[LanguageFragment, ...]:
     return tuple(
         LanguageFragment(
             char_start=fragment.start,
@@ -145,7 +204,7 @@ def decompose_token(
             ),
             phonemes=fragment.phonemes,
         )
-        for fragment in candidates[0][1]
+        for fragment in fragments
     )
 
 
@@ -154,18 +213,26 @@ def _morphology_candidate(
     lower: str,
     english_language: str,
     evidence: Callable[[str, str], LexiconEvidence | None],
+    *,
+    default_language: str,
+    whole_default_evidence: LexiconEvidence | None,
 ) -> tuple[list[RouteFragment], str, str] | None:
+    """Return a bounded English stem plus German affix candidate."""
+    collision = whole_default_evidence is not None
     if lower.startswith("ge") and lower.endswith("t") and len(lower) > 7:
         stem = lower[2:-1]
         if len(stem) >= 5:
-            stem_evidence = evidence(english_language, stem)
-            if stem_evidence is not None:
+            english_stem = evidence(english_language, stem)
+            german_stem = evidence(default_language, stem)
+            if english_stem is not None and (
+                not collision or "en" in _evidence_languages(german_stem)
+            ):
                 return (
                     [
                         RouteFragment(
                             token.char_start,
                             token.char_start + 2,
-                            "de-de",
+                            default_language,
                             "affix",
                             phonemes="ɡə",
                         ),
@@ -174,12 +241,12 @@ def _morphology_candidate(
                             token.char_end - 1,
                             english_language,
                             "stem",
-                            stem_evidence,
+                            english_stem,
                         ),
                         RouteFragment(
                             token.char_end - 1,
                             token.char_end,
-                            "de-de",
+                            default_language,
                             "affix",
                             phonemes="t",
                         ),
@@ -190,8 +257,13 @@ def _morphology_candidate(
     if lower.endswith("en") and len(lower) > 7:
         stem = lower[:-2]
         if len(stem) >= 5:
-            stem_evidence = evidence(english_language, stem)
-            if stem_evidence is not None:
+            english_stem = evidence(english_language, stem)
+            german_stem = evidence(default_language, stem)
+            marker_backed = whole_default_evidence is not None and (
+                "en" in _evidence_languages(whole_default_evidence)
+                or "en" in _evidence_languages(german_stem)
+            )
+            if english_stem is not None and (not collision or marker_backed):
                 return (
                     [
                         RouteFragment(
@@ -199,12 +271,12 @@ def _morphology_candidate(
                             token.char_end - 2,
                             english_language,
                             "stem",
-                            stem_evidence,
+                            english_stem,
                         ),
                         RouteFragment(
                             token.char_end - 2,
                             token.char_end,
-                            "de-de",
+                            default_language,
                             "affix",
                             phonemes="ən",
                         ),

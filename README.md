@@ -142,6 +142,13 @@ Routing changes only G2P frontend selection. KokoroG2P does not select an acoust
 model. `PhonemizeResult.language_routes` contains structured route fragments and
 provenance.
 
+For German-default DE/EN routing, default-language ownership remains conservative. If
+the selected German Lexphon resource marks foreign pronunciation material with
+structured `pronunciation_language_markers`, a pair-specific analyzer may authorize a
+stronger mixed-language route for a unique compatible English candidate. KokoroG2P
+consumes this marker API and clean IPA; it does not parse Lexphon's raw source
+pronunciation notation.
+
 ## Annotations
 
 Precomputed linguistic annotations can be supplied without installing a parser:

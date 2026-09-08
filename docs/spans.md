@@ -137,6 +137,13 @@ incompatible, the route is rejected with a diagnostic and the default route is u
 Routing changes only G2P frontend selection. It never selects an acoustic model.
 Explicit `ph`, `phonemes`, `lang`, and `language` overrides take precedence.
 
+With Lexphon 0.1.3, German evidence also carries structured pronunciation language
+markers. The DE/EN analyzer uses those markers only for bounded, marker-backed loanword
+rules. Thus an exact German hit such as `starten` remains German when neither the whole
+word nor the candidate stem is marked as English, while marked forms such as `gecancelt`
+and `downloaden` can expose English fragments. Raw Lexphon source notation is
+producer-owned and is not parsed by KokoroG2P.
+
 ## Structured stress overrides
 
 Use `stress` in an `OverrideSpan` to change the relative stress of the resolved phonemes

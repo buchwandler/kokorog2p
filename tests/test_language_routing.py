@@ -56,6 +56,135 @@ def _route(
     return result, g2ps
 
 
+class EvidenceFakeG2P:
+    def __init__(self, language: str, table: dict[str, LexiconEvidence]) -> None:
+        self.language = language
+        self.table = table
+
+    def lexicon_evidence(self, word: str, tag: str | None = None):
+        del tag
+        return self.table.get(word.casefold())
+
+    def lookup(self, word: str) -> str | None:
+        evidence = self.table.get(word.casefold())
+        return None if evidence is None else evidence.pronunciation
+
+
+def _evidence(language: str, word: str, *, marker: bool = False) -> LexiconEvidence:
+    return LexiconEvidence(
+        language,
+        f"{language}:gold",
+        f"{word}-phonemes",
+        "pronunciation",
+        rating=4,
+        metadata={
+            "pronunciation_language_markers": (
+                [{"language": "en", "ipa_offset": 0}] if marker else []
+            )
+        },
+    )
+
+
+def _route_evidence(text: str, tables: dict[str, dict[str, LexiconEvidence]]):
+    g2ps = {
+        language: EvidenceFakeG2P(language, table) for language, table in tables.items()
+    }
+    return route_languages(
+        text,
+        [TokenSpan(text, 0, len(text))],
+        default_language="de-de",
+        config=LanguageRoutingConfig(mode="auto", languages=("de", "en")),
+        resolve_g2p=g2ps.__getitem__,
+        target_model="1.0",
+    )
+
+
+def test_marker_backed_whole_token_collision_beats_default_only_when_marked() -> None:
+    result = _route_evidence(
+        "cancel",
+        {
+            "de-de": {"cancel": _evidence("de-de", "cancel", marker=True)},
+            "en-us": {"cancel": _evidence("en-us", "cancel")},
+        },
+    )
+    assert [(token.text, token.lang) for token in result.tokens] == [
+        ("cancel", "en-us")
+    ]
+    assert "foreign pronunciation confirmed" in result.routes[0].reason
+
+    unmarked = _route_evidence(
+        "File",
+        {
+            "de-de": {"file": _evidence("de-de", "file")},
+            "en-us": {"file": _evidence("en-us", "file")},
+        },
+    )
+    assert [(token.text, token.lang) for token in unmarked.tokens] == [("File", None)]
+
+
+def test_marker_backed_morphology_requires_default_stem_evidence() -> None:
+    gecancelt = _route_evidence(
+        "gecancelt",
+        {
+            "de-de": {
+                "gecancelt": _evidence("de-de", "gecancelt"),
+                "cancel": _evidence("de-de", "cancel", marker=True),
+            },
+            "en-us": {"cancel": _evidence("en-us", "cancel")},
+        },
+    )
+    assert [(token.text, token.lang) for token in gecancelt.tokens] == [
+        ("ge", "de-de"),
+        ("cancel", "en-us"),
+        ("t", "de-de"),
+    ]
+
+    downloaden = _route_evidence(
+        "downloaden",
+        {
+            "de-de": {
+                "downloaden": _evidence("de-de", "downloaden", marker=True),
+                "download": _evidence("de-de", "download"),
+            },
+            "en-us": {"download": _evidence("en-us", "download")},
+        },
+    )
+    assert [(token.text, token.lang) for token in downloaden.tokens] == [
+        ("download", "en-us"),
+        ("en", "de-de"),
+    ]
+
+
+def test_unmarked_starten_collision_stays_german() -> None:
+    result = _route_evidence(
+        "starten",
+        {
+            "de-de": {
+                "starten": _evidence("de-de", "starten"),
+                "start": _evidence("de-de", "start"),
+            },
+            "en-us": {"start": _evidence("en-us", "start")},
+        },
+    )
+    assert [(token.text, token.lang) for token in result.tokens] == [("starten", None)]
+
+
+def test_default_fragment_preserves_nonzero_document_offset() -> None:
+    german = EvidenceFakeG2P("de-de", {"wort": _evidence("de-de", "wort")})
+    english = EvidenceFakeG2P("en-us", {})
+    result = route_languages(
+        "xx Wort",
+        [TokenSpan("Wort", 3, 7)],
+        default_language="de-de",
+        config=LanguageRoutingConfig(mode="auto", languages=("de", "en")),
+        resolve_g2p={"de-de": german, "en-us": english}.__getitem__,
+        target_model="1.0",
+    )
+    fragment = result.routes[0].fragments[0]
+    assert fragment.text == "Wort"
+    assert fragment.text == "xx Wort"[fragment.char_start : fragment.char_end]
+
+
 def test_language_configuration_is_canonical_and_allowlisted() -> None:
     config = LanguageRoutingConfig(mode="auto", languages=("de", "en", "en-us"))
     assert config.languages == ("de-de", "en-us")

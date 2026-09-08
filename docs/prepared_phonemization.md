@@ -59,6 +59,13 @@ The candidate list is a hard allowlist. Lexicon collisions and ambiguity stay in
 default language. Generic pronunciation fallback is not language evidence, and explicit
 `ph`, `phonemes`, `lang`, and `language` overrides take precedence.
 
+Lexphon 0.1.3 supplies clean generic IPA and structured pronunciation language markers.
+For German-default DE/EN routing, a marker such as `en` is lexical evidence that can
+authorize a bounded pair-specific loanword route when the English candidate is unique
+and compatible. It does not globally override German ownership: unmarked whole-token
+collisions remain German/default. KokoroG2P uses the structured marker metadata and
+never parses raw `(en)` or `(de)` source syntax.
+
 ## Migration from pre-v0.9
 
 Remove semantic preparation flags such as `input_mode`, `migrated_semantics`, and

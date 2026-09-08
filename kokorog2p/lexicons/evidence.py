@@ -115,13 +115,22 @@ def evidence_from_lexphon_token(
         None if spec is None else spec.phoneme_encoding
     )
     pronunciation = getattr(token, "pronunciation", None)
+    language_markers = getattr(token, "language_markers", ())
     metadata = {
         "source": getattr(token, "source", None),
         "matched_key": getattr(token, "matched_key", None),
         "selector_tag": getattr(token, "selector_tag", None),
-        "variants": getattr(token, "variants", ()),
+        "variants": list(getattr(token, "variants", ())),
         "alphabet": getattr(token, "alphabet", None),
         "source_encoding": getattr(token, "source_encoding", None),
+        "source_pronunciation": getattr(token, "source_pronunciation", None),
+        "pronunciation_language_markers": [
+            {
+                "language": marker.language,
+                "ipa_offset": marker.ipa_offset,
+            }
+            for marker in language_markers
+        ],
     }
     return LexiconEvidence(
         language=language,

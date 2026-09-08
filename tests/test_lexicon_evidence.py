@@ -2,7 +2,11 @@
 
 from types import SimpleNamespace
 
-from lexphon import PronunciationToken
+from lexphon import (
+    PronunciationLanguageMarker,
+    PronunciationToken,
+    PronunciationVariant,
+)
 
 from kokorog2p.base import G2PBase
 from kokorog2p.de.g2p import GermanG2P
@@ -95,6 +99,35 @@ def test_german_rule_only_frontend_has_no_evidence() -> None:
     g2p.language = "de-de"
     g2p._lexicon = None
     assert g2p.lexicon_evidence("Haus") is None
+
+
+def test_lexphon_evidence_serializes_released_language_markers() -> None:
+    token = PronunciationToken(
+        text="download",
+        pronunciation="dˈaʊnləʊd",
+        source="lexicon",
+        lexicon_id="de-de:gold",
+        variant_details=(
+            PronunciationVariant(
+                pronunciation="dˈaʊnləʊd",
+                source_pronunciation="(en)dˈaʊnləʊd(de)",
+                language_markers=(
+                    PronunciationLanguageMarker("en", 0),
+                    PronunciationLanguageMarker("de", 10),
+                ),
+            ),
+        ),
+    )
+    evidence = evidence_from_lexphon_token(
+        language="de-de", token=token, selected_lexicons=("gold",)
+    )
+    assert evidence is not None
+    assert evidence.rating == 4
+    assert evidence.metadata["source_pronunciation"] == "(en)dˈaʊnləʊd(de)"
+    assert evidence.metadata["pronunciation_language_markers"] == [
+        {"language": "en", "ipa_offset": 0},
+        {"language": "de", "ipa_offset": 10},
+    ]
 
 
 def test_french_evidence_uses_selected_hit_not_builtin_fix() -> None:
