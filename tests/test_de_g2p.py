@@ -67,6 +67,58 @@ def test_german_fallback_removes_espeak_tie_markers_before_normalization():
     assert fallback._postprocess_word("t^ʃ") == "tʃ"
 
 
+def test_german_fallback_normalizes_clean_espeak_marker_output():
+    from kokorog2p.de.fallback import GermanEspeakFallback
+    from kokorog2p.phonemes import strip_espeak_language_markers
+
+    fallback = GermanEspeakFallback()
+    clean = strip_espeak_language_markers("(en)fˈa^ɪl(de)")
+
+    assert fallback._postprocess_word(clean) == "fˈIl"
+
+
+def test_german_g2p_preserves_fallback_ownership_for_marker_free_result():
+    class FixedFallback:
+        def phonemize_many(self, words):
+            return [("fˈIl",) for _ in words]
+
+    g2p = GermanG2P(
+        use_lexicon=False,
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+    )
+    g2p._fallback = FixedFallback()
+    try:
+        token = next(token for token in g2p("File") if token.is_word)
+    finally:
+        g2p.close()
+
+    assert token.text == "File"
+    assert token.phonemes == "fˈIl"
+    assert token.get("rating") == 3
+
+
+def test_german_lexicon_decode_removes_language_markers():
+    class MarkerLexicon:
+        def lookup(self, word, tag=None):
+            del word, tag
+            return "(en)fˈIlde(de)"
+
+        def close(self):
+            pass
+
+    g2p = GermanG2P(
+        use_lexicon=False,
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+    )
+    g2p._lexicon = MarkerLexicon()
+    try:
+        assert g2p.lookup("File") == "fˈIlde"
+    finally:
+        g2p.close()
+
+
 class TestGermanG2P:
     """Tests for GermanG2P."""
 

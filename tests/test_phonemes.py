@@ -1,5 +1,7 @@
 """Tests for phoneme vocabularies and conversion functions."""
 
+import pytest
+
 from kokorog2p.phonemes import (
     AFFRICATE_EXPANSIONS,
     CONSONANTS,
@@ -13,6 +15,7 @@ from kokorog2p.phonemes import (
     VOWELS,
     from_espeak,
     get_vocab,
+    strip_espeak_language_markers,
     to_espeak,
     validate_phonemes,
 )
@@ -137,6 +140,40 @@ class TestFromEspeak:
         """Test US word conversion."""
         result = from_espeak("mˈɜːt^ʃəntʃˌɪp", british=True)
         assert result == "mˈɜːʧəntʃˌɪp"
+
+
+def test_strip_espeak_language_markers():
+    assert strip_espeak_language_markers("(en)fˈaɪl(de)") == "fˈaɪl"
+    assert strip_espeak_language_markers("(en-US)hello(de-DE)") == "hello"
+
+
+def test_strip_espeak_language_markers_with_format_controls():
+    raw = "(\u200d\u200dn)fˈaɪl(\u200d\u200de)"
+
+    assert strip_espeak_language_markers(raw) == "fˈaɪl"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "(ə)",
+        "(t)",
+        "(foo bar)",
+        "(1)",
+    ],
+)
+def test_espeak_marker_parser_does_not_strip_arbitrary_parentheses(value):
+    assert strip_espeak_language_markers(value) == value
+
+
+def test_from_espeak_removes_language_switch_metadata():
+    result = from_espeak("(en)fˈa^ɪl(de)")
+
+    assert result == "fˈIl"
+    assert not result.startswith("en")
+    assert not result.endswith("de")
+    assert "(" not in result
+    assert ")" not in result
 
 
 class TestToEspeak:

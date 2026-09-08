@@ -11,6 +11,7 @@ import sys
 import pytest
 
 from kokorog2p.backends.espeak.api import HAS_DLINFO, EspeakLibrary
+from kokorog2p.backends.espeak.backend import EspeakBackend
 from kokorog2p.backends.espeak.phonemizer_base import EspeakPhonemizerBase
 from kokorog2p.backends.espeak.voice import Voice
 
@@ -710,3 +711,43 @@ def test_espeak_only_explicit_use_cli_and_hooks() -> None:
     assert g2p.use_cli is True
     assert g2p._phonemize_word("bonjour") == "word:bonjour"
     assert g2p._phonemize_text("bonjour") == "text:bonjour"
+
+
+class _MarkerWrapper:
+    voice = object()
+
+    def phonemize(self, text: str, use_tie: bool = False) -> str:
+        return "(en)fˈa^ɪl(de)"
+
+    def phonemize_many(
+        self, texts: list[str] | tuple[str, ...], use_tie: bool = False
+    ) -> list[str]:
+        return ["(en)fˈa^ɪl(de)", "hˈa^ʊs"]
+
+
+def _backend_with_marker_wrapper() -> EspeakBackend:
+    backend = EspeakBackend(language="de")
+    backend._phonemizer = _MarkerWrapper()  # type: ignore[assignment]
+    return backend
+
+
+def test_espeak_backend_strips_markers_before_single_call_conversion():
+    backend = _backend_with_marker_wrapper()
+
+    assert backend.phonemize("File", convert_to_kokoro=False) == "fˈa^ɪl"
+    assert backend.phonemize("File", convert_to_kokoro=True) == "fˈIl"
+    assert backend.word_phonemes("File", convert_to_kokoro=False) == "fˈa^ɪl"
+    assert backend.word_phonemes("File", convert_to_kokoro=True) == "fˈIl"
+
+
+def test_espeak_backend_strips_markers_before_batch_conversion():
+    backend = _backend_with_marker_wrapper()
+
+    assert backend.phonemize_many(["File", "Haus"], convert_to_kokoro=False) == [
+        "fˈa^ɪl",
+        "hˈa^ʊs",
+    ]
+    assert backend.phonemize_many(["File", "Haus"], convert_to_kokoro=True) == [
+        "fˈIl",
+        "hˈWs",
+    ]

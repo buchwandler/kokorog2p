@@ -17,7 +17,7 @@ from typing import Literal, cast
 from kokorog2p.backends.espeak.cli_wrapper import CliPhonemizer
 from kokorog2p.backends.espeak.phonemizer_base import EspeakPhonemizerBase
 from kokorog2p.backends.espeak.wrapper import Phonemizer
-from kokorog2p.phonemes import from_espeak
+from kokorog2p.phonemes import from_espeak, strip_espeak_language_markers
 
 logger = logging.getLogger(__name__)
 
@@ -250,6 +250,7 @@ class EspeakBackend:
         if remove_punctuation:
             text = self.remove_punctuation(text)
         raw_phonemes = self.wrapper.phonemize(text, use_tie=use_tie)
+        raw_phonemes = strip_espeak_language_markers(raw_phonemes)
 
         if convert_to_kokoro:
             return from_espeak(raw_phonemes, british=self.is_british)
@@ -278,7 +279,10 @@ class EspeakBackend:
     ) -> list[str]:
         """Convert independently framed texts while reusing one eSpeak backend."""
         use_tie = self.tie == "^"
-        raw_results = self.wrapper.phonemize_many(texts, use_tie=use_tie)
+        raw_results = [
+            strip_espeak_language_markers(raw)
+            for raw in self.wrapper.phonemize_many(texts, use_tie=use_tie)
+        ]
         if not convert_to_kokoro:
             return raw_results
         return [from_espeak(raw, british=self.is_british) for raw in raw_results]

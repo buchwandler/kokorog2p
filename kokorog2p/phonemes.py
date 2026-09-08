@@ -5,6 +5,7 @@ along with mappings for converting between espeak IPA and Kokoro phonemes.
 """
 
 import re
+import unicodedata
 from typing import Final
 
 # =============================================================================
@@ -231,6 +232,50 @@ AFFRICATE_EXPANSIONS: Final[dict[str, str]] = {
 # =============================================================================
 
 
+_ESPEAK_LANGUAGE_TAG_RE = re.compile(r"^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})*$")
+
+
+def strip_espeak_language_markers(phonemes: str) -> str:
+    """Remove eSpeak language-switch controls from an IPA string.
+
+    eSpeak can annotate foreign-word pronunciation with parenthesized
+    language tags such as ``(en)`` and ``(de)``. These controls are metadata,
+    not phonemes. Only candidates matching the language-tag grammar are
+    removed; unrelated parenthesized transcription content is preserved.
+    """
+    output: list[str] = []
+    index = 0
+    while index < len(phonemes):
+        if phonemes[index] != "(":
+            output.append(phonemes[index])
+            index += 1
+            continue
+
+        close = phonemes.find(")", index + 1)
+        if close < 0:
+            output.append(phonemes[index])
+            index += 1
+            continue
+
+        body = phonemes[index + 1 : close]
+        has_format_controls = any(unicodedata.category(char) == "Cf" for char in body)
+        marker = "".join(char for char in body if unicodedata.category(char) != "Cf")
+        marker = marker.casefold().replace("_", "-")
+        if _ESPEAK_LANGUAGE_TAG_RE.fullmatch(marker) or (
+            has_format_controls
+            and len(marker) == 1
+            and marker.isascii()
+            and marker.isalpha()
+        ):
+            index = close + 1
+            continue
+
+        output.append(phonemes[index : close + 1])
+        index = close + 1
+
+    return "".join(output)
+
+
 def from_espeak(phonemes: str, british: bool = False) -> str:
     """
     Convert espeak IPA output to Kokoro phonemes.
@@ -246,7 +291,7 @@ def from_espeak(phonemes: str, british: bool = False) -> str:
         >>> from_espeak("mˈɜːt͡ʃənt͡ʃˌɪp", british=False)
         'mˈɜɹʧəntʃˌɪp'
     """
-    result = phonemes
+    result = strip_espeak_language_markers(phonemes)
 
     # Apply standard mappings
     for old, new in FROM_ESPEAK:

@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Any, Final
 from kokorog2p._optional import load_spacy_model
 from kokorog2p.base import G2PBase
 from kokorog2p.lexicons.evidence import LexiconEvidence, evidence_from_lexphon_token
+from kokorog2p.phonemes import strip_espeak_language_markers
 from kokorog2p.pipeline.tokenizer import RegexTokenizer, SpacyTokenizer
 from kokorog2p.spacy_models import resolve_spacy_model
 from kokorog2p.token import GToken
@@ -537,6 +538,7 @@ class GermanG2P(G2PBase):
 
     def _decode_lexicon_pronunciation(self, phonemes: str) -> str | None:
         """Normalize a raw lexicon pronunciation for the target vocabulary."""
+        phonemes = strip_espeak_language_markers(phonemes)
         normalized = normalize_internal(
             phonemes,
             use_tie_replacement=True,
