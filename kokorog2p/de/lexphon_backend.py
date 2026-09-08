@@ -11,6 +11,7 @@ GERMAN_LEXICON_IDS = {
     "crane": "de-de:crane",
     "espeak": "de-de:espeak",
     "olaph": "de-de:olaph",
+    "lexhint": "de-de:lexhint",
 }
 DEFAULT_GERMAN_LEXICONS = ("gold",)
 

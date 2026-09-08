@@ -77,6 +77,7 @@ _EXTERNAL_SPECS_BY_LANGUAGE: dict[str, tuple[LexiconSpec, ...]] = {
         _external_spec("de-de", "crane", rating=None, default_priority=None),
         _external_spec("de-de", "espeak", rating=None, default_priority=None),
         _external_spec("de-de", "olaph", rating=None, default_priority=None),
+        _external_spec("de-de", "lexhint", rating=None, default_priority=None),
     ),
     "sv-se": (
         _external_spec(

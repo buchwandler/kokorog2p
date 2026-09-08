@@ -249,8 +249,8 @@ print(g2p.phonemize("Guten Tag"))
 ```
 
 The runtime uses the installed local store without network access. Install
-`de-de:crane`, `de-de:espeak`, or `de-de:olaph` before selecting those names.
-`lexicons="espeak"` selects the static Lexphon dictionary and is distinct from
+`de-de:crane`, `de-de:espeak`, `de-de:olaph`, or `de-de:lexhint` before selecting those
+names. `lexicons="espeak"` selects the static Lexphon dictionary and is distinct from
 `use_espeak_fallback=True`. Use `use_lexicon=False` for fallback-only operation.
 
 ## Phoneme Utilities

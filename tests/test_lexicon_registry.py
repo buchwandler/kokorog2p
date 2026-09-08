@@ -21,21 +21,29 @@ def test_registry_aliases_and_order() -> None:
 
 
 def test_german_third_party_lexicons_are_opt_in_and_selectable() -> None:
-    assert available_lexicons("de") == ("gold", "crane", "espeak", "olaph")
+    assert available_lexicons("de") == (
+        "gold",
+        "crane",
+        "espeak",
+        "olaph",
+        "lexhint",
+    )
     assert (
         available_lexicons("de-de")
         == available_lexicons("de_DE")
         == available_lexicons("german")
     )
 
-    for name in ("crane", "espeak", "olaph"):
+    for name in ("crane", "espeak", "olaph", "lexhint"):
         spec = get_lexicon_spec("de", name)
         assert spec.default_priority is None
         assert spec.phoneme_encoding == "ipa"
+        assert spec.id == f"de-de:{name}"
 
     assert normalize_lexicon_selection("de", None) == ("gold",)
     assert normalize_lexicon_selection("de", "espeak") == ("espeak",)
     assert normalize_lexicon_selection("de", "olaph") == ("olaph",)
+    assert normalize_lexicon_selection("de", "lexhint") == ("lexhint",)
 
 
 def test_swedish_nst_is_opt_in_and_available_through_aliases() -> None:

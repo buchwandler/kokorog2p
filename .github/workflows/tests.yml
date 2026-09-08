@@ -78,8 +78,8 @@ jobs:
           python -m spacy download en_core_web_sm
       - name: Provision reviewed LexHint assets
         run: |
-          lexphon data install ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint
-          lexphon data verify ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint
+          lexphon data install ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint de-de:lexhint
+          lexphon data verify ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint de-de:lexhint
       - name: Run scaled station benchmark
         run: |
           python benchmarks/benchmark_all_stations.py \
@@ -320,6 +320,7 @@ jobs:
             ja:lexhint \
             ko:lexhint \
             pt:lexhint \
+            de-de:lexhint \
             de-de:gold \
             de-de:crane \
             de-de:espeak \
@@ -331,6 +332,7 @@ jobs:
             ja:lexhint \
             ko:lexhint \
             pt:lexhint \
+            de-de:lexhint \
             de-de:gold \
             de-de:crane \
             de-de:espeak \

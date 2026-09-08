@@ -7,7 +7,7 @@ from kokorog2p.de import GermanG2P, GermanLexicon
 
 @pytest.mark.integration
 def test_all_named_german_lexphon_layers_are_usable() -> None:
-    for name in ("gold", "crane", "espeak", "olaph"):
+    for name in ("gold", "crane", "espeak", "olaph", "lexhint"):
         lexicon = GermanLexicon(lexicons=(name,))
         try:
             assert lexicon.lookup("Haus")

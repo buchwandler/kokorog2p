@@ -8,12 +8,13 @@ source files.
 
 German names are application-facing choices backed by externally managed Lexphon IDs:
 
-| Name     | Lexphon ID     | Default |
-| -------- | -------------- | ------- |
-| `gold`   | `de-de:gold`   | yes     |
-| `crane`  | `de-de:crane`  | no      |
-| `espeak` | `de-de:espeak` | no      |
-| `olaph`  | `de-de:olaph`  | no      |
+| Name      | Lexphon ID      | Default |
+| --------- | --------------- | ------- |
+| `gold`    | `de-de:gold`    | yes     |
+| `crane`   | `de-de:crane`   | no      |
+| `espeak`  | `de-de:espeak`  | no      |
+| `olaph`   | `de-de:olaph`   | no      |
+| `lexhint` | `de-de:lexhint` | no      |
 
 German datasets are produced and published by `g2lex-data`. KokoroG2P does not contain,
 generate, audit, or redistribute these dictionaries. Provision them explicitly before
@@ -28,8 +29,8 @@ lexphon data verify de-de:gold
 Install optional layers explicitly when needed:
 
 ```bash
-lexphon data install de-de:crane de-de:espeak de-de:olaph
-lexphon data verify de-de:crane de-de:espeak de-de:olaph
+lexphon data install de-de:crane de-de:espeak de-de:olaph de-de:lexhint
+lexphon data verify de-de:crane de-de:espeak de-de:olaph de-de:lexhint
 ```
 
 Runtime lookup is offline. `get_g2p()` and ordinary German phonemization never fetch a
@@ -40,7 +41,7 @@ for fallback-only operation without German Lexphon data.
 ```python
 from kokorog2p import available_lexicons, get_g2p
 
-available_lexicons("de")  # ("gold", "crane", "espeak", "olaph")
+available_lexicons("de")  # ("gold", "crane", "espeak", "olaph", "lexhint")
 g2p = get_g2p("de")  # logical default: gold
 g2p = get_g2p("de", lexicons="crane")
 g2p = get_g2p("de", lexicons=("gold", "olaph"))

@@ -66,7 +66,11 @@ def tokens_from_annotations(
     lang: str | None = None,
     keep_punct: bool = True,
 ) -> list[TokenSpan]:
-    """Tokenize text and attach validated external linguistic metadata."""
+    """Tokenize text and attach validated linguistic metadata.
+
+    Explicit language overrides are preserved; the document language remains
+    fallback context.
+    """
     validated = coerce_token_annotations(text, annotations)
     tokens = tokenize_with_offsets(text, lang=lang, keep_punct=keep_punct)
     for token in tokens:
@@ -90,7 +94,7 @@ def tokens_from_annotations(
                         if value is not None
                     }
                 )
-                token.lang = annotation.language or lang
+                token.lang = annotation.language
                 break
     return tokens
 

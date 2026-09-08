@@ -6,12 +6,13 @@ from importlib.util import find_spec
 import pytest
 
 from kokorog2p import phonemize, phonemize_prepared
+from kokorog2p.lexicons.evidence import LexiconEvidence
 from kokorog2p.pipeline_api import (
     _build_phoneme_string,
     _phonemize_token_spans,
     phonemize_to_result,
 )
-from kokorog2p.types import OverrideSpan, TokenSpan
+from kokorog2p.types import OverrideSpan, TokenAnnotation, TokenSpan
 
 
 def _has_spacy_model(name: str) -> bool:
@@ -54,6 +55,151 @@ class _PreparedAwareG2P(_EchoG2P):
             bool(getattr(self, "_kokorog2p_prepared_input", False))
         )
         return super().__call__(text)
+
+
+class _RoutingFakeG2P:
+    version = "1.0"
+    use_spacy = False
+
+    def __init__(self, language: str, table: dict[str, str]) -> None:
+        self.language = language
+        self.table = table
+        self.calls: list[str] = []
+
+    def __call__(self, text: str):
+        from kokorog2p.token import GToken
+
+        self.calls.append(text)
+        return [GToken(text=text, tag="WORD", whitespace="", phonemes=self.language)]
+
+    def lexicon_evidence(self, word: str, tag: str | None = None):
+        del tag
+        value = self.table.get(word.casefold())
+        if value is None:
+            return None
+        return LexiconEvidence(
+            language=self.language,
+            lexicon_id=f"{self.language}:test",
+            pronunciation=value,
+            kind="pronunciation",
+            rating=4,
+        )
+
+    def lookup(self, word: str, tag: str | None = None) -> str | None:
+        del tag
+        return self.table.get(word.casefold())
+
+
+def _prepared_routing_result(
+    text: str,
+    annotations: list[TokenAnnotation] | None = None,
+    *,
+    default_table: dict[str, str] | None = None,
+    foreign_table: dict[str, str] | None = None,
+    mode: str = "auto",
+    explicit_override: list[OverrideSpan] | None = None,
+    explicit_default: str | None = None,
+):
+    default = _RoutingFakeG2P("de-de", default_table or {})
+    foreign = _RoutingFakeG2P("en-us", foreign_table or {"file": "f"})
+    frontends = {"de-de": default, "en-us": foreign}
+    return phonemize_to_result(
+        text,
+        lang=explicit_default or "de-de",
+        g2p=default,
+        g2p_resolver=frontends.__getitem__,
+        annotations=annotations,
+        overrides=explicit_override,
+        language_routing={"mode": mode, "languages": ("de", "en")},
+        return_ids=False,
+    )
+
+
+def _route_signature(result):
+    return [
+        (fragment.text, fragment.language, fragment.kind)
+        for route in result.language_routes
+        for fragment in route.fragments
+    ]
+
+
+def test_prepared_linguistic_metadata_does_not_change_auto_route() -> None:
+    plain = _prepared_routing_result("File")
+    annotated = _prepared_routing_result(
+        "File",
+        [TokenAnnotation(0, 4, "File", pos="NOUN", tag="NN", lemma="File")],
+    )
+
+    assert (
+        _route_signature(plain)
+        == _route_signature(annotated)
+        == [
+            ("File", "en-us", "whole-token"),
+        ]
+    )
+    assert annotated.tokens[0].meta["tag"] == "NN"
+
+
+@pytest.mark.parametrize("language", ["de", "en"])
+def test_prepared_explicit_language_still_controls_routing(language: str) -> None:
+    result = _prepared_routing_result(
+        "File",
+        [TokenAnnotation(0, 4, "File", language=language)],
+    )
+
+    expected = "de-de" if language == "de" else "en-us"
+    assert result.tokens[0].lang == expected
+    assert result.language_routes == []
+
+
+def test_prepared_phoneme_override_blocks_auto_routing() -> None:
+    result = _prepared_routing_result(
+        "File",
+        explicit_override=[OverrideSpan(0, 4, {"ph": "fIl"})],
+    )
+
+    assert result.language_routes == []
+    assert result.tokens[0].meta["phonemes"] == "fIl"
+
+
+def test_prepared_detection_off_keeps_default_frontend() -> None:
+    result = _prepared_routing_result(
+        "File",
+        [TokenAnnotation(0, 4, "File", pos="NOUN", tag="NN")],
+        mode="off",
+    )
+
+    assert result.language_routes == []
+    assert result.tokens[0].lang is None
+    assert result.tokens[0].meta["phonemes"] == "de-de"
+
+
+def test_prepared_mixed_de_en_morphology_routes_with_annotations() -> None:
+    tables = {
+        "de-de": {"diskussion": "d"},
+        "en-us": {"manpower": "m", "cancel": "c", "file": "f", "download": "w"},
+    }
+    expected = {
+        "Manpowerdiskussion": [
+            ("Manpower", "en-us", "compound-root"),
+            ("diskussion", "de-de", "compound-root"),
+        ],
+        "gecancelt": [
+            ("ge", "de-de", "affix"),
+            ("cancel", "en-us", "stem"),
+            ("t", "de-de", "affix"),
+        ],
+        "File": [("File", "en-us", "whole-token")],
+        "downloaden": [("download", "en-us", "stem"), ("en", "de-de", "affix")],
+    }
+    for word, route in expected.items():
+        result = _prepared_routing_result(
+            word,
+            [TokenAnnotation(0, len(word), word, pos="NOUN", tag="NN", lemma=word)],
+            default_table=tables["de-de"],
+            foreign_table=tables["en-us"],
+        )
+        assert _route_signature(result) == route
 
 
 def test_prepared_pipeline_preserves_supplied_coordinate_space():

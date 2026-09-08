@@ -68,6 +68,7 @@ def _isolated_lexphon_data_home(tmp_path_factory: pytest.TempPathFactory):
         },
         "espeak": {"haus": "hˈaʊs", "zwei": "ʦvaɪ", "die": "diː", "collision": "e"},
         "olaph": {"haus": "haʊ̯s", "zwei": "ʦvaɪ", "beer": "/beːʁ/", "collision": "o"},
+        "lexhint": {"haus": "haʊ̯s", "zwei": "ʦvaɪ", "fünf": "fʏnf", "collision": "l"},
     }
     artifacts = {}
     for name, entries in asset_specs.items():

@@ -15,7 +15,7 @@ from kokorog2p import (
     phonemize_segments,
 )
 from kokorog2p.token import GToken
-from kokorog2p.tokenization import coerce_token_annotations
+from kokorog2p.tokenization import coerce_token_annotations, tokens_from_annotations
 
 
 @dataclass
@@ -56,6 +56,30 @@ def test_external_annotations_supply_pos_without_spacy() -> None:
     )
     assert result.phonemes == "noun"
     assert result.tokens[0].meta["tag"] == "NN"
+
+
+def test_tokens_from_annotations_keeps_default_language_as_fallback() -> None:
+    tokens = tokens_from_annotations(
+        "File",
+        [TokenAnnotation(0, 4, "File", pos="NOUN", tag="NN", lemma="File")],
+        lang="de-de",
+    )
+
+    assert len(tokens) == 1
+    assert tokens[0].lang is None
+    assert tokens[0].meta["pos"] == "NOUN"
+    assert tokens[0].meta["tag"] == "NN"
+    assert tokens[0].meta["lemma"] == "File"
+
+
+def test_tokens_from_annotations_preserves_explicit_language() -> None:
+    tokens = tokens_from_annotations(
+        "File",
+        [TokenAnnotation(0, 4, "File", pos="NOUN", language="en-us")],
+        lang="de-de",
+    )
+
+    assert tokens[0].lang == "en-us"
 
 
 def test_annotation_validation_is_ordered_and_source_aligned() -> None:

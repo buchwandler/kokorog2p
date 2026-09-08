@@ -91,7 +91,12 @@ class TokenAnnotationLike(Protocol):
 
 @dataclass(frozen=True)
 class TokenAnnotation:
-    """Validated source-aligned linguistic metadata for one token."""
+    """Validated source-aligned linguistic metadata for one token.
+
+    ``language`` is an explicit token or span pronunciation-language override.
+    Leave it as ``None`` when the annotation only describes linguistic analysis
+    performed in the document or default language.
+    """
 
     start: int
     end: int

@@ -29,17 +29,17 @@ lexphon data verify de-de:gold
 Install optional named layers only when needed:
 
 ```bash
-lexphon data install de-de:crane de-de:espeak de-de:olaph
+lexphon data install de-de:crane de-de:espeak de-de:olaph de-de:lexhint
 ```
 
 ## Released LexHint data
 
-Russian, Thai, Vietnamese, Japanese, Korean, and Portuguese pronunciation dictionaries
+Russian, Thai, Vietnamese, Japanese, Korean, Portuguese, and German LexHint dictionaries
 are provisioned through Lexphon and are not bundled or downloaded by KokoroG2P:
 
 ```bash
-lexphon data install ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint
-lexphon data verify ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint
+lexphon data install ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint de-de:lexhint
+lexphon data verify ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint de-de:lexhint
 ```
 
 The corresponding language extras only install frontend dependencies. Provision these
