@@ -37,8 +37,32 @@ jobs:
         run: brew install espeak-ng
       - name: Install espeak-ng (Windows)
         if: matrix.os == 'windows-latest'
-        shell: bash
-        run: choco install espeak-ng -y
+        shell: pwsh
+        run: |
+          choco install espeak-ng -y --no-progress
+          $command = Get-Command espeak-ng -ErrorAction SilentlyContinue
+          if ($null -eq $command) {
+            $command = Get-Command espeak -ErrorAction SilentlyContinue
+          }
+          $executable = if ($null -ne $command) { $command.Path } else { $null }
+          if ($null -eq $executable) {
+            $roots = @(
+              $env:ProgramFiles,
+              [Environment]::GetEnvironmentVariable("ProgramFiles(x86)"),
+              $env:ChocolateyInstall
+            ) | Where-Object { $_ -and (Test-Path $_) }
+            $file = Get-ChildItem -Path $roots -Filter "espeak*.exe" -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($null -ne $file) {
+              $executable = $file.FullName
+            }
+          }
+          if ($null -eq $executable) {
+            throw "Chocolatey installed eSpeak, but neither espeak-ng.exe nor espeak.exe was found."
+          }
+          $directory = Split-Path -Parent $executable
+          Add-Content -Path $env:GITHUB_PATH -Value $directory
+          $env:PATH = "$directory;$env:PATH"
+          & $executable --version
       - name: Install smoke-test dependencies
         shell: bash
         run: python -m pip install -e ".[dev]"
