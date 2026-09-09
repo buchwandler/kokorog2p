@@ -297,8 +297,6 @@ class JapaneseG2P(G2PBase):
         spacy_model: str | None = None,
         backend: str = "pyopenjtalk",
         unk: str = "",
-        load_silver: bool = True,
-        load_gold: bool = True,
         lexicons: Sequence[str] | None = None,
         version: str = "1.0",
         frontend: JapaneseFrontend | None = None,
@@ -343,8 +341,6 @@ class JapaneseG2P(G2PBase):
         self.use_spacy = use_spacy
         # Reserved for API consistency; Japanese never loads spaCy.
         self.spacy_model = None
-        self.load_silver = load_silver
-        self.load_gold = load_gold
         self.lexicons = (
             ("lexhint",)
             if lexicons is None and backend == "cutlet"

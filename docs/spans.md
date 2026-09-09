@@ -120,7 +120,7 @@ in multiple selected stacks stays in the default language.
 
 Evidence-capable resources are:
 
-- Packaged G2Lex: English US, English GB, and French.
+- Externally provisioned G2Lex: English US, GB English, and French.
 - Provisioned Lexphon: German, Portuguese BR/PT, Russian, Thai, Vietnamese, Japanese,
   Korean, and Swedish when NST is explicitly selected.
 

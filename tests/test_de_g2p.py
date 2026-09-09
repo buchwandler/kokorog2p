@@ -369,7 +369,7 @@ class TestGermanLexicon:
             GermanLexicon(lexicons=("gold", "gold"))
 
     def test_direct_selection_rejects_unknown_names_with_valid_names(self):
-        with pytest.raises(ValueError, match="valid names: gold, crane"):
+        with pytest.raises(ValueError, match="Available lexicons: gold, crane"):
             GermanLexicon(lexicons=("missing",))
 
     def test_gold_lookup_remains_case_insensitive(self, lexicon):

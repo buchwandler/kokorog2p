@@ -136,8 +136,7 @@ def test_numeric_dotted_units_remain_one_normalized_offset_span():
         use_lexicon=False,
         use_espeak_fallback=False,
         use_goruut_fallback=False,
-        load_gold=False,
-        load_silver=False,
+        lexicons=(),
     )
     results = phonemize_segments(
         source,
@@ -183,8 +182,7 @@ def test_installed_phrasplit_and_ssmd_pipeline_uses_clean_text_coordinates():
         "en-us",
         use_spacy=None,
         use_espeak_fallback=False,
-        load_gold=False,
-        load_silver=False,
+        lexicons=(),
     )
     results = []
     for segment in segments:

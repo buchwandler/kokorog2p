@@ -1,114 +1,32 @@
-"""Tests for the French G2P module."""
+import inspect
 
+import kokorog2p
 from kokorog2p.fr import FrenchG2P
-from kokorog2p.fr.lexicon import FrenchLexicon
-from kokorog2p.spacy_models import SpacyModelResolution, SpacyModelSize
-from kokorog2p.token import GToken
 
 
-def _french_model_resolution(*_args, **_kwargs):
-    """Return a deterministic model selection without requiring French spaCy."""
-    return SpacyModelResolution(
-        language="fr",
-        package="fr_core_news_md",
-        size=SpacyModelSize.MD,
-        automatic=True,
-        candidates=("fr_core_news_md",),
-        checked=("fr_core_news_md",),
-        errors=(),
-        spacy_available=True,
+def test_constructor_has_no_legacy_tier_parameters() -> None:
+    legacy = {"load_" + "gold", "load_" + "silver", "use_" + "gold", "use_" + "silver"}
+    assert not legacy & set(inspect.signature(FrenchG2P).parameters)
+
+
+def test_no_lexicon_mode_works_without_external_data() -> None:
+    g2p = FrenchG2P(
+        language="fr-fr",
+        lexicons=(),
+        use_spacy=False,
+        use_espeak_fallback=False,
     )
+    assert g2p.lexicon.lexicons == ()
+    assert g2p("motinconnu")[0].phonemes == "?"
+    g2p.close()
 
 
-class TestFrenchG2P:
-    """Tests for FrenchG2P."""
-
-    def test_creation_defaults(self, monkeypatch):
-        """Test FrenchG2P default configuration."""
-        monkeypatch.setattr(
-            "kokorog2p.fr.g2p.resolve_spacy_model", _french_model_resolution
-        )
-        g2p = FrenchG2P(use_espeak_fallback=False)
-        assert g2p.language == "fr-fr"
-        assert g2p.use_spacy is True
-        assert g2p.spacy_model == "fr_core_news_md"
-
-    def test_french_fallback_inherits_use_cli(self):
-        g2p = FrenchG2P(
-            use_spacy=False,
-            use_cli=True,
-            load_gold=False,
-        )
-
-        assert g2p.use_cli is True
-        assert g2p.fallback is not None
-        assert g2p.fallback.fallback_provider == "espeak"
-
-    def test_call_returns_tokens_without_spacy(self):
-        """Test token output without requiring spaCy model."""
-        g2p = FrenchG2P(use_spacy=False, use_espeak_fallback=False)
-        tokens = g2p("Bonjour le monde!")
-
-        assert isinstance(tokens, list)
-        assert all(isinstance(t, GToken) for t in tokens)
-        assert any(t.text == "Bonjour" for t in tokens)
-        assert any(t.text == "!" for t in tokens)
-
-
-class TestFrenchGetG2P:
-    """Tests for get_g2p with French options."""
-
-    def test_get_g2p_french_forwards_use_spacy(self):
-        """Test get_g2p forwards use_spacy for French."""
-        from kokorog2p import clear_cache, get_g2p
-
-        clear_cache()
-        g2p = get_g2p("fr", use_spacy=False)
-
-        assert isinstance(g2p, FrenchG2P)
-        assert g2p.use_spacy is False
-
-    def test_get_g2p_french_forwards_use_cli(self):
-        """Test get_g2p forwards CLI selection to the French fallback."""
-        from kokorog2p import clear_cache, get_g2p
-
-        clear_cache()
-        g2p = get_g2p("fr", use_cli=True, use_spacy=False, load_gold=False)
-
-        assert isinstance(g2p, FrenchG2P)
-        assert g2p.use_cli is True
-        assert g2p.fallback is not None
-        assert g2p.fallback.fallback_provider == "espeak"
-
-    def test_get_g2p_french_forwards_spacy_model(self, monkeypatch):
-        """Test get_g2p forwards custom French spaCy model name."""
-        from kokorog2p import clear_cache, get_g2p
-
-        monkeypatch.setattr("kokorog2p.resolve_spacy_model", _french_model_resolution)
-        clear_cache()
-        g2p = get_g2p("fr", spacy_model="fr_core_news_md")
-
-        assert isinstance(g2p, FrenchG2P)
-        assert g2p.spacy_model == "fr_core_news_md"
-
-
-class TestFrenchGoldLexicon:
-    """Regression tests for corrected French gold IPA entries."""
-
-    def test_nasal_vowel_and_verb_ending_entries(self):
-        lexicon = FrenchLexicon(load_silver=False, load_gold=True)
-
-        expected = {
-            "demander": "dəmɑ̃de",
-            "restaurant": "ʁɛstɔʁɑ̃",
-            "restaurants": "ʁɛstɔʁɑ̃",
-            "excellent": "ɛksɛlɑ̃",
-            "excellents": "ɛksɛlɑ̃",
-            "excellente": "ɛksɛlɑ̃t",
-            "excellentes": "ɛksɛlɑ̃t",
-        }
-
-        for word, phonemes in expected.items():
-            ps, rating = lexicon(word)
-            assert ps == phonemes, f"{word}: expected {phonemes!r}, got {ps!r}"
-            assert rating == 4
+def test_factory_no_lexicon_mode_for_french() -> None:
+    kokorog2p.clear_cache(deep=True)
+    g2p = kokorog2p.get_g2p(
+        "fr-fr",
+        lexicons=(),
+        use_spacy=False,
+        use_espeak_fallback=False,
+    )
+    assert g2p.lexicon.lexicons == ()

@@ -61,8 +61,6 @@ class G2PBase(ABC):
         )
         self.use_cli = use_cli
         self.strict = strict
-        self.load_silver: bool | None = None
-        self.load_gold: bool | None = None
 
     @property
     def is_british(self) -> bool:

@@ -2,27 +2,18 @@
 
 ## Overview
 
-The French benchmark script is located at:
-
-- **benchmarks/benchmark_fr_comparison.py**
-
-This script tests all French G2P configurations and measures accuracy and speed.
+French dictionary benchmarks use the externally provisioned Lexphon asset `fr-fr:gold`.
+KokoroG2P no longer ships a French dictionary or a tiered comparison script.
 
 ## Quick Start
 
 ```bash
-# Run all configurations
-python benchmarks/benchmark_fr_comparison.py
-
-# Test specific configuration
-python benchmarks/benchmark_fr_comparison.py --config "Gold only"
-
-# Verbose output
-python benchmarks/benchmark_fr_comparison.py --verbose
-
-# Export results
-python benchmarks/benchmark_fr_comparison.py --output results.json
+lexphon data install fr-fr:gold
+lexphon data verify fr-fr:gold
 ```
+
+Use `FrenchG2P(lexicons="gold")` for dictionary-backed measurements and
+`FrenchG2P(lexicons=())` for fallback-only measurements.
 
 ## Benchmark Results (154 sentences, 650 words)
 
@@ -227,18 +218,10 @@ print("Gold only:", [t.phonemes for t in g2p_gold(text)])
 print("Gold + Espeak:", [t.phonemes for t in g2p_espeak(text)])
 ```
 
-### Running Benchmarks
+### Running measurements
 
-```bash
-# Test gold only (fastest, most accurate)
-python benchmarks/benchmark_fr_comparison.py --config "Gold only"
-
-# Test with espeak fallback
-python benchmarks/benchmark_fr_comparison.py --config "Gold + Espeak"
-
-# See detailed errors (if any)
-python benchmarks/benchmark_fr_comparison.py --verbose
-```
+Provision `fr-fr:gold` as shown above, then run the focused French regression tests or
+your local benchmark harness with `lexicons="gold"` and `lexicons=()` modes.
 
 ## Validation Results
 
@@ -259,8 +242,7 @@ python benchmarks/validate_synthetic_data.py benchmarks/data/fr_synthetic.json
 
 1. **Smaller dataset**: 154 sentences is smaller than German (189) or Japanese (371) due
    to CHILDES filtering challenges
-2. **No silver lexicon**: French currently has no silver lexicon (only gold with 15,011
-   entries)
+2. **External provisioning**: The `fr-fr:gold` asset is released and installed through Lexphon
 3. **Liaison not represented**: French liaison (linking) is not explicitly marked in
    phonemes
 4. **Elision handling**: Contractions like "l'ami" are treated as separate tokens
@@ -302,8 +284,7 @@ on the final syllable of phrases.
 
 Potential areas for enhancement:
 
-- [ ] Expand dataset to 200+ sentences
-- [ ] Add silver lexicon for broader coverage
+- [ ] Add broader vocabulary to the upstream `fr-fr:gold` release
 - [ ] Include more technical/scientific vocabulary
 - [ ] Add regional pronunciation variants (Belgian, Swiss, Quebec)
 - [ ] Test liaison handling explicitly

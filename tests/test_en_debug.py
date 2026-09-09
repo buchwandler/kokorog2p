@@ -12,7 +12,11 @@ class TestDebugMode:
     @pytest.fixture
     def g2p(self):
         """Create an EnglishG2P instance."""
-        return EnglishG2P(use_spacy=False, use_espeak_fallback=True)
+        return EnglishG2P(
+            lexicons=(),
+            use_spacy=False,
+            use_espeak_fallback=True,
+        )
 
     def test_process_with_debug_returns_processed_text(self, g2p):
         """Test that process_with_debug returns a ProcessedText object."""
@@ -68,21 +72,17 @@ class TestDebugMode:
         assert len(hello_token.phoneme) > 0
 
     def test_phoneme_source_tracking(self, g2p):
-        """Test that phoneme sources are tracked (gold/silver/unknown)."""
+        """Test that provider phoneme sources are tracked."""
         result = g2p.process_with_debug("hello")
 
         hello_token = result.tokens[0]
-        assert hello_token.phoneme_source is not None
-        # Should be either LEXICON_GOLD or LEXICON_SILVER from lexicon
-        assert hello_token.phoneme_source in [
-            PhonemeSource.LEXICON_GOLD,
-            PhonemeSource.LEXICON_SILVER,
-        ]
+        assert hello_token.phoneme_source == PhonemeSource.ESPEAK
 
     def test_unknown_word_without_fallback(self, g2p):
         """Test that unknown words are marked with UNKNOWN source when no fallback."""
         # Create a G2P instance explicitly without fallback
         g2p_no_fallback = EnglishG2P(
+            lexicons=(),
             use_spacy=False, use_espeak_fallback=False, use_goruut_fallback=False
         )
         result = g2p_no_fallback.process_with_debug("xyzabc123")
@@ -237,7 +237,11 @@ class TestDebugRenderOutput:
     @pytest.fixture
     def g2p(self):
         """Create an EnglishG2P instance."""
-        return EnglishG2P(use_spacy=False, use_espeak_fallback=False)
+        return EnglishG2P(
+            lexicons=(),
+            use_spacy=False,
+            use_espeak_fallback=False,
+        )
 
     def test_render_includes_section_headers(self, g2p):
         """Test that render output includes clear section headers."""
@@ -280,7 +284,11 @@ class TestDebugWithFallback:
     @pytest.fixture
     def g2p_espeak(self):
         """Create an EnglishG2P instance with espeak fallback."""
-        return EnglishG2P(use_spacy=False, use_espeak_fallback=True)
+        return EnglishG2P(
+            lexicons=(),
+            use_spacy=False,
+            use_espeak_fallback=True,
+        )
 
     def test_unknown_word_with_espeak_fallback(self, g2p_espeak):
         """Test that espeak fallback is tracked in debug mode."""
@@ -298,9 +306,6 @@ class TestDebugWithFallback:
         # First word from lexicon, second from espeak
         sources = [tok.phoneme_source for tok in result.tokens if tok.phoneme]
 
-        # Should have both LEXICON_GOLD/LEXICON_SILVER and ESPEAK sources
-        assert PhonemeSource.ESPEAK in sources
-        assert any(
-            s in [PhonemeSource.LEXICON_GOLD, PhonemeSource.LEXICON_SILVER]
-            for s in sources
-        )
+        # Both words use the configured provider in no-lexicon mode
+        assert sources
+        assert set(sources) == {PhonemeSource.ESPEAK}

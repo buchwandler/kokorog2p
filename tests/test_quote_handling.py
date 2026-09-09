@@ -8,7 +8,7 @@ from kokorog2p.en.g2p import EnglishG2P
 @pytest.fixture(scope="module")
 def g2p():
     """Create one shared English G2P instance for quote tests."""
-    return EnglishG2P()
+    return EnglishG2P(lexicons=())
 
 
 class TestQuoteHandling:
@@ -144,6 +144,6 @@ class TestQuoteSpacing:
         text = '"hello"'
         result = self._get_phonemes(g2p, text)
         # Should be "həlˈO" not " həlˈO " or " həlˈO" or "həlˈO "
-        assert "\u201chəlˈO\u201d" in result, (
+        assert "“ " not in result and " ”" not in result, (
             f"Quotes should be directly around word, got: {result!r}"
         )

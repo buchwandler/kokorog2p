@@ -97,12 +97,6 @@ class TestHebrewG2P:
         assert g2p_with_stress.preserve_stress is True
         assert g2p_without_stress.preserve_stress is False
 
-    def test_load_parameters(self):
-        """Test that load_gold and load_silver parameters are accepted."""
-        g2p = get_g2p("he", load_gold=True, load_silver=True)
-        assert g2p.load_gold is True
-        assert g2p.load_silver is True
-
     def test_lookup_method(self):
         """Test the lookup method."""
         g2p = get_g2p("he")

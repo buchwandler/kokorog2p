@@ -41,27 +41,23 @@ def regenerate_phonemes(input_file: Path, output_file: Path | None = None) -> No
             language=language,
             use_espeak_fallback=True,  # Enable fallback for OOV words
             use_spacy=False,
-            load_gold=True,
-            load_silver=True,
+            lexicons="gold",
         )
     elif language in ("de", "de-de"):
         g2p = GermanG2P(
             use_espeak_fallback=False,
-            load_gold=True,
-            load_silver=False,
+            lexicons=("gold",),
         )
     elif language in ("ja", "ja-jp"):
         g2p = JapaneseG2P(
             use_espeak_fallback=False,
-            load_gold=True,
-            load_silver=True,
+            lexicons="gold",
         )
     elif language in ("fr", "fr-fr"):
         g2p = FrenchG2P(
             use_espeak_fallback=False,
             use_spacy=False,
-            load_gold=True,
-            load_silver=True,
+            lexicons="gold",
         )
     elif language in ("ko", "ko-kr"):
         g2p = KoreanG2P(

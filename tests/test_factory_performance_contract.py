@@ -1,6 +1,5 @@
 """Structural tests for cheap and lazy G2P factory construction."""
 
-import g2lex
 import pytest
 
 from kokorog2p import clear_cache, get_g2p, phonemize_prepared
@@ -9,29 +8,22 @@ from kokorog2p.spacy_models import SpacyModelResolution, SpacyModelSize
 
 
 @pytest.mark.parametrize("language", ["en-us", "en-gb", "fr-fr"])
-def test_factory_does_not_measure_case_alias_lexicon(
-    monkeypatch: pytest.MonkeyPatch,
+def test_factory_constructs_no_lexicon_mode_without_external_data(
     language: str,
 ) -> None:
-    def forbidden_len(self: object) -> int:
-        raise AssertionError(
-            "get_g2p() must not enumerate CaseAliasMapping during construction"
-        )
-
-    monkeypatch.setattr(g2lex.CaseAliasMapping, "__len__", forbidden_len)
     clear_cache()
-
     get_g2p(
         language,
+        lexicons=(),
         use_spacy=False,
         use_espeak_fallback=False,
         use_goruut_fallback=False,
     )
 
-
 def test_factory_reuses_identical_frontend() -> None:
     clear_cache()
     options = {
+        "lexicons": (),
         "use_spacy": False,
         "use_espeak_fallback": False,
         "use_goruut_fallback": False,
@@ -86,8 +78,9 @@ def test_automatic_spacy_factory_resolution_does_not_probe_loader(
         ),
     )
     clear_cache()
-
-    g2p = get_g2p("en-us", use_espeak_fallback=False)
+    g2p = get_g2p(
+        "en-us", use_espeak_fallback=False, lexicons=()
+    )
 
     assert g2p.use_spacy is True
     assert calls == [
@@ -138,6 +131,7 @@ def test_factory_preserves_direct_and_prepared_output() -> None:
         use_spacy=False,
         use_espeak_fallback=False,
         use_goruut_fallback=False,
+        lexicons=(),
     )
     direct = "".join(
         (token.phonemes or "") + token.whitespace for token in g2p(text)

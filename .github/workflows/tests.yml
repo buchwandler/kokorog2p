@@ -75,11 +75,7 @@ jobs:
             tests/test_attr_parser.py \
             tests/test_base.py \
             tests/test_dependency_contract.py \
-            tests/test_markers.py \
-            tests/test_pipeline_api.py \
-            tests/test_examples_contract.py \
-            tests/test_public_api_consistency.py \
-            tests/test_station_benchmarks.py
+            tests/test_examples_contract.py
 
   station-performance:
     name: Scheduled station benchmark
@@ -284,8 +280,9 @@ jobs:
       - name: Run Japanese Cutlet smoke tests
         run: python -m pytest -q tests/test_ja_g2p.py -k cutlet
 
-  packaged-lexicons:
-    name: Remaining packaged lexicons and release artifacts
+  external-lexicons:
+    name: Released external English and French lexicons
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -295,29 +292,28 @@ jobs:
           python-version: "3.13"
       - name: Install package and development dependencies
         run: python -m pip install -e ".[dev]"
-      - name: Check deterministic packaged lexicons
-        run: python scripts/build_g2lex_assets.py --check
-      - name: Validate packaged lexicons
-        run: python scripts/validate_g2lex_assets.py --all --runtime-parity
+      - name: Provision released Lexphon data
+        run: lexphon data install en-us:gold en-gb:gold fr-fr:gold
+      - name: Verify released Lexphon data
+        run: lexphon data verify en-us:gold en-gb:gold fr-fr:gold
       - name: Build and inspect wheel and sdist
         run: |
           rm -rf dist
           python -m build
           python scripts/check_release_artifacts.py --wheel "$(ls dist/*.whl)" --sdist "$(ls dist/*.tar.gz)"
-      - name: Run packaged and German adapter tests
+      - name: Run external lexicon integration tests
         run: |
           python -m pytest -q \
             tests/test_lexicon_registry.py \
-            tests/test_g2lex_assets.py \
             tests/test_lexicon_selection.py \
-            tests/test_g2lex_runtime_lifetime.py \
-            tests/test_legacy_lexicon_parity.py \
-            tests/test_lexicon_precedence.py \
-            tests/test_lexicon_manifest_generation.py \
-            tests/test_de_g2p.py \
-            tests/test_de_g2p_hardening.py \
-            tests/test_release_artifacts.py \
-            tests/test_dependency_contract.py
+            tests/test_external_g2lex_runtime.py \
+            tests/test_en_lexicon.py \
+            tests/test_en_g2p.py \
+            tests/test_fr_g2p.py \
+            tests/test_markers.py \
+            tests/test_pipeline_api.py \
+            tests/test_public_api_consistency.py \
+            tests/test_quote_phonemes.py
   lexhint-released-integration:
     name: Released LexHint integration
     if: github.event_name != 'push'

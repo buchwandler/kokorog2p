@@ -1,4 +1,4 @@
-"""Lazy, resource-owned runtime access to packaged G2Lex assets."""
+"""Read-only runtime access to externally provisioned G2Lex assets."""
 
 from __future__ import annotations
 
@@ -6,23 +6,21 @@ import weakref
 from collections import namedtuple
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from importlib.resources import files
-from pathlib import Path
 from threading import RLock
 from types import TracebackType
 from typing import Any
 
 import g2lex
+from lexphon import DataStore, LexiconNotInstalledError
 
-_SUPPORTED_ENCODINGS = frozenset({"kokoro-v1", "ipa", "none"})
 from .registry import LexiconSpec, get_lexicon_spec, normalize_language
 
 
 @dataclass(slots=True)
 class _SharedLexiconResource:
-    """One immutable G2Lex mapping with explicit consumer leases."""
+    """One immutable external mapping with explicit consumer leases."""
 
-    key: tuple[str, str, bool]
+    key: tuple[str, str]
     handle: Any
     mapping: Mapping[str, object]
     leases: int = 0
@@ -39,38 +37,42 @@ class _SharedLexiconResource:
 
 
 _RESOURCE_LOCK = RLock()
-_RESOURCE_CACHE: dict[tuple[str, str, bool], _SharedLexiconResource] = {}
+_RESOURCE_CACHE: dict[tuple[str, str], _SharedLexiconResource] = {}
 _RESOURCE_HITS = 0
 _RESOURCE_MISSES = 0
 _ResourceCacheInfo = namedtuple("ResourceCacheInfo", "hits misses maxsize currsize")
 
 
-def _resource_key(spec: LexiconSpec) -> tuple[str, str, bool]:
-    if spec.resource is None or spec.backend is not None:
-        raise ValueError(
-            f"external lexicon {spec.id!r} cannot be opened as a packaged resource"
-        )
-    return (spec.id, spec.resource, spec.case_aliases)
+def _store_key(store: DataStore) -> str:
+    return str(store.root.resolve())
 
 
-def _acquire_resource(spec: LexiconSpec) -> _SharedLexiconResource:
-    """Acquire a lease on the process-shared resource for ``spec``."""
+def _missing_asset_error(spec: LexiconSpec) -> str:
+    return (
+        f"Lexicon {spec.id} is not installed.\n"
+        "Run:\n"
+        f"  lexphon data install {spec.id}\n"
+        f"  lexphon data verify {spec.id}"
+    )
+
+
+def _acquire_resource(spec: LexiconSpec, store: DataStore) -> _SharedLexiconResource:
+    """Acquire a lease on an externally installed lexicon."""
     global _RESOURCE_HITS, _RESOURCE_MISSES
+    if spec.backend != "lexphon":
+        raise ValueError(f"lexicon {spec.id!r} is not externally Lexphon-backed")
+
+    key = (_store_key(store), spec.id)
     with _RESOURCE_LOCK:
-        key = _resource_key(spec)
         resource = _RESOURCE_CACHE.get(key)
         if resource is None:
             _RESOURCE_MISSES += 1
-            data = files("kokorog2p.lexicons.data")
-            raw = g2lex.open_traversable(data.joinpath(spec.resource))
             try:
-                mapping: Mapping[str, object] = (
-                    g2lex.CaseAliasMapping(raw) if spec.case_aliases else raw
-                )
-            except Exception:
-                raw.close()
-                raise
-            resource = _SharedLexiconResource(key, mapping, mapping)
+                path = store.path(spec.id)
+            except LexiconNotInstalledError as exc:
+                raise LexiconNotInstalledError(_missing_asset_error(spec)) from exc
+            handle = g2lex.open(path)
+            resource = _SharedLexiconResource(key, handle, handle)
             _RESOURCE_CACHE[key] = resource
         else:
             _RESOURCE_HITS += 1
@@ -88,7 +90,6 @@ def _release_resource(resource: _SharedLexiconResource) -> None:
 
 
 def _release_resources(resources: tuple[_SharedLexiconResource, ...]) -> None:
-    """Release resources without retaining an owning consumer reference."""
     for resource in resources:
         _release_resource(resource)
 
@@ -105,7 +106,7 @@ def clear_resource_cache() -> None:
 
 
 def resource_cache_info():
-    """Return diagnostics for the shared G2Lex resource pool."""
+    """Return diagnostics for the shared external resource pool."""
     with _RESOURCE_LOCK:
         return _ResourceCacheInfo(
             _RESOURCE_HITS, _RESOURCE_MISSES, None, len(_RESOURCE_CACHE)
@@ -126,11 +127,18 @@ class LexiconHit:
 
 
 class SelectedLexicons:
-    """An ordered collection of lazy G2Lex mappings with source identity."""
+    """An ordered collection of lazy external G2Lex mappings."""
 
-    def __init__(self, language: str, names: Sequence[str]) -> None:
+    def __init__(
+        self,
+        language: str,
+        names: Sequence[str],
+        *,
+        store: DataStore | None = None,
+    ) -> None:
         self.language = normalize_language(language)
         self.names = tuple(names)
+        self.store = DataStore() if store is None else store
         self._specs: tuple[LexiconSpec, ...] = tuple(
             get_lexicon_spec(self.language, name) for name in self.names
         )
@@ -139,13 +147,7 @@ class SelectedLexicons:
         resources: list[_SharedLexiconResource] = []
         try:
             for spec in self._specs:
-                if spec.phoneme_encoding not in _SUPPORTED_ENCODINGS:
-                    raise ValueError(
-                        "No runtime decoder registered for "
-                        f"encoding {spec.phoneme_encoding!r} "
-                        f"({spec.id})"
-                    )
-                resource = _acquire_resource(spec)
+                resource = _acquire_resource(spec, self.store)
                 resources.append(resource)
                 self._layers[spec.name] = resource.mapping
                 layer_records.append(
@@ -196,7 +198,7 @@ class SelectedLexicons:
         return self.get_hit(word)
 
     def get_hit_candidates(self, words: Sequence[str]) -> LexiconHit | None:
-        """Search selected layers first, then candidate spellings upstream."""
+        """Search selected layers for the first matching candidate."""
         self._ensure_open()
         hit = self._layered.get_hit_candidates(words)
         if hit is None:
@@ -230,8 +232,6 @@ class SelectedLexicons:
             return
         self._closed = True
         self._layers.clear()
-        # LayeredLexicon.close() owns its mappings; these layers are borrowed
-        # from the lease-aware pool and must only be released here.
         self._finalizer()
 
     def __enter__(self) -> SelectedLexicons:  # noqa: PYI034
@@ -247,60 +247,14 @@ class SelectedLexicons:
         self.close()
 
 
-def open_selected(language: str, names: Sequence[str]) -> SelectedLexicons:
-    """Open the named registry layers in exactly the supplied order."""
-    return SelectedLexicons(language, names)
-
-
-def validate_runtime_parity(
-    records: list[dict[str, Any]], root: Path
-) -> list[dict[str, Any]]:
-    """Report storage and consumer parity for registered runtime layers."""
-    results: list[dict[str, Any]] = []
-    for record in records:
-        identifier = str(record["id"])
-        transformed = bool(record.get("transform"))
-        source = root / str(record["source"])
-        parsed = (
-            None
-            if transformed
-            else g2lex.read_typed_lexicon(
-                source, format=str(record["source_format"]), source_id=identifier
-            )
-        )
-        selected = open_selected(str(record["language"]), (str(record["name"]),))
-        missing = mismatches = 0
-        consumer: dict[str, Any] = {"ok": True, "skipped": True}
-        try:
-            layer = selected.layer(str(record["name"]))
-            if not transformed and layer is not None and parsed is not None:
-                for word, expected in parsed.entries.items():
-                    actual = layer.get(word)
-                    if actual is None and expected is not None:
-                        missing += 1
-                    elif actual != expected:
-                        mismatches += 1
-        finally:
-            selected.close()
-        storage_ok = not (missing or mismatches)
-        errors = [] if storage_ok else [f"missing={missing} mismatches={mismatches}"]
-        if not consumer.get("ok", True):
-            errors.extend(str(error) for error in consumer.get("errors", ()))
-        results.append(
-            {
-                "id": identifier,
-                "missing_keys": missing,
-                "unexpected_semantic_hits": 0,
-                "value_mismatches": mismatches,
-                "storage_parity": "transformed"
-                if transformed
-                else ("exact" if storage_ok else "failed"),
-                "consumer_parity": consumer,
-                "ok": storage_ok and bool(consumer.get("ok", True)),
-                "errors": errors,
-            }
-        )
-    return results
+def open_selected(
+    language: str,
+    names: Sequence[str],
+    *,
+    store: DataStore | None = None,
+) -> SelectedLexicons:
+    """Open the named externally provisioned lexicons in supplied order."""
+    return SelectedLexicons(language, names, store=store)
 
 
 __all__ = [

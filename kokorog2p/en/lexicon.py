@@ -7,8 +7,9 @@ import re
 import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from types import MappingProxyType
 from typing import Any, Final
+
+from lexphon import DataStore
 
 from kokorog2p.lexicons.runtime import LexiconHit, SelectedLexicons, open_selected
 
@@ -116,8 +117,6 @@ class TokenContext:
 
 
 LexiconValue = str | Mapping[str, str | None] | tuple[str, ...]
-LexiconMapping = Mapping[str, LexiconValue]
-EMPTY_LEXICON: Final[LexiconMapping] = MappingProxyType({})
 
 
 def clear_lexicon_cache() -> None:
@@ -164,78 +163,26 @@ def is_digit(text: str) -> bool:
 
 
 class Lexicon:
-    """Dictionary-based G2P lookup with gold and silver tier dictionaries."""
+    """Dictionary-based G2P lookup using one selected external lexicon."""
 
     def __init__(
         self,
         british: bool = False,
         skip_is_known: bool = False,
-        load_silver: bool = True,
-        load_gold: bool = True,
+        store: DataStore | None = None,
         lexicons: Sequence[str] | None = None,
     ) -> None:
-        """Initialize the lexicon.
-
-        Args:
-            british: Whether to use British English dictionaries.
-            skip_is_known: If True, skip is_known checks (useful for benchmarking).
-            load_silver: If True, load silver tier dictionary (~100k extra entries).
-                Defaults to True for backward compatibility and maximum coverage.
-                Set to False to save memory (~22-31 MB) and initialization time.
-            load_gold: If True, load gold tier dictionary (~170k common words).
-                Defaults to True for maximum quality and coverage.
-                Set to False when only silver tier or no dictionaries needed.
-        """
+        """Initialize the lexicon."""
         self.british = british
         self.skip_is_known = skip_is_known
-        self.load_silver = load_silver
-        self.load_gold = load_gold
         self.cap_stresses = (0.5, 2)
         language = "en-gb" if british else "en-us"
-        names = (
-            ("gold", "silver")
-            if lexicons is None and load_gold and load_silver
-            else ("gold",)
-            if lexicons is None and load_gold
-            else ("silver",)
-            if lexicons is None and load_silver
-            else ()
-            if lexicons is None
-            else tuple(lexicons)
-        )
+        names = ("gold",) if lexicons is None else tuple(lexicons)
         self.lexicons = names
-        self._selected: SelectedLexicons = open_selected(language, names)
-        gold = self._selected.layer("gold")
-        silver = self._selected.layer("silver")
-        self.golds: LexiconMapping = EMPTY_LEXICON if gold is None else gold
-        self.silvers: LexiconMapping = EMPTY_LEXICON if silver is None else silver
+        self._selected: SelectedLexicons = open_selected(language, names, store=store)
 
     def _selected_hit(self, word: str) -> LexiconHit | None:
-        """Return the hit selected by the configured ordered stack."""
-        hit = self._selected.get_hit(word)
-        if hit is not None:
-            return hit
-
-        # Keep the public tier mappings usable for deterministic callers that
-        # replace them with an in-memory fixture after construction.
-        for name, mapping, rating in (
-            ("gold", self.golds, 4),
-            ("silver", self.silvers, 3),
-        ):
-            try:
-                value = mapping[word]
-            except KeyError:
-                continue
-            return LexiconHit(
-                value=value,
-                name=name,
-                rating=rating,
-                kind="pronunciation",
-                phoneme_encoding="ipa",
-                lexicon_id=f"en-us:{name}:compatibility",
-                metadata={},
-            )
-        return None
+        return self._selected.get_hit(word)
 
     def _contains_selected(self, word: str) -> bool:
         """Check membership without assuming tier names."""

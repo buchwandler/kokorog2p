@@ -188,8 +188,7 @@ def test_profile_construction_uses_documented_arguments(
         "use_espeak_fallback": True,
         "use_goruut_fallback": False,
         "use_spacy": False,
-        "load_gold": True,
-        "load_silver": True,
+        "lexicons": ("gold",),
         "strict": True,
     }
 

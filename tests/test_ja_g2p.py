@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import importlib.resources
+import importlib.util
 import sys
 from dataclasses import dataclass
 
@@ -241,15 +241,3 @@ def test_cutlet_lexhint_missing_data_is_actionable() -> None:
     cutlet._lexphon = MissingLexphon()  # type: ignore[assignment]
     with pytest.raises(LexiconNotInstalledError, match="ja:lexhint"):
         cutlet._romaji_tokens([Word("東京", "とうきょう", 6)])
-
-
-def test_japanese_word_list_resource_is_absent() -> None:
-    resource = importlib.resources.files("kokorog2p.lexicons.data").joinpath(
-        "ja_words.g2lex"
-    )
-    assert not resource.is_file()
-    assert (
-        not importlib.resources.files("kokorog2p.ja.data")
-        .joinpath("ja_words.txt")
-        .is_file()
-    )

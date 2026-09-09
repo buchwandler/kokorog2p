@@ -203,13 +203,6 @@ class TestKoreanG2P:
         # Should still work but without POS tagging
         assert result is not None
 
-    def test_load_parameters(self):
-        """Test load_silver and load_gold parameters."""
-        # These parameters exist for API consistency
-        g2p_custom = KoreanG2P(load_silver=False, load_gold=False)
-        result = g2p_custom.phonemize("테스트")
-        assert result is not None
-
     def test_mixed_prepared_korean_text(self, g2p):
         """Mixed-language semantic preparation is external."""
         result = g2p.phonemize("나의 친구가 엠피쓰리 파일 삼개를 다운받고 있다")

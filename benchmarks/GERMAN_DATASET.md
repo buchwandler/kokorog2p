@@ -1,37 +1,19 @@
-# German Synthetic Benchmark Dataset
+# German synthetic benchmark dataset
 
-## Overview
-
-The German benchmark script is located at:
-
-- **benchmarks/benchmark_de_comparison.py**
-
-This script tests all German G2P configurations and measures accuracy and speed.
-
-## Quick Start
+German benchmark data uses externally provisioned Lexphon dictionaries. KokoroG2P does not
+ship or build German dictionary assets.
 
 ```bash
-# Run all configurations
-python benchmarks/benchmark_de_comparison.py
-
-# Test specific configuration
-python benchmarks/benchmark_de_comparison.py --config "Gold + Espeak"
-
-# Verbose output
-python benchmarks/benchmark_de_comparison.py --verbose
-
-# Export results
-python benchmarks/benchmark_de_comparison.py --output results.json
+lexphon data install de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
+lexphon data verify de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
 ```
 
-## Benchmark Results (189 sentences)
+Use `GermanG2P(lexicons=("gold",))` for the default dictionary profile, an ordered tuple
+for layered comparisons, and `lexicons=()` for fallback-only measurements. The synthetic
+`de_synthetic.json` dataset can be consumed by a local benchmark harness after provisioning.
 
-| Configuration | Accuracy | Speed         | Recommendation  |
-| ------------- | -------- | ------------- | --------------- |
-| Gold + Espeak | 100.0%   | 27,178 sent/s | ✅ **Best**     |
-| Gold only     | 100.0%   | 26,175 sent/s | Good            |
-| Gold + Goruut | 100.0%   | 26,058 sent/s | Alternative     |
-| Espeak only   | 19.0%    | 18,219 sent/s | Not recommended |
-| Goruut only   | 19.0%    | 20,587 sent/s | Not recommended |
+Validate its structure with:
 
-**Recommendation**: Use **Gold + Espeak** configuration for German.
+```bash
+python benchmarks/validate_synthetic_data.py benchmarks/data/de_synthetic.json
+```

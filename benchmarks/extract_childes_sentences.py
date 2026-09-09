@@ -155,13 +155,12 @@ def validate_with_g2p(
     """
     from kokorog2p.en import EnglishG2P
 
-    # Create G2P with gold+silver (reference config)
+    # Create G2P with the external gold asset (reference config)
     g2p = EnglishG2P(
         language=language,
         use_espeak_fallback=False,
         use_spacy=False,
-        load_gold=True,
-        load_silver=True,
+        lexicons="gold",
     )
 
     # Phonemize

@@ -474,9 +474,8 @@ def create_benchmark_g2p(language: str) -> Any:
             use_espeak_fallback=True,
             use_goruut_fallback=False,
             use_spacy=False,
-            load_gold=True,
-            load_silver=True,
             strict=True,
+            lexicons=("gold",),
         )
     if language == "de_DE":
         from kokorog2p.de import GermanG2P
@@ -487,8 +486,7 @@ def create_benchmark_g2p(language: str) -> Any:
             use_goruut_fallback=False,
             use_spacy=False,
             use_lexicon=True,
-            load_gold=True,
-            load_silver=True,
+            lexicons=("gold",),
             strip_stress=False,
         )
     raise ValueError(f"Unsupported Crane language: {language}")

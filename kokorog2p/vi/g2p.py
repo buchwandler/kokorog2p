@@ -144,8 +144,6 @@ class VietnameseG2P(G2PBase):
                 use_goruut_fallback=self.use_goruut_fallback,
                 use_cli=self.use_cli,
                 use_spacy=False,
-                load_silver=False,
-                load_gold=True,
                 strict=self.strict,
             )
         return self._foreign_g2p

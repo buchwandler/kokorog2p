@@ -8,7 +8,7 @@ Based on misaki French implementation, adapted for kokorog2p architecture.
 import re
 import unicodedata
 
-from lexphon import ProviderError
+from lexphon import DataStore, ProviderError
 
 from kokorog2p._optional import load_spacy_model
 from kokorog2p.base import G2PBase
@@ -65,9 +65,8 @@ class FrenchG2P(G2PBase):
         use_spacy: bool = True,
         spacy_model: str | None = None,
         unk: str = "?",
-        load_silver: bool = True,
-        load_gold: bool = True,
         lexicons: tuple[str, ...] | None = None,
+        store: DataStore | None = None,
         version: str = "1.0",
     ) -> None:
         """Initialize the French G2P converter.
@@ -82,13 +81,6 @@ class FrenchG2P(G2PBase):
             spacy_model: spaCy French model package to load when use_spacy=True
                 (e.g., "fr_core_news_sm", "fr_core_news_md", "fr_core_news_lg").
             unk: Character to use for unknown words when fallback is disabled.
-            load_silver: If True, load silver tier dictionary if available.
-                Currently French only has gold dictionary, so this parameter
-                is reserved for future use and consistency with English.
-                Defaults to True for consistency.
-            load_gold: If True, load gold tier dictionary.
-                Defaults to True for maximum quality and coverage.
-                Set to False when ultra-fast initialization is needed.
 
         Raises:
             ValueError: If both use_espeak_fallback and use_goruut_fallback are True.
@@ -116,7 +108,7 @@ class FrenchG2P(G2PBase):
 
         # Initialize lexicon
         self.lexicon = FrenchLexicon(
-            load_silver=load_silver, load_gold=load_gold, lexicons=lexicons
+            lexicons=lexicons, store=store
         )
 
         # Initialize fallback (lazy)

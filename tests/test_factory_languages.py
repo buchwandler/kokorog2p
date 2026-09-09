@@ -38,8 +38,7 @@ def test_native_factory_routing(language: str, expected: type) -> None:
         use_spacy=False,
         use_espeak_fallback=False,
         use_goruut_fallback=False,
-        load_gold=False,
-        load_silver=False,
+        lexicons=(),
     )
 
     assert isinstance(g2p, expected)
@@ -61,8 +60,7 @@ def test_portuguese_factory_routes_dialect_without_semantic_preparation(
         use_spacy=False,
         use_espeak_fallback=False,
         use_goruut_fallback=False,
-        load_gold=False,
-        load_silver=False,
+        lexicons=(),
     )
 
     assert g2p.dialect == expected_dialect

@@ -43,8 +43,6 @@ class KoreanG2P(G2PBase):
         use_goruut_fallback: bool = False,
         use_spacy: bool = False,
         spacy_model: str = "ko_core_news_sm",
-        load_silver: bool = True,
-        load_gold: bool = True,
         use_dict: bool | None = None,
         morphology: Literal["auto", "required", "off"] = "auto",
         morphology_backend: str = "auto",
@@ -70,10 +68,6 @@ class KoreanG2P(G2PBase):
             use_spacy: Reserved for API consistency. Korean uses g2pK backend
                 for tokenization and phonemization.
             spacy_model: Reserved for API consistency when use_spacy is enabled.
-            load_silver: Reserved for API consistency. Korean doesn't use
-                dictionary tiers. Defaults to True.
-            load_gold: Reserved for API consistency. Korean doesn't use
-                dictionary tiers. Defaults to True.
             use_dict: Whether to use MeCab dictionary for POS tagging.
                 Defaults to True. If False, skips MeCab annotation.
             group_vowels: If True, merge similar vowels (e.g., ㅐ->ㅔ).
@@ -114,8 +108,6 @@ class KoreanG2P(G2PBase):
         # Reserved for API consistency; Korean never loads spaCy, but retain
         # the configured model name for callers that inspect the option.
         self.spacy_model = spacy_model
-        self.load_silver = load_silver
-        self.load_gold = load_gold
         self.use_dict = morphology != "off" if use_dict is None else use_dict
         self.group_vowels = group_vowels
         self.to_syl = to_syl

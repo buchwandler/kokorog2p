@@ -1,4 +1,4 @@
-"""Named, packaged KokoroG2P lexicons."""
+"""Named, externally provisioned KokoroG2P lexicons."""
 
 from .evidence import LexiconEvidence
 

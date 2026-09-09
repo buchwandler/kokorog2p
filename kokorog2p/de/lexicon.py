@@ -18,8 +18,6 @@ class GermanLexicon:
     def __init__(
         self,
         strip_stress: bool = False,
-        load_silver: bool | None = None,
-        load_gold: bool | None = None,
         lexicons: Sequence[str] | None = None,
         *,
         fallback_provider: FallbackProvider = None,
@@ -27,17 +25,12 @@ class GermanLexicon:
     ) -> None:
         """Initialize the German lexicon without installing or downloading data."""
         names = normalize_lexicon_selection(
-            "de-de",
-            lexicons,
-            load_gold=load_gold,
-            load_silver=load_silver,
+            "de-de", lexicons
         )
         self._backend = GermanLexphonBackend(
             names, fallback_provider=fallback_provider, store=store
         )
         self._strip_stress = strip_stress
-        self.load_silver = "silver" in names
-        self.load_gold = "gold" in names
         self.lexicons = names
 
     def lookup_token(

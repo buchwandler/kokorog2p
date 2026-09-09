@@ -136,8 +136,8 @@ _G2PCacheInfo = namedtuple("_G2PCacheInfo", "size maxsize policy")
 
 
 _FACTORY_KWARGS_BY_LANGUAGE = {
-    "en": frozenset({"unk"}),
-    "fr": frozenset({"unk"}),
+    "en": frozenset({"unk", "store"}),
+    "fr": frozenset({"unk", "store"}),
     "de": frozenset({"use_lexicon", "strip_stress", "store"}),
     "cs": frozenset({"unk"}),
     "es": frozenset(),
@@ -311,8 +311,6 @@ def get_g2p(  # noqa: C901
     use_cli: bool = False,
     use_spacy: bool | None = None,
     backend: BackendType = "kokorog2p",
-    load_silver: bool | None = None,
-    load_gold: bool | None = None,
     lexicons: str | Sequence[str] | None = None,
     version: str = "1.0",
     phoneme_quotes: str = "curly",
@@ -346,14 +344,6 @@ def get_g2p(  # noqa: C901
             library bindings. Only applies when backend="espeak".
         backend: Phonemization backend to use: "kokorog2p", "espeak", "goruut".
             The goruut backend requires pygoruut to be installed.
-        load_silver: If True, load silver tier dictionary (~100k extra entries).
-            Defaults to True for backward compatibility and maximum coverage.
-            Set to False to save memory (~22-31 MB) and initialization time.
-            Only applies to English (en-us, en-gb). Other languages reserve
-            this parameter for future use.
-        load_gold: If True, load gold tier dictionary (~170k common words).
-            Defaults to True for maximum quality and coverage.
-            Set to False when only silver tier or no dictionaries needed.
             Only applies to languages with dictionaries (English, French, German).
         lexicons: A named lexicon or ordered sequence of named lexicons for the
             language. When omitted, the language default stack is used. In an
@@ -387,9 +377,7 @@ def get_g2p(  # noqa: C901
         >>> g2p = get_g2p("en-us")
         >>> tokens = g2p("Hello world!")
         >>> # Disable silver for better performance
-        >>> g2p_fast = get_g2p("en-us", load_silver=False)
-        >>> # Ultra-fast initialization with no dictionaries
-        >>> g2p_minimal = get_g2p("en-us", load_silver=False, load_gold=False)
+        >>> # Fallback-only mode without a dictionary
         >>> # Chinese
         >>> g2p_zh = get_g2p("zh")
         >>> # Japanese
@@ -404,11 +392,7 @@ def get_g2p(  # noqa: C901
     # behaviorally equivalent do not create duplicate instances or voices.
     requested_language = language.lower().replace("_", "-")
     lang = _canonical_language(language)
-    selected_lexicons = normalize_lexicon_selection(
-        lang, lexicons, load_gold=load_gold, load_silver=load_silver
-    )
-    effective_load_silver = True if load_silver is None else load_silver
-    effective_load_gold = True if load_gold is None else load_gold
+    selected_lexicons = normalize_lexicon_selection(lang, lexicons)
     if use_espeak_fallback is None:
         use_espeak_fallback = lang != "sv-se"
     fallback_provider: FallbackProvider = resolve_fallback_provider(
@@ -535,8 +519,6 @@ def get_g2p(  # noqa: C901
             use_cli=use_cli,
             use_spacy=effective_use_spacy,
             **extra_kwargs,
-            load_silver=effective_load_silver,
-            load_gold=effective_load_gold,
             lexicons=selected_lexicons,
             strict=strict,
             version=version,
@@ -550,8 +532,6 @@ def get_g2p(  # noqa: C901
             language=implementation_language,
             use_spacy=effective_use_spacy,
             **extra_kwargs,
-            load_silver=effective_load_silver,
-            load_gold=effective_load_gold,
             version=version,
             **kwargs,
         )
@@ -562,8 +542,6 @@ def get_g2p(  # noqa: C901
             language=implementation_language,
             use_spacy=effective_use_spacy,
             **extra_kwargs,
-            load_silver=effective_load_silver,
-            load_gold=effective_load_gold,
             lexicons=selected_lexicons,
             version=version,
             **kwargs,
@@ -578,8 +556,6 @@ def get_g2p(  # noqa: C901
             use_cli=use_cli,
             use_spacy=effective_use_spacy,
             **extra_kwargs,
-            load_silver=effective_load_silver,
-            load_gold=effective_load_gold,
             lexicons=selected_lexicons,
             version=version,
             **kwargs,
@@ -625,8 +601,6 @@ def get_g2p(  # noqa: C901
 
         g2p = CzechG2P(
             language=implementation_language,
-            load_silver=effective_load_silver,
-            load_gold=effective_load_gold,
             version=version,
             **kwargs,
         )
@@ -639,8 +613,6 @@ def get_g2p(  # noqa: C901
             use_goruut_fallback=use_goruut_fallback,
             use_spacy=effective_use_spacy,
             **extra_kwargs,
-            load_silver=load_silver,
-            load_gold=load_gold,
             lexicons=selected_lexicons,
             version=version,
             **kwargs,
@@ -715,8 +687,6 @@ def get_g2p(  # noqa: C901
             use_goruut_fallback=use_goruut_fallback,
             use_spacy=effective_use_spacy,
             **extra_kwargs,
-            load_silver=effective_load_silver,
-            load_gold=effective_load_gold,
             version=version,
             **kwargs,
         )
@@ -727,8 +697,6 @@ def get_g2p(  # noqa: C901
             language=implementation_language,
             use_espeak_fallback=use_espeak_fallback,
             use_goruut_fallback=use_goruut_fallback,
-            load_silver=effective_load_silver,
-            load_gold=effective_load_gold,
             version=version,
             **kwargs,
         )
@@ -768,8 +736,6 @@ def phonemize(
     use_spacy: bool | None = None,
     spacy_model: str | None = None,
     spacy_model_size: SpacyModelSize | None = None,
-    load_silver: bool | None = None,
-    load_gold: bool | None = None,
     lexicons: str | Sequence[str] | None = None,
     backend: "BackendType" = "kokorog2p",
     g2p: "G2PBase | None" = None,
@@ -848,12 +814,6 @@ def phonemize(
             API consistency but not currently used by native backends.
         spacy_model_size:
             Exact spaCy model tier to use when ``spacy_model`` is omitted.
-        load_silver:
-            Whether to load the optional silver dictionary when constructing a
-            G2P instance.
-        load_gold:
-            Whether to load the optional gold dictionary when constructing a
-            G2P instance.
         lexicons:
             A named lexicon or ordered sequence of named lexicons for the language.
             When omitted, the language default stack is used. In an explicit sequence,
@@ -906,8 +866,6 @@ def phonemize(
             use_spacy=use_spacy,
             spacy_model=spacy_model,
             spacy_model_size=spacy_model_size,
-            load_silver=load_silver,
-            load_gold=load_gold,
             lexicons=lexicons,
             backend=backend,
             **(dict(g2p_options) if g2p_options else {}),
@@ -955,8 +913,6 @@ def phonemize_prepared(
     use_spacy: bool | None = None,
     spacy_model: str | None = None,
     spacy_model_size: SpacyModelSize | None = None,
-    load_silver: bool | None = None,
-    load_gold: bool | None = None,
     lexicons: str | Sequence[str] | None = None,
     backend: "BackendType" = "kokorog2p",
     g2p: "G2PBase | None" = None,
@@ -985,8 +941,6 @@ def phonemize_prepared(
                 use_spacy=use_spacy,
                 spacy_model=spacy_model,
                 spacy_model_size=spacy_model_size,
-                load_silver=load_silver,
-                load_gold=load_gold,
                 lexicons=lexicons,
                 backend=backend,
                 **(dict(g2p_options) if g2p_options else {}),

@@ -41,82 +41,28 @@ stale tokenization behavior. Per-span `lang` overrides create language-specific 
 instances using the same resolution rules.
 
 ### Memory-Efficient Loading
+### External lexicon provisioning
 
-Control dictionary loading to optimize memory and initialization time:
+English and French dictionaries are installed outside KokoroG2P through Lexphon:
+
+```bash
+lexphon data install en-us:gold en-gb:gold fr-fr:gold
+lexphon data verify en-us:gold en-gb:gold fr-fr:gold
+```
+
+The default English and French constructors select the external `gold` asset. Use
+`lexicons=()` for a fallback-only instance. There is no English silver tier and no
+runtime API for loading or selecting producer-owned assets.
 
 ```python
 from kokorog2p import get_g2p
 
-# Default: Gold + Silver dictionaries (~365k entries, ~57 MB)
-# Provides maximum vocabulary coverage
-g2p = get_g2p("en-us")
-
-# Memory-optimized: Gold dictionary only (~179k entries, ~35 MB)
-# Saves ~22-31 MB memory and ~400-470 ms initialization time
-g2p_fast = get_g2p("en-us", load_silver=False)
-
-# Ultra-fast initialization: No dictionaries (~7 MB, Lexphon provider fallback only)
-# Saves ~50+ MB memory, fastest initialization
-g2p_minimal = get_g2p("en-us", load_silver=False, load_gold=False)
-
-# Check dictionary size
-print(f"Gold entries: {len(g2p.lexicon.golds):,}")
-print(f"Silver entries: {len(g2p.lexicon.silvers):,}")
+g2p = get_g2p("en-us")  # requires en-us:gold to be installed
+fallback_only = get_g2p("en-us", lexicons=())
 ```
 
-**Dictionary loading configurations:**
-
-- `load_gold=True, load_silver=True`: Maximum coverage (default, ~365k entries)
-- `load_gold=True, load_silver=False`: Common words only (~179k entries, -22-31 MB)
-- `load_gold=False, load_silver=True`: Extended vocabulary only (unusual, ~187k entries)
-- `load_gold=False, load_silver=False`: Ultra-fast (espeak only, -50+ MB)
-
-**When to disable dictionaries:**
-
-- **Disable silver** (`load_silver=False`): \* Resource-constrained environments
-  (limited memory) \* Real-time applications (faster initialization) \* You only need
-  common vocabulary \* Production deployments where performance is critical
-- **Disable both** (`load_gold=False, load_silver=False`): \* Ultra-fast initialization
-  is critical \* You're fine with Lexphon provider fallback required \* Testing or
-  prototyping
-
-**Default (both enabled) provides:**
-
-- Maximum vocabulary coverage (~365k total entries)
-- Best phoneme quality from curated dictionaries
-- Backward compatibility with existing code
-
-### Disabling Features
-
-You can disable specific features for better performance or control:
-
-```python
-from kokorog2p.en import EnglishG2P
-
-# Disable espeak fallback
-g2p = EnglishG2P(
-    language="en-us",
-    use_espeak_fallback=False,  # Unknown words will have no phonemes
-    use_spacy=True,
-    spacy_model="en_core_web_md",  # default
-)
-
-# Disable spaCy (faster but no POS tagging)
-g2p = EnglishG2P(
-    language="en-us",
-    use_espeak_fallback=True,
-    use_spacy=False  # Faster tokenization
-)
-
-# Minimal configuration (fastest)
-g2p = EnglishG2P(
-    language="en-us",
-    use_espeak_fallback=False,
-    use_spacy=False,
-    load_silver=False,
-    load_gold=False  # No dictionaries, ultra-fast
-)
-```
+Runtime lookup is offline. Construction does not fetch catalogs or invoke the Lexphon
+CLI. If selected data is missing, the error includes the install and verify commands.
 
 ### spaCy Model Selection (English)
 
@@ -190,7 +136,7 @@ Tokens have a rating indicating the source of phonemes:
 
 - **5**: User-provided (via OverrideSpan) or gold dictionary (highest quality)
 - **4**: Punctuation
-- **3**: Silver dictionary, provider fallback, or rule-based conversion
+- **3**: Lexicon, provider fallback, or rule-based conversion
 - **2**: Native language rule conversion (language-specific policy)
 - **1**: Reserved for frontend-specific low-confidence output
 - **0**: Unknown/failed
@@ -204,9 +150,9 @@ tokens = g2p("Hello xyznotaword!")
 for token in tokens:
     rating = token.get("rating", 0)
     if rating == 5:
-        print(f"{token.text}: High quality (gold dictionary)")
+        print(f"{token.text}: Lexicon quality tier")
     elif rating == 3:
-        print(f"{token.text}: Silver dictionary, provider, or rule-based")
+        print(f"{token.text}: Lexicon, provider, or rule-based")
     elif rating == 2:
         print(f"{token.text}: Native rule conversion")
     elif rating == 0:
@@ -220,25 +166,17 @@ Direct dictionary access:
 ```python
 from kokorog2p.en import EnglishG2P
 
-# Load with or without silver dataset
-g2p_gold = EnglishG2P(language="en-us", load_silver=False)
-g2p_full = EnglishG2P(language="en-us", load_silver=True)
-
-# Simple lookup
-phonemes = g2p_gold.lexicon.lookup("hello")
+g2p = EnglishG2P(language="en-us", lexicons="gold")
+phonemes = g2p.lexicon.lookup("hello")
 print(phonemes)  # həlˈO
 
-# Check if word is in dictionary
-if g2p_gold.lexicon.is_known("hello"):
-    print("Word is in gold dictionary")
-
-# Get dictionary sizes
-print(f"Gold: {len(g2p_gold.lexicon.golds):,} entries")
-print(f"Silver: {len(g2p_full.lexicon.silvers):,} entries")
+# Check if word is in the externally installed dictionary
+if g2p.lexicon.is_known("hello"):
+    print("Word is in the gold dictionary")
 
 # POS-aware lookup
-phonemes_verb = g2p_gold.lexicon.lookup("read", tag="VB")   # ɹˈid (present)
-phonemes_past = g2p_gold.lexicon.lookup("read", tag="VBD")  # ɹˈɛd (past)
+phonemes_verb = g2p.lexicon.lookup("read", tag="VB")   # ɹˈid (present)
+phonemes_past = g2p.lexicon.lookup("read", tag="VBD")  # ɹˈɛd (past)
 ```
 
 ## German Lexicon
@@ -592,12 +530,12 @@ assert g2p1 is g2p2  # Same instance
 g2p3 = get_g2p("en-us", use_spacy=False)
 assert g2p1 is not g2p3  # Different instance
 
-# load_silver and load_gold also affect caching
-g2p4 = get_g2p("en-us", load_silver=False)
-assert g2p1 is not g2p4  # Different instance (different silver setting)
+# Lexicon selection also affects caching
+g2p4 = get_g2p("en-us", lexicons=())
+assert g2p1 is not g2p4  # Different instance (fallback-only mode)
 
-g2p5 = get_g2p("en-us", load_gold=False)
-assert g2p1 is not g2p5  # Different instance (different gold setting)
+g2p5 = get_g2p("en-us", lexicons="gold")
+assert g2p1 is not g2p5  # Different explicit selection
 
 # Clear cache when needed
 clear_cache()
@@ -795,14 +733,12 @@ g2p_dict = get_g2p(
 ## Selecting named lexicons
 
 Use `available_lexicons(language)` to inspect registered names and pass `lexicons` to
-`get_g2p` or `phonemize`. A sequence is an ordered precedence stack, so
-`("gold", "silver")` retains the compatibility default. The legacy `load_gold` and
-`load_silver` flags remain supported.
+`get_g2p` or `phonemize`. A sequence is an ordered precedence stack. English and French
+expose only the external `gold` selection; `lexicons=()` disables dictionary lookup.
 
 For German, `available_lexicons("de")` returns `("gold", "crane", "espeak", "olaph")`.
-`gold` remains the implicit default; all three third-party dictionaries are opt-in.
-Explicit order controls collisions, German casing candidates are searched inside each
-layer, and all runtime pronunciation selection is offline. `espeak` is a bundled static
-lexicon and is distinct from the optional `use_espeak_fallback=True` backend.
+`gold` remains the implicit default. Explicit order controls collisions, and runtime
+pronunciation selection is offline. `espeak` is a static Lexphon dictionary and is distinct
+from the optional `use_espeak_fallback=True` backend.
 Unsupported source IPA fails closed and may fall through to configured fallback. See
 {doc}`api/german` for provenance and examples.

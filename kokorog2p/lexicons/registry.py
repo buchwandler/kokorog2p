@@ -1,45 +1,23 @@
-"""Manifest-generated named lexicon registry."""
+"""Runtime metadata for externally provisioned lexicons."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Literal
-
-from ._generated_registry import GENERATED_LEXICONS
 
 
 @dataclass(frozen=True, slots=True)
 class LexiconSpec:
     language: str
     name: str
-    resource: str | None
-    kind: Literal["pronunciation", "membership"]
+    kind: str
     rating: int | None
-    case_aliases: bool
     phoneme_encoding: str
     metadata: Mapping[str, object]
     id: str
     default_priority: int | None
-    backend: str | None = None
-
-
-_SPECS: tuple[LexiconSpec, ...] = tuple(
-    LexiconSpec(
-        language=str(record["language"]),
-        name=str(record["name"]),
-        resource=str(record["resource"]),
-        kind=record["kind"],
-        rating=record.get("rating"),
-        case_aliases=bool(record["case_aliases"]),
-        phoneme_encoding=str(record["phoneme_encoding"]),
-        metadata=MappingProxyType(dict(record)),
-        id=str(record["id"]),
-        default_priority=record.get("default_priority"),
-    )
-    for record in GENERATED_LEXICONS
-)
+    backend: str
 
 
 def _external_spec(
@@ -50,20 +28,23 @@ def _external_spec(
     rating: int | None = 5,
     default_priority: int | None = 10,
     backend: str = "lexphon",
-    case_aliases: bool = False,
+    kind: str = "pronunciation",
     phoneme_encoding: str = "ipa",
 ) -> LexiconSpec:
     identifier = f"{external_language or language}:{name}"
     return LexiconSpec(
         language=language,
         name=name,
-        resource=None,
-        kind="pronunciation",
+        kind=kind,
         rating=rating,
-        case_aliases=case_aliases,
         phoneme_encoding=phoneme_encoding,
         metadata=MappingProxyType(
-            {"id": identifier, "language": language, "name": name, "backend": backend}
+            {
+                "id": identifier,
+                "language": language,
+                "name": name,
+                "backend": backend,
+            }
         ),
         id=identifier,
         default_priority=default_priority,
@@ -72,6 +53,15 @@ def _external_spec(
 
 
 _EXTERNAL_SPECS_BY_LANGUAGE: dict[str, tuple[LexiconSpec, ...]] = {
+    "en-us": (
+        _external_spec("en-us", "gold", rating=4, phoneme_encoding="kokoro-v1"),
+    ),
+    "en-gb": (
+        _external_spec("en-gb", "gold", rating=4, phoneme_encoding="kokoro-v1"),
+    ),
+    "fr-fr": (
+        _external_spec("fr-fr", "gold", rating=4, phoneme_encoding="kokoro-v1"),
+    ),
     "de-de": (
         _external_spec("de-de", "gold", rating=4),
         _external_spec("de-de", "crane", rating=None, default_priority=None),
@@ -80,12 +70,7 @@ _EXTERNAL_SPECS_BY_LANGUAGE: dict[str, tuple[LexiconSpec, ...]] = {
         _external_spec("de-de", "lexhint", rating=None, default_priority=None),
     ),
     "sv-se": (
-        _external_spec(
-            "sv-se",
-            "nst",
-            rating=None,
-            default_priority=None,
-        ),
+        _external_spec("sv-se", "nst", rating=None, default_priority=None),
     ),
     "ru-ru": (_external_spec("ru-ru", "lexhint", external_language="ru"),),
     "th-th": (_external_spec("th-th", "lexhint", external_language="th"),),
@@ -95,9 +80,11 @@ _EXTERNAL_SPECS_BY_LANGUAGE: dict[str, tuple[LexiconSpec, ...]] = {
     "pt-br": (_external_spec("pt-br", "lexhint", external_language="pt"),),
     "pt-pt": (_external_spec("pt-pt", "lexhint", external_language="pt"),),
 }
+
 _EXTERNAL_SPECS: tuple[LexiconSpec, ...] = tuple(
     spec for specs in _EXTERNAL_SPECS_BY_LANGUAGE.values() for spec in specs
 )
+
 _LANGUAGE_ALIASES = {
     "en": "en-us",
     "eng": "en-us",
@@ -143,15 +130,11 @@ def normalize_language(language: str) -> str:
 
 
 def _specs_for(language: str) -> tuple[LexiconSpec, ...]:
-    canonical = normalize_language(language)
-    external = _EXTERNAL_SPECS_BY_LANGUAGE.get(canonical)
-    if external is not None:
-        return external
-    return tuple(spec for spec in _SPECS if spec.language == canonical)
+    return _EXTERNAL_SPECS_BY_LANGUAGE.get(normalize_language(language), ())
 
 
 def available_lexicons(language: str) -> tuple[str, ...]:
-    """Return all registered lexicon names in manifest order."""
+    """Return all registered lexicon names in registry order."""
     return tuple(spec.name for spec in _specs_for(language))
 
 
@@ -163,37 +146,20 @@ def get_lexicon_spec(language: str, name: str) -> LexiconSpec:
             return spec
     valid = ", ".join(spec.name for spec in specs) or "none"
     raise ValueError(
-        f"Unknown lexicon {name!r} for language {language!r}; valid names: {valid}"
+        f"Unknown lexicon {name!r} for {normalize_language(language)}. "
+        f"Available lexicons: {valid}"
     )
-
-
-def _legacy_enabled(spec: LexiconSpec, *, load_gold: bool, load_silver: bool) -> bool:
-    if spec.name == "gold":
-        return load_gold
-    if spec.name == "silver":
-        return load_silver
-    return True
 
 
 def normalize_lexicon_selection(
     language: str,
     lexicons: str | Sequence[str] | None,
-    *,
-    load_gold: bool | None = None,
-    load_silver: bool | None = None,
 ) -> tuple[str, ...]:
-    """Normalize explicit selections and backwards-compatible legacy flags."""
+    """Normalize an explicit selection or return the language default."""
     canonical = normalize_language(language)
     specs = _specs_for(canonical)
     if lexicons is None:
-        gold = True if load_gold is None else load_gold
-        silver = True if load_silver is None else load_silver
-        selected = [
-            spec
-            for spec in specs
-            if spec.default_priority is not None
-            and _legacy_enabled(spec, load_gold=gold, load_silver=silver)
-        ]
+        selected = [spec for spec in specs if spec.default_priority is not None]
         selected.sort(key=lambda spec: (spec.default_priority, specs.index(spec)))
         return tuple(spec.name for spec in selected)
 
@@ -202,9 +168,6 @@ def normalize_lexicon_selection(
         raise ValueError("lexicons selection must not contain duplicate names")
     for name in names:
         get_lexicon_spec(canonical, name)
-    # Explicit selections are the new, more precise API. Legacy flags are
-    # intentionally ignored here because integrations may continue to pass
-    # their old defaults alongside a named selection.
     return names
 
 
@@ -217,10 +180,8 @@ def lexicon_info(language: str, name: str) -> Mapping[str, object]:
             "id": spec.id,
             "language": spec.language,
             "name": spec.name,
-            "resource": spec.resource,
             "kind": spec.kind,
             "rating": spec.rating,
-            "case_aliases": spec.case_aliases,
             "phoneme_encoding": spec.phoneme_encoding,
             "default_priority": spec.default_priority,
             "backend": spec.backend,
@@ -229,8 +190,8 @@ def lexicon_info(language: str, name: str) -> Mapping[str, object]:
 
 
 def iter_lexicon_specs() -> tuple[LexiconSpec, ...]:
-    """Return generated and external registry specifications."""
-    return _SPECS + _EXTERNAL_SPECS
+    """Return all runtime registry specifications."""
+    return _EXTERNAL_SPECS
 
 
 __all__ = [

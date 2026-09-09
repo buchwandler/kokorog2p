@@ -36,8 +36,6 @@ class HebrewG2P(G2PBase):
         language: str = "he",
         use_espeak_fallback: bool = False,
         use_goruut_fallback: bool = False,
-        load_silver: bool = True,
-        load_gold: bool = True,
         preserve_punctuation: bool = True,
         preserve_stress: bool = True,
         version: str = "1.0",
@@ -51,10 +49,6 @@ class HebrewG2P(G2PBase):
                 Not typically used for Hebrew. Defaults to False.
             use_goruut_fallback: Whether to use goruut for unknown words.
                 Not typically used for Hebrew. Defaults to False.
-            load_silver: Reserved for API consistency. Hebrew doesn't use
-                dictionary tiers. Defaults to True.
-            load_gold: Reserved for API consistency. Hebrew doesn't use
-                dictionary tiers. Defaults to True.
             preserve_punctuation: Whether to preserve punctuation in output.
                 Defaults to True.
             preserve_stress: Whether to preserve stress markers in output.
@@ -67,8 +61,6 @@ class HebrewG2P(G2PBase):
             use_goruut_fallback=use_goruut_fallback,
         )
         self.version = version
-        self.load_silver = load_silver
-        self.load_gold = load_gold
         self.preserve_punctuation = preserve_punctuation
         self.preserve_stress = preserve_stress
         self.phonikud_kwargs = kwargs

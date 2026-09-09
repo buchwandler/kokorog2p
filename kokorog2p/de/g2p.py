@@ -408,8 +408,6 @@ class GermanG2P(G2PBase):
         spacy_model: str | None = None,
         use_lexicon: bool = True,
         strip_stress: bool = True,
-        load_silver: bool | None = None,
-        load_gold: bool | None = None,
         lexicons: tuple[str, ...] | None = None,
         version: str = "1.0",
         store: DataStore | None = None,
@@ -427,13 +425,6 @@ class GermanG2P(G2PBase):
                 (e.g., "de_core_news_sm", "de_core_news_md", "de_core_news_lg").
             use_lexicon: Whether to use dictionary lookup (default: True).
             strip_stress: Whether to remove stress markers from lexicon output.
-            load_silver: If True, load silver tier dictionary if available.
-                Currently German only has gold dictionary, so this parameter
-                is reserved for future use and consistency with English.
-                Defaults to True for consistency.
-            load_gold: If True, load gold tier dictionary.
-                Defaults to True for maximum quality and coverage.
-                Set to False when ultra-fast initialization is needed.
         Raises:
             ValueError: If both use_espeak_fallback and use_goruut_fallback are True.
         """
@@ -474,8 +465,6 @@ class GermanG2P(G2PBase):
 
             self._lexicon = GermanLexicon(
                 strip_stress=strip_stress,
-                load_silver=load_silver,
-                load_gold=load_gold,
                 lexicons=lexicons,
                 fallback_provider=self.fallback_provider,
                 store=store,

@@ -122,7 +122,7 @@ applied.
 Evidence comes only from the effective selected lexical resources through
 `LexiconEvidence`:
 
-- Packaged G2Lex evidence: English US, English GB, and French.
+- Externally provisioned G2Lex evidence: English US, English GB, and French.
 - Provisioned Lexphon evidence: German, Portuguese BR/PT, Russian, Thai, Vietnamese,
   Japanese, Korean, and Swedish when NST is explicitly selected.
 - Native frontends without a selected evidence resource: Spanish, Italian, Czech,

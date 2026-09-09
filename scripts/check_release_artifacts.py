@@ -1,4 +1,4 @@
-"""Check distribution contents and runtime resources for release gates."""
+"""Check distribution contents and unrelated runtime release gates."""
 
 from __future__ import annotations
 
@@ -6,17 +6,13 @@ import argparse
 import tarfile
 import zipfile
 from email.parser import Parser
-from importlib.resources import files
 from pathlib import Path
-
-from kokorog2p.lexicons.registry import iter_lexicon_specs
 
 STATIC_REQUIRED_WHEEL_FILES = {
     "kokorog2p/data/kokoro_config.json",
     "kokorog2p/data/kokoro_config_v1.1_de.json",
     "kokorog2p/data/kokoro_config_v1.1_zh.json",
     "kokorog2p/ko/data/table.csv",
-    "kokorog2p/lexicons/data/THIRD_PARTY_NOTICES.md",
 }
 LEGACY_SOURCE_ROOTS = (
     "kokorog2p/de/data/",
@@ -24,129 +20,70 @@ LEGACY_SOURCE_ROOTS = (
     "kokorog2p/fr/data/",
     "kokorog2p/ja/data/",
 )
+FORBIDDEN_PACKAGE_PREFIXES = ("kokorog2p/lexicons/data/", "lexicons/")
 
 
-MIGRATED_GERMAN_ASSETS = frozenset(
-    {
-        "kokorog2p/lexicons/data/de_gold.g2lex",
-        "kokorog2p/lexicons/data/de_crane.g2lex",
-        "kokorog2p/lexicons/data/de_espeak.g2lex",
-        "kokorog2p/lexicons/data/de_olaph.g2lex",
-    }
-)
-
-MIGRATED_SWEDISH_ASSETS = frozenset({"kokorog2p/lexicons/data/sv_nst.g2lex"})
-SWEDISH_DATA_NAMES = frozenset({"sv_nst.g2lex", "sv_nst.tsv"})
-
-
-def required_wheel_files() -> set[str]:
-    packaged_specs = (
-        spec for spec in iter_lexicon_specs() if spec.resource is not None
-    )
-    return STATIC_REQUIRED_WHEEL_FILES | {
-        f"kokorog2p/lexicons/data/{spec.resource}" for spec in packaged_specs
-    }
-
-
-def asset_names() -> tuple[str, ...]:
-    return tuple(
-        spec.resource for spec in iter_lexicon_specs() if spec.resource is not None
+def _forbidden_lexicon_members(members: set[str]) -> list[str]:
+    return sorted(
+        member
+        for member in members
+        if any(member.startswith(prefix) for prefix in FORBIDDEN_PACKAGE_PREFIXES)
     )
 
 
 def check_wheel(path: Path, *, require_release_version: bool) -> None:
-    """Fail if a wheel omits required resources or ships canonical sources."""
+    """Check required package files and reject migrated lexicon payloads."""
     with zipfile.ZipFile(path) as wheel:
         members = set(wheel.namelist())
         metadata_name = next(
             name for name in members if name.endswith(".dist-info/METADATA")
         )
         metadata = Parser().parsestr(wheel.read(metadata_name).decode("utf-8"))
-    required = required_wheel_files()
+
+    missing = sorted(STATIC_REQUIRED_WHEEL_FILES - members)
+    if missing:
+        raise SystemExit(f"{path}: missing required files: {', '.join(missing)}")
+    forbidden = _forbidden_lexicon_members(members)
+    if forbidden:
+        raise SystemExit(
+            f"{path}: migrated lexicon payloads are forbidden: {', '.join(forbidden)}"
+        )
     requires_dist = tuple(metadata.get_all("Requires-Dist") or ())
     if not any(
         requirement.lower().startswith("lexphon") for requirement in requires_dist
     ):
         raise SystemExit(f"{path}: Lexphon runtime dependency is missing")
-    missing = sorted(required - members)
-    forbidden = sorted(
+    source_payloads = sorted(
         member
         for member in members
         if any(member.startswith(root) for root in LEGACY_SOURCE_ROOTS)
         and Path(member).suffix in {".json", ".txt", ".dict"}
     )
-    unknown_assets = sorted(
-        member
-        for member in members
-        if member.startswith("kokorog2p/lexicons/data/")
-        and member.endswith(".g2lex")
-        and member not in required
-    )
-    if missing:
-        raise SystemExit(f"{path}: missing wheel resources: {', '.join(missing)}")
-    if forbidden:
-        raise SystemExit(f"{path}: forbidden source resources: {', '.join(forbidden)}")
-    german_assets = sorted(MIGRATED_GERMAN_ASSETS & members)
-    if german_assets:
+    if source_payloads:
         raise SystemExit(
-            f"{path}: migrated German assets are forbidden: {', '.join(german_assets)}"
+            f"{path}: forbidden source resources: {', '.join(source_payloads)}"
         )
-    swedish_assets = sorted(MIGRATED_SWEDISH_ASSETS & members)
-    if swedish_assets:
-        raise SystemExit(
-            f"{path}: migrated Swedish assets are forbidden: "
-            f"{', '.join(swedish_assets)}"
-        )
-    if unknown_assets:
-        raise SystemExit(f"{path}: unknown lexicon assets: {', '.join(unknown_assets)}")
     if require_release_version and metadata.get("Version") == "0.0.0":
         raise SystemExit(f"{path}: release artifacts must not use version 0.0.0")
 
 
-def check_sdist(path: Path) -> None:
-    """Require notices while enforcing the generated-asset-only sdist policy."""
+def check_sdist(path: Path, *, require_release_version: bool = False) -> None:
+    """Reject migrated lexicon payloads from a source distribution."""
     with tarfile.open(path, "r:gz") as sdist:
         members = {member.name for member in sdist.getmembers()}
-    german_payloads = sorted(
-        name
-        for name in members
-        if Path(name).name in {Path(item).name for item in MIGRATED_GERMAN_ASSETS}
-        or "/lexicons/audits/de-" in f"/{name}"
-    )
-    if german_payloads:
+    forbidden = _forbidden_lexicon_members(members)
+    if forbidden:
         raise SystemExit(
-            f"{path}: migrated German payloads are forbidden: "
-            f"{', '.join(german_payloads[:5])}"
+            f"{path}: migrated lexicon payloads are forbidden: {', '.join(forbidden)}"
         )
-    canonical_sources = sorted(
-        name for name in members if "/lexicons/sources/" in f"/{name}"
-    )
-    notices = [
-        name
-        for name in members
-        if name.endswith("kokorog2p/lexicons/data/THIRD_PARTY_NOTICES.md")
-    ]
-    if canonical_sources:
-        raise SystemExit(
-            f"{path}: canonical lexicon sources are forbidden in sdist: "
-            f"{', '.join(canonical_sources[:5])}"
-        )
-    swedish_data = sorted(
-        name for name in members if Path(name).name in SWEDISH_DATA_NAMES
-    )
-    if swedish_data:
-        raise SystemExit(
-            f"{path}: migrated Swedish data is forbidden in sdist: "
-            f"{', '.join(swedish_data[:5])}"
-        )
-    if not notices:
-        raise SystemExit(f"{path}: missing bundled third-party notice")
+    if require_release_version and not any(
+        member.endswith("/PKG-INFO") for member in members
+    ):
+        raise SystemExit(f"{path}: source distribution metadata is missing")
 
 
 def check_installed(*, require_release_version: bool) -> None:
-    """Load bundled assets and representative native language paths."""
-    import g2lex
-
+    """Check package configuration and a no-data runtime path."""
     import kokorog2p
     from kokorog2p import available_lexicons, get_g2p
     from kokorog2p.data import (
@@ -160,31 +97,18 @@ def check_installed(*, require_release_version: bool) -> None:
     assert load_kokoro_config()["vocab"]
     assert load_kokoro_v11_de_config()["vocab"]
     assert load_kokoro_v11_zh_config()["vocab"]
-    assert available_lexicons("en") == ("gold", "silver")
+    assert available_lexicons("en") == ("gold",)
 
-    for asset_name in asset_names():
-        resource = files("kokorog2p.lexicons.data").joinpath(asset_name)
-        lexicon = g2lex.open_traversable(resource)
-        try:
-            assert len(lexicon) > 0
-        finally:
-            lexicon.close()
-
-    options = {"use_spacy": False, "use_espeak_fallback": False}
-    english_gold = get_g2p("en-us", lexicons="gold", **options)
-    english_stack = get_g2p("en-us", lexicons=("gold", "silver"), **options)
-    assert english_gold.lookup("hello")
-    assert english_stack.lookup("hello")
-    from kokorog2p.de import GermanG2P
-
-    german = GermanG2P(
-        use_lexicon=False, use_espeak_fallback=False, use_goruut_fallback=False
+    g2p = get_g2p(
+        "en-us",
+        lexicons=(),
+        use_spacy=False,
+        use_espeak_fallback=False,
     )
     try:
-        assert german("Haus")
+        assert g2p("unlistedword")
     finally:
-        german.close()
-    assert get_g2p("fr", **options)("Bonjour")
+        g2p.close()
 
 
 def main() -> None:
@@ -196,7 +120,7 @@ def main() -> None:
     if args.wheel:
         check_wheel(args.wheel, require_release_version=args.release)
     if args.sdist:
-        check_sdist(args.sdist)
+        check_sdist(args.sdist, require_release_version=args.release)
     check_installed(require_release_version=args.release)
 
 

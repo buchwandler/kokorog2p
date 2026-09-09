@@ -5,68 +5,49 @@ from kokorog2p.lexicons import (
 )
 
 
-def test_registry_aliases_and_order() -> None:
-    assert available_lexicons("en") == ("gold", "silver")
-    assert available_lexicons("english") == ("gold", "silver")
-    assert available_lexicons("ja_jp") == ("lexhint",)
-    assert available_lexicons("ru") == ("lexhint",)
-    assert available_lexicons("th") == ("lexhint",)
-    assert available_lexicons("vi") == ("lexhint",)
-    assert available_lexicons("ko") == ("lexhint",)
-    assert available_lexicons("pt") == ("lexhint",)
-    assert get_lexicon_spec("ru", "lexhint").id == "ru:lexhint"
+def test_consolidated_english_and_french_registry() -> None:
+    assert available_lexicons("en-us") == ("gold",)
+    assert available_lexicons("en-gb") == ("gold",)
+    assert available_lexicons("fr-fr") == ("gold",)
+    assert get_lexicon_spec("en-us", "gold").id == "en-us:gold"
+    assert get_lexicon_spec("en-gb", "gold").id == "en-gb:gold"
+    assert get_lexicon_spec("fr-fr", "gold").id == "fr-fr:gold"
+
+
+def test_unrelated_external_lexicons_remain_available() -> None:
+    assert available_lexicons("de") == ("gold", "crane", "espeak", "olaph", "lexhint")
+    assert available_lexicons("ja") == ("lexhint",)
     assert get_lexicon_spec("ru", "lexhint").backend == "lexphon"
-    assert get_lexicon_spec("ru", "lexhint").resource is None
-    assert get_lexicon_spec("en-us", "gold").rating == 4
 
 
-def test_german_third_party_lexicons_are_opt_in_and_selectable() -> None:
-    assert available_lexicons("de") == (
-        "gold",
-        "crane",
-        "espeak",
-        "olaph",
-        "lexhint",
-    )
-    assert (
-        available_lexicons("de-de")
-        == available_lexicons("de_DE")
-        == available_lexicons("german")
-    )
-
-    for name in ("crane", "espeak", "olaph", "lexhint"):
-        spec = get_lexicon_spec("de", name)
-        assert spec.default_priority is None
-        assert spec.phoneme_encoding == "ipa"
-        assert spec.id == f"de-de:{name}"
-
-    assert normalize_lexicon_selection("de", None) == ("gold",)
-    assert normalize_lexicon_selection("de", "espeak") == ("espeak",)
-    assert normalize_lexicon_selection("de", "olaph") == ("olaph",)
-    assert normalize_lexicon_selection("de", "lexhint") == ("lexhint",)
+def test_defaults_and_explicit_selection() -> None:
+    assert normalize_lexicon_selection("en-us", None) == ("gold",)
+    assert normalize_lexicon_selection("en-us", "gold") == ("gold",)
+    assert normalize_lexicon_selection("en-us", ("gold",)) == ("gold",)
+    assert normalize_lexicon_selection("en-us", ()) == ()
 
 
-def test_swedish_nst_is_opt_in_and_available_through_aliases() -> None:
-    assert available_lexicons("sv") == ("nst",)
-    assert available_lexicons("swedish") == ("nst",)
-    spec = get_lexicon_spec("sv-se", "nst")
-    assert spec.default_priority is None
-    assert spec.phoneme_encoding == "ipa"
-    assert spec.id == "sv-se:nst"
-    assert spec.backend == "lexphon"
-    assert spec.resource is None
-    assert normalize_lexicon_selection("sv", None) == ()
-    assert normalize_lexicon_selection("sv", "nst") == ("nst",)
+def test_silver_is_not_an_english_option() -> None:
+    for language in ("en-us", "en-gb"):
+        try:
+            normalize_lexicon_selection(language, "silver")
+        except ValueError as exc:
+            assert "Available lexicons: gold" in str(exc)
+        else:
+            raise AssertionError("silver was accepted")
 
 
-def test_registry_tier_metadata() -> None:
-    assert get_lexicon_spec("en-us", "silver").rating == 3
-
-
-def test_unknown_name_lists_valid_names() -> None:
+def test_duplicate_and_unknown_names_fail() -> None:
     try:
-        get_lexicon_spec("en-us", "missing")
+        normalize_lexicon_selection("en-us", ("gold", "gold"))
     except ValueError as exc:
-        assert "gold" in str(exc) and "silver" in str(exc)
+        assert "duplicate" in str(exc)
     else:
-        raise AssertionError("unknown lexicon was accepted")
+        raise AssertionError("duplicate selection was accepted")
+
+    try:
+        normalize_lexicon_selection("en-us", "missing")
+    except ValueError as exc:
+        assert "gold" in str(exc)
+    else:
+        raise AssertionError("unknown selection was accepted")

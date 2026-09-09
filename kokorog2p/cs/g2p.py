@@ -254,8 +254,6 @@ class CzechG2P(G2PBase):
         use_espeak_fallback: bool = False,
         use_goruut_fallback: bool = False,
         unk: str = "?",
-        load_silver: bool = True,
-        load_gold: bool = True,
         version: str = "1.0",
     ) -> None:
         """Initialize the Czech G2P converter.
@@ -265,14 +263,6 @@ class CzechG2P(G2PBase):
             use_espeak_fallback: Whether to use espeak for OOV words.
             use_goruut_fallback: Whether to use goruut for OOV words.
             unk: Character to use for unknown characters.
-            load_silver: If True, load silver tier dictionary if available.
-                Currently Czech uses rule-based G2P, so this parameter
-                is reserved for future use and consistency.
-                Defaults to True for consistency.
-            load_gold: If True, load gold tier dictionary if available.
-                Currently Czech uses rule-based G2P, so this parameter
-                is reserved for future use and consistency.
-                Defaults to True for consistency.
                 (e.g., "Dr." → "Doktor"). Defaults to True.
                 for ambiguous abbreviations. Defaults to True.
 
@@ -287,8 +277,6 @@ class CzechG2P(G2PBase):
         )
         self.version = version
         self.unk = unk
-        self.load_silver = load_silver
-        self.load_gold = load_gold
         self.use_goruut_fallback = use_goruut_fallback
         self._fallback: LexphonBackend | None = None
 

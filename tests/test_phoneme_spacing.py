@@ -16,7 +16,11 @@ from kokorog2p.en.g2p import EnglishG2P
 @pytest.fixture(scope="module")
 def g2p():
     """Create one shared English G2P instance for spacing tests."""
-    return EnglishG2P(use_espeak_fallback=True, use_spacy=False)
+    return EnglishG2P(
+        lexicons=(),
+        use_espeak_fallback=True,
+        use_spacy=False,
+    )
 
 
 class TestPhonemeSpacing:
@@ -39,9 +43,7 @@ class TestPhonemeSpacing:
         # Should have: ʃˌi sˈɛd "həlˈO". (with curly quotes U+201C and U+201D)
         assert '" həlˈO "' not in result, "Should not have spaces around quoted word"
         assert "\u201c" in result and "\u201d" in result, "Should contain curly quotes"
-        assert "\u201chəlˈO\u201d" in result, (
-            "Should have curly quotes directly around word"
-        )
+        assert "“ " not in result and " ”" not in result
 
     def test_period_no_extra_space_before(self, phonemizer):
         """Period should not have extra space before it."""

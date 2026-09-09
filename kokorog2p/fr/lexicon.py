@@ -6,8 +6,9 @@ Based on misaki French implementation, adapted for kokorog2p.
 import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from types import MappingProxyType
 from typing import Any, Final
+
+from lexphon import DataStore
 
 from kokorog2p.lexicons.runtime import LexiconHit, SelectedLexicons, open_selected
 
@@ -86,8 +87,6 @@ class TokenContext:
 
 
 LexiconValue = str | dict[str, str | None]
-LexiconMapping = Mapping[str, LexiconValue]
-EMPTY_LEXICON: Final[LexiconMapping] = MappingProxyType({})
 
 
 def clear_lexicon_cache() -> None:
@@ -114,26 +113,12 @@ class FrenchLexicon:
 
     def __init__(
         self,
-        load_silver: bool = True,
-        load_gold: bool = True,
+        store: DataStore | None = None,
         lexicons: Sequence[str] | None = None,
     ) -> None:
         """Initialize the French lexicon."""
-        del load_silver
-        names = (
-            ("gold",)
-            if lexicons is None and load_gold
-            else ()
-            if lexicons is None
-            else tuple(lexicons)
-        )
-        self._selected: SelectedLexicons = open_selected("fr-fr", names)
-        gold = self._selected.layer("gold")
-        silver = self._selected.layer("silver")
-        self.golds: LexiconMapping = EMPTY_LEXICON if gold is None else gold
-        self.silvers: LexiconMapping = EMPTY_LEXICON if silver is None else silver
-        self.load_silver = False
-        self.load_gold = "gold" in names
+        names = ("gold",) if lexicons is None else tuple(lexicons)
+        self._selected: SelectedLexicons = open_selected("fr-fr", names, store=store)
         self.lexicons = names
         self._init_builtin_fixes()
 

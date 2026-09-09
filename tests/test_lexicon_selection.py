@@ -1,90 +1,40 @@
-from kokorog2p import clear_cache, get_g2p, phonemize
+import inspect
+
+import pytest
+
+import kokorog2p
 from kokorog2p.lexicons import normalize_lexicon_selection
 
 
-def test_named_selection_and_cache_identity() -> None:
-    clear_cache()
-    gold = get_g2p("en-us", lexicons="gold", use_spacy=False, use_espeak_fallback=False)
-    stack = get_g2p(
-        "en-us", lexicons=("gold", "silver"), use_spacy=False, use_espeak_fallback=False
+def test_public_signatures_use_named_lexicons_only() -> None:
+    functions = (
+        kokorog2p.get_g2p,
+        kokorog2p.phonemize,
+        kokorog2p.phonemize_prepared,
     )
-    reverse = get_g2p(
-        "en-us", lexicons=("silver", "gold"), use_spacy=False, use_espeak_fallback=False
-    )
-    assert gold is get_g2p(
-        "english", lexicons="gold", use_spacy=False, use_espeak_fallback=False
-    )
-    assert gold is not stack
-    assert stack is not reverse
-    assert gold.lexicon.lexicons == ("gold",)
-    assert stack.lexicon.lexicons == ("gold", "silver")
+    for function in functions:
+        parameters = inspect.signature(function).parameters
+        legacy_names = {
+            "load" + "_gold",
+            "load" + "_silver",
+            "use" + "_gold",
+            "use" + "_silver",
+        }
+        assert not legacy_names & set(parameters)
 
 
-def test_legacy_flags_map_to_named_layers() -> None:
-    clear_cache()
-    for flags, expected in (
-        ((True, True), ("gold", "silver")),
-        ((True, False), ("gold",)),
-        ((False, True), ("silver",)),
-        ((False, False), ()),
-    ):
-        g2p = get_g2p(
-            "en-us",
-            load_gold=flags[0],
-            load_silver=flags[1],
-            use_spacy=False,
-            use_espeak_fallback=False,
-        )
-        assert g2p.lexicon.lexicons == expected
-
-
-def test_explicit_selection_takes_precedence_over_legacy_flags() -> None:
-    clear_cache()
-    g2p = get_g2p(
-        "de",
-        lexicons="gold",
-        load_gold=False,
-        load_silver=True,
+def test_no_lexicon_mode_constructs_without_external_data() -> None:
+    kokorog2p.clear_cache(deep=True)
+    g2p = kokorog2p.get_g2p(
+        "en-us",
+        lexicons=(),
         use_spacy=False,
         use_espeak_fallback=False,
     )
-    assert g2p.lexicon.lexicons == ("gold",)
+    assert g2p.lexicon.lexicons == ()
+    assert g2p("unlistedword")[0].phonemes == "❓"
 
 
-def test_german_selection_preserves_explicit_order() -> None:
-    assert normalize_lexicon_selection("de", ("gold", "crane")) == ("gold", "crane")
-    assert normalize_lexicon_selection("de", ("crane", "gold")) == ("crane", "gold")
-
-
-def test_german_named_lexicons_have_distinct_cache_identities() -> None:
-    clear_cache()
-    options = {"use_spacy": False, "use_espeak_fallback": False}
-    gold = get_g2p("de", lexicons="gold", **options)
-    crane = get_g2p("de", lexicons="crane", **options)
-    reverse = get_g2p("de", lexicons=("crane", "gold"), **options)
-    assert gold is not crane
-    assert crane is not reverse
-    assert gold.lexicon.lexicons == ("gold",)
-    assert crane.lexicon.lexicons == ("crane",)
-    assert reverse.lexicon.lexicons == ("crane", "gold")
-
-    espeak = get_g2p("de", lexicons="espeak", **options)
-    olaph = get_g2p("de", lexicons="olaph", **options)
-    gold_espeak = get_g2p("de", lexicons=("gold", "espeak"), **options)
-    espeak_gold = get_g2p("de", lexicons=("espeak", "gold"), **options)
-    assert espeak is not olaph
-    assert gold_espeak is not espeak_gold
-    assert espeak.lexicon.lexicons == ("espeak",)
-    assert espeak("Haus") is not None
-
-
-def test_phonemize_accepts_german_crane_selection() -> None:
-    result = phonemize(
-        "Haus",
-        language="de",
-        lexicons="crane",
-        use_espeak_fallback=False,
-        use_spacy=False,
-        return_ids=False,
-    )
-    assert result.phonemes == "hWs"
+def test_invalid_english_selection_is_rejected() -> None:
+    with pytest.raises(ValueError, match="Available lexicons: gold"):
+        normalize_lexicon_selection("en-gb", ("gold", "silver"))

@@ -28,8 +28,8 @@ def test_pipeline_test_module_does_not_import_spacy() -> None:
     assert result.returncode == 0
 
 
-def test_english_variants_share_lexicon_resources() -> None:
-    """Behavioral variants must share one mapping per dialect and tier."""
+def test_english_variants_share_no_lexicon_selection() -> None:
+    """Behavioral variants reuse the no-lexicon selection without external data."""
     from kokorog2p import clear_cache, get_g2p
 
     clear_cache(deep=True)
@@ -37,18 +37,17 @@ def test_english_variants_share_lexicon_resources() -> None:
         "en-us",
         use_spacy=False,
         use_espeak_fallback=False,
-        phoneme_quotes="curly",
+        lexicons=(),
     )
     ascii_quotes = get_g2p(
         "en-us",
         use_spacy=False,
         use_espeak_fallback=False,
-        phoneme_quotes="ascii",
+        lexicons=(),
     )
 
-    assert curly is not ascii_quotes
-    assert curly.lexicon.golds is ascii_quotes.lexicon.golds
-    assert curly.lexicon.silvers is ascii_quotes.lexicon.silvers
+    assert curly is ascii_quotes
+    assert curly.lexicon.lexicons == ()
 
 
 def test_french_equivalent_aliases_share_factory_identity() -> None:
@@ -56,13 +55,13 @@ def test_french_equivalent_aliases_share_factory_identity() -> None:
     from kokorog2p import clear_cache, get_g2p
 
     clear_cache(deep=True)
-    first = get_g2p("fr", use_spacy=False, use_espeak_fallback=False)
+    first = get_g2p("fr", use_spacy=False, use_espeak_fallback=False, lexicons=())
     second = get_g2p(
-        "french", use_spacy=False, use_espeak_fallback=False, load_silver=False
+        "french", use_spacy=False, use_espeak_fallback=False, lexicons=()
     )
 
     assert first is second
-    assert first.lexicon.lexicons == ("gold",)
+    assert first.lexicon.lexicons == ()
 
 
 def test_factory_aliases_and_unknown_options() -> None:
@@ -74,15 +73,13 @@ def test_factory_aliases_and_unknown_options() -> None:
         "en-us",
         use_spacy=False,
         use_espeak_fallback=False,
-        load_gold=False,
-        load_silver=False,
+        lexicons=(),
     )
     alias = get_g2p(
         "english",
         use_spacy=False,
         use_espeak_fallback=False,
-        load_gold=False,
-        load_silver=False,
+        lexicons=(),
     )
     assert canonical is alias
     assert cache_info().policy == "bounded-lru"
@@ -97,8 +94,8 @@ def test_deep_clear_releases_resource_caches() -> None:
     from kokorog2p.en.lexicon import lexicon_cache_info as english_cache_info
     from kokorog2p.fr.lexicon import lexicon_cache_info as french_cache_info
 
-    get_g2p("en-us", use_spacy=False, use_espeak_fallback=False)
-    get_g2p("fr", use_spacy=False, use_espeak_fallback=False)
+    get_g2p("en-us", use_spacy=False, use_espeak_fallback=False, lexicons=())
+    get_g2p("fr", use_spacy=False, use_espeak_fallback=False, lexicons=())
     clear_cache(deep=True)
 
     assert english_cache_info().currsize == 0
@@ -117,13 +114,13 @@ process = psutil.Process()
 clear_cache(deep=True)
 baseline = process.memory_info().rss
 variants = [get_g2p("en-us", use_spacy=False, use_espeak_fallback=False,
-                    load_silver=False, phoneme_quotes="curly")]
+                    lexicons=(), phoneme_quotes="curly")]
 one = process.memory_info().rss
 for quote_style in ("ascii", "none"):
     for strict in (False, True):
         variants.append(get_g2p(
             "en-us", use_spacy=False, use_espeak_fallback=False,
-            load_silver=False, phoneme_quotes=quote_style, strict=strict,
+            lexicons=(), phoneme_quotes=quote_style, strict=strict,
         ))
 gc.collect()
 six = process.memory_info().rss

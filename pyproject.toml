@@ -8,12 +8,11 @@ include = ["kokorog2p*"]
 
 [tool.setuptools.package-data]
 "kokorog2p.data" = ["*.json"]
-"kokorog2p.lexicons.data" = ["*.g2lex", "*.md"]
 "kokorog2p.ko.data" = ["*.csv"]
 
 [project]
 name = "kokorog2p"
-description = "A unified G2P (Grapheme-to-Phoneme) library for Kokoro TTS"
+description = "A unified G2P (Grapheme-to-Phoneme) library for Kokoro TTS with external Lexphon lexicons"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}

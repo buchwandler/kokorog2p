@@ -31,12 +31,11 @@ def test_auto_and_explicit_equivalent_models_share_cache_identity(monkeypatch) -
     )
     clear_cache()
 
-    automatic = get_g2p("en-us", spacy_model="auto", load_silver=False, load_gold=False)
+    automatic = get_g2p("en-us", spacy_model="auto", lexicons=())
     explicit = get_g2p(
         "en-us",
         spacy_model="en_core_web_lg",
-        load_silver=False,
-        load_gold=False,
+        lexicons=(),
     )
 
     assert automatic is explicit
@@ -52,11 +51,9 @@ def test_different_explicit_models_have_distinct_cache_identity(monkeypatch) -> 
     )
     clear_cache()
 
-    small = get_g2p(
-        "en", spacy_model="en_core_web_sm", load_silver=False, load_gold=False
-    )
+    small = get_g2p("en", spacy_model="en_core_web_sm", lexicons=())
     large = get_g2p(
-        "en", spacy_model="en_core_web_lg", load_silver=False, load_gold=False
+        "en", spacy_model="en_core_web_lg", lexicons=()
     )
 
     assert small is not large
@@ -72,10 +69,10 @@ def test_changed_automatic_resolution_changes_identity(monkeypatch) -> None:
 
     monkeypatch.setattr("kokorog2p.resolve_spacy_model", resolve)
     clear_cache()
-    small = get_g2p("en", load_silver=False, load_gold=False)
+    small = get_g2p("en", lexicons=())
     clear_cache()
     selected["package"] = "en_core_web_lg"
-    large = get_g2p("en", load_silver=False, load_gold=False)
+    large = get_g2p("en", lexicons=())
 
     assert small is not large
 
@@ -100,8 +97,7 @@ def test_implicit_spacy_resolution_falls_back_when_no_model_is_available(
         "en",
         use_spacy=None,
         use_espeak_fallback=False,
-        load_silver=False,
-        load_gold=False,
+        lexicons=(),
     )
 
     assert g2p.use_spacy is False
@@ -126,8 +122,7 @@ def test_explicit_spacy_requirement_remains_strict(monkeypatch) -> None:
         get_g2p(
             "en",
             use_spacy=True,
-            load_silver=False,
-            load_gold=False,
+            lexicons=(),
         )
 
 
@@ -141,8 +136,7 @@ def test_disabled_spacy_does_not_resolve_or_store_a_model(monkeypatch) -> None:
         "en",
         use_spacy=False,
         spacy_model="en_core_web_lg",
-        load_silver=False,
-        load_gold=False,
+        lexicons=(),
     )
 
     assert g2p.use_spacy is False
@@ -155,7 +149,7 @@ def test_cjk_reserved_spacy_option_does_not_resolve(monkeypatch) -> None:
 
     monkeypatch.setattr("kokorog2p.resolve_spacy_model", fail)
     clear_cache()
-    g2p = get_g2p("zh", use_spacy=True, load_silver=False, load_gold=False)
+    g2p = get_g2p("zh", use_spacy=True, lexicons=())
 
     assert g2p.use_spacy is True
     assert g2p.spacy_model is None

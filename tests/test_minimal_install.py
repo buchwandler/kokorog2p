@@ -23,8 +23,7 @@ def test_core_phonemize_works_without_spacy_model(monkeypatch):
         "Hello",
         use_spacy=None,
         use_espeak_fallback=False,
-        load_gold=False,
-        load_silver=False,
+        lexicons=(),
         language="en-us",
     )
 
@@ -39,8 +38,7 @@ def test_core_explicit_spacy_requirement_is_strict(monkeypatch):
         get_g2p(
             "en-us",
             use_spacy=True,
-            load_gold=False,
-            load_silver=False,
+            lexicons=(),
             use_espeak_fallback=False,
         )
 

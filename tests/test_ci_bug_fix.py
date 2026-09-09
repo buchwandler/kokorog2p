@@ -50,8 +50,7 @@ class TestEspeakEmptyStringBugFix:
         g2p = get_g2p(
             language="en-us",
             use_espeak_fallback=True,
-            load_gold=True,
-            load_silver=True,
+            lexicons=(),
             backend="kokorog2p",
         )
 
@@ -244,8 +243,8 @@ class TestStrictParameter:
         """EnglishG2P should accept strict parameter."""
         from kokorog2p.en import EnglishG2P
 
-        g2p_strict = EnglishG2P(language="en-us", strict=True)
+        g2p_strict = EnglishG2P(language="en-us", lexicons=(), strict=True)
         assert g2p_strict.strict is True
 
-        g2p_lenient = EnglishG2P(language="en-us", strict=False)
+        g2p_lenient = EnglishG2P(language="en-us", lexicons=(), strict=False)
         assert g2p_lenient.strict is False

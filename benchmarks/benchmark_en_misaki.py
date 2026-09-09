@@ -125,6 +125,7 @@ class KokoroG2PWrapper:
         self.language = language
         self.g2p = EnglishG2P(
             language=language,
+            lexicons=(),
             use_espeak_fallback=True,
             use_spacy=True,
         )

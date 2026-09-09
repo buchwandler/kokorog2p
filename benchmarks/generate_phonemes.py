@@ -10,23 +10,17 @@ Usage:
     python generate_phonemes.py "The quick brown fox jumps."
 """
 
-import json
-from pathlib import Path
-
-
 def get_gold_phonemes(word: str, language: str = "en-us") -> str | None:
-    """Look up word in gold dictionary."""
-    data_dir = Path(__file__).parent.parent / "kokorog2p" / "en" / "data"
-    gold_path = data_dir / "us_gold.json"
+    """Look up a word in the externally provisioned gold lexicon."""
+    from kokorog2p.en import EnglishG2P
 
-    with open(gold_path) as f:
-        gold_dict = json.load(f)
-
-    result = gold_dict.get(word.lower())
-    if isinstance(result, dict):
-        # Heteronym - return DEFAULT
-        return result.get("DEFAULT")
-    return result
+    g2p = EnglishG2P(
+        language=language,
+        lexicons="gold",
+        use_espeak_fallback=False,
+        use_spacy=False,
+    )
+    return g2p.lookup(word)
 
 
 def get_espeak_phonemes(word: str) -> str | None:
@@ -38,8 +32,7 @@ def get_espeak_phonemes(word: str) -> str | None:
             language="en-us",
             use_espeak_fallback=True,
             use_spacy=False,
-            load_gold=False,
-            load_silver=False,
+            lexicons=(),
         )
         return g2p.lookup(word)
     except Exception:
@@ -74,7 +67,12 @@ def generate_sentence_phonemes(
     from kokorog2p.en import EnglishG2P
 
     # Tokenize the sentence
-    g2p = EnglishG2P(language="en-us", use_espeak_fallback=False, use_spacy=False)
+    g2p = EnglishG2P(
+        language="en-us",
+        lexicons=(),
+        use_espeak_fallback=False,
+        use_spacy=False,
+    )
     tokens = g2p(text)
 
     results = {}

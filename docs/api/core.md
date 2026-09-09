@@ -71,8 +71,8 @@ convenience wrappers `phonemes` and `phoneme_ids` follow the same rule.
 
 The document/default language is always explicit. Automatic routing does not detect the
 document language. It inspects positive membership in the effective selected lexical
-resources through `G2PBase.lexicon_evidence()`. Packaged G2Lex evidence is available for
-English US/GB and French. Provisioned Lexphon evidence is available for German,
+resources through `G2PBase.lexicon_evidence()`. Externally provisioned G2Lex evidence is
+available for English US/GB and French. Provisioned Lexphon evidence is available for German,
 Portuguese BR/PT, Russian, Thai, Vietnamese, Japanese, Korean, and Swedish when NST is
 selected. Spanish, Italian, Czech, Hebrew, Arabic, Chinese, and Kazakh remain
 pronounceable but have no selected evidence provider in this release.

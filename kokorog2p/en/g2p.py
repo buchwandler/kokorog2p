@@ -1,6 +1,6 @@
 """English G2P (Grapheme-to-Phoneme) converter."""
 
-from lexphon import ProviderError
+from lexphon import DataStore, ProviderError
 
 from kokorog2p._optional import load_spacy_model
 from kokorog2p.base import G2PBase
@@ -19,8 +19,8 @@ class EnglishG2P(G2PBase):
     """English G2P converter using dictionary lookup with fallback options.
 
     This class provides grapheme-to-phoneme conversion for English text,
-    using a tiered dictionary system (gold/silver) with espeak-ng or goruut
-    as fallback for out-of-vocabulary words.
+    using an externally provisioned lexicon with espeak-ng or goruut as fallback
+    for out-of-vocabulary words.
 
     Example:
         >>> g2p = EnglishG2P(language="en-us")
@@ -39,9 +39,8 @@ class EnglishG2P(G2PBase):
         spacy_model: str | None = None,
         phoneme_quotes: str = "curly",
         unk: str = "❓",
-        load_silver: bool = True,
-        load_gold: bool = True,
         lexicons: tuple[str, ...] | None = None,
+        store: DataStore | None = None,
         strict: bool = True,
         version: str = "1.0",
     ) -> None:
@@ -61,12 +60,6 @@ class EnglishG2P(G2PBase):
                 - "ascii": Use ASCII double quote "
                 - "none": Strip quotes from phoneme output
             unk: Character to use for unknown words when fallback is disabled.
-            load_silver: If True, load silver tier dictionary (~100k extra entries).
-                Defaults to True for backward compatibility and maximum coverage.
-                Set to False to save memory (~22-31 MB) and initialization time.
-            load_gold: If True, load gold tier dictionary (~170k common words).
-                Defaults to True for maximum quality and coverage.
-                Set to False when only silver tier or no dictionaries needed.
             strict: If True (default), raise exceptions when backend initialization
                 or phonemization fails. If False, log errors and return empty results.
                 Note: This only affects fallback backends (espeak/goruut), not
@@ -106,8 +99,7 @@ class EnglishG2P(G2PBase):
         # Initialize lexicon
         self.lexicon = Lexicon(
             british=self.is_british,
-            load_silver=load_silver,
-            load_gold=load_gold,
+            store=store,
             lexicons=lexicons,
         )
 
@@ -209,37 +201,27 @@ class EnglishG2P(G2PBase):
         return self._spacy_tokenizer
 
     def _add_contraction_exceptions(self) -> None:
-        """Add tokenizer exceptions for contractions found in the lexicon.
+        """Add tokenizer exceptions for known English contractions.
 
-        This tells spaCy to treat contractions as single tokens instead of
-        splitting them, which allows us to look them up correctly in the lexicon.
-
-        Uses the gold lexicon to identify words that:
-        1. Contain apostrophes (formal contractions: don't, can't, etc.)
-        2. Are informal contractions that spaCy tends to split (gonna, gotta, etc.)
+        Contractions are selected from a finite frontend grammar list rather than
+        iterating over the external lexicon's storage.
         """
-        # Get all words from lexicon that should be preserved as single tokens
         contractions = set()
+        formal_contractions = [
+            "ain't", "aren't", "can't", "couldn't", "didn't", "doesn't",
+            "don't", "hadn't", "hasn't", "haven't", "he'd", "he'll", "he's",
+            "I'd", "I'll", "I'm", "I've", "isn't", "it'd", "it'll", "it's",
+            "let's", "mightn't", "mustn't", "shan't", "she'd", "she'll", "she's",
+            "shouldn't", "that'd", "that'll", "that's", "there'd", "there'll",
+            "there's", "they'd", "they'll", "they're", "they've", "wasn't",
+            "we'd", "we'll", "we're", "we've", "weren't", "what'd", "what's",
+            "when's", "where's", "who'd", "who's", "why's", "won't",
+            "wouldn't", "you'd", "you'll", "you're", "you've",
+        ]
+        for word in formal_contractions:
+            contractions.update((word, word.capitalize(), word.upper()))
 
-        # Strategy 1: Add all words with apostrophes (formal contractions)
-        # Include ALL words with apostrophes, regardless of phoneme quality
-        for word in self.lexicon.golds:
-            if "'" in word:
-                contractions.add(word)
-                # Also add case variations
-                contractions.add(word.capitalize())
-                contractions.add(word.upper())
-
-        if self.lexicon.silvers:
-            for word in self.lexicon.silvers:
-                if "'" in word:
-                    contractions.add(word)
-                    contractions.add(word.capitalize())
-                    contractions.add(word.upper())
-
-        # Strategy 2: Add informal contractions from gold lexicon
-        # Use a curated list of common informal contractions that spaCy splits
-        # These are validated to exist in gold lexicon with good ratings
+        # Common informal contractions that spaCy tends to split.
         informal_contractions = [
             "gonna",
             "wanna",
@@ -265,11 +247,9 @@ class EnglishG2P(G2PBase):
             "dontcha",
             "didntcha",
         ]
-
         for word in informal_contractions:
-            # Verify it exists in gold lexicon with good quality (rating 4)
-            phoneme, rating = self.lexicon.lookup(word)
-            if phoneme and rating == 4:
+            phoneme = self.lexicon.lookup(word)
+            if phoneme:
                 contractions.add(word)
                 contractions.add(word.capitalize())
                 contractions.add(word.upper())
@@ -361,7 +341,7 @@ class EnglishG2P(G2PBase):
         This method provides detailed provenance tracking showing:
         - All normalization steps applied
         - Token positions in original text
-        - Phoneme source (gold/silver/espeak/etc.) for each token
+        - Phoneme source (lexicon/provider/etc.) for each token
         - Quote nesting depths
 
         Args:
