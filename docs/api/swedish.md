@@ -14,8 +14,8 @@ print(phonemize_word_raw("sjuk").ipa)
 The aliases `sv`, `sv-se`, `swe`, and `swedish` select the same native implementation.
 Runtime phonemization contains no Swedish pronunciation dictionary, network access, or
 neural model. eSpeak and Goruut are disabled by default and can be requested explicitly
-as fallback options.
-The requested generic provider is invoked through Lexphon 0.2, which returns clean IPA before Swedish target conversion.
+as fallback options. The requested generic provider is invoked through Lexphon 0.2,
+which returns clean IPA before Swedish target conversion.
 
 `phonemize_word_raw()` returns Swedish reference-style IPA. `SwedishG2P` then uses an
 explicit adapter for phones not present in the selected Kokoro vocabulary. The external

@@ -1475,7 +1475,7 @@ def test_invalid_tagged_lookup_keeps_mapped_phonemes():
     assert mapped[0].meta["phonemes"] == "hWs"
 
 
-def test_automatic_foreign_factory_does_not_receive_default_options(monkeypatch):
+def test_automatic_foreign_factory_receives_only_routing_safe_options(monkeypatch):
     from kokorog2p.lexicons.evidence import LexiconEvidence
     from kokorog2p.token import GToken
 
@@ -1521,9 +1521,23 @@ def test_automatic_foreign_factory_does_not_receive_default_options(monkeypatch)
         lang="de",
         g2p=default,
         language_routing={"mode": "auto", "languages": ("de", "ru")},
-        g2p_options={"lexicons": ("crane",), "language_only": True},
+        g2p_options={
+            "use_spacy": False,
+            "use_espeak_fallback": False,
+            "lexicons": ("crane",),
+            "language_only": True,
+        },
         return_ids=False,
     )
 
     assert result.tokens[0].lang == "ru-ru"
-    assert calls == [("ru-ru", {})]
+    assert calls == [
+        (
+            "ru-ru",
+            {
+                "use_spacy": False,
+                "use_espeak_fallback": False,
+                "version": "1.1",
+            },
+        )
+    ]

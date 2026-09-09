@@ -1,6 +1,5 @@
 """Tests for the French G2P module."""
 
-
 from kokorog2p.fr import FrenchG2P
 from kokorog2p.fr.lexicon import FrenchLexicon
 from kokorog2p.spacy_models import SpacyModelResolution, SpacyModelSize
@@ -44,6 +43,7 @@ class TestFrenchG2P:
         assert g2p.use_cli is True
         assert g2p.fallback is not None
         assert g2p.fallback.fallback_provider == "espeak"
+
     def test_call_returns_tokens_without_spacy(self):
         """Test token output without requiring spaCy model."""
         g2p = FrenchG2P(use_spacy=False, use_espeak_fallback=False)
@@ -79,6 +79,7 @@ class TestFrenchGetG2P:
         assert g2p.use_cli is True
         assert g2p.fallback is not None
         assert g2p.fallback.fallback_provider == "espeak"
+
     def test_get_g2p_french_forwards_spacy_model(self, monkeypatch):
         """Test get_g2p forwards custom French spaCy model name."""
         from kokorog2p import clear_cache, get_g2p

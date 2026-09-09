@@ -1,4 +1,5 @@
 """Tests for G2PBase utilities."""
+
 import pytest
 
 from kokorog2p.base import G2PBase, resolve_fallback_provider

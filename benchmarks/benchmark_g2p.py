@@ -491,7 +491,7 @@ def run_all_benchmarks(
         use_espeak_fallback=True,
         use_spacy=False,
         load_gold=False,
-        load_silver=False
+        load_silver=False,
     )
 
     def espeak_fallback(word: str) -> tuple[str | None, int]:

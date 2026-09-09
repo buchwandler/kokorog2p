@@ -216,6 +216,8 @@ def test_lexphon_evidence_requires_selected_trustworthy_provenance() -> None:
         )
         is None
     )
+
+
 def test_provider_and_unselected_tokens_do_not_become_evidence() -> None:
     provider = PronunciationToken(
         text="File",
@@ -241,9 +243,7 @@ def test_provider_and_unselected_tokens_do_not_become_evidence() -> None:
         source="lexicon",
         lexicon_id="de-de:silver",
         variants=(
-            PronunciationVariant(
-                pronunciation="hˈaʊs", source_pronunciation="hˈaʊs"
-            ),
+            PronunciationVariant(pronunciation="hˈaʊs", source_pronunciation="hˈaʊs"),
         ),
     )
     assert (
@@ -252,7 +252,6 @@ def test_provider_and_unselected_tokens_do_not_become_evidence() -> None:
         )
         is None
     )
-
 
 
 def test_rule_only_frontends_do_not_claim_lexicon_evidence() -> None:

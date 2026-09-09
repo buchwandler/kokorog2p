@@ -482,7 +482,6 @@ class GermanG2P(G2PBase):
             )
             self.lexicon = self._lexicon
 
-
     @property
     def nlp(self) -> object:
         """Lazily initialize spaCy."""
@@ -690,9 +689,7 @@ class GermanG2P(G2PBase):
                         provider = token.get("pronunciation_provider") or "unknown"
                         source = f"provider:{provider}"
                     elif source is None:
-                        source = {2: "german_rules"}.get(
-                            token.get("rating"), "unknown"
-                        )
+                        source = {2: "german_rules"}.get(token.get("rating"), "unknown")
                     diagnostics.source_counts[source] += 1
 
         ensure_gtoken_positions(tokens, text)

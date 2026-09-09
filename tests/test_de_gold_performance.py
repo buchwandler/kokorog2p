@@ -132,6 +132,7 @@ def test_cli_batch_uses_one_phonemization_process(
     assert phonemizer.phonemize_many(["Haus", "weiß", "Klein"])
     assert calls == 1
 
+
 def test_german_fallback_uses_lexphon_provider_backend() -> None:
     from kokorog2p.de import GermanG2P
 

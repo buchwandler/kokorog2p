@@ -84,7 +84,6 @@ class EnglishG2P(G2PBase):
                 f" or 'none', got {phoneme_quotes!r}"
             )
 
-
         super().__init__(
             language=language,
             use_espeak_fallback=use_espeak_fallback,
@@ -161,7 +160,6 @@ class EnglishG2P(G2PBase):
                 metadata,
             )
         return None, 0, None
-
 
     @property
     def nlp(self) -> object:

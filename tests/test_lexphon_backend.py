@@ -135,6 +135,7 @@ def test_provider_token_does_not_become_lexicon_evidence() -> None:
     finally:
         backend.close()
 
+
 def test_provider_metadata_serializes_structured_source() -> None:
     from kokorog2p.lexicons.lexphon_backend import provider_metadata
 
@@ -165,7 +166,6 @@ def test_provider_metadata_serializes_structured_source() -> None:
             {"language": "de", "ipa_offset": 4},
         ],
     }
-
 
 
 def test_backend_does_not_open_missing_data_until_lookup(tmp_path: Path) -> None:

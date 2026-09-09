@@ -107,61 +107,6 @@ def decompose_token(
             return None
         return _fragments_from_route(token, word, morphology[0])
 
-    candidates: list[tuple[tuple[int, int, int], list[RouteFragment]]] = []
-    for split in range(3, len(word) - 2):
-        left = lower[:split]
-        right = lower[split:]
-        if len(right) < 3:
-            continue
-        left_en = evidence(english_language, left)
-        right_de = evidence("de-de", right)
-        if left_en is not None and right_de is not None:
-            candidates.append(
-                (
-                    (len(left), len(right), 2),
-                    [
-                        RouteFragment(
-                            token.char_start,
-                            token.char_start + split,
-                            english_language,
-                            "compound-root",
-                            left_en,
-                        ),
-                        RouteFragment(
-                            token.char_start + split,
-                            token.char_end,
-                            "de-de",
-                            "compound-root",
-                            right_de,
-                        ),
-                    ],
-                )
-            )
-        left_de = evidence("de-de", left)
-        right_en = evidence(english_language, right)
-        if left_de is not None and right_en is not None:
-            candidates.append(
-                (
-                    (len(right), len(left), 1),
-                    [
-                        RouteFragment(
-                            token.char_start,
-                            token.char_start + split,
-                            "de-de",
-                            "compound-root",
-                            left_de,
-                        ),
-                        RouteFragment(
-                            token.char_start + split,
-                            token.char_end,
-                            english_language,
-                            "compound-root",
-                            right_en,
-                        ),
-                    ],
-                )
-            )
-
     morphology = _morphology_candidate(
         token,
         lower,
@@ -170,14 +115,68 @@ def decompose_token(
         default_language=default_language,
         whole_default_evidence=None,
     )
+    best_score: tuple[int, int, int] | None = None
+    best_route: list[RouteFragment] | None = None
+    ambiguous = False
     if morphology is not None:
-        candidates.append(((len(morphology[1]), len(morphology[2]), 3), morphology[0]))
-    if not candidates:
+        best_score = (len(morphology[1]), len(morphology[2]), 3)
+        best_route = morphology[0]
+
+    hypotheses = [
+        ((split, len(word) - split, 2), split, True)
+        for split in range(3, len(word) - 2)
+    ]
+    hypotheses.extend(
+        (
+            (len(word) - split, split, 1),
+            split,
+            False,
+        )
+        for split in range(3, len(word) - 2)
+    )
+    hypotheses.sort(key=lambda item: item[0], reverse=True)
+
+    for score, split, english_left in hypotheses:
+        if best_score is not None and score < best_score:
+            break
+        left = lower[:split]
+        right = lower[split:]
+        if english_left:
+            left_evidence = evidence(english_language, left)
+            right_evidence = evidence("de-de", right)
+            languages = (english_language, "de-de")
+        else:
+            left_evidence = evidence("de-de", left)
+            right_evidence = evidence(english_language, right)
+            languages = ("de-de", english_language)
+        if left_evidence is None or right_evidence is None:
+            continue
+        candidate = [
+            RouteFragment(
+                token.char_start,
+                token.char_start + split,
+                languages[0],
+                "compound-root",
+                left_evidence,
+            ),
+            RouteFragment(
+                token.char_start + split,
+                token.char_end,
+                languages[1],
+                "compound-root",
+                right_evidence,
+            ),
+        ]
+        if best_score is None or score > best_score:
+            best_score = score
+            best_route = candidate
+            ambiguous = False
+        elif score == best_score and candidate != best_route:
+            ambiguous = True
+
+    if ambiguous or best_route is None:
         return None
-    candidates.sort(key=lambda item: item[0], reverse=True)
-    if len(candidates) > 1 and candidates[0][0] == candidates[1][0]:
-        return None
-    return _fragments_from_route(token, word, candidates[0][1])
+    return _fragments_from_route(token, word, best_route)
 
 
 def _fragments_from_route(

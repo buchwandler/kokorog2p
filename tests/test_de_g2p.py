@@ -71,12 +71,10 @@ def test_german_normalization_replaces_tie_markers():
     assert normalize_to_kokoro("t^ʃ", use_tie_replacement=True) == "ʧ"
 
 
-
 def test_direct_espeak_marker_sanitization_remains_available():
     from kokorog2p.phonemes import strip_espeak_language_markers
 
     assert strip_espeak_language_markers("(en)fˈa^ɪl(de)") == "fˈa^ɪl"
-
 
 
 def test_german_g2p_uses_lexphon_provider_result_without_marker_controls():
@@ -117,6 +115,7 @@ def test_german_g2p_uses_lexphon_provider_result_without_marker_controls():
     assert token.get("rating") == 3
     assert token.get("pronunciation_source") == "provider"
     assert token.get("pronunciation_provider") == "espeak"
+
 
 def test_german_lexicon_decode_removes_language_markers():
     class MarkerLexicon:

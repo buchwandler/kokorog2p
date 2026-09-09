@@ -24,9 +24,9 @@ vowel-quality marks are retained during tone extraction.
 Invalid Vietnamese spellings are not guessed. With `foreign_fallback="english"` (the
 default), tokens that fail structural Vietnamese parsing use the existing lazy English
 frontend. `"espeak"` and `"none"` are also supported. Use `strict=True` to raise when no
-fallback pronunciation is available.
-For `foreign_fallback="espeak"`, generic provider execution is owned by Lexphon 0.2; `foreign_fallback="english"` continues to use the English frontend policy.
-
+fallback pronunciation is available. For `foreign_fallback="espeak"`, generic provider
+execution is owned by Lexphon 0.2; `foreign_fallback="english"` continues to use the
+English frontend policy.
 
 The model profile uses Kokoro's supported characters and tone arrows directly. The
 provisioned Lexphon `vi:lexhint` dictionary is consulted first for known words; invalid

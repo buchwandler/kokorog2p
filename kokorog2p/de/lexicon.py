@@ -62,10 +62,9 @@ class GermanLexicon:
         """Batch full pronunciation lookup with one normalized German tag."""
         lookup_many = getattr(self._backend, "lookup_many", None)
         if lookup_many is not None:
-            return lookup_many(
-                words, tag=_normalize_german_lexicon_tag(tag)
-            )
+            return lookup_many(words, tag=_normalize_german_lexicon_tag(tag))
         return tuple(self.pronounce_token(word, tag) for word in words)
+
     def lookup(self, word: str, tag: str | None = None) -> str | None:
         """Look up a word using Lexphon's ordered layers and German tag mapping."""
         value = self.lookup_token(word, tag)

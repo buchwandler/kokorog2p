@@ -25,6 +25,7 @@ def resolve_fallback_provider(
         return "espeak"
     return None
 
+
 class G2PBase(ABC):
     """
     Abstract base class for grapheme-to-phoneme converters.

@@ -28,6 +28,7 @@ def provider_metadata(token: PronunciationToken) -> dict[str, object]:
         ],
     }
 
+
 _LEXPHON_LANGUAGE_ALIASES = {
     "de-de": "de-de",
     "en-us": "en-us",
@@ -113,7 +114,6 @@ class LexphonBackend:
                 ) from exc
         return self._phonemizer
 
-
     def lookup_lexicon_token(
         self, word: str, tag: str | None = None
     ) -> PronunciationToken | None:
@@ -164,9 +164,7 @@ class LexphonBackend:
     def __len__(self) -> int:
         engine = self._engine()
         return (
-            0
-            if engine is None
-            else sum(len(layer.lexicon) for layer in engine.layers)
+            0 if engine is None else sum(len(layer.lexicon) for layer in engine.layers)
         )
 
     def close(self) -> None:

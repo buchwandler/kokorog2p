@@ -38,6 +38,7 @@ def test_restricted_target_vocabulary_is_used_instead_of_global_default() -> Non
     assert result.value == "I"
     assert result.unsupported == ()
 
+
 def test_invalid_dictionary_result_falls_through_to_native_rules() -> None:
     class BadLexicon:
         def lookup(self, word, tag=None):
@@ -57,6 +58,7 @@ def test_invalid_dictionary_result_falls_through_to_native_rules() -> None:
     token = next(token for token in g2p("Haus") if token.is_word)
     assert token.phonemes is not None
     assert token.get("rating") == 2
+
 
 def test_real_olaph_invalid_pronunciation_falls_back() -> None:
     g2p = GermanG2P(

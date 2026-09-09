@@ -12,9 +12,13 @@ This page documents utility modules and helper functions.
 
 ## Generic provider handling
 
-Generic eSpeak and Goruut fallback ownership is provided by Lexphon 0.2 through the shared `LexphonBackend` adapter. Native frontends retain target-language IPA normalization, Kokoro conversion, ratings, and diagnostics. Provider results are not lexical routing evidence.
+Generic eSpeak and Goruut fallback ownership is provided by Lexphon 0.2 through the
+shared `LexphonBackend` adapter. Native frontends retain target-language IPA
+normalization, Kokoro conversion, ratings, and diagnostics. Provider results are not
+lexical routing evidence.
 
-Direct `backend="espeak"` and `backend="goruut"` remain documented in the backend API and are independent compatibility paths.
+Direct `backend="espeak"` and `backend="goruut"` remain documented in the backend API
+and are independent compatibility paths.
 
 ## Internal Utilities
 

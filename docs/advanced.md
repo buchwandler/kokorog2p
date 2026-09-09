@@ -11,9 +11,15 @@ phonological normalization.
 
 ## Lexphon provider fallback ownership
 
-Generic eSpeak and Goruut fallback flags configure Lexphon 0.2 providers for migrated native frontends. The frontends still perform language-specific IPA normalization and Kokoro vocabulary conversion. `use_cli` affects only the direct compatibility backends, not Lexphon provider execution.
+Generic eSpeak and Goruut fallback flags configure Lexphon 0.2 providers for migrated
+native frontends. The frontends still perform language-specific IPA normalization and
+Kokoro vocabulary conversion. `use_cli` affects only the direct compatibility backends,
+not Lexphon provider execution.
 
-Provider results carry structured provenance metadata and are excluded from lexical routing evidence. Provider and Lexphon dictionary data are provisioned explicitly; KokoroG2P does not download or cache provider results.
+Provider results carry structured provenance metadata and are excluded from lexical
+routing evidence. Provider and Lexphon dictionary data are provisioned explicitly;
+KokoroG2P does not download or cache provider results.
+
 ## Custom G2P Configuration
 
 ### Tri-state spaCy model resolution
@@ -71,8 +77,8 @@ print(f"Silver entries: {len(g2p.lexicon.silvers):,}")
   (limited memory) \* Real-time applications (faster initialization) \* You only need
   common vocabulary \* Production deployments where performance is critical
 - **Disable both** (`load_gold=False, load_silver=False`): \* Ultra-fast initialization
-  is critical \* You're fine with Lexphon provider fallback
-  required \* Testing or prototyping
+  is critical \* You're fine with Lexphon provider fallback required \* Testing or
+  prototyping
 
 **Default (both enabled) provides:**
 

@@ -76,6 +76,31 @@ def _get_frontend_version(g2p: Any) -> str:
     return str(getattr(g2p, "version", "1.0"))
 
 
+_ROUTING_SAFE_FACTORY_OPTIONS = frozenset(
+    {
+        "use_spacy",
+        "spacy_model_size",
+        "use_espeak_fallback",
+        "use_goruut_fallback",
+        "use_cli",
+        "backend",
+    }
+)
+
+
+def _routing_factory_options(g2p: Any, options: Mapping[str, Any]) -> dict[str, Any]:
+    """Return generic factory policy safe for automatically routed frontends."""
+    routed = {
+        key: value
+        for key, value in options.items()
+        if key in _ROUTING_SAFE_FACTORY_OPTIONS
+    }
+    if routed.get("use_spacy") is False:
+        routed.pop("spacy_model_size", None)
+    routed["version"] = _get_frontend_version(g2p)
+    return routed
+
+
 def _preserves_source_punctuation(g2p: Any) -> bool:
     capabilities = getattr(g2p, "capabilities", None)
     if callable(capabilities):
@@ -459,6 +484,7 @@ def phonemize_to_result(  # noqa: C901
             else get_g2p(lang, **options)
         )
     g2p_options = options
+    routing_options = _routing_factory_options(g2p, options)
     resolver_cache: dict[str, G2PBase] = {default_lang: g2p}
 
     def resolve_language(language: str) -> G2PBase:
@@ -467,7 +493,10 @@ def phonemize_to_result(  # noqa: C901
             if g2p_resolver is not None:
                 resolver_cache[canonical] = g2p_resolver(canonical)
             else:
-                resolver_cache[canonical] = get_g2p(canonical)
+                resolver_cache[canonical] = get_g2p(
+                    canonical,
+                    **routing_options,
+                )
         return resolver_cache[canonical]
 
     def resolve_explicit_language(language: str) -> G2PBase:

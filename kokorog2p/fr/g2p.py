@@ -29,6 +29,7 @@ def normalize_french_provider_ipa(phonemes: str) -> str:
         phonemes = phonemes.replace(old, new)
     return phonemes.replace("ˈ", "").replace("ˌ", "")
 
+
 class FrenchG2P(G2PBase):
     """French G2P converter using dictionary lookup with fallback options.
 

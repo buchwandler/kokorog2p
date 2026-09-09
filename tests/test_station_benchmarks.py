@@ -12,6 +12,7 @@ from kokorog2p import GToken
 bench = importlib.import_module("benchmarks.benchmark_language_stations")
 corpora = importlib.import_module("benchmarks.station_corpora")
 aggregate = importlib.import_module("benchmarks.benchmark_all_stations")
+mixed = importlib.import_module("benchmarks.benchmark_mixed_language_auto_stations")
 
 
 def test_scaled_corpus_reaches_target_without_truncating_sentence() -> None:
@@ -173,3 +174,25 @@ def test_aggregate_keeps_child_output_when_no_report(
     assert child["phase"] == "child/startup"
     assert child["stdout_tail"] == "stdout tail"
     assert child["stderr"] == "stderr detail"
+
+
+def test_mixed_language_station_reports_required_stations() -> None:
+    config_name = "routing-off-spacy-false-fallback-on"
+    result = mixed.run_call(
+        "all-default",
+        config_name,
+        mixed.CONFIGS[config_name],
+        "cold",
+    )
+    assert set(mixed.STATIONS) <= set(result["stations_ms"])
+    assert result["counts"]["spacy_load_count"] == 0
+    assert result["counts"]["evidence_calls"] == {}
+
+
+def test_mixed_language_station_warm_call_reuses_default_factory() -> None:
+    config_name = "routing-off-spacy-false-fallback-on"
+    config = mixed.CONFIGS[config_name]
+    mixed.run_call("all-default", config_name, config, "cold")
+    warm = mixed.run_call("all-default", config_name, config, "warm")
+    assert warm["counts"]["factory"].get("default", 0) == 0
+    assert warm["counts"]["spacy_load_count"] == 0

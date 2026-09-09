@@ -1259,6 +1259,7 @@ class TestGoruutFallback:
                 pass
 
         monkeypatch.setattr("kokorog2p.en.g2p.LexphonBackend", FakeBackend)
+
     @pytest.fixture
     def g2p_goruut(self):
         """Create EnglishG2P with goruut fallback."""

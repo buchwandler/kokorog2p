@@ -23,7 +23,7 @@ authors = [
 keywords = ["g2p", "grapheme-to-phoneme", "tts", "text-to-speech", "kokoro", "phonemizer", "espeak"]
 dependencies = [
     "g2lex>=0.1.8,<0.2.0",
-    "lexphon>=0.2.0,<0.3",
+    "lexphon>=0.2.1,<0.3",
 ]
 classifiers=[
     'Development Status :: 4 - Beta',
@@ -52,7 +52,7 @@ docs = [
     "myst-parser>=2.0.0",
 ]
 espeak = [
-    "lexphon[espeak]>=0.2.0,<0.3",
+    "lexphon[espeak]>=0.2.1,<0.3",
 ]
 espeak-direct = [
     "espeakng-loader>=0.1.0",
@@ -69,7 +69,7 @@ ar-diacritize = [
     "camel-tools>=1.6; python_version >= '3.11'",
 ]
 goruut = [
-    "lexphon[goruut]>=0.2.0,<0.3",
+    "lexphon[goruut]>=0.2.1,<0.3",
 ]
 goruut-direct = [
     "pygoruut>=0.8.0",
