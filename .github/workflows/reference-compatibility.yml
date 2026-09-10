@@ -1,0 +1,80 @@
+name: Reference compatibility
+
+on:
+  workflow_dispatch:
+
+jobs:
+  reference-compatibility:
+    name: reference compatibility (${{ matrix.provider }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - provider: hexgrad-en-us
+            reference: hexgrad-en-us-v1
+            candidate: en-us-default
+            corpus: en-us
+            package: "misaki[en] @ git+https://github.com/hexgrad/misaki.git@fba1236595f2d2bf21d414ba6e57d25256afada3"
+          - provider: hexgrad-en-gb
+            reference: hexgrad-en-gb-v1
+            candidate: en-gb-default
+            corpus: en-gb
+            package: "misaki[en] @ git+https://github.com/hexgrad/misaki.git@fba1236595f2d2bf21d414ba6e57d25256afada3"
+          - provider: semidark-de
+            reference: semidark-de-v1
+            candidate: de-default
+            corpus: de
+            package: "misaki[de] @ git+https://github.com/semidark/misaki.git@9cda9268309160120fffee216280a9ca83ac4644"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install eSpeak-ng
+        run: |
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y espeak-ng
+
+      - name: Install KokoroG2P and pinned reference
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[all,dev]"
+          python -m pip install "${{ matrix.package }}"
+
+      - name: Run pinned reference benchmark
+        run: |
+          set +e
+          python benchmarks/benchmark_reference.py \
+            --reference "${{ matrix.reference }}" \
+            --candidate "${{ matrix.candidate }}" \
+            --corpus "${{ matrix.corpus }}" \
+            --json --output reference-results.json --fail-on regression
+          status=$?
+          if [ ! -f reference-results.json ]; then
+            printf '{"status":"benchmark failed before report generation"}\n' > reference-results.json
+          fi
+          exit $status
+
+      - name: Render Markdown diagnostics
+        if: always()
+        run: >-
+          python benchmarks/benchmark_reference.py
+          --reference "${{ matrix.reference }}"
+          --candidate "${{ matrix.candidate }}"
+          --corpus "${{ matrix.corpus }}"
+          --markdown --output reference-results.md || true
+
+      - name: Upload reference diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-results-${{ matrix.provider }}
+          path: |
+            reference-results.json
+            reference-results.md
