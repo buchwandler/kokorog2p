@@ -11,6 +11,7 @@ Licensed under the Apache License, Version 2.0
 import ctypes.util
 import os
 import pathlib
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,51 @@ ENV_LIBRARY_PATH = "KOKOROG2P_ESPEAK_LIBRARY"
 ENV_DATA_PATH = "KOKOROG2P_ESPEAK_DATA"
 
 
+def _find_espeak_library_near_executable() -> Path | None:
+    """Find an eSpeak library near an executable available on PATH."""
+    executable = shutil.which("espeak-ng") or shutil.which("espeak")
+    if not executable:
+        return None
+
+    executable_path = Path(executable)
+    paths = [executable_path]
+    try:
+        resolved = executable_path.resolve()
+    except OSError:
+        resolved = executable_path
+    if resolved != executable_path:
+        paths.append(resolved)
+
+    search_dirs: list[Path] = []
+    for path in paths:
+        for directory in (
+            path.parent,
+            path.parent.parent / "lib",
+            path.parent.parent / "lib64",
+        ):
+            if directory not in search_dirs:
+                search_dirs.append(directory)
+
+    library_names = (
+        "libespeak-ng.dylib",
+        "libespeak.dylib",
+        "libespeak-ng.so",
+        "libespeak.so",
+        "libespeak-ng.dll",
+        "espeak-ng.dll",
+        "libespeak.dll",
+        "espeak.dll",
+    )
+
+    for directory in search_dirs:
+        for name in library_names:
+            candidate = directory / name
+            if candidate.is_file():
+                return candidate.resolve()
+
+    return None
+
+
 def find_espeak_library() -> str:
     """Find the espeak-ng shared library.
 
@@ -35,6 +81,7 @@ def find_espeak_library() -> str:
     1. KOKOROG2P_ESPEAK_LIBRARY environment variable
     2. espeakng_loader package (if installed)
     3. System library (espeak-ng or espeak)
+    4. Library near the eSpeak executable on PATH
 
     Returns:
         Path to the espeak library.
@@ -76,9 +123,15 @@ def find_espeak_library() -> str:
                     return str(candidate.resolve())
         return lib_name
 
+
+    executable_library = _find_espeak_library_near_executable()
+    if executable_library is not None:
+        return str(executable_library)
+
     raise RuntimeError(
-        "Could not find espeak-ng library."
-        " Install espeak-ng or espeakng-loader package."
+        "Could not find espeak-ng library. "
+        "Install espeak-ng or espeakng-loader package, or set "
+        f"{ENV_LIBRARY_PATH} to the shared library path."
     )
 
 

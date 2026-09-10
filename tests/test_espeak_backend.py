@@ -27,6 +27,73 @@ def test_dlinfo_is_optional_on_android():
         assert find_espeak_library().endswith(".so")
 
 
+def test_find_espeak_library_falls_back_to_cli_install_prefix(
+    tmp_path, monkeypatch
+) -> None:
+    """Find a library under the prefix of an eSpeak executable."""
+    from kokorog2p.backends.espeak import wrapper as espeak_wrapper
+
+    prefix = tmp_path / "prefix"
+    executable = prefix / "bin" / "espeak-ng"
+    library = prefix / "lib" / "libespeak-ng.dylib"
+    executable.parent.mkdir(parents=True)
+    library.parent.mkdir(parents=True)
+    executable.touch()
+    library.touch()
+
+    monkeypatch.delenv(espeak_wrapper.ENV_LIBRARY_PATH, raising=False)
+    monkeypatch.setitem(sys.modules, "espeakng_loader", None)
+    monkeypatch.setattr(
+        espeak_wrapper.ctypes.util, "find_library", lambda _name: None
+    )
+    monkeypatch.setattr(
+        espeak_wrapper.shutil,
+        "which",
+        lambda name: str(executable) if name == "espeak-ng" else None,
+    )
+
+    assert espeak_wrapper.find_espeak_library() == str(library.resolve())
+
+
+def test_find_espeak_library_prefers_environment_override(tmp_path, monkeypatch):
+    """Prefer the explicit library environment variable over auto-discovery."""
+    from kokorog2p.backends.espeak import wrapper as espeak_wrapper
+
+    prefix = tmp_path / "prefix"
+    executable = prefix / "bin" / "espeak-ng"
+    discovered_library = prefix / "lib" / "libespeak-ng.dylib"
+    environment_library = tmp_path / "explicit" / "libespeak-ng.dylib"
+    executable.parent.mkdir(parents=True)
+    discovered_library.parent.mkdir(parents=True)
+    environment_library.parent.mkdir(parents=True)
+    executable.touch()
+    discovered_library.touch()
+    environment_library.touch()
+
+    monkeypatch.setenv(espeak_wrapper.ENV_LIBRARY_PATH, str(environment_library))
+    monkeypatch.setattr(
+        espeak_wrapper.shutil,
+        "which",
+        lambda name: str(executable) if name == "espeak-ng" else None,
+    )
+
+    assert espeak_wrapper.find_espeak_library() == str(environment_library.resolve())
+
+
+def test_find_espeak_library_reports_missing_library(monkeypatch):
+    """Report the supported environment override when discovery fails."""
+    from kokorog2p.backends.espeak import wrapper as espeak_wrapper
+
+    monkeypatch.delenv(espeak_wrapper.ENV_LIBRARY_PATH, raising=False)
+    monkeypatch.setitem(sys.modules, "espeakng_loader", None)
+    monkeypatch.setattr(
+        espeak_wrapper.ctypes.util, "find_library", lambda _name: None
+    )
+    monkeypatch.setattr(espeak_wrapper.shutil, "which", lambda _name: None)
+
+    with pytest.raises(RuntimeError, match=espeak_wrapper.ENV_LIBRARY_PATH):
+        espeak_wrapper.find_espeak_library()
+
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux /proc/self/maps fallback")
 def test_find_library_path_matches_versioned_soname(tmp_path, monkeypatch):
     """Resolve a soname to the versioned filename reported by Linux maps."""

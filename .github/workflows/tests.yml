@@ -83,6 +83,11 @@ jobs:
           python -m nltk.downloader cmudict
           python -m spacy download en_core_web_sm
 
+
+      - name: Verify eSpeak backends
+        run: |
+          python -c "from kokorog2p.backends.espeak.cli_wrapper import CliPhonemizer; p = CliPhonemizer('en-us'); print('CLI eSpeak:', p.version)"
+          python -c "from kokorog2p.backends.espeak.wrapper import Phonemizer; p = Phonemizer(); p.set_voice('en-us'); print('native eSpeak:', p.version, p.library_path)"
       - name: Provision released Lexphon data
         run: >-
           lexphon data install

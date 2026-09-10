@@ -62,7 +62,7 @@ def has_espeak() -> bool:
 
         wrapper = EspeakWrapper()
         return wrapper.version is not None
-    except (ImportError, OSError):
+    except (ImportError, OSError, RuntimeError):
         return False
 
 
