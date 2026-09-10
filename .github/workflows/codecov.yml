@@ -5,14 +5,14 @@ on: push
 jobs:
   run:
     runs-on: ubuntu-latest
-    env:
-      LEXPHON_DATA_HOME: ${{ runner.temp }}/lexphon-data
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+      - name: Configure Lexphon data home
+        run: echo "LEXPHON_DATA_HOME=${RUNNER_TEMP}/lexphon-data" >> "$GITHUB_ENV"
       - name: Install espeak-ng
         run: |
           sudo apt-get update -o Acquire::Retries=3

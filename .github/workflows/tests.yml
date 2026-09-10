@@ -123,7 +123,6 @@ jobs:
     env:
       KOKOROG2P_EXTERNAL_LEXPHON_DATA: "1"
       KOKOROG2P_TEST_EXTERNAL_LEXPHON_DATA: "1"
-      LEXPHON_DATA_HOME: ${{ runner.temp }}/lexphon-data
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -131,6 +130,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+      - name: Configure Lexphon data home
+        run: echo "LEXPHON_DATA_HOME=${RUNNER_TEMP}/lexphon-data" >> "$GITHUB_ENV"
       - name: Install system dependencies
         run: |
           sudo apt-get update -o Acquire::Retries=3
@@ -187,13 +188,14 @@ jobs:
     runs-on: ubuntu-latest
     env:
       KOKOROG2P_EXTERNAL_LEXPHON_DATA: "1"
-      LEXPHON_DATA_HOME: ${{ runner.temp }}/lexphon-data
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+      - name: Configure Lexphon data home
+        run: echo "LEXPHON_DATA_HOME=${RUNNER_TEMP}/lexphon-data" >> "$GITHUB_ENV"
       - name: Install system dependencies
         run: |
           sudo apt-get update -o Acquire::Retries=3
