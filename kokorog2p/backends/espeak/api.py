@@ -74,7 +74,10 @@ def _find_library_path(lib: ctypes.CDLL) -> Path:
         try:
             for line in pathlib.Path("/proc/self/maps").read_text().splitlines():
                 mapped = pathlib.Path(line.rsplit(maxsplit=1)[-1])
-                if mapped.name == name.name and mapped.is_file():
+                if (
+                    mapped.name == name.name
+                    or mapped.name.startswith(f"{name.name}.")
+                ) and mapped.is_file():
                     return mapped.resolve()
         except (OSError, ValueError):
             pass

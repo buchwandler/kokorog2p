@@ -7,10 +7,12 @@ Licensed under the Apache License, Version 2.0
 import os
 import pickle
 import sys
+from pathlib import Path
 
 import pytest
 
-from kokorog2p.backends.espeak.api import HAS_DLINFO, EspeakLibrary
+from kokorog2p.backends.espeak import api as espeak_api
+from kokorog2p.backends.espeak.api import HAS_DLINFO, EspeakLibrary, _find_library_path
 from kokorog2p.backends.espeak.backend import EspeakBackend
 from kokorog2p.backends.espeak.phonemizer_base import EspeakPhonemizerBase
 from kokorog2p.backends.espeak.voice import Voice
@@ -20,9 +22,28 @@ def test_dlinfo_is_optional_on_android():
     """Android's libdl must not be treated as glibc's dlinfo implementation."""
     if sys.platform == "android":
         from kokorog2p.backends.espeak.wrapper import find_espeak_library
-
         assert HAS_DLINFO is False
         assert find_espeak_library().endswith(".so")
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="Linux /proc/self/maps fallback")
+def test_find_library_path_matches_versioned_soname(tmp_path, monkeypatch):
+    """Resolve a soname to the versioned filename reported by Linux maps."""
+    mapped = tmp_path / "libespeak-ng.so.1.1.51"
+    mapped.touch()
+    maps = f"00400000-00401000 r--p 00000000 00:00 0 {mapped}\n"
+    original_read_text = Path.read_text
+
+    def read_text(path, *args, **kwargs):
+        if path == Path("/proc/self/maps"):
+            return maps
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(espeak_api, "HAS_DLINFO", False)
+    monkeypatch.setattr(Path, "read_text", read_text)
+    library = type("DummyLibrary", (), {"_name": "libespeak-ng.so.1"})()
+
+    assert _find_library_path(library) == mapped.resolve()
 
 
 @pytest.mark.espeak
