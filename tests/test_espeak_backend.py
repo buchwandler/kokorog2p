@@ -54,6 +54,59 @@ def test_find_espeak_library_falls_back_to_cli_install_prefix(
     assert espeak_wrapper.find_espeak_library() == str(library.resolve())
 
 
+def test_find_espeak_library_near_explicit_executable(tmp_path, monkeypatch):
+    """Find the native library beside an explicitly configured executable."""
+    from kokorog2p.backends.espeak import wrapper as espeak_wrapper
+
+    install = tmp_path / "eSpeak NG"
+    install.mkdir()
+    executable = install / "espeak-ng.exe"
+    executable.write_bytes(b"")
+    library = install / "libespeak-ng.dll"
+    library.write_bytes(b"")
+
+    monkeypatch.setenv(espeak_wrapper.ENV_EXECUTABLE_PATH, str(executable))
+    monkeypatch.delenv(espeak_wrapper.ENV_LIBRARY_PATH, raising=False)
+    monkeypatch.setitem(sys.modules, "espeakng_loader", None)
+    monkeypatch.setattr(espeak_wrapper.ctypes.util, "find_library", lambda _name: None)
+    monkeypatch.setattr(espeak_wrapper.shutil, "which", lambda _name: None)
+
+    assert espeak_wrapper.find_espeak_library() == str(library.resolve())
+
+
+def test_find_espeak_data_near_explicit_executable(tmp_path, monkeypatch):
+    """Find the data directory beside an explicitly configured executable."""
+    from kokorog2p.backends.espeak import wrapper as espeak_wrapper
+
+    install = tmp_path / "eSpeak NG"
+    install.mkdir()
+    executable = install / "espeak-ng.exe"
+    executable.write_bytes(b"")
+    data = install / "espeak-ng-data"
+    data.mkdir()
+
+    monkeypatch.setenv(espeak_wrapper.ENV_EXECUTABLE_PATH, str(executable))
+    monkeypatch.delenv(espeak_wrapper.ENV_DATA_PATH, raising=False)
+    monkeypatch.setitem(sys.modules, "espeakng_loader", None)
+    monkeypatch.setattr(espeak_wrapper.shutil, "which", lambda _name: None)
+
+    assert espeak_wrapper.find_espeak_data() == data.resolve()
+
+
+def test_cli_prefers_explicit_espeak_executable(tmp_path, monkeypatch):
+    """Prefer explicit CLI configuration over PATH discovery."""
+    from kokorog2p.backends.espeak import cli_wrapper
+
+    executable = tmp_path / "custom-espeak-ng.exe"
+    executable.write_bytes(b"")
+    monkeypatch.setenv("KOKOROG2P_ESPEAK_EXECUTABLE", str(executable))
+
+    cli = cli_wrapper.CliPhonemizer.__new__(cli_wrapper.CliPhonemizer)
+    cli.executable = None
+
+    assert cli._exe() == str(executable.resolve())
+
+
 def test_find_espeak_library_prefers_environment_override(tmp_path, monkeypatch):
     """Prefer the explicit library environment variable over auto-discovery."""
     from kokorog2p.backends.espeak import wrapper as espeak_wrapper

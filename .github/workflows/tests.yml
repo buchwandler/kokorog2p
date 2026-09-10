@@ -50,31 +50,67 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
           choco install espeak-ng -y --no-progress
-          $command = Get-Command espeak-ng -ErrorAction SilentlyContinue
-          if ($null -eq $command) {
-            $command = Get-Command espeak -ErrorAction SilentlyContinue
-          }
-          if ($null -eq $command) {
-            $roots = @(
-              $env:ProgramFiles,
-              [Environment]::GetEnvironmentVariable("ProgramFiles(x86)"),
-              $env:ChocolateyInstall
-            ) | Where-Object { $_ -and (Test-Path $_) }
-            $file = Get-ChildItem -Path $roots -Filter "espeak*.exe" -File -Recurse -ErrorAction SilentlyContinue |
-              Select-Object -First 1
-            if ($null -ne $file) {
-              $directory = Split-Path -Parent $file.FullName
-              Add-Content -Path $env:GITHUB_PATH -Value $directory
-              $env:PATH = "$directory;$env:PATH"
-              $command = Get-Command $file.FullName
+          $installDir = $null
+          $registryPaths = @(
+            "HKLM:\SOFTWARE\eSpeak NG",
+            "HKLM:\SOFTWARE\WOW6432Node\eSpeak NG"
+          )
+          foreach ($registryPath in $registryPaths) {
+            if (Test-Path $registryPath) {
+              $candidate = (
+                Get-ItemProperty -Path $registryPath -ErrorAction SilentlyContinue
+              ).Path
+              if ($candidate -and (Test-Path $candidate)) {
+                $installDir = $candidate
+                break
+              }
             }
           }
-          if ($null -eq $command) {
-            throw "eSpeak installation completed but no executable was found."
+          if (-not $installDir) {
+            $command = Get-Command espeak-ng.exe -ErrorAction SilentlyContinue
+            if (-not $command) {
+              $command = Get-Command espeak.exe -ErrorAction SilentlyContinue
+            }
+            if ($command) {
+              $installDir = Split-Path -Parent $command.Path
+            }
           }
-          & $command.Path --version
-
+          if (-not $installDir) {
+            $candidates = @(
+              (Join-Path $env:ProgramFiles "eSpeak NG"),
+              (Join-Path ([Environment]::GetEnvironmentVariable("ProgramFiles(x86)")) "eSpeak NG")
+            ) | Where-Object { $_ -and (Test-Path $_) }
+            $installDir = $candidates | Select-Object -First 1
+          }
+          if (-not $installDir) {
+            throw "eSpeak NG installation completed but its installation directory was not found."
+          }
+          $exe = Join-Path $installDir "espeak-ng.exe"
+          $library = Join-Path $installDir "libespeak-ng.dll"
+          $data = Join-Path $installDir "espeak-ng-data"
+          if (-not (Test-Path $exe -PathType Leaf)) {
+            throw "eSpeak NG executable not found at $exe"
+          }
+          if (-not (Test-Path $library -PathType Leaf)) {
+            throw "eSpeak NG library not found at $library"
+          }
+          if (-not (Test-Path $data -PathType Container)) {
+            throw "eSpeak NG data directory not found at $data"
+          }
+          $installDir >> $env:GITHUB_PATH
+          "KOKOROG2P_ESPEAK_EXECUTABLE=$exe" >> $env:GITHUB_ENV
+          "KOKOROG2P_ESPEAK_LIBRARY=$library" >> $env:GITHUB_ENV
+          "KOKOROG2P_ESPEAK_DATA=$data" >> $env:GITHUB_ENV
+          $env:PATH = "$installDir;$env:PATH"
+          $env:KOKOROG2P_ESPEAK_EXECUTABLE = $exe
+          $env:KOKOROG2P_ESPEAK_LIBRARY = $library
+          $env:KOKOROG2P_ESPEAK_DATA = $data
+          Write-Host "eSpeak executable: $exe"
+          Write-Host "eSpeak library:    $library"
+          Write-Host "eSpeak data:       $data"
+          & $exe --version
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
@@ -83,6 +119,27 @@ jobs:
           python -m nltk.downloader cmudict
           python -m spacy download en_core_web_sm
 
+
+      - name: Verify eSpeak installation (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Write-Host "PATH=$env:PATH"
+          Write-Host "KOKOROG2P_ESPEAK_EXECUTABLE=$env:KOKOROG2P_ESPEAK_EXECUTABLE"
+          Write-Host "KOKOROG2P_ESPEAK_LIBRARY=$env:KOKOROG2P_ESPEAK_LIBRARY"
+          Write-Host "KOKOROG2P_ESPEAK_DATA=$env:KOKOROG2P_ESPEAK_DATA"
+          Get-Command espeak-ng.exe
+          if (-not (Test-Path $env:KOKOROG2P_ESPEAK_EXECUTABLE -PathType Leaf)) {
+            throw "Configured eSpeak executable does not exist."
+          }
+          if (-not (Test-Path $env:KOKOROG2P_ESPEAK_LIBRARY -PathType Leaf)) {
+            throw "Configured eSpeak library does not exist."
+          }
+          if (-not (Test-Path $env:KOKOROG2P_ESPEAK_DATA -PathType Container)) {
+            throw "Configured eSpeak data directory does not exist."
+          }
+          & $env:KOKOROG2P_ESPEAK_EXECUTABLE --version
 
       - name: Verify eSpeak backends
         run: |

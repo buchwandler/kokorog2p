@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-import os
 import re
-import shutil
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 
 from kokorog2p.backends.espeak.phonemizer_base import EspeakPhonemizerBase
 from kokorog2p.backends.espeak.voice import Voice
-from kokorog2p.backends.espeak.wrapper import find_espeak_data
+from kokorog2p.backends.espeak.wrapper import find_espeak_data, find_espeak_executable
 
 
 class EspeakCliError(RuntimeError):
@@ -43,17 +41,11 @@ class CliPhonemizer(EspeakPhonemizerBase):
     def _exe(self) -> str:
         if self.executable:
             return self.executable
-        return (
-            os.environ.get("KOKOROG2P_ESPEAK_EXECUTABLE")
-            or shutil.which("espeak-ng")
-            or shutil.which("espeak")
-            or "espeak-ng"
-        )
+        return find_espeak_executable() or "espeak-ng"
 
     @classmethod
     def is_available(cls) -> bool:
-        env = os.environ.get("KOKOROG2P_ESPEAK_EXECUTABLE")
-        return bool(env or shutil.which("espeak-ng") or shutil.which("espeak"))
+        return bool(find_espeak_executable())
 
     @property
     def version(self) -> tuple[int, ...]:

@@ -24,14 +24,27 @@ from kokorog2p.backends.espeak.voice import (
     voice_to_struct,
 )
 
-# Environment variable for custom library path
+# Environment variables for custom eSpeak paths
+ENV_EXECUTABLE_PATH = "KOKOROG2P_ESPEAK_EXECUTABLE"
 ENV_LIBRARY_PATH = "KOKOROG2P_ESPEAK_LIBRARY"
 ENV_DATA_PATH = "KOKOROG2P_ESPEAK_DATA"
 
 
+def find_espeak_executable() -> str | None:
+    """Find the eSpeak executable using explicit configuration or PATH."""
+    configured = os.environ.get(ENV_EXECUTABLE_PATH)
+    if configured:
+        path = Path(configured)
+        if path.is_file():
+            return str(path.resolve())
+        return configured
+
+    return shutil.which("espeak-ng") or shutil.which("espeak")
+
+
 def _find_espeak_library_near_executable() -> Path | None:
-    """Find an eSpeak library near an executable available on PATH."""
-    executable = shutil.which("espeak-ng") or shutil.which("espeak")
+    """Find an eSpeak library near its configured or PATH executable."""
+    executable = find_espeak_executable()
     if not executable:
         return None
 
@@ -74,6 +87,18 @@ def _find_espeak_library_near_executable() -> Path | None:
     return None
 
 
+def _find_espeak_data_near_executable() -> Path | None:
+    """Find the eSpeak data directory beside its executable."""
+    executable = find_espeak_executable()
+    if not executable:
+        return None
+
+    candidate = Path(executable).parent / "espeak-ng-data"
+    if candidate.is_dir():
+        return candidate.resolve()
+    return None
+
+
 def find_espeak_library() -> str:
     """Find the espeak-ng shared library.
 
@@ -81,8 +106,7 @@ def find_espeak_library() -> str:
     1. KOKOROG2P_ESPEAK_LIBRARY environment variable
     2. espeakng_loader package (if installed)
     3. System library (espeak-ng or espeak)
-    4. Library near the eSpeak executable on PATH
-
+    4. Library near the configured or PATH eSpeak executable
     Returns:
         Path to the espeak library.
 
@@ -140,8 +164,8 @@ def find_espeak_data() -> Path | None:
     Search order:
     1. KOKOROG2P_ESPEAK_DATA environment variable
     2. espeakng_loader package (if installed)
-    3. None (let espeak find it)
-
+    3. Directory beside the configured or PATH executable
+    4. None (let espeak find it)
     Returns:
         Path to data directory, or None to use espeak's default.
     """
@@ -161,6 +185,10 @@ def find_espeak_data() -> Path | None:
             return pathlib.Path(loader_data).resolve()
     except ImportError:
         pass
+
+    executable_data = _find_espeak_data_near_executable()
+    if executable_data is not None:
+        return executable_data
 
     return None
 

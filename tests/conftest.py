@@ -78,9 +78,10 @@ def has_espeak_cli() -> bool:
 
 
 @pytest.fixture
-def espeak_backend():
+def espeak_backend(has_espeak):
     """Create an EspeakBackend instance for testing."""
-    pytest.importorskip("espeakng_loader")
+    if not has_espeak:
+        pytest.skip("eSpeak native backend not available")
     from kokorog2p.backends.espeak import EspeakBackend
 
     return EspeakBackend(language="en-us")
@@ -89,7 +90,6 @@ def espeak_backend():
 @pytest.fixture
 def espeak_backend_cli():
     """Create an EspeakBackend instance for testing."""
-    pytest.importorskip("espeakng_loader")
     from kokorog2p.backends.espeak import EspeakBackend
     from kokorog2p.backends.espeak.cli_wrapper import CliPhonemizer
 
@@ -100,9 +100,10 @@ def espeak_backend_cli():
 
 
 @pytest.fixture
-def espeak_backend_gb():
+def espeak_backend_gb(has_espeak):
     """Create a British EspeakBackend instance for testing."""
-    pytest.importorskip("espeakng_loader")
+    if not has_espeak:
+        pytest.skip("eSpeak native backend not available")
     from kokorog2p.backends.espeak import EspeakBackend
 
     return EspeakBackend(language="en-gb")
@@ -130,9 +131,10 @@ def english_g2p_no_espeak():
 
 
 @pytest.fixture
-def english_g2p_with_espeak():
+def english_g2p_with_espeak(has_espeak):
     """Create an EnglishG2P with espeak fallback."""
-    pytest.importorskip("espeakng_loader")
+    if not has_espeak:
+        pytest.skip("eSpeak native backend not available")
     from kokorog2p.en import EnglishG2P
 
     g2p = EnglishG2P(
@@ -183,9 +185,10 @@ def english_g2p_with_medium_spacy():
 
 
 @pytest.fixture(scope="module")
-def english_g2p_full():
+def english_g2p_full(has_espeak):
     """Create a fully-featured EnglishG2P."""
-    pytest.importorskip("espeakng_loader")
+    if not has_espeak:
+        pytest.skip("eSpeak native backend not available")
     _require_spacy_model("en_core_web_sm")
     from kokorog2p.en import EnglishG2P
 
