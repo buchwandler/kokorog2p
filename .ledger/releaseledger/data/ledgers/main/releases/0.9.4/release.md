@@ -3,12 +3,12 @@ schema_version: 2
 object_type: release
 versioning:
   schema_version: 1
-  revision: 9
+  revision: 10
 version: 0.9.4
-status: planned
+status: released
 history_state: curated
 title: KokoroG2P 0.9.4
-released_at: null
+released_at: "2026-09-10"
 previous_version: 0.9.3
 cancel_reason: null
 superseded_by: null

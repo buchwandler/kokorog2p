@@ -1,0 +1,310 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 3
+release_version: 0.9.5
+git_base_ref: v0.9.4
+git_base_sha: 0fd072ccddd336c2bc9a14c7fab90d2f3974e740
+git_head_ref: HEAD
+git_head_sha: 77db58d787f851766e0bb7cd0c987aa803781d2f
+git_range: 0fd072ccddd336c2bc9a14c7fab90d2f3974e740..77db58d787f851766e0bb7cd0c987aa803781d2f
+commit_count: 8
+rows:
+  - sha: 732b91f455d19606dadd5353510d9e54c2ba3e7f
+    source_ref: git:732b91f455d19606dadd5353510d9e54c2ba3e7f
+    short_sha: 732b91f
+    changed_paths:
+      - .codecrate.toml
+      - .github/workflows/codecov.yml
+      - .github/workflows/tests.yml
+      - README.md
+      - benchmarks/benchmark_en_misaki.py
+      - benchmarks/benchmark_reference.py
+      - benchmarks/reference/__init__.py
+      - benchmarks/reference/candidate.py
+      - benchmarks/reference/compare.py
+      - benchmarks/reference/corpus.py
+      - benchmarks/reference/data/de_semidark_v1.json
+      - benchmarks/reference/data/en_gb_v1.json
+      - benchmarks/reference/data/en_us_v1.json
+      - benchmarks/reference/goldens/hexgrad_en_gb_v1.json
+      - benchmarks/reference/goldens/hexgrad_en_us_v1.json
+      - benchmarks/reference/goldens/semidark_de_v1.json
+      - benchmarks/reference/providers.py
+      - benchmarks/reference/registry.py
+      - benchmarks/reference/report.py
+      - benchmarks/reference/revisions.json
+      - benchmarks/reference/types.py
+      - docs/contributing.md
+      - docs/installation.md
+      - kokorog2p/backends/espeak/api.py
+      - pyproject.toml
+      - tests/test_espeak_backend.py
+      - tests/test_memory_regressions.py
+      - tests/test_reference_benchmark.py
+      - tests/test_reference_encoding.py
+      - tests/test_reference_misaki_hexgrad.py
+      - tests/test_reference_misaki_semidark.py
+      - tests/test_runner_resources.py
+      - tools/run_pytest_with_memory.py
+      - tools/run_test_suite.py
+      - tools/test_resources.py
+    stats:
+      files_changed: 0
+      insertions: 2216
+      deletions: 1956
+    inspected: true
+    inspected_paths:
+      - benchmarks/benchmark_reference.py
+      - benchmarks/reference/candidate.py
+      - benchmarks/reference/compare.py
+      - benchmarks/reference/corpus.py
+      - benchmarks/reference/providers.py
+      - benchmarks/reference/registry.py
+      - benchmarks/reference/report.py
+      - benchmarks/reference/types.py
+      - docs/contributing.md
+      - docs/installation.md
+      - tests/test_reference_benchmark.py
+      - tests/test_reference_encoding.py
+      - tests/test_reference_misaki_hexgrad.py
+      - tests/test_reference_misaki_semidark.py
+      - .github/workflows/tests.yml
+    observed_behavior:
+      Added pinned reference corpora and provider goldens, structured comparison
+      support, and CI coverage for reference compatibility testing; removed obsolete
+      bounded-suite tooling.
+    public_impact: docs
+    decision: accepted
+    stale: false
+    evidence_subject: "feat: add reference tests and benchmarks"
+    target_entry_key: reference-compatibility
+    target_entry_id: entry-0001
+    notes:
+      Reviewed benchmark implementation, fixtures, documentation, workflow changes, and
+      associated tests.
+  - sha: 8ec13480f1273875181e50939307fd27db38b3f4
+    source_ref: git:8ec13480f1273875181e50939307fd27db38b3f4
+    short_sha: 8ec1348
+    changed_paths:
+      - .github/workflows/tests.yml
+      - benchmarks/benchmark_reference.py
+    stats:
+      files_changed: 0
+      insertions: 1
+      deletions: 1
+    inspected: true
+    inspected_paths:
+      - .github/workflows/tests.yml
+      - benchmarks/benchmark_reference.py
+    observed_behavior:
+      Adjusted CI formatting and benchmark file handling without changing product
+      behavior.
+    public_impact: internal
+    decision: internal
+    stale: false
+    evidence_subject: "chore: fix ci"
+    target_entry_key: internal-ci-8ec1348
+    target_entry_id: entry-0002
+    notes: CI-only maintenance.
+  - sha: 445a4e9f3d01162b96c44dead9ea82d784cc6cc5
+    source_ref: git:445a4e9f3d01162b96c44dead9ea82d784cc6cc5
+    short_sha: 445a4e9
+    changed_paths:
+      - .github/workflows/reference-compatibility.yml
+      - .github/workflows/tests.yml
+    stats:
+      files_changed: 0
+      insertions: 80
+      deletions: 69
+    inspected: true
+    inspected_paths:
+      - .github/workflows/reference-compatibility.yml
+      - .github/workflows/tests.yml
+    observed_behavior:
+      Moved reference compatibility execution into its dedicated workflow without
+      changing runtime behavior.
+    public_impact: internal
+    decision: internal
+    stale: false
+    evidence_subject: "chore: move ref test"
+    target_entry_key: internal-ci-445a4e9
+    target_entry_id: entry-0003
+    notes: CI-only workflow organization.
+  - sha: 3bb6da8672b327ef232b28d534161a5ca280d822
+    source_ref: git:3bb6da8672b327ef232b28d534161a5ca280d822
+    short_sha: 3bb6da8
+    changed_paths:
+      - .github/workflows/tests.yml
+    stats:
+      files_changed: 0
+      insertions: 2
+      deletions: 2
+    inspected: true
+    inspected_paths:
+      - .github/workflows/tests.yml
+    observed_behavior: Adjusted CI configuration without changing runtime behavior.
+    public_impact: internal
+    decision: internal
+    stale: false
+    evidence_subject: "chore: fix ci"
+    target_entry_key: internal-ci-3bb6da8
+    target_entry_id: entry-0004
+    notes: CI-only maintenance.
+  - sha: e6ca81ab050d2086f0c389b8d817ef02c3fd54b8
+    source_ref: git:e6ca81ab050d2086f0c389b8d817ef02c3fd54b8
+    short_sha: e6ca81a
+    changed_paths:
+      - .github/workflows/tests.yml
+      - benchmarks/benchmark_reference.py
+      - benchmarks/reference/compare.py
+      - benchmarks/reference/golden.py
+      - benchmarks/reference/providers.py
+      - benchmarks/reference/registry.py
+      - benchmarks/reference/report.py
+      - benchmarks/reference/types.py
+      - docs/reference_benchmark.md
+      - tests/test_reference_benchmark.py
+    stats:
+      files_changed: 0
+      insertions: 1224
+      deletions: 221
+    inspected: true
+    inspected_paths:
+      - benchmarks/benchmark_reference.py
+      - benchmarks/reference/compare.py
+      - benchmarks/reference/golden.py
+      - benchmarks/reference/providers.py
+      - benchmarks/reference/registry.py
+      - benchmarks/reference/report.py
+      - benchmarks/reference/types.py
+      - docs/reference_benchmark.md
+      - tests/test_reference_benchmark.py
+      - .github/workflows/tests.yml
+    observed_behavior:
+      Expanded reference compatibility benchmarks with golden and live sources, suite
+      reporting, regression verdicts, and documented reproducible evaluation workflows.
+    public_impact: docs
+    decision: accepted
+    stale: false
+    evidence_subject: "feat: improve benchmarks"
+    target_entry_key: reference-benchmark-evaluation
+    target_entry_id: entry-0005
+    notes:
+      Reviewed benchmark logic, report rendering, golden validation, workflow
+      integration, documentation, and tests.
+  - sha: b49161f8f6b55200dd84b930d426427053929c7f
+    source_ref: git:b49161f8f6b55200dd84b930d426427053929c7f
+    short_sha: b49161f
+    changed_paths:
+      - .github/workflows/tests.yml
+      - kokorog2p/backends/espeak/wrapper.py
+      - tests/conftest.py
+      - tests/test_espeak_backend.py
+    stats:
+      files_changed: 0
+      insertions: 128
+      deletions: 3
+    inspected: true
+    inspected_paths:
+      - kokorog2p/backends/espeak/wrapper.py
+      - tests/test_espeak_backend.py
+      - tests/conftest.py
+      - .github/workflows/tests.yml
+    observed_behavior:
+      Added fallback discovery of eSpeak shared libraries near PATH-installed
+      executables and CI verification for both native and CLI backends.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "chore: fix ci"
+    target_entry_key: espeak-library-discovery
+    target_entry_id: entry-0006
+    notes:
+      Reviewed executable-prefix search order, error reporting, tests, and CI checks.
+  - sha: ab5c00d50e34bdc1fcbc6148178bbd6202fbfc89
+    source_ref: git:ab5c00d50e34bdc1fcbc6148178bbd6202fbfc89
+    short_sha: ab5c00d
+    changed_paths:
+      - .github/workflows/codecov.yml
+      - README.md
+      - benchmarks/station_corpora.py
+      - docs/api/thai.md
+      - docs/installation.md
+      - docs/th/PROVENANCE.md
+      - kokorog2p/backends/espeak/cli_wrapper.py
+      - kokorog2p/backends/espeak/phonemizer_base.py
+      - kokorog2p/lexicons/registry.py
+      - kokorog2p/th/g2p.py
+      - tests/test_espeak_backend.py
+      - tests/test_lexicon_registry.py
+      - tests/test_lexphon_backend.py
+      - tests/test_th_g2p.py
+      - tests/test_th_prepared_input.py
+    stats:
+      files_changed: 0
+      insertions: 121
+      deletions: 30
+    inspected: true
+    inspected_paths:
+      - kokorog2p/backends/espeak/cli_wrapper.py
+      - kokorog2p/backends/espeak/phonemizer_base.py
+      - kokorog2p/lexicons/registry.py
+      - kokorog2p/th/g2p.py
+      - docs/api/thai.md
+      - docs/installation.md
+      - docs/th/PROVENANCE.md
+      - tests/test_espeak_backend.py
+      - tests/test_lexicon_registry.py
+      - tests/test_lexphon_backend.py
+      - tests/test_th_g2p.py
+      - tests/test_th_prepared_input.py
+    observed_behavior:
+      Normalized eSpeak voice identifiers across path styles, excluded normalized MBROLA
+      voices from default selection, and switched Thai provisioning and metadata to
+      th:lexhint-native.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "feat: fix normalize voice code and improve benchmark"
+    target_entry_key: espeak-and-thai-provisioning
+    target_entry_id: entry-0007
+    notes:
+      Reviewed implementation, public documentation, metadata, and regression tests.
+  - sha: 77db58d787f851766e0bb7cd0c987aa803781d2f
+    source_ref: git:77db58d787f851766e0bb7cd0c987aa803781d2f
+    short_sha: 77db58d
+    changed_paths:
+      - benchmarks/benchmark_reference.py
+      - benchmarks/reference/compare.py
+      - benchmarks/reference/golden.py
+      - benchmarks/reference/report.py
+      - docs/api/thai.md
+      - docs/th/PROVENANCE.md
+      - kokorog2p/backends/espeak/phonemizer_base.py
+      - kokorog2p/backends/espeak/wrapper.py
+      - tests/test_espeak_backend.py
+    stats:
+      files_changed: 0
+      insertions: 48
+      deletions: 47
+    inspected: true
+    inspected_paths:
+      - benchmarks/benchmark_reference.py
+      - benchmarks/reference/compare.py
+      - benchmarks/reference/golden.py
+      - benchmarks/reference/report.py
+      - kokorog2p/backends/espeak/phonemizer_base.py
+      - kokorog2p/backends/espeak/wrapper.py
+      - tests/test_espeak_backend.py
+    observed_behavior:
+      Applied formatting-only cleanup to benchmark, eSpeak, and test files without
+      changing behavior.
+    public_impact: internal
+    decision: internal
+    stale: false
+    evidence_subject: "chore: pre-commit"
+    target_entry_key: internal-formatting-77db58d
+    target_entry_id: entry-0008
+    notes: Pre-commit formatting cleanup.
