@@ -18,7 +18,7 @@ class FakeLexphon:
             PronunciationToken(
                 text=key,
                 source="lexicon",
-                lexicon_id="th:lexhint",
+                lexicon_id="th:lexhint-native",
                 matched_key=key,
                 source_encoding="ipa",
                 variants=(
@@ -54,7 +54,7 @@ def test_dictionary_segmentation_handles_unspaced_text_and_offsets() -> None:
         (3, 7),
         (7, 8),
     ]
-    assert tokens[0].get("lexicon_id") == "th:lexhint"
+    assert tokens[0].get("lexicon_id") == "th:lexhint-native"
     assert g2p.capabilities()["primary_engine"] == "lexphon"
 
 

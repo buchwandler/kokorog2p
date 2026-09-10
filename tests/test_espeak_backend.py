@@ -8,6 +8,7 @@ import os
 import pickle
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -114,6 +115,7 @@ def test_find_library_path_matches_versioned_soname(tmp_path, monkeypatch):
     assert _find_library_path(library) == mapped.resolve()
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="Linux /proc/self/maps fallback")
 def test_find_library_path_ignores_existing_managed_temp_copy(tmp_path, monkeypatch):
     """Prefer a canonical mapping when a managed temp copy appears first."""
     temp_root = tmp_path / "temp"
@@ -459,6 +461,81 @@ class TestPhonemizerBaseHelpers:
         assert chosen.language == "en-us"
         assert chosen.identifier == "en-us"
 
+
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            (r"sem\ar", "sem/ar"),
+            (r"mb\mb-ar1", "mb/mb-ar1"),
+            ("sem/ar", "sem/ar"),
+            ("mb/mb-ar1", "mb/mb-ar1"),
+        ],
+    )
+    def test_voice_code_normalization_is_platform_independent(self, raw, expected):
+        assert EspeakPhonemizerBase._normalize_voice_code(raw) == expected
+
+    def test_resolve_voice_excludes_windows_mbrola_identifiers(self):
+        voices = [
+            Voice(
+                name="arabic-mbrola-1", language="ar", identifier=r"mb\mb-ar1"
+            ),
+            Voice(
+                name="arabic-mbrola-2", language="ar", identifier=r"mb\mb-ar2"
+            ),
+            Voice(name="Arabic", language="ar", identifier=r"sem\ar"),
+        ]
+        backend = _DummyBase(voices)
+        identifier, chosen = backend._resolve_voice("ar")
+
+        assert chosen.name == "Arabic"
+        assert chosen.language == "ar"
+        assert identifier.replace("\\", "/") == "sem/ar"
+
+    def test_resolve_voice_excludes_posix_mbrola_identifiers(self):
+        voices = [
+            Voice(name="arabic-mbrola-1", language="ar", identifier="mb/mb-ar1"),
+            Voice(name="Arabic", language="ar", identifier="sem/ar"),
+        ]
+        backend = _DummyBase(voices)
+        identifier, chosen = backend._resolve_voice("ar")
+
+        assert chosen.name == "Arabic"
+        assert identifier == "sem/ar"
+
+    def test_explicit_windows_mbrola_request_is_recognized(self):
+        assert EspeakPhonemizerBase._is_mbrola_request(r"mb\mb-ar1")
+
+    def test_cli_parser_normalizes_windows_identifiers(self, monkeypatch):
+        from kokorog2p.backends.espeak import cli_wrapper
+
+        output = (
+            "Pty Language Age/Gender VoiceName File Other Languages\n"
+            r" 1  ar       --/M       arabic-mbrola-1 mb\mb-ar1"
+            "\n"
+            r" 2  ar       --/M       arabic-mbrola-2 mb\mb-ar2"
+            "\n"
+            r" 5  ar       --/M       Arabic           sem\ar"
+            "\n"
+        )
+
+        def run(*args, **kwargs):
+            return SimpleNamespace(returncode=0, stdout=output, stderr="")
+
+        monkeypatch.setattr(cli_wrapper.subprocess, "run", run)
+        cli = cli_wrapper.CliPhonemizer.__new__(cli_wrapper.CliPhonemizer)
+        cli.executable = "espeak-ng"
+        cli._data_path = None
+
+        voices = cli.list_voices("ar")
+        assert [voice.identifier for voice in voices] == [
+            "mb/mb-ar1",
+            "mb/mb-ar2",
+            "sem/ar",
+        ]
+
+        identifier, chosen = cli._resolve_voice("ar")
+        assert identifier == "sem/ar"
+        assert chosen.name == "Arabic"
     def test_resolve_voice_raises_on_invalid(self):
         d = _DummyBase([Voice(language="en-us", identifier="en-us")])
         with pytest.raises(RuntimeError):

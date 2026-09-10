@@ -174,8 +174,8 @@ def test_backend_does_not_open_missing_data_until_lookup(tmp_path: Path) -> None
         with pytest.raises(LexiconNotInstalledError) as error:
             backend.lookup("ไทย")
         message = str(error.value)
-        assert "th:lexhint" in message
-        assert "lexphon data install th:lexhint" in message
-        assert "lexphon data verify th:lexhint" in message
+        assert "th:lexhint-native" in message
+        assert "lexphon data install th:lexhint-native" in message
+        assert "lexphon data verify th:lexhint-native" in message
     finally:
         backend.close()

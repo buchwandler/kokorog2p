@@ -17,7 +17,7 @@ class RecordingLexphon:
                 PronunciationToken(
                     text=text[position:],
                     source="lexicon",
-                    lexicon_id="th:lexhint",
+                    lexicon_id="th:lexhint-native",
                     matched_key=text[position:],
                     source_encoding="ipa",
                     variants=(

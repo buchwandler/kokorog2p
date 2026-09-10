@@ -145,16 +145,21 @@ class EspeakPhonemizerBase(ABC):
 
     @staticmethod
     def _normalize_voice_code(value: str) -> str:
-        return value.strip().lower().replace("_", "-")
+        return (
+            value.strip()
+            .lower()
+            .replace("\\", "/")
+            .replace("_", "-")
+        )
 
     @classmethod
     def _is_mbrola_request(cls, language: str) -> bool:
         code = cls._normalize_voice_code(language)
         return code.startswith(("mb/", "mb-", "mbrola"))
 
-    @staticmethod
-    def _is_mbrola_voice(voice: Voice) -> bool:
-        return voice.identifier.strip().lower().startswith("mb/")
+    @classmethod
+    def _is_mbrola_voice(cls, voice: Voice) -> bool:
+        return cls._normalize_voice_code(voice.identifier).startswith("mb/")
 
     def _resolve_voice(self, language: str) -> tuple[str, Voice]:
         """Resolve a language to an espeak voice without implicit MBROLA use."""

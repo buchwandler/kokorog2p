@@ -25,13 +25,14 @@ def _external_spec(
     name: str,
     *,
     external_language: str | None = None,
+    asset_name: str | None = None,
     rating: int | None = 5,
     default_priority: int | None = 10,
     backend: str = "lexphon",
     kind: str = "pronunciation",
     phoneme_encoding: str = "ipa",
 ) -> LexiconSpec:
-    identifier = f"{external_language or language}:{name}"
+    identifier = f"{external_language or language}:{asset_name or name}"
     return LexiconSpec(
         language=language,
         name=name,
@@ -65,7 +66,14 @@ _EXTERNAL_SPECS_BY_LANGUAGE: dict[str, tuple[LexiconSpec, ...]] = {
     ),
     "sv-se": (_external_spec("sv-se", "nst", rating=None, default_priority=None),),
     "ru-ru": (_external_spec("ru-ru", "lexhint", external_language="ru"),),
-    "th-th": (_external_spec("th-th", "lexhint", external_language="th"),),
+    "th-th": (
+        _external_spec(
+            "th-th",
+            "lexhint",
+            external_language="th",
+            asset_name="lexhint-native",
+        ),
+    ),
     "vi-vn": (_external_spec("vi-vn", "lexhint", external_language="vi"),),
     "ja-jp": (_external_spec("ja-jp", "lexhint", external_language="ja"),),
     "ko-kr": (_external_spec("ko-kr", "lexhint", external_language="ko"),),

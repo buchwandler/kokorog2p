@@ -19,7 +19,7 @@ print(result.token_ids)
 
 ## Behavior
 
-Thai runs use the provisioned Lexphon `th:lexhint` dictionary with dictionary-driven
+Thai runs use the provisioned Lexphon `th:lexhint-native` dictionary with dictionary-driven
 segmentation and the existing Thai tone adaptation. Latin runs use the existing
 EnglishG2P lazily, so ordinary phrases such as `text to speech` are pronounced as
 English rather than spelled as Thai letter names. Whitespace and supported punctuation
@@ -49,8 +49,8 @@ Thai pronunciation data is provisioned through Lexphon and is not downloaded by
 KokoroG2P. Install and verify the released asset before Thai dictionary use:
 
 ```bash
-lexphon data install th:lexhint
-lexphon data verify th:lexhint
+lexphon data install th:lexhint-native
+lexphon data verify th:lexhint-native
 ```
 
 The pinned Wayu behavior baseline and clean-room deviations are documented in

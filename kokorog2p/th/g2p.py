@@ -44,7 +44,7 @@ class _Segment:
 
 
 class ThaiG2P(G2PBase):
-    """Thai frontend using dictionary-driven ``th:lexhint`` segmentation."""
+    """Thai frontend using dictionary-driven ``th:lexhint-native`` segmentation."""
 
     aliases = frozenset(("th", "th-th", "tha", "thai"))
 
@@ -259,7 +259,7 @@ class ThaiG2P(G2PBase):
             token.set("classification", "THAI")
             token.set("normalized_source", surface)
             token.set("source", "lexicon")
-            token.set("lexicon_id", "th:lexhint")
+            token.set("lexicon_id", "th:lexhint-native")
             if segment.token is not None:
                 token.set("matched_key", segment.token.matched_key)
                 token.set("variants", segment.token.variants)

@@ -18,6 +18,7 @@ def test_unrelated_external_lexicons_remain_available() -> None:
     assert available_lexicons("de") == ("gold", "crane", "espeak", "olaph", "lexhint")
     assert available_lexicons("ja") == ("lexhint",)
     assert get_lexicon_spec("ru", "lexhint").backend == "lexphon"
+    assert get_lexicon_spec("th", "lexhint").id == "th:lexhint-native"
 
 
 def test_defaults_and_explicit_selection() -> None:

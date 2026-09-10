@@ -129,7 +129,7 @@ class CliPhonemizer(EspeakPhonemizerBase):
                 continue
             language = parts[1]
             name = parts[3].replace("_", " ")
-            identifier = parts[4]
+            identifier = parts[4].replace("\\", "/")
             voices.append(Voice(name=name, language=language, identifier=identifier))
 
         return voices
