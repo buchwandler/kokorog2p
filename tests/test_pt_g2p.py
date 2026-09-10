@@ -9,19 +9,19 @@ from kokorog2p.pt import PortugueseG2P
 @pytest.fixture(scope="module")
 def g2p():
     """Create one shared Portuguese G2P instance for mutation-free tests."""
-    return PortugueseG2P(mark_stress=True, affricate_ti_di=True)
+    return PortugueseG2P(mark_stress=True, affricate_ti_di=True, lexicons=())
 
 
 @pytest.fixture(scope="module")
 def g2p_no_stress():
     """Create one shared Portuguese G2P instance without stress markers."""
-    return PortugueseG2P(mark_stress=False, affricate_ti_di=True)
+    return PortugueseG2P(mark_stress=False, affricate_ti_di=True, lexicons=())
 
 
 @pytest.fixture(scope="module")
 def g2p_no_affricate():
     """Create one shared Portuguese G2P instance without affrication."""
-    return PortugueseG2P(mark_stress=True, affricate_ti_di=False)
+    return PortugueseG2P(mark_stress=True, affricate_ti_di=False, lexicons=())
 
 
 class TestPortugueseG2P:
@@ -48,6 +48,7 @@ class TestPortugueseG2P:
             language=language,
             use_spacy=False,
             use_espeak_fallback=False,
+            lexicons=(),
         )
 
         assert g2p.dialect == expected_dialect

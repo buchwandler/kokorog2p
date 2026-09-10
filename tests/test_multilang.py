@@ -99,7 +99,9 @@ class TestGetG2PFallback:
         from kokorog2p.espeak_g2p import EspeakOnlyG2P
 
         clear_cache()
-        g2p = get_g2p("sw-sw", backend="espeak")  # Swahili - not yet implemented
+        g2p = get_g2p(
+            "sw-sw", backend="espeak", lexicons=()
+        )  # Swahili - not yet implemented
         assert isinstance(g2p, EspeakOnlyG2P)
 
     def test_french_uses_french_g2p(self):
@@ -109,7 +111,7 @@ class TestGetG2PFallback:
 
         clear_cache()
         # This test checks factory dispatch; the French spaCy model is optional.
-        g2p = get_g2p("fr", use_spacy=False)
+        g2p = get_g2p("fr", use_spacy=False, lexicons=())
         assert isinstance(g2p, FrenchG2P)
 
     def test_czech_uses_czech_g2p(self):
@@ -118,7 +120,7 @@ class TestGetG2PFallback:
         from kokorog2p.cs import CzechG2P
 
         clear_cache()
-        g2p = get_g2p("cs")
+        g2p = get_g2p("cs", lexicons=())
         assert isinstance(g2p, CzechG2P)
 
     def test_german_uses_german_g2p(self):
@@ -127,7 +129,7 @@ class TestGetG2PFallback:
         from kokorog2p.de import GermanG2P
 
         clear_cache()
-        g2p = get_g2p("de")
+        g2p = get_g2p("de", lexicons=())
         assert isinstance(g2p, GermanG2P)
 
 
@@ -194,6 +196,7 @@ class TestChineseG2P:
         # Fourth tone
         assert "↘" in ChineseG2P.retone("ma˥˩")
 
+    @pytest.mark.resource_heavy
     @pytest.mark.skipif(
         not _can_import("jieba", "pypinyin"),
         reason="Chinese dependencies not installed",
@@ -207,6 +210,7 @@ class TestChineseG2P:
         assert result  # Should return some phonemes
         assert isinstance(result, str)
 
+    @pytest.mark.resource_heavy
     @pytest.mark.skipif(
         not _can_import("jieba", "pypinyin"),
         reason="Chinese dependencies not installed",
@@ -235,15 +239,15 @@ class TestChineseG2P:
         from kokorog2p.zh import ChineseG2P
 
         clear_cache()
-        g2p = get_g2p("zh")
+        g2p = get_g2p("zh", lexicons=())
         assert isinstance(g2p, ChineseG2P)
 
         clear_cache()
-        g2p = get_g2p("zh-cn")
+        g2p = get_g2p("zh-cn", lexicons=())
         assert isinstance(g2p, ChineseG2P)
 
         clear_cache()
-        g2p = get_g2p("chinese")
+        g2p = get_g2p("chinese", lexicons=())
         assert isinstance(g2p, ChineseG2P)
 
     def test_get_g2p_chinese_forwards_use_spacy(self):
@@ -252,7 +256,7 @@ class TestChineseG2P:
         from kokorog2p.zh import ChineseG2P
 
         clear_cache()
-        g2p = get_g2p("zh", use_spacy=True)
+        g2p = get_g2p("zh", use_spacy=True, lexicons=())
         assert isinstance(g2p, ChineseG2P)
         assert g2p.use_spacy is True
 
@@ -262,10 +266,11 @@ class TestChineseG2P:
         from kokorog2p.zh import ChineseG2P
 
         clear_cache()
-        g2p = get_g2p("zh", use_spacy=True, spacy_model="zh_core_web_trf")
+        g2p = get_g2p("zh", use_spacy=True, spacy_model="zh_core_web_trf", lexicons=())
         assert isinstance(g2p, ChineseG2P)
         assert g2p.spacy_model is None
 
+    @pytest.mark.resource_heavy
     @pytest.mark.skipif(
         not _can_import("jieba", "pypinyin"),
         reason="Chinese dependencies not installed",
@@ -277,7 +282,7 @@ class TestChineseG2P:
 
         # Test version 1.1 (Zhuyin output)
         clear_cache()
-        g2p_11 = get_g2p("zh", version="1.1")
+        g2p_11 = get_g2p("zh", version="1.1", lexicons=())
         result = g2p_11.phonemize("你好")
 
         # Should be invalid for base model
@@ -292,7 +297,7 @@ class TestChineseG2P:
 
         # Test legacy version (IPA output)
         clear_cache()
-        g2p_legacy = get_g2p("zh", version="1.0")
+        g2p_legacy = get_g2p("zh", version="1.0", lexicons=())
         result_legacy = g2p_legacy.phonemize("你好")
 
         # Should be valid for base model
@@ -372,6 +377,7 @@ class TestJapaneseG2P:
         assert isinstance(moras, list)
         assert len(moras) > 0
 
+    @pytest.mark.resource_heavy
     @pytest.mark.skipif(
         not _can_import("pyopenjtalk"),
         reason="pyopenjtalk not installed",
@@ -385,6 +391,7 @@ class TestJapaneseG2P:
         assert result  # Should return some phonemes
         assert isinstance(result, str)
 
+    @pytest.mark.resource_heavy
     @pytest.mark.skipif(
         not _can_import("pyopenjtalk"),
         reason="pyopenjtalk not installed",
@@ -413,15 +420,15 @@ class TestJapaneseG2P:
         from kokorog2p.ja import JapaneseG2P
 
         clear_cache()
-        g2p = get_g2p("ja")
+        g2p = get_g2p("ja", lexicons=())
         assert isinstance(g2p, JapaneseG2P)
 
         clear_cache()
-        g2p = get_g2p("ja-jp")
+        g2p = get_g2p("ja-jp", lexicons=())
         assert isinstance(g2p, JapaneseG2P)
 
         clear_cache()
-        g2p = get_g2p("japanese")
+        g2p = get_g2p("japanese", lexicons=())
         assert isinstance(g2p, JapaneseG2P)
 
     def test_get_g2p_japanese_forwards_use_spacy(self):
@@ -430,7 +437,7 @@ class TestJapaneseG2P:
         from kokorog2p.ja import JapaneseG2P
 
         clear_cache()
-        g2p = get_g2p("ja", use_spacy=True)
+        g2p = get_g2p("ja", use_spacy=True, lexicons=())
         assert isinstance(g2p, JapaneseG2P)
         assert g2p.use_spacy is True
 
@@ -440,6 +447,6 @@ class TestJapaneseG2P:
         from kokorog2p.ja import JapaneseG2P
 
         clear_cache()
-        g2p = get_g2p("ja", use_spacy=True, spacy_model="ja_core_news_lg")
+        g2p = get_g2p("ja", use_spacy=True, spacy_model="ja_core_news_lg", lexicons=())
         assert isinstance(g2p, JapaneseG2P)
         assert g2p.spacy_model is None

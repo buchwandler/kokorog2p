@@ -242,7 +242,8 @@ python benchmarks/validate_synthetic_data.py benchmarks/data/fr_synthetic.json
 
 1. **Smaller dataset**: 154 sentences is smaller than German (189) or Japanese (371) due
    to CHILDES filtering challenges
-2. **External provisioning**: The `fr-fr:gold` asset is released and installed through Lexphon
+2. **External provisioning**: The `fr-fr:gold` asset is released and installed through
+   Lexphon
 3. **Liaison not represented**: French liaison (linking) is not explicitly marked in
    phonemes
 4. **Elision handling**: Contractions like "l'ami" are treated as separate tokens

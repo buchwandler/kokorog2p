@@ -33,7 +33,7 @@ class TestEspeakEmptyStringBugFix:
         """
         # This should either work OR raise an exception
         # It should NEVER return an empty string silently
-        g2p = get_g2p(language="en-us", backend="espeak")
+        g2p = get_g2p(language="en-us", backend="espeak", lexicons=())
 
         # If we get here, initialization succeeded
         # Phonemization should work
@@ -101,7 +101,7 @@ class TestGoruutEmptyStringBugFix:
     @pytest.mark.skipif(not _is_goruut_available(), reason="pygoruut not installed")
     def test_goruut_phonemize_not_empty(self):
         """Goruut backend should never return empty strings for valid input."""
-        g2p = get_g2p(language="en-us", backend="goruut")
+        g2p = get_g2p(language="en-us", backend="goruut", lexicons=())
 
         result = g2p.phonemize("test")
 
@@ -194,11 +194,15 @@ class TestStrictParameter:
     def test_get_g2p_strict_parameter(self):
         """get_g2p() should accept and pass through strict parameter."""
         # Test with strict=True (default)
-        g2p_strict = get_g2p(language="en-us", backend="espeak", strict=True)
+        g2p_strict = get_g2p(
+            language="en-us", backend="espeak", strict=True, lexicons=()
+        )
         assert g2p_strict.strict is True, "strict should be True"
 
         # Test with strict=False
-        g2p_lenient = get_g2p(language="en-us", backend="espeak", strict=False)
+        g2p_lenient = get_g2p(
+            language="en-us", backend="espeak", strict=False, lexicons=()
+        )
         assert g2p_lenient.strict is False, "strict should be False"
 
     def test_goruut_strict_true_raises_on_error(self):

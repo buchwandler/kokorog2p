@@ -2,14 +2,14 @@ schema_version: 1
 object_type: commit_audit_sheet
 versioning:
   schema_version: 1
-  revision: 2
+  revision: 6
 release_version: 0.9.4
 git_base_ref: v0.9.3
 git_base_sha: 6a0c9fb18547cf05c49f02a9b334eb761dd91c69
 git_head_ref: HEAD
-git_head_sha: 6ebdc3a89d608964e4b1b1b9958fb43b4574f04b
-git_range: 6a0c9fb18547cf05c49f02a9b334eb761dd91c69..6ebdc3a89d608964e4b1b1b9958fb43b4574f04b
-commit_count: 5
+git_head_sha: c340efa452e6ab35a956c84f5b3ee377898a7ded
+git_range: 6a0c9fb18547cf05c49f02a9b334eb761dd91c69..c340efa452e6ab35a956c84f5b3ee377898a7ded
+commit_count: 9
 rows:
   - sha: 221395a03c7bd6245098500689c4009abe978b1b
     source_ref: git:221395a03c7bd6245098500689c4009abe978b1b
@@ -285,3 +285,217 @@ rows:
     evidence_subject: "feat: fallback is handled in lexphon"
     target_entry_id: entry-0005
     notes: Completes provider integration and adds benchmark coverage.
+  - sha: 52ee44335d2c6cf77236f4695198a06f8bc5054b
+    source_ref: git:52ee44335d2c6cf77236f4695198a06f8bc5054b
+    short_sha: 52ee443
+    changed_paths:
+      - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.3/release.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.4/audit/commit-audit.yaml
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.4/entries/entry-0001.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.4/entries/entry-0002.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.4/entries/entry-0003.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.4/entries/entry-0004.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.4/entries/entry-0005.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.4/release.md
+      - docs/changelog.md
+    stats:
+      files_changed: 0
+      insertions: 578
+      deletions: 16
+    inspected: true
+    inspected_paths:
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.4/audit/commit-audit.yaml
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.4/entries/entry-0001.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.4/entries/entry-0005.md
+      - docs/changelog.md
+    observed_behavior:
+      Established the repository-local 0.9.4 release records and generated changelog
+      section; it changes release bookkeeping rather than package behavior.
+    public_impact: internal
+    decision: internal
+    stale: false
+    evidence_subject: "doc: changelog"
+    target_entry_id: entry-0009
+    notes: Release bookkeeping is retained as internal audit history.
+  - sha: 1530333334216a06a91566eb8c16c9cde2759730
+    source_ref: git:1530333334216a06a91566eb8c16c9cde2759730
+    short_sha: "1530333"
+    changed_paths:
+      - .github/workflows/tests.yml
+    stats:
+      files_changed: 0
+      insertions: 26
+      deletions: 2
+    inspected: true
+    inspected_paths:
+      - .github/workflows/tests.yml
+    observed_behavior:
+      The test workflow adds platform-specific eSpeak installation handling and
+      validates the discovered executable before smoke tests.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "chore: ci fix"
+    target_entry_id: entry-0006
+    notes: Quality and CI behavior for release verification.
+  - sha: 548ac11ab15eecdff78610ff6dac02e7a404f9a2
+    source_ref: git:548ac11ab15eecdff78610ff6dac02e7a404f9a2
+    short_sha: 548ac11
+    changed_paths:
+      - .github/workflows/tests.yml
+      - MANIFEST.in
+      - README.md
+      - benchmarks/CRANE_TEST_DATA.md
+      - benchmarks/FRENCH_DATASET.md
+      - benchmarks/GERMAN_DATASET.md
+      - benchmarks/all_languages_benchmark_results.json
+      - benchmarks/benchmark_comparison.py
+      - benchmarks/benchmark_crane_test_data.py
+      - benchmarks/benchmark_de_comparison.py
+      - benchmarks/benchmark_en_gb_comparison.py
+      - benchmarks/benchmark_en_lexicon.py
+      - benchmarks/benchmark_en_misaki.py
+      - benchmarks/benchmark_en_us_comparison.py
+      - benchmarks/benchmark_fr_comparison.py
+      - benchmarks/benchmark_fr_g2p.py
+      - benchmarks/benchmark_g2p.py
+      - benchmarks/benchmark_load_silver.py
+      - benchmarks/crane_test_data.py
+      - benchmarks/data/README.md
+      - benchmarks/extract_childes_sentences.py
+      - benchmarks/generate_phonemes.py
+      - benchmarks/regenerate_phonemes.py
+      - docs/advanced.md
+      - docs/api/core.md
+      - docs/api/english.md
+      - docs/lexicons.md
+      - docs/spans.md
+      - kokorog2p/__init__.py
+      - kokorog2p/base.py
+      - kokorog2p/cs/g2p.py
+      - kokorog2p/de/g2p.py
+      - kokorog2p/de/lexicon.py
+      - kokorog2p/en/g2p.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/fr/g2p.py
+      - kokorog2p/fr/lexicon.py
+      - kokorog2p/he/g2p.py
+      - kokorog2p/ja/g2p.py
+      - kokorog2p/ko/g2p.py
+      - kokorog2p/lexicons/__init__.py
+      - kokorog2p/lexicons/_generated_registry.py
+      - kokorog2p/lexicons/data/THIRD_PARTY_NOTICES.md
+      - kokorog2p/lexicons/data/__init__.py
+      - kokorog2p/lexicons/data/en_gb_gold.g2lex
+      - kokorog2p/lexicons/data/en_gb_silver.g2lex
+      - kokorog2p/lexicons/data/en_us_gold.g2lex
+      - kokorog2p/lexicons/data/en_us_silver.g2lex
+      - kokorog2p/lexicons/data/fr_gold.g2lex
+      - kokorog2p/lexicons/registry.py
+      - kokorog2p/lexicons/runtime.py
+      - kokorog2p/th/g2p.py
+      - kokorog2p/vi/g2p.py
+      - kokorog2p/zh/g2p.py
+      - lexicons/README.md
+      - lexicons/lock.json
+      - lexicons/manifest.toml
+      - lexicons/sources/en/gb_gold.json
+      - lexicons/sources/en/gb_silver.json
+      - lexicons/sources/en/us_gold.json
+      - lexicons/sources/en/us_silver.json
+      - lexicons/sources/fr/fr_gold.json
+      - pyproject.toml
+      - scripts/build_g2lex_assets.py
+      - scripts/check_release_artifacts.py
+      - scripts/generate_lexicon_notices.py
+      - scripts/rebuild_lexicon_base.py
+      - scripts/rebuild_lexicon_en_gb.py
+      - scripts/rebuild_lexicon_en_us.py
+      - scripts/rebuild_lexicon_fr.py
+      - scripts/validate_g2lex_assets.py
+      - tests/test_ci_bug_fix.py
+      - tests/test_crane_test_data_benchmark.py
+      - tests/test_de_g2p.py
+      - tests/test_en_debug.py
+      - tests/test_en_g2p.py
+      - tests/test_en_lexicon.py
+      - tests/test_external_g2lex_runtime.py
+      - tests/test_factory_languages.py
+      - tests/test_factory_performance_contract.py
+      - tests/test_fr_g2p.py
+      - tests/test_g2lex_assets.py
+      - tests/test_g2lex_runtime_lifetime.py
+      - tests/test_g2p_cache_spacy_model.py
+      - tests/test_he_g2p.py
+      - tests/test_ja_g2p.py
+      - tests/test_ko_g2p.py
+      - tests/test_legacy_lexicon_parity.py
+      - tests/test_lexicon_manifest_generation.py
+      - tests/test_lexicon_precedence.py
+      - tests/test_lexicon_registry.py
+      - tests/test_lexicon_selection.py
+      - tests/test_memory_regressions.py
+      - tests/test_minimal_install.py
+      - tests/test_phoneme_spacing.py
+      - tests/test_quote_handling.py
+      - tests/test_release_artifacts.py
+      - tests/test_ssmd_phrasplit_integration.py
+    stats:
+      files_changed: 0
+      insertions: 680
+      deletions: 410153
+    inspected: true
+    inspected_paths:
+      - MANIFEST.in
+      - README.md
+      - docs/advanced.md
+      - docs/api/core.md
+      - docs/lexicons.md
+      - kokorog2p/__init__.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/fr/lexicon.py
+      - kokorog2p/lexicons/registry.py
+      - kokorog2p/lexicons/runtime.py
+      - pyproject.toml
+      - scripts/check_release_artifacts.py
+      - tests/test_external_g2lex_runtime.py
+      - tests/test_lexicon_registry.py
+      - tests/test_lexicon_selection.py
+    observed_behavior:
+      Moves English and French dictionary ownership to externally provisioned Lexphon
+      data, removes packaged dictionary payloads and builders, and adds runtime
+      selection and artifact-boundary checks.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "feat: lexphon and remove lexicons inside kokorog2p"
+    target_entry_id: entry-0007
+    notes: Public runtime, packaging, and documentation behavior.
+  - sha: c340efa452e6ab35a956c84f5b3ee377898a7ded
+    source_ref: git:c340efa452e6ab35a956c84f5b3ee377898a7ded
+    short_sha: c340efa
+    changed_paths:
+      - .github/workflows/tests.yml
+      - kokorog2p/backends/espeak/api.py
+      - tests/conftest.py
+      - tests/test_pipeline_api.py
+    stats:
+      files_changed: 0
+      insertions: 69
+      deletions: 36
+    inspected: true
+    inspected_paths:
+      - .github/workflows/tests.yml
+      - kokorog2p/backends/espeak/api.py
+      - tests/conftest.py
+      - tests/test_pipeline_api.py
+    observed_behavior:
+      Makes Lexphon download handling explicit, hardens eSpeak API error paths, and
+      improves test fixture cleanup and pipeline contract coverage.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "feat: fix lexphon download"
+    target_entry_id: entry-0008
+    notes: Runtime reliability and test resource behavior.

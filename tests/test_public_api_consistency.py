@@ -111,12 +111,18 @@ def test_tokenize_matches_phonemize_tokens_text_and_offsets():
 
 def test_cached_g2p_instance_is_used_and_outputs_match():
     text = "Hello world!"
-    g2p = get_g2p(language="en-us")
+    g2p = get_g2p(language="en-us", lexicons=())
 
     r1 = phonemize(
         text, language="en-us", g2p=g2p, return_ids=True, return_phonemes=True
     )
-    r2 = phonemize(text, language="en-us", return_ids=True, return_phonemes=True)
+    r2 = phonemize(
+        text,
+        language="en-us",
+        lexicons=(),
+        return_ids=True,
+        return_phonemes=True,
+    )
 
     # The caching use-case: providing g2p should not change results.
     assert r1.phonemes == r2.phonemes

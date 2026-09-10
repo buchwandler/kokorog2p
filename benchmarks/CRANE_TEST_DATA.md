@@ -107,7 +107,7 @@ This is an accuracy measurement and diagnostic tool, not a replacement for the s
 benchmarks. Inspect worst cases to distinguish G2P errors, pronunciation variants,
 representation differences, and backend environment differences before making changes.
 
-The two `test.tsv` files are evaluation-only. Never merge them into external English
-or German lexicon assets or other production lookup data. Do not special-case their words.
+The two `test.tsv` files are evaluation-only. Never merge them into external English or
+German lexicon assets or other production lookup data. Do not special-case their words.
 normalization fixes, or independently sourced lexicon corrections. The benchmark remains
 useful only while its target pronunciations remain held out.

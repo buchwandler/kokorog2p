@@ -120,9 +120,12 @@ def test_latin_fallback_can_be_disabled_and_runs_are_preserved() -> None:
 def test_factory_defers_lexphon_and_uses_no_implicit_thai_engine() -> None:
     clear_cache()
     g2p = get_g2p(
-        "th", use_spacy=False, use_espeak_fallback=False, use_goruut_fallback=False
+        "th",
+        use_spacy=False,
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+        lexicons=(),
     )
     assert isinstance(g2p, ThaiG2P)
-    assert g2p._lexphon is not None
-    assert g2p._lexphon._phonemizer is None
+    assert g2p._lexphon is None
     assert g2p._english_g2p is None

@@ -739,6 +739,9 @@ def phonemize(
     lexicons: str | Sequence[str] | None = None,
     backend: "BackendType" = "kokorog2p",
     g2p: "G2PBase | None" = None,
+    g2p_resolver: Callable[[str], "G2PBase"] | None = None,
+    language_routing: LanguageRoutingConfig | Mapping[str, Any] | None = None,
+    target_model: str | None = None,
     g2p_options: Mapping[str, Any] | None = None,
     strict_stress: bool = False,
 ) -> PhonemizeResult:
@@ -857,18 +860,23 @@ def phonemize(
         >>> r.tokens[1].lang
         'de'
     """
+    provided_g2p = g2p is not None
     if g2p is None:
-        g2p = get_g2p(
-            language=language,
-            use_espeak_fallback=use_espeak_fallback,
-            use_goruut_fallback=use_goruut_fallback,
-            use_cli=use_cli,
-            use_spacy=use_spacy,
-            spacy_model=spacy_model,
-            spacy_model_size=spacy_model_size,
-            lexicons=lexicons,
-            backend=backend,
-            **(dict(g2p_options) if g2p_options else {}),
+        g2p = (
+            g2p_resolver(normalize_language_code(language))
+            if g2p_resolver is not None
+            else get_g2p(
+                language=language,
+                use_espeak_fallback=use_espeak_fallback,
+                use_goruut_fallback=use_goruut_fallback,
+                use_cli=use_cli,
+                use_spacy=use_spacy,
+                spacy_model=spacy_model,
+                spacy_model_size=spacy_model_size,
+                lexicons=lexicons,
+                backend=backend,
+                **(dict(g2p_options) if g2p_options else {}),
+            )
         )
 
     return phonemize_to_result(
@@ -882,17 +890,24 @@ def phonemize(
         overlap=overlap,
         use_normalizer_rules=use_normalizer_rules,
         g2p=g2p,
-        g2p_options={
-            "use_espeak_fallback": use_espeak_fallback,
-            "use_goruut_fallback": use_goruut_fallback,
-            "use_cli": use_cli,
-            "use_spacy": use_spacy,
-            "spacy_model": spacy_model,
-            "spacy_model_size": spacy_model_size,
-            "lexicons": lexicons,
-            "backend": backend,
-            **(dict(g2p_options) if g2p_options else {}),
-        },
+        g2p_resolver=g2p_resolver,
+        language_routing=language_routing,
+        target_model=target_model,
+        g2p_options=(
+            None
+            if provided_g2p
+            else {
+                "use_espeak_fallback": use_espeak_fallback,
+                "use_goruut_fallback": use_goruut_fallback,
+                "use_cli": use_cli,
+                "use_spacy": use_spacy,
+                "spacy_model": spacy_model,
+                "spacy_model_size": spacy_model_size,
+                "lexicons": lexicons,
+                "backend": backend,
+                **(dict(g2p_options) if g2p_options else {}),
+            }
+        ),
         strict_stress=strict_stress,
     )
 

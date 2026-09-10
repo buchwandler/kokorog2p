@@ -10,6 +10,7 @@ Usage:
     python generate_phonemes.py "The quick brown fox jumps."
 """
 
+
 def get_gold_phonemes(word: str, language: str = "en-us") -> str | None:
     """Look up a word in the externally provisioned gold lexicon."""
     from kokorog2p.en import EnglishG2P

@@ -57,7 +57,7 @@ def test_factory_forwards_korean_voice() -> None:
     from kokorog2p import clear_cache, get_g2p
 
     clear_cache()
-    assert get_g2p("ko", voice="jf_alpha").voice == "jf_alpha"
+    assert get_g2p("ko", voice="jf_alpha", lexicons=()).voice == "jf_alpha"
 
 
 @pytest.mark.parametrize(

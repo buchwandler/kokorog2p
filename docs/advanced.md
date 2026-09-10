@@ -41,6 +41,7 @@ stale tokenization behavior. Per-span `lang` overrides create language-specific 
 instances using the same resolution rules.
 
 ### Memory-Efficient Loading
+
 ### External lexicon provisioning
 
 English and French dictionaries are installed outside KokoroG2P through Lexphon:
@@ -738,7 +739,7 @@ expose only the external `gold` selection; `lexicons=()` disables dictionary loo
 
 For German, `available_lexicons("de")` returns `("gold", "crane", "espeak", "olaph")`.
 `gold` remains the implicit default. Explicit order controls collisions, and runtime
-pronunciation selection is offline. `espeak` is a static Lexphon dictionary and is distinct
-from the optional `use_espeak_fallback=True` backend.
-Unsupported source IPA fails closed and may fall through to configured fallback. See
-{doc}`api/german` for provenance and examples.
+pronunciation selection is offline. `espeak` is a static Lexphon dictionary and is
+distinct from the optional `use_espeak_fallback=True` backend. Unsupported source IPA
+fails closed and may fall through to configured fallback. See {doc}`api/german` for
+provenance and examples.

@@ -465,6 +465,7 @@ def test_build_phoneme_string_skips_whitespace_only_punctuation_normalization():
     assert _build_phoneme_string(tokens, "info@example") == "INFO EXAMPLE"
 
 
+@pytest.mark.spacy
 @pytest.mark.skipif(
     not _has_spacy_model("en_core_web_sm"),
     reason="spaCy English model not installed",
@@ -473,7 +474,7 @@ def test_span_alignment_bare_domain_matches_direct_whole_text_g2p():
     from kokorog2p import get_g2p
 
     source = "Visit help.com now."
-    g2p = get_g2p("en-us", use_spacy=True, spacy_model="en_core_web_sm")
+    g2p = get_g2p("en-us", use_spacy=True, spacy_model="en_core_web_sm", lexicons=())
 
     result = phonemize_to_result(source, lang="en-us", return_ids=False, g2p=g2p)
 
@@ -481,6 +482,7 @@ def test_span_alignment_bare_domain_matches_direct_whole_text_g2p():
     assert result.phonemes == g2p.phonemize(result.extended_text)
 
 
+@pytest.mark.spacy
 @pytest.mark.skipif(
     not _has_spacy_model("en_core_web_sm"),
     reason="spaCy English model not installed",
@@ -489,7 +491,7 @@ def test_span_alignment_email_matches_direct_whole_text_g2p():
     from kokorog2p import get_g2p
 
     source = "Email info@example.com now."
-    g2p = get_g2p("en-us", use_spacy=True, spacy_model="en_core_web_sm")
+    g2p = get_g2p("en-us", use_spacy=True, spacy_model="en_core_web_sm", lexicons=())
 
     result = phonemize_to_result(source, lang="en-us", return_ids=False, g2p=g2p)
 
@@ -518,7 +520,7 @@ class TestPhonemizeToResult:
         from kokorog2p import get_g2p
 
         text = "'I can't... or shouldn't,' I replied."
-        g2p = get_g2p("en-us", use_spacy=False)
+        g2p = get_g2p("en-us", use_spacy=False, lexicons=())
         result = phonemize(text, g2p=g2p, language="en-us")
 
         assert result.phonemes == g2p.phonemize(text)
@@ -528,8 +530,8 @@ class TestPhonemizeToResult:
         assert result.phonemes == "“ˈI kˈænt…ɔɹ ʃˈʊdᵊnt,” ˈI ɹᵻplˈId."
 
         text = "But I'd've listened if you'd've given me a chance..."
-        result = phonemize(text, language="en-us")
-        default_g2p = get_g2p("en-us")
+        result = phonemize(text, language="en-us", lexicons=())
+        default_g2p = get_g2p("en-us", lexicons=())
         if default_g2p.use_spacy:
             assert result.phonemes == default_g2p.phonemize(text)
         else:
@@ -610,6 +612,7 @@ class TestPhonemizeToResult:
         assert "nuː jɔːk" in result.phonemes
         assert len(result.warnings) == 0
 
+    @pytest.mark.spacy
     @pytest.mark.skipif(
         not _has_spacy_model("de_core_news_sm"),
         reason="German spaCy model not installed",
@@ -684,6 +687,7 @@ class TestPhonemizeToResult:
         # Punctuation shouldn't cause warnings
         assert all("punctuation" not in w.lower() for w in result.warnings)
 
+    @pytest.mark.spacy
     @pytest.mark.skipif(
         not _has_spacy_model("fr_core_news_sm"),
         reason="French spaCy model not installed",
@@ -887,6 +891,7 @@ class TestPhonemizeToResult:
         assert any("overlap" in w.lower() for w in result.warnings)
         assert any("[100:105]" in w for w in result.warnings)
 
+    @pytest.mark.spacy
     @pytest.mark.skipif(
         not _has_spacy_model("de_core_news_sm"),
         reason="German spaCy model not installed",
@@ -937,7 +942,7 @@ class TestPhonemizeToResult:
         """Test reusing G2P instance for performance."""
         from kokorog2p import get_g2p
 
-        g2p = get_g2p("en-us", use_spacy=False)
+        g2p = get_g2p("en-us", use_spacy=False, lexicons=())
         result1 = phonemize_to_result("Hello!", g2p=g2p, lang="en-us")
         result2 = phonemize_to_result("World!", g2p=g2p, lang="en-us")
 
@@ -951,7 +956,7 @@ class TestPhonemizeToResult:
 
         from kokorog2p import get_g2p
 
-        g2p = get_g2p("en-us", use_spacy=False)
+        g2p = get_g2p("en-us", use_spacy=False, lexicons=())
         text = "Doctor Smith arrived."
         with ThreadPoolExecutor(max_workers=8) as executor:
             results = list(
@@ -1024,10 +1029,10 @@ class TestPhonemizeToResult:
         from kokorog2p import get_g2p
 
         text = "What's your problem?"
-        g2p = get_g2p("en-us")
+        g2p = get_g2p("en-us", lexicons=())
         expected = g2p.phonemize(text)
 
-        result = phonemize(text, language="en-us")
+        result = phonemize(text, language="en-us", lexicons=())
 
         assert result.phonemes == expected
 
@@ -1036,8 +1041,8 @@ class TestPhonemizeToResult:
         from kokorog2p import get_g2p
 
         text = "'I can't... or shouldn't,' I replied."
-        g2p = get_g2p("en-us")
-        result = phonemize(text, language="en-us")
+        g2p = get_g2p("en-us", lexicons=())
+        result = phonemize(text, language="en-us", lexicons=())
 
         expected = g2p.phonemize(text)
         assert result.phonemes == expected
@@ -1054,8 +1059,8 @@ class TestPhonemizeToResult:
             "'I'd've liked to've met you sooner...' he said. "
             "\"Maybe things'd've been different...\""
         )
-        g2p = get_g2p("en-us")
-        result = phonemize(text, language="en-us")
+        g2p = get_g2p("en-us", lexicons=())
+        result = phonemize(text, language="en-us", lexicons=())
 
         assert result.phonemes == g2p.phonemize(text)
 
@@ -1070,8 +1075,8 @@ class TestPhonemizeToResult:
             "His words hung in the air like smoke... "
             "\"I can't... or shouldn't,\" I replied, confused by his hostility.'"
         )
-        g2p = get_g2p("en-us")
-        result = phonemize(text, language="en-us")
+        g2p = get_g2p("en-us", lexicons=())
+        result = phonemize(text, language="en-us", lexicons=())
 
         assert result.phonemes == g2p.phonemize(text)
 
@@ -1084,8 +1089,8 @@ class TestPhonemizeToResult:
         from kokorog2p import get_g2p
 
         text = "He said, \"I\" 'I'."
-        g2p = get_g2p("en-us")
-        result = phonemize(text, language="en-us")
+        g2p = get_g2p("en-us", lexicons=())
+        result = phonemize(text, language="en-us", lexicons=())
 
         assert result.phonemes == g2p.phonemize(text)
 
@@ -1098,8 +1103,8 @@ class TestPhonemizeToResult:
         from kokorog2p import get_g2p
 
         text = '"I," he said. "I."'
-        g2p = get_g2p("en-us")
-        result = phonemize(text, language="en-us")
+        g2p = get_g2p("en-us", lexicons=())
+        result = phonemize(text, language="en-us", lexicons=())
 
         assert result.phonemes == g2p.phonemize(text)
 
@@ -1112,8 +1117,8 @@ class TestPhonemizeToResult:
         from kokorog2p import get_g2p
 
         text = "He said, \"She whispered, 'I'd've...'.\""
-        g2p = get_g2p("en-us")
-        result = phonemize(text, language="en-us")
+        g2p = get_g2p("en-us", lexicons=())
+        result = phonemize(text, language="en-us", lexicons=())
 
         assert result.phonemes == g2p.phonemize(text)
 
@@ -1125,8 +1130,8 @@ class TestPhonemizeToResult:
         from kokorog2p import get_g2p
 
         text = "Wait... now... later..."
-        g2p = get_g2p("en-us")
-        result = phonemize(text, language="en-us")
+        g2p = get_g2p("en-us", lexicons=())
+        result = phonemize(text, language="en-us", lexicons=())
 
         assert result.phonemes == g2p.phonemize(text)
 
@@ -1135,8 +1140,8 @@ class TestPhonemizeToResult:
         from kokorog2p import get_g2p
 
         text = "\"I'd've,\" she paused. \"You'd've.\""
-        g2p = get_g2p("en-us")
-        result = phonemize(text, language="en-us")
+        g2p = get_g2p("en-us", lexicons=())
+        result = phonemize(text, language="en-us", lexicons=())
 
         assert result.phonemes == g2p.phonemize(text)
 
@@ -1150,14 +1155,15 @@ class TestPhonemizeToResult:
         from kokorog2p import get_g2p
 
         text = 'He said, "Dr. Smith..." and left.'
-        g2p = get_g2p("en-us")
-        result = phonemize(text, language="en-us")
+        g2p = get_g2p("en-us", lexicons=())
+        result = phonemize(text, language="en-us", lexicons=())
 
         assert result.phonemes == g2p.phonemize(text)
 
         dr_token = next(token for token in result.tokens if token.text == "Dr")
         assert dr_token.meta.get("phonemes")
 
+    @pytest.mark.spacy
     @pytest.mark.skipif(
         not _has_spacy_model("de_core_news_sm"),
         reason="German spaCy model not installed",
@@ -1199,7 +1205,7 @@ class TestPhonemizeToResult:
         ]
 
         for text, contraction in test_cases:
-            result = phonemize(text, language="en-us")
+            result = phonemize(text, language="en-us", lexicons=())
 
             # Find the contraction token
             contraction_token = None
@@ -1264,7 +1270,7 @@ class TestPhonemizeToResult:
         ]
 
         for text, expected_tokens in test_cases:
-            result = phonemize(text, language="en-us")
+            result = phonemize(text, language="en-us", lexicons=())
 
             # Check tokenization
             actual_tokens = len(result.tokens)

@@ -123,7 +123,7 @@ def test_arabic_factory_aliases_and_native_profile() -> None:
     from kokorog2p.ar import ArabicG2P
 
     instances = [
-        get_g2p(alias, diacritizer="none")
+        get_g2p(alias, diacritizer="none", lexicons=())
         for alias in ("ar", "ara", "arabic", "ar-msa", "msa", "ar-sa")
     ]
     assert all(isinstance(instance, ArabicG2P) for instance in instances)
@@ -135,7 +135,7 @@ def test_arabic_factory_aliases_and_native_profile() -> None:
 def test_arabic_espeak_backend_remains_generic() -> None:
     from kokorog2p.espeak_g2p import EspeakOnlyG2P
 
-    assert isinstance(get_g2p("ar", backend="espeak"), EspeakOnlyG2P)
+    assert isinstance(get_g2p("ar", backend="espeak", lexicons=()), EspeakOnlyG2P)
 
 
 def test_top_level_g2p_options_configure_arabic() -> None:
@@ -154,7 +154,9 @@ def test_kazakh_factory_aliases_share_cached_native_instance() -> None:
     from kokorog2p.kk import KazakhG2P
 
     clear_cache()
-    instances = [get_g2p(alias) for alias in ("kk", "kk-kz", "kaz", "kazakh")]
+    instances = [
+        get_g2p(alias, lexicons=()) for alias in ("kk", "kk-kz", "kaz", "kazakh")
+    ]
     assert all(isinstance(instance, KazakhG2P) for instance in instances)
     assert len({id(instance) for instance in instances}) == 1
     assert instances[0].get_target_model() == "1.0"
@@ -165,9 +167,9 @@ def test_kazakh_explicit_espeak_backend_uses_native_frontend() -> None:
     from kokorog2p.kk import KazakhG2P
 
     clear_cache()
-    assert isinstance(get_g2p("kk", backend="espeak"), KazakhG2P)
+    assert isinstance(get_g2p("kk", backend="espeak", lexicons=()), KazakhG2P)
 
 
 def test_kazakh_rejects_unsupported_factory_options() -> None:
     with pytest.raises(TypeError, match="Unsupported get_g2p options"):
-        get_g2p("kk", unsupported=True)
+        get_g2p("kk", unsupported=True, lexicons=())

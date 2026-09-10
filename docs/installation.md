@@ -1,65 +1,70 @@
 # Installation
 
-Install the core package for the prepared-text G2P pipeline:
+## Core installation
+
+Install the prepared-text G2P pipeline:
 
 ```bash
 python -m pip install kokorog2p
 ```
 
-The core package does not install or import a semantic text-preparation package. Written
-numbers, abbreviations, units, currencies, dates, URLs, and similar forms must be
-prepared by the calling application before phonemization.
+KokoroG2P does not expand written semantics such as numbers, abbreviations, units,
+currencies, dates, or URLs. Prepare those forms in the calling application before
+phonemization.
 
-## Language extras
+The default English and French dictionary layers are external Lexphon data. Provision
+them explicitly when dictionary lookup is needed:
 
-Language and backend integrations are optional extras:
+```bash
+lexphon data install en-us:gold en-gb:gold fr-fr:gold
+lexphon data verify en-us:gold en-gb:gold fr-fr:gold
+```
 
-````bash
+For fallback-only operation, pass `lexicons=()` and no dictionary data is required.
+
+## Optional language and backend extras
+
+Install only the integrations used by the application:
+
+```bash
 python -m pip install "kokorog2p[en]"
 python -m pip install "kokorog2p[de]"
 python -m pip install "kokorog2p[fr]"
-
-German pronunciation dictionaries are not bundled with KokoroG2P. Install the default data explicitly through Lexphon:
-
-```bash
-lexphon data install de-de:gold
-lexphon data verify de-de:gold
-````
-
-Install optional named layers only when needed:
-
-```bash
-lexphon data install de-de:crane de-de:espeak de-de:olaph de-de:lexhint
+python -m pip install "kokorog2p[ja]"
+python -m pip install "kokorog2p[ko]"
+python -m pip install "kokorog2p[espeak]"
+python -m pip install "kokorog2p[goruut]"
 ```
 
-## Released LexHint data
+Optional spaCy models and system tools such as `espeak-ng` are installed separately.
+KokoroG2P never downloads models or dictionary assets during construction or lookup.
 
-Russian, Thai, Vietnamese, Japanese, Korean, Portuguese, and German LexHint dictionaries
-are provisioned through Lexphon and are not bundled or downloaded by KokoroG2P:
+## Released Lexphon dictionaries
+
+German named layers are external data:
 
 ```bash
-lexphon data install ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint de-de:lexhint
-lexphon data verify ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint de-de:lexhint
+lexphon data install de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
+lexphon data verify de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
 ```
 
-The corresponding language extras only install frontend dependencies. Provision these
-assets during image or container construction. German lookup is offline at runtime and
-performs no implicit download. python -m pip install "kokorog2p[ko]" python -m pip
-install "kokorog2p[ja]" python -m pip install "kokorog2p[espeak]"
+Released LexHint layers for other frontends are provisioned in the same way:
 
-````
+```bash
+lexphon data install ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint
+lexphon data verify ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint
+```
 
-See `pyproject.toml` for the complete list of language extras. Optional spaCy models are
-never downloaded by KokoroG2P; install the model required by your application
-separately.
+Set `LEXPHON_DATA_HOME` when data must live in an isolated image or CI workspace.
+Integration tests additionally require `KOKOROG2P_EXTERNAL_LEXPHON_DATA=1`.
 
 ## Optional semantic preparation
 
-If the application uses Spokenform, install and invoke it independently:
+Spokenform is a separate package for applications that need semantic expansion:
 
 ```bash
 python -m pip install "spokenform>=0.3.5,<0.4"
-````
+```
 
 ```python
 from spokenform import prepare_for_kokorog2p
@@ -69,12 +74,24 @@ prepared = prepare_for_kokorog2p("Read 2 kg", language="en").spoken_text
 result = phonemize_prepared(prepared, language="en-us")
 ```
 
+Spokenform is not a core or core-test dependency.
+
 ## Development installation
 
 ```bash
 python -m pip install -e ".[dev]"
-python -m pytest -q tests/test_prepared_core.py tests/test_dependency_contract.py
+python -m pytest -q
 ```
 
-For release and integration checks, consult the project workflow and keep optional
-cross-package tests separate from the Spokenform-free core suite.
+Bare pytest uses the safe core selection. It excludes integration, spaCy, slow, and
+resource-heavy tests. Use the canonical bounded runner for broader execution:
+
+```bash
+python tools/run_test_suite.py --profile full --batch-size 4 --max-rss-mb auto
+python tools/run_test_suite.py --profile full --include-integration --max-rss-mb auto
+```
+
+The full and integration profiles require the released Lexphon data listed above. Use
+`--list-plan` to inspect the deterministic plan before execution. Coverage runs through
+the same sequential runner with `--coverage`; it combines subprocess data before
+producing `coverage.xml`.

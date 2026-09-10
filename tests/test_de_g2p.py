@@ -480,19 +480,19 @@ class TestGermanGetG2P:
         from kokorog2p import clear_cache, get_g2p
 
         clear_cache()
-        g2p = get_g2p("de")
+        g2p = get_g2p("de", lexicons=())
         assert isinstance(g2p, GermanG2P)
 
         clear_cache()
-        g2p = get_g2p("de-de")
+        g2p = get_g2p("de-de", lexicons=())
         assert isinstance(g2p, GermanG2P)
 
         clear_cache()
-        g2p = get_g2p("german")
+        g2p = get_g2p("german", lexicons=())
         assert isinstance(g2p, GermanG2P)
 
         clear_cache()
-        g2p = get_g2p("deu")
+        g2p = get_g2p("deu", lexicons=())
         assert isinstance(g2p, GermanG2P)
 
     def test_get_g2p_german_variants(self):
@@ -500,11 +500,11 @@ class TestGermanGetG2P:
         from kokorog2p import clear_cache, get_g2p
 
         clear_cache()
-        g2p_at = get_g2p("de-at")  # Austrian German
+        g2p_at = get_g2p("de-at", lexicons=())  # Austrian German
         assert isinstance(g2p_at, GermanG2P)
 
         clear_cache()
-        g2p_ch = get_g2p("de-ch")  # Swiss German
+        g2p_ch = get_g2p("de-ch", lexicons=())  # Swiss German
         assert isinstance(g2p_ch, GermanG2P)
 
     def test_get_g2p_german_forwards_use_spacy(self, monkeypatch):
@@ -525,7 +525,7 @@ class TestGermanGetG2P:
             ),
         )
         clear_cache()
-        g2p = get_g2p("de", use_spacy=True)
+        g2p = get_g2p("de", use_spacy=True, lexicons=())
         assert isinstance(g2p, GermanG2P)
         assert g2p.use_spacy is True
         assert g2p.spacy_model == "de_core_news_sm"
@@ -535,7 +535,7 @@ class TestGermanGetG2P:
         from kokorog2p import clear_cache, get_g2p
 
         clear_cache()
-        g2p = get_g2p("de", spacy_model="de_core_news_md")
+        g2p = get_g2p("de", spacy_model="de_core_news_md", lexicons=())
         assert isinstance(g2p, GermanG2P)
         assert g2p.use_spacy is False
         assert g2p.spacy_model is None

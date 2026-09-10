@@ -16,7 +16,9 @@ calling `phonemize_prepared()`.
 ```python
 from kokorog2p import phonemize_prepared
 
-result = phonemize_prepared("Hello world!", language="en-us")
+result = phonemize_prepared(
+    "Hello world!", language="en-us", lexicons=()
+)
 print(result.phonemes)
 ```
 

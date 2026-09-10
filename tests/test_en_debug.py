@@ -83,7 +83,9 @@ class TestDebugMode:
         # Create a G2P instance explicitly without fallback
         g2p_no_fallback = EnglishG2P(
             lexicons=(),
-            use_spacy=False, use_espeak_fallback=False, use_goruut_fallback=False
+            use_spacy=False,
+            use_espeak_fallback=False,
+            use_goruut_fallback=False,
         )
         result = g2p_no_fallback.process_with_debug("xyzabc123")
 

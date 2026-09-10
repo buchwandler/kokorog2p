@@ -52,9 +52,7 @@ def test_different_explicit_models_have_distinct_cache_identity(monkeypatch) -> 
     clear_cache()
 
     small = get_g2p("en", spacy_model="en_core_web_sm", lexicons=())
-    large = get_g2p(
-        "en", spacy_model="en_core_web_lg", lexicons=()
-    )
+    large = get_g2p("en", spacy_model="en_core_web_lg", lexicons=())
 
     assert small is not large
     assert small.spacy_model == "en_core_web_sm"

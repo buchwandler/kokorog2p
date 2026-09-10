@@ -46,6 +46,6 @@ def test_core_explicit_spacy_requirement_is_strict(monkeypatch):
 def test_kazakh_frontend_imports_without_loading_espeak() -> None:
     from kokorog2p.kk import KazakhG2P
 
-    g2p = get_g2p("kk")
+    g2p = get_g2p("kk", lexicons=())
     assert isinstance(g2p, KazakhG2P)
     assert g2p._espeak_backend is None

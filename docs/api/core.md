@@ -51,9 +51,13 @@ convenience wrappers `phonemes` and `phoneme_ids` follow the same rule.
 .. autofunction:: kokorog2p.phonemize_prepared
 ```
 
+```{eval-rst}
+.. autofunction:: kokorog2p.phonemize
+```
+
 ### Routing and target-model options
 
-`phonemize_prepared` accepts these optional controls:
+`phonemize` and `phonemize_prepared` accept the same routing and target-model controls:
 
 - `overlap="split"` applies partial language spans to exact source-aligned fragments.
   The default `"snap"` behavior remains compatible.
@@ -72,9 +76,9 @@ convenience wrappers `phonemes` and `phoneme_ids` follow the same rule.
 The document/default language is always explicit. Automatic routing does not detect the
 document language. It inspects positive membership in the effective selected lexical
 resources through `G2PBase.lexicon_evidence()`. Externally provisioned G2Lex evidence is
-available for English US/GB and French. Provisioned Lexphon evidence is available for German,
-Portuguese BR/PT, Russian, Thai, Vietnamese, Japanese, Korean, and Swedish when NST is
-selected. Spanish, Italian, Czech, Hebrew, Arabic, Chinese, and Kazakh remain
+available for English US/GB and French. Provisioned Lexphon evidence is available for
+German, Portuguese BR/PT, Russian, Thai, Vietnamese, Japanese, Korean, and Swedish when
+NST is selected. Spanish, Italian, Czech, Hebrew, Arabic, Chinese, and Kazakh remain
 pronounceable but have no selected evidence provider in this release.
 
 Generic lookup, proper-noun spelling, eSpeak, Goruut, pypinyin, Phonikud, g2pK,

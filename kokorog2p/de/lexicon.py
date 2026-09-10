@@ -24,9 +24,7 @@ class GermanLexicon:
         store: DataStore | None = None,
     ) -> None:
         """Initialize the German lexicon without installing or downloading data."""
-        names = normalize_lexicon_selection(
-            "de-de", lexicons
-        )
+        names = normalize_lexicon_selection("de-de", lexicons)
         self._backend = GermanLexphonBackend(
             names, fallback_provider=fallback_provider, store=store
         )

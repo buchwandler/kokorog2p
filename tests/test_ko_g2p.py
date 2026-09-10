@@ -236,7 +236,7 @@ class TestKoreanG2PIntegration:
         """Test getting Korean G2P through get_g2p."""
         from kokorog2p import get_g2p
 
-        g2p = get_g2p("ko")
+        g2p = get_g2p("ko", lexicons=())
         assert isinstance(g2p, KoreanG2P)
         assert g2p.language == "ko"
 
@@ -245,7 +245,7 @@ class TestKoreanG2PIntegration:
         from kokorog2p import get_g2p
 
         for lang in ["ko", "ko-kr", "kor", "korean"]:
-            g2p = get_g2p(lang)
+            g2p = get_g2p(lang, lexicons=())
             assert isinstance(g2p, KoreanG2P)
 
     def test_get_g2p_korean_forwards_use_spacy(self):
@@ -253,7 +253,7 @@ class TestKoreanG2PIntegration:
         from kokorog2p import clear_cache, get_g2p
 
         clear_cache()
-        g2p = get_g2p("ko", use_spacy=True)
+        g2p = get_g2p("ko", use_spacy=True, lexicons=())
         assert isinstance(g2p, KoreanG2P)
         assert g2p.use_spacy is True
 
@@ -262,7 +262,7 @@ class TestKoreanG2PIntegration:
         from kokorog2p import clear_cache, get_g2p
 
         clear_cache()
-        g2p = get_g2p("ko", spacy_model="ko_core_news_md")
+        g2p = get_g2p("ko", spacy_model="ko_core_news_md", lexicons=())
         assert isinstance(g2p, KoreanG2P)
         assert g2p.spacy_model == "ko_core_news_md"
 

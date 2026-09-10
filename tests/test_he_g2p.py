@@ -15,13 +15,13 @@ class TestHebrewG2P:
 
     def test_creation(self):
         """Test that Hebrew G2P can be created."""
-        g2p = get_g2p("he")
+        g2p = get_g2p("he", lexicons=())
         assert g2p is not None
         assert g2p.language == "he"
 
     def test_call_returns_tokens(self):
         """Test that calling g2p returns a list of tokens."""
-        g2p = get_g2p("he")
+        g2p = get_g2p("he", lexicons=())
         text = "שלום"  # shalom
         tokens = g2p(text)
         assert isinstance(tokens, list)
@@ -31,7 +31,7 @@ class TestHebrewG2P:
 
     def test_empty_input(self):
         """Test that empty input returns empty list."""
-        g2p = get_g2p("he")
+        g2p = get_g2p("he", lexicons=())
         assert g2p("") == []
         assert g2p("   ") == []
 
@@ -43,7 +43,7 @@ class TestHebrewG2P:
 
     def test_repr(self):
         """Test string representation."""
-        g2p = get_g2p("he")
+        g2p = get_g2p("he", lexicons=())
         repr_str = repr(g2p)
         assert "HebrewG2P" in repr_str
         assert "language='he'" in repr_str
@@ -51,7 +51,7 @@ class TestHebrewG2P:
     def test_basic_hebrew_with_nikud(self):
         """Test Hebrew text with nikud (diacritics)."""
         pytest.importorskip("phonikud")
-        g2p = get_g2p("he")
+        g2p = get_g2p("he", lexicons=())
         # "shalom" with nikud
         text = "שָׁלוֹם"
         tokens = g2p(text)
@@ -64,14 +64,14 @@ class TestHebrewG2P:
     def test_greeting(self):
         """Test Hebrew greeting."""
         pytest.importorskip("phonikud")
-        g2p = get_g2p("he")
+        g2p = get_g2p("he", lexicons=())
         text = "שָׁלוֹם עוֹלָם"  # shalom olam (hello world)
         tokens = g2p(text)
         assert len(tokens) > 0
 
     def test_without_nikud(self):
         """Test Hebrew text without nikud."""
-        g2p = get_g2p("he")
+        g2p = get_g2p("he", lexicons=())
         text = "שלום"  # shalom without nikud
         tokens = g2p(text)
         assert len(tokens) > 0
@@ -99,7 +99,7 @@ class TestHebrewG2P:
 
     def test_lookup_method(self):
         """Test the lookup method."""
-        g2p = get_g2p("he")
+        g2p = get_g2p("he", lexicons=())
         result = g2p.lookup("שלום")
         # Result may be None if phonikud is not available
         assert result is None or isinstance(result, str)
@@ -110,7 +110,7 @@ class TestHebrewG2PIntegration:
 
     def test_get_g2p_hebrew(self):
         """Test getting Hebrew G2P from main API."""
-        g2p = get_g2p("he")
+        g2p = get_g2p("he", lexicons=())
         assert g2p is not None
         assert g2p.language == "he"
 
@@ -118,7 +118,7 @@ class TestHebrewG2PIntegration:
         """Test different Hebrew language codes."""
         codes = ["he", "he-il", "heb", "hebrew"]
         for code in codes:
-            g2p = get_g2p(code)
+            g2p = get_g2p(code, lexicons=())
             assert g2p is not None
             # Language code gets normalized
             assert g2p.language in ["he", "he-il", "heb", "hebrew"]
@@ -132,5 +132,5 @@ class TestHebrewG2PIntegration:
     def test_extra_kwargs_passed_to_phonikud(self):
         """Test that extra kwargs are passed to phonikud."""
         # This just tests that extra kwargs don't cause errors
-        g2p = get_g2p("he", some_extra_param=True)
+        g2p = get_g2p("he", some_extra_param=True, lexicons=())
         assert g2p is not None

@@ -53,15 +53,9 @@ def _external_spec(
 
 
 _EXTERNAL_SPECS_BY_LANGUAGE: dict[str, tuple[LexiconSpec, ...]] = {
-    "en-us": (
-        _external_spec("en-us", "gold", rating=4, phoneme_encoding="kokoro-v1"),
-    ),
-    "en-gb": (
-        _external_spec("en-gb", "gold", rating=4, phoneme_encoding="kokoro-v1"),
-    ),
-    "fr-fr": (
-        _external_spec("fr-fr", "gold", rating=4, phoneme_encoding="kokoro-v1"),
-    ),
+    "en-us": (_external_spec("en-us", "gold", rating=4, phoneme_encoding="kokoro-v1"),),
+    "en-gb": (_external_spec("en-gb", "gold", rating=4, phoneme_encoding="kokoro-v1"),),
+    "fr-fr": (_external_spec("fr-fr", "gold", rating=4, phoneme_encoding="kokoro-v1"),),
     "de-de": (
         _external_spec("de-de", "gold", rating=4),
         _external_spec("de-de", "crane", rating=None, default_priority=None),
@@ -69,9 +63,7 @@ _EXTERNAL_SPECS_BY_LANGUAGE: dict[str, tuple[LexiconSpec, ...]] = {
         _external_spec("de-de", "olaph", rating=None, default_priority=None),
         _external_spec("de-de", "lexhint", rating=None, default_priority=None),
     ),
-    "sv-se": (
-        _external_spec("sv-se", "nst", rating=None, default_priority=None),
-    ),
+    "sv-se": (_external_spec("sv-se", "nst", rating=None, default_priority=None),),
     "ru-ru": (_external_spec("ru-ru", "lexhint", external_language="ru"),),
     "th-th": (_external_spec("th-th", "lexhint", external_language="th"),),
     "vi-vn": (_external_spec("vi-vn", "lexhint", external_language="vi"),),

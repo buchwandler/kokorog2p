@@ -1,8 +1,24 @@
 """Integration checks for explicitly provisioned German Lexphon data."""
 
+import os
+
 import pytest
 
 from kokorog2p.de import GermanG2P, GermanLexicon
+
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(
+        not (
+            os.environ.get("KOKOROG2P_EXTERNAL_LEXPHON_DATA")
+            or os.environ.get("KOKOROG2P_TEST_EXTERNAL_LEXPHON_DATA")
+        ),
+        reason=(
+            "released Lexphon data is not provisioned; "
+            "set KOKOROG2P_EXTERNAL_LEXPHON_DATA"
+        ),
+    ),
+]
 
 
 @pytest.mark.integration

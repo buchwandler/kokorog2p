@@ -100,6 +100,7 @@ def test_station_foreign_name_is_recoverable_with_fallback(has_espeak: bool) -> 
         use_spacy=False,
         use_espeak_fallback=True,
         strict=True,
+        lexicons=(),
     )
     assert g2p.phonemize(
         "Kokoro đọc văn bản tiếng Việt đã chuẩn bị và phép đo theo dõi từng bước."
@@ -108,7 +109,13 @@ def test_station_foreign_name_is_recoverable_with_fallback(has_espeak: bool) -> 
 
 @pytest.mark.parametrize("alias", ["vi", "vi-vn", "vie", "vietnamese"])
 def test_factory_aliases(alias: str) -> None:
-    g2p = get_g2p(alias, use_spacy=False, foreign_fallback="none", strict=False)
+    g2p = get_g2p(
+        alias,
+        use_spacy=False,
+        foreign_fallback="none",
+        strict=False,
+        lexicons=(),
+    )
     assert isinstance(g2p, VietnameseG2P)
     assert g2p.language == "vi-vn"
 

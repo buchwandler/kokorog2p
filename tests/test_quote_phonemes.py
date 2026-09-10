@@ -20,12 +20,13 @@ def phonemize_with_mode(
     use_spacy: bool | None = None,
 ) -> str:
     if use_spacy is None:
-        g2p = get_g2p(language=language, phoneme_quotes=phoneme_quotes)
+        g2p = get_g2p(language=language, phoneme_quotes=phoneme_quotes, lexicons=())
     else:
         g2p = get_g2p(
             language=language,
             phoneme_quotes=phoneme_quotes,
             use_spacy=use_spacy,
+            lexicons=(),
         )
     if mode == "g2p":
         return g2p.phonemize(text)
@@ -120,7 +121,7 @@ class TestQuotePhonemes:
         # Should have curly quotes by default
         assert "\u201c" in result or "\u201d" in result
         # And should have correct phonemes for we're
-        assert "wɪɹ" in result
+        assert "wˈɪ\u200dɹ" in result
 
     def test_original_bug_ascii(self, phoneme_backend):
         """Test original bug report with ASCII quotes."""
@@ -134,7 +135,7 @@ class TestQuotePhonemes:
         assert '"' in result
         assert "\u201c" not in result and "\u201d" not in result
         # And should have correct phonemes for we're
-        assert "wɪɹ" in result
+        assert "wˈɪ\u200dɹ" in result
 
     def test_original_bug_none(self, phoneme_backend):
         """Test original bug report with no quotes."""
@@ -149,7 +150,7 @@ class TestQuotePhonemes:
         assert "\u201c" not in result
         assert "\u201d" not in result
         # And should have correct phonemes for we're
-        assert "wɪɹ" in result
+        assert "wˈɪ\u200dɹ" in result
 
     def test_nested_quotes_curly(self, phoneme_backend):
         """Test nested quotes with curly setting."""
@@ -213,9 +214,9 @@ class TestQuotePhonemesCaching:
     def test_cache_respects_setting(self):
         """Test that different phoneme_quotes settings use different cache entries."""
         # Create instances with different settings
-        g2p_curly = get_g2p("en-us", phoneme_quotes="curly")
-        g2p_ascii = get_g2p("en-us", phoneme_quotes="ascii")
-        g2p_none = get_g2p("en-us", phoneme_quotes="none")
+        g2p_curly = get_g2p("en-us", phoneme_quotes="curly", lexicons=())
+        g2p_ascii = get_g2p("en-us", phoneme_quotes="ascii", lexicons=())
+        g2p_none = get_g2p("en-us", phoneme_quotes="none", lexicons=())
 
         text = 'Say "hi".'
 
@@ -230,16 +231,16 @@ class TestQuotePhonemesCaching:
 
     def test_cache_same_setting(self):
         """Test that same phoneme_quotes setting uses cached instance."""
-        g2p1 = get_g2p("en-us", phoneme_quotes="ascii")
-        g2p2 = get_g2p("en-us", phoneme_quotes="ascii")
+        g2p1 = get_g2p("en-us", phoneme_quotes="ascii", lexicons=())
+        g2p2 = get_g2p("en-us", phoneme_quotes="ascii", lexicons=())
 
         # Should be the same cached instance
         assert g2p1 is g2p2
 
     def test_cache_different_setting(self):
         """Test that different phoneme_quotes setting creates new instance."""
-        g2p1 = get_g2p("en-us", phoneme_quotes="ascii")
-        g2p2 = get_g2p("en-us", phoneme_quotes="curly")
+        g2p1 = get_g2p("en-us", phoneme_quotes="ascii", lexicons=())
+        g2p2 = get_g2p("en-us", phoneme_quotes="curly", lexicons=())
 
         # Should be different instances
         assert g2p1 is not g2p2
@@ -250,7 +251,7 @@ class TestQuotePhonemesTokens:
 
     def test_token_text_unchanged(self):
         """Test that token.text still has curly quotes (for display)."""
-        g2p = get_g2p("en-us", phoneme_quotes="ascii")
+        g2p = get_g2p("en-us", phoneme_quotes="ascii", lexicons=())
         tokens = g2p('Say "hi".')
 
         # token.text should still have curly quotes (for display purposes)
@@ -260,8 +261,8 @@ class TestQuotePhonemesTokens:
 
     def test_token_phonemes_respect_setting(self):
         """Test that token.phonemes respects phoneme_quotes setting."""
-        g2p_ascii = get_g2p("en-us", phoneme_quotes="ascii")
-        g2p_none = get_g2p("en-us", phoneme_quotes="none")
+        g2p_ascii = get_g2p("en-us", phoneme_quotes="ascii", lexicons=())
+        g2p_none = get_g2p("en-us", phoneme_quotes="none", lexicons=())
 
         tokens_ascii = g2p_ascii('Say "hi".')
         tokens_none = g2p_none('Say "hi".')
@@ -283,19 +284,19 @@ class TestQuotePhonemesInvalidValues:
     def test_invalid_value_raises_error(self):
         """Test that invalid phoneme_quotes value raises ValueError."""
         with pytest.raises(ValueError, match="phoneme_quotes must be"):
-            get_g2p("en-us", phoneme_quotes="invalid")
+            get_g2p("en-us", phoneme_quotes="invalid", lexicons=())
 
     def test_case_sensitive(self):
         """Test that phoneme_quotes is case-sensitive."""
         # These should raise errors (case mismatch)
         with pytest.raises(ValueError):
-            get_g2p("en-us", phoneme_quotes="Curly")
+            get_g2p("en-us", phoneme_quotes="Curly", lexicons=())
 
         with pytest.raises(ValueError):
-            get_g2p("en-us", phoneme_quotes="ASCII")
+            get_g2p("en-us", phoneme_quotes="ASCII", lexicons=())
 
         with pytest.raises(ValueError):
-            get_g2p("en-us", phoneme_quotes="None")
+            get_g2p("en-us", phoneme_quotes="None", lexicons=())
 
 
 class TestQuotePhonemesWithSpacy:

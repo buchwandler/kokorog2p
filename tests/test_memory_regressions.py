@@ -56,9 +56,7 @@ def test_french_equivalent_aliases_share_factory_identity() -> None:
 
     clear_cache(deep=True)
     first = get_g2p("fr", use_spacy=False, use_espeak_fallback=False, lexicons=())
-    second = get_g2p(
-        "french", use_spacy=False, use_espeak_fallback=False, lexicons=()
-    )
+    second = get_g2p("french", use_spacy=False, use_espeak_fallback=False, lexicons=())
 
     assert first is second
     assert first.lexicon.lexicons == ()
@@ -85,7 +83,7 @@ def test_factory_aliases_and_unknown_options() -> None:
     assert cache_info().policy == "bounded-lru"
 
     with pytest.raises(TypeError, match="Unsupported get_g2p options"):
-        get_g2p("en-us", markdown_syntax="disabled")
+        get_g2p("en-us", markdown_syntax="disabled", lexicons=())
 
 
 def test_deep_clear_releases_resource_caches() -> None:
@@ -138,98 +136,74 @@ print(baseline, one, six)
     assert six - baseline <= 2.5 * one_delta
 
 
-def test_full_suite_discovers_each_test_module_once(tmp_path: Path) -> None:
-    """The isolated runner enumerates every test module exactly once."""
+def test_runner_profiles_keep_safe_and_exhaustive_selection(tmp_path: Path) -> None:
+    """Core excludes integrations while full keeps marked non-integration modules."""
     tests_dir = tmp_path / "tests"
     tests_dir.mkdir()
-    for name in ("test_z.py", "test_a.py", "test_a.txt", "helper.py"):
-        (tests_dir / name).touch()
-
-    discovered = run_test_suite.discover_test_files(tmp_path)
-
-    assert [path.name for path in discovered] == ["test_a.py", "test_z.py"]
-
-
-def test_full_suite_runs_modules_sequentially(monkeypatch, tmp_path: Path) -> None:
-    """The default runner starts the next module only after the prior exits."""
-    test_files = [tmp_path / "tests" / "test_a.py", tmp_path / "tests" / "test_b.py"]
-    calls: list[list[str]] = []
-    active = 0
-    maximum_active = 0
-
-    def fake_run(command: list[str], **kwargs: object) -> object:
-        nonlocal active, maximum_active
-        active += 1
-        maximum_active = max(maximum_active, active)
-        calls.append(command)
-        active -= 1
-        return type("Result", (), {"returncode": 0})()
-
-    monkeypatch.setattr(run_test_suite.subprocess, "run", fake_run)
-
-    assert run_test_suite.run_test_files(test_files, ["-q"], root=tmp_path) == 0
-    assert maximum_active == 1
-    assert [command[-1] for command in calls] == [
-        "tests/test_a.py",
-        "tests/test_b.py",
-    ]
-    assert all("-n" not in command for command in calls)
-
-
-def test_full_suite_reports_all_failures_and_returns_first_code(
-    monkeypatch,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-) -> None:
-    """Exhaustive runs list every failed module and keep the first code."""
-    test_files = [
-        tmp_path / "tests" / "test_a.py",
-        tmp_path / "tests" / "test_b.py",
-        tmp_path / "tests" / "test_c.py",
-    ]
-    calls: list[list[str]] = []
-    results = iter([2, 0, 3])
-
-    def fake_run(command: list[str], **kwargs: object) -> object:
-        calls.append(command)
-        return type("Result", (), {"returncode": next(results)})()
-
-    monkeypatch.setattr(run_test_suite.subprocess, "run", fake_run)
-
-    assert run_test_suite.run_test_files(test_files, ["-q"], root=tmp_path) == 2
-    assert [command[-1] for command in calls] == [
-        "tests/test_a.py",
-        "tests/test_b.py",
-        "tests/test_c.py",
-    ]
-    stderr = capsys.readouterr().err
-    assert "Failed test modules:" in stderr
-    assert "  - tests/test_a.py (exit 2)" in stderr
-    assert "  - tests/test_c.py (exit 3)" in stderr
-    assert "tests/test_b.py" not in stderr
-
-
-def test_full_suite_fail_fast_reports_only_first_failure(
-    monkeypatch,
-    capsys: pytest.CaptureFixture[str],
-    tmp_path: Path,
-) -> None:
-    """Fail-fast runs stop after and report the first failed module."""
-    test_files = [tmp_path / "tests" / name for name in ("test_a.py", "test_b.py")]
-    calls: list[list[str]] = []
-    results = iter([7, 0])
-
-    def fake_run(command: list[str], **kwargs: object) -> object:
-        calls.append(command)
-        return type("Result", (), {"returncode": next(results)})()
-
-    monkeypatch.setattr(run_test_suite.subprocess, "run", fake_run)
-
-    assert (
-        run_test_suite.run_test_files(test_files, ["-q"], fail_fast=True, root=tmp_path)
-        == 7
+    ordinary = tests_dir / "test_ordinary.py"
+    heavy = tests_dir / "test_heavy.py"
+    integration = tests_dir / "test_integration.py"
+    ordinary.write_text("def test_one(): pass\n", encoding="utf-8")
+    heavy.write_text(
+        "import pytest\n@pytest.mark.resource_heavy\ndef test_one(): pass\n",
+        encoding="utf-8",
     )
-    assert [command[-1] for command in calls] == ["tests/test_a.py"]
-    stderr = capsys.readouterr().err
-    assert "  - tests/test_a.py (exit 7)" in stderr
-    assert "tests/test_b.py" not in stderr
+    integration.write_text(
+        "import pytest\n@pytest.mark.integration\ndef test_one(): pass\n",
+        encoding="utf-8",
+    )
+
+    files = run_test_suite.discover_test_files(tmp_path)
+    assert run_test_suite.select_test_files(files, profile="core") == [heavy, ordinary]
+    assert run_test_suite.select_test_files(
+        files, profile="full", include_integration=True
+    ) == [heavy, integration, ordinary]
+
+
+def test_canonical_runner_forwards_one_batch_without_parallel_flags(
+    monkeypatch, tmp_path: Path
+) -> None:
+    files = tuple(tmp_path / "tests" / name for name in ("test_a.py", "test_b.py"))
+    calls = []
+    monkeypatch.setattr(
+        run_test_suite,
+        "run_with_rss_limit",
+        lambda command, **kwargs: (
+            calls.append(command) or run_test_suite.RSSRunResult(0, 10, 512)
+        ),
+    )
+
+    result = run_test_suite.run_test_plan(
+        [run_test_suite.TestGroup(files)], [], root=tmp_path, max_rss_mb=512
+    )
+
+    assert result.returncode == 0
+    assert len(calls) == 1
+    assert calls[0][-2:] == ["tests/test_a.py", "tests/test_b.py"]
+    assert "-n" not in calls[0]
+
+
+def test_canonical_runner_aggregates_failures_and_honors_fail_fast(
+    monkeypatch, tmp_path: Path
+) -> None:
+    files = tuple(tmp_path / "tests" / name for name in ("test_a.py", "test_b.py"))
+    results = iter(
+        [
+            run_test_suite.RSSRunResult(5, 10, 512),
+            run_test_suite.RSSRunResult(0, 12, 512),
+        ]
+    )
+    monkeypatch.setattr(
+        run_test_suite,
+        "_run_group",
+        lambda *args, **kwargs: next(results),
+    )
+    groups = [run_test_suite.TestGroup((path,)) for path in files]
+
+    result = run_test_suite.run_test_plan(
+        groups, [], root=tmp_path, max_rss_mb=512, fail_fast=True
+    )
+
+    assert result.returncode == 5
+    assert result.groups_run == 1
+    assert result.failures[0].files == ("tests/test_a.py",)

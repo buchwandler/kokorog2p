@@ -241,7 +241,7 @@ class TestMainAPIWithGoruutBackend:
         """Test get_g2p function with goruut backend."""
         from kokorog2p import get_g2p
 
-        g2p = get_g2p("en-us", backend="goruut")
+        g2p = get_g2p("en-us", backend="goruut", lexicons=())
         assert "GoruutOnlyG2P" in type(g2p).__name__
 
     def test_cache_works_with_backend(self):
@@ -250,8 +250,8 @@ class TestMainAPIWithGoruutBackend:
 
         clear_cache()
 
-        g2p_espeak = get_g2p("en-us", backend="espeak", use_spacy=False)
-        g2p_goruut = get_g2p("en-us", backend="goruut")
+        g2p_espeak = get_g2p("en-us", backend="espeak", use_spacy=False, lexicons=())
+        g2p_goruut = get_g2p("en-us", backend="goruut", lexicons=())
 
         # They should be different instances
         assert type(g2p_espeak).__name__ != type(g2p_goruut).__name__

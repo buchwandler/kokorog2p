@@ -32,7 +32,7 @@ def test_lookup_uses_rules_not_a_dictionary() -> None:
 
 def test_factory_aliases_are_native_and_cached() -> None:
     instances = [
-        get_g2p(alias, use_spacy=False, strict=True)
+        get_g2p(alias, use_spacy=False, strict=True, lexicons=())
         for alias in ("sv", "sv-se", "swe", "swedish")
     ]
     assert all(isinstance(instance, SwedishG2P) for instance in instances)

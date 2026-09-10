@@ -107,9 +107,7 @@ class FrenchG2P(G2PBase):
         self._normalizer = FrenchNormalizer()
 
         # Initialize lexicon
-        self.lexicon = FrenchLexicon(
-            lexicons=lexicons, store=store
-        )
+        self.lexicon = FrenchLexicon(lexicons=lexicons, store=store)
 
         # Initialize fallback (lazy)
         self._fallback: LexphonBackend | None = None

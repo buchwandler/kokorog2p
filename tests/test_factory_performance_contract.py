@@ -20,6 +20,7 @@ def test_factory_constructs_no_lexicon_mode_without_external_data(
         use_goruut_fallback=False,
     )
 
+
 def test_factory_reuses_identical_frontend() -> None:
     clear_cache()
     options = {
@@ -45,11 +46,10 @@ def test_factory_defers_russian_lexphon_engine(
     )
     clear_cache(deep=True)
 
-    g2p = get_g2p("ru")
+    g2p = get_g2p("ru", lexicons=())
 
     assert isinstance(g2p, RussianG2P)
-    assert g2p._lexphon is not None
-    assert g2p._lexphon._phonemizer is None
+    assert g2p._lexphon is None
 
 
 def test_automatic_spacy_factory_resolution_does_not_probe_loader(
@@ -78,9 +78,7 @@ def test_automatic_spacy_factory_resolution_does_not_probe_loader(
         ),
     )
     clear_cache()
-    g2p = get_g2p(
-        "en-us", use_espeak_fallback=False, lexicons=()
-    )
+    g2p = get_g2p("en-us", use_espeak_fallback=False, lexicons=())
 
     assert g2p.use_spacy is True
     assert calls == [
@@ -107,6 +105,7 @@ def test_factory_preserves_lazy_optional_resource(
         use_spacy=False,
         use_espeak_fallback=False,
         use_goruut_fallback=False,
+        lexicons=(),
     )
     assert getattr(g2p, attribute) is None
 
@@ -119,6 +118,7 @@ def test_factory_preserves_lazy_vietnamese_foreign_fallback() -> None:
         use_spacy=False,
         use_espeak_fallback=False,
         use_goruut_fallback=False,
+        lexicons=(),
     )
     assert g2p._foreign_g2p is None
 

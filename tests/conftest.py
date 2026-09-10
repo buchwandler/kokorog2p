@@ -1,17 +1,14 @@
 """Pytest configuration and fixtures for kokorog2p tests."""
 
 import gc
-import hashlib
-import json
-import os
-import shutil
 from importlib.util import find_spec
-from pathlib import Path
 
 import pytest
 
 # =============================================================================
+
 # Markers
+
 # =============================================================================
 
 
@@ -27,126 +24,22 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers", "integration: tests requiring explicitly provisioned external data"
     )
+    config.addinivalue_line(
+        "markers",
+        "resource_heavy: tests that intentionally initialize high-memory "
+        "optional or native resources",
+    )
 
 
 @pytest.fixture(scope="module", autouse=True)
 def _reset_process_state() -> object:
-    """Bound process-wide resources to one test module."""
+    """Release KokoroG2P resources after each test module."""
     yield
+
+    from kokorog2p import clear_cache
+
+    clear_cache(deep=True)
     gc.collect()
-
-
-@pytest.fixture(scope="session", autouse=True)
-def _isolated_lexphon_data_home(tmp_path_factory: pytest.TempPathFactory):
-    """Provision a tiny offline Lexphon store for consumer tests."""
-    if os.environ.get("KOKOROG2P_EXTERNAL_LEXPHON_DATA") or os.environ.get(
-        "KOKOROG2P_TEST_EXTERNAL_LEXPHON_DATA"
-    ):
-        yield Path(os.environ["LEXPHON_DATA_HOME"])
-        return
-    import g2lex
-    from lexphon import DataStore
-
-    root = tmp_path_factory.mktemp("lexphon")
-    release = root / "release"
-    store_root = root / "store"
-    release.mkdir()
-    asset_specs = {
-        "de-de:gold": {
-            "haus": "haʊ̯s",
-            "zwei": "ʦvaɪ",
-            "fünf": "fʏnf",
-            "zeit": "ʦaɪt",
-            "die": "diː",
-            "collision": "g",
-        },
-        "de-de:crane": {
-            "haus": "haʊ̯s",
-            "zwei": "ʦvaɪ",
-            "fünf": "fʏnf",
-            "zeit": "ʦaɪt",
-            "collision": "c",
-            "die": {"DEFAULT": "diː", "DET": "diː", "PRON": "diː"},
-        },
-        "de-de:espeak": {
-            "haus": "hˈaʊs", "zwei": "ʦvaɪ", "die": "diː", "collision": "e",
-        },
-        "de-de:olaph": {
-            "haus": "haʊ̯s", "zwei": "ʦvaɪ", "beer": "/beːʁ/", "collision": "o",
-        },
-        "de-de:lexhint": {
-            "haus": "haʊ̯s", "zwei": "ʦvaɪ", "fünf": "fʏnf", "collision": "l",
-        },
-        "en-us:gold": {
-            "hello": "hɛˈloʊ", "world": "wɝːld", "the": "ðə", "quick": "kwɪk",
-            "brown": "bɹaʊn", "fox": "fɑks", "jumps": "dʒʌmps", "over": "oʊvɚ",
-            "lazy": "ˈleɪzi", "dog": "dɔɡ", "new": "nuː", "york": "jɔɹk",
-            "what's": "wʌts", "your": "jɔɹ", "problem": "ˈpɹɑbləm", "python": "ˈpaɪθɑn",
-            "kokoro": "kəˈkɔɹoʊ", "read": "ɹiːd", "text": "tɛkst",
-            "prepared": "pɹɪˈpɛɹd",
-            "and": "ænd", "this": "ðɪs", "is": "ɪz", "a": "ə", "i": "aɪ",
-            "am": "æm", "you": "juː", "are": "ɑɹ", "we": "wiː", "they": "ðeɪ",
-            "it": "ɪt", "don't": "doʊnt", "can't": "kænt", "won't": "woʊnt",
-            "we're": "wɪɹ", "you're": "jʊɹ", "i've": "aɪv", "i'll": "aɪl",
-            "i'm": "aɪm", "it's": "ɪts", "bonjour": "bɑnˈʒʊɹ", "monde": "mɑnd",
-        },
-        "en-gb:gold": {
-            "hello": "hɛˈləʊ", "world": "wɜːld", "the": "ðə", "new": "njuː",
-            "york": "jɔːk", "python": "ˈpaɪθən", "kokoro": "kəˈkɔːrəʊ",
-        },
-        "fr-fr:gold": {
-            "bonjour": "bɔ̃ʒuʁ", "monde": "mɔ̃d", "hello": "ɛlo", "new": "njuː",
-            "york": "jɔʁk",
-        },
-    }
-    artifacts = {}
-    for identifier, entries in asset_specs.items():
-        language, name = identifier.split(":", 1)
-        source = release / f"{language}_{name}.jsonl"
-        rows = []
-        for word, value in entries.items():
-            if isinstance(value, dict):
-                rows.append(
-                    {"word": word, "kind": "tagged", "items": list(value.items())}
-                )
-            else:
-                rows.append({"word": word, "kind": "scalar", "value": value})
-        source.write_text(
-            "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
-            encoding="utf-8",
-        )
-        asset = release / f"{language}_{name}.g2lex"
-        g2lex.pack_file(
-            source,
-            asset,
-            input_format="jsonl",
-            source_id=identifier,
-            metadata={"pronunciation_alphabet": "ipa"},
-        )
-        destination = store_root / "assets" / f"{language}__{name}.g2lex"
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(asset, destination)
-        artifacts[identifier] = {
-            "id": identifier,
-            "language": language,
-            "name": name,
-            "display_name": name,
-            "kind": "pronunciation",
-            "phoneme_encoding": "ipa",
-            "data_version": "test-1",
-            "release_tag": "data-test-1",
-            "asset_path": str(destination.relative_to(store_root)),
-            "asset_sha256": hashlib.sha256(destination.read_bytes()).hexdigest(),
-            "asset_size": destination.stat().st_size,
-        }
-    previous = os.environ.get("LEXPHON_DATA_HOME")
-    os.environ["LEXPHON_DATA_HOME"] = str(store_root)
-    DataStore(store_root)._write_index({"schema_version": 1, "artifacts": artifacts})
-    yield store_root
-    if previous is None:
-        os.environ.pop("LEXPHON_DATA_HOME", None)
-    else:
-        os.environ["LEXPHON_DATA_HOME"] = previous
 
 
 def _require_spacy_model(name: str) -> None:
@@ -225,11 +118,15 @@ def english_g2p_no_espeak():
     """Create an EnglishG2P without espeak fallback."""
     from kokorog2p.en import EnglishG2P
 
-    return EnglishG2P(
+    g2p = EnglishG2P(
         language="en-us",
         use_espeak_fallback=False,
         use_spacy=False,
     )
+    try:
+        yield g2p
+    finally:
+        g2p.close()
 
 
 @pytest.fixture
@@ -238,11 +135,15 @@ def english_g2p_with_espeak():
     pytest.importorskip("espeakng_loader")
     from kokorog2p.en import EnglishG2P
 
-    return EnglishG2P(
+    g2p = EnglishG2P(
         language="en-us",
         use_espeak_fallback=True,
         use_spacy=False,
     )
+    try:
+        yield g2p
+    finally:
+        g2p.close()
 
 
 @pytest.fixture(scope="module")
@@ -251,12 +152,16 @@ def english_g2p_with_spacy():
     _require_spacy_model("en_core_web_sm")
     from kokorog2p.en import EnglishG2P
 
-    return EnglishG2P(
+    g2p = EnglishG2P(
         language="en-us",
         use_espeak_fallback=False,
         use_spacy=True,
         spacy_model="en_core_web_sm",
     )
+    try:
+        yield g2p
+    finally:
+        g2p.close()
 
 
 @pytest.fixture(scope="module")
@@ -265,12 +170,16 @@ def english_g2p_with_medium_spacy():
     _require_spacy_model("en_core_web_md")
     from kokorog2p.en import EnglishG2P
 
-    return EnglishG2P(
+    g2p = EnglishG2P(
         language="en-us",
         use_espeak_fallback=False,
         use_spacy=True,
         spacy_model="en_core_web_md",
     )
+    try:
+        yield g2p
+    finally:
+        g2p.close()
 
 
 @pytest.fixture(scope="module")
@@ -280,12 +189,16 @@ def english_g2p_full():
     _require_spacy_model("en_core_web_sm")
     from kokorog2p.en import EnglishG2P
 
-    return EnglishG2P(
+    g2p = EnglishG2P(
         language="en-us",
         use_espeak_fallback=True,
         use_spacy=True,
         spacy_model="en_core_web_sm",
     )
+    try:
+        yield g2p
+    finally:
+        g2p.close()
 
 
 # =============================================================================
@@ -298,7 +211,11 @@ def us_lexicon():
     """Create a US English lexicon."""
     from kokorog2p.en.lexicon import Lexicon
 
-    return Lexicon(british=False)
+    lexicon = Lexicon(british=False)
+    try:
+        yield lexicon
+    finally:
+        lexicon.close()
 
 
 @pytest.fixture
@@ -306,7 +223,11 @@ def gb_lexicon():
     """Create a British English lexicon."""
     from kokorog2p.en.lexicon import Lexicon
 
-    return Lexicon(british=True)
+    lexicon = Lexicon(british=True)
+    try:
+        yield lexicon
+    finally:
+        lexicon.close()
 
 
 # =============================================================================

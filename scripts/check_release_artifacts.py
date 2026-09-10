@@ -23,6 +23,24 @@ LEGACY_SOURCE_ROOTS = (
 FORBIDDEN_PACKAGE_PREFIXES = ("kokorog2p/lexicons/data/", "lexicons/")
 
 
+def _normalize_sdist_member(member: str) -> str:
+    """Remove an sdist root prefix before checking package-relative paths."""
+    for marker in ("kokorog2p/", "lexicons/"):
+        index = member.find(marker)
+        if index >= 0:
+            return member[index:]
+    return member
+
+
+def _forbidden_source_members(members: set[str]) -> list[str]:
+    return sorted(
+        member
+        for member in members
+        if any(member.startswith(root) for root in LEGACY_SOURCE_ROOTS)
+        and Path(member).suffix in {".json", ".txt", ".dict"}
+    )
+
+
 def _forbidden_lexicon_members(members: set[str]) -> list[str]:
     return sorted(
         member
@@ -53,12 +71,7 @@ def check_wheel(path: Path, *, require_release_version: bool) -> None:
         requirement.lower().startswith("lexphon") for requirement in requires_dist
     ):
         raise SystemExit(f"{path}: Lexphon runtime dependency is missing")
-    source_payloads = sorted(
-        member
-        for member in members
-        if any(member.startswith(root) for root in LEGACY_SOURCE_ROOTS)
-        and Path(member).suffix in {".json", ".txt", ".dict"}
-    )
+    source_payloads = _forbidden_source_members(members)
     if source_payloads:
         raise SystemExit(
             f"{path}: forbidden source resources: {', '.join(source_payloads)}"
@@ -70,7 +83,15 @@ def check_wheel(path: Path, *, require_release_version: bool) -> None:
 def check_sdist(path: Path, *, require_release_version: bool = False) -> None:
     """Reject migrated lexicon payloads from a source distribution."""
     with tarfile.open(path, "r:gz") as sdist:
-        members = {member.name for member in sdist.getmembers()}
+        members = {
+            _normalize_sdist_member(member.name) for member in sdist.getmembers()
+        }
+    source_payloads = _forbidden_source_members(members)
+    if source_payloads:
+        raise SystemExit(
+            f"{path}: forbidden source resources: {', '.join(source_payloads)}"
+        )
+
     forbidden = _forbidden_lexicon_members(members)
     if forbidden:
         raise SystemExit(

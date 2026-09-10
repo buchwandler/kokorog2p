@@ -172,6 +172,7 @@ class TestJapaneseFrontendMapping:
             JapaneseG2P().phonemize("こんにちは")
 
 
+@pytest.mark.resource_heavy
 @pytest.mark.skipif(
     not all(
         importlib.util.find_spec(module) is not None

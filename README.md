@@ -40,6 +40,13 @@ lexphon data install de-de:gold
 lexphon data verify de-de:gold
 ```
 
+English and French dictionary lookup also requires explicit Lexphon data:
+
+```bash
+lexphon data install en-us:gold en-gb:gold fr-fr:gold
+lexphon data verify en-us:gold en-gb:gold fr-fr:gold
+```
+
 Optional named dictionaries use the same explicit provisioning flow. Runtime German
 lookup is offline and never downloads data implicitly.
 
@@ -50,7 +57,9 @@ See [Installation](docs/installation.md) for development and optional integratio
 ```python
 from kokorog2p import phonemize_prepared
 
-result = phonemize_prepared("Hello world!", language="en-us")
+result = phonemize_prepared(
+    "Hello world!", language="en-us", lexicons=()
+)
 print(result.phonemes)
 ```
 
@@ -234,8 +243,15 @@ abbreviation-registry calls.
 
 ```bash
 python -m pip install -e ".[dev]"
-python -m pytest -q tests/test_prepared_core.py tests/test_dependency_contract.py
+python -m pytest -q
 ```
 
-The default core suite is Spokenform-free. Optional cross-package composition coverage
-is kept in `tests/test_spokenform_composition.py` and the corresponding CI job.
+Bare pytest is the safe core selection. It excludes integration, spaCy, slow, and
+resource-heavy tests. Run broader coverage through the sequential, RSS-bounded runner:
+
+```bash
+python tools/run_test_suite.py --profile full --batch-size 4 --max-rss-mb auto
+python tools/run_test_suite.py --profile full --include-integration --max-rss-mb auto
+```
+
+Provision released Lexphon data before dictionary-backed full or integration runs.

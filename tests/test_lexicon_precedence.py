@@ -38,18 +38,27 @@ def test_english_delegates_precedence_to_selected_stack() -> None:
     ),
 )
 def test_german_precedence_follows_explicit_order(word, first, second) -> None:
-    lexicon = GermanLexicon(lexicons=(first, second))
-    try:
-        hit = lexicon._backend.lookup(word)
-        assert hit is not None
-        assert hit.lexicon_id == f"de-de:{first}"
-    finally:
-        lexicon.close()
+    class Selected:
+        def __init__(self, order: tuple[str, ...]) -> None:
+            self.order = order
 
-    lexicon = GermanLexicon(lexicons=(second, first))
-    try:
+        def lookup(self, lookup_word: str) -> LexiconHit | None:
+            if lookup_word != word:
+                return None
+            name = self.order[0]
+            return LexiconHit(
+                f"pronunciation-{name}",
+                name,
+                9,
+                "pronunciation",
+                "kokoro-v1",
+                f"de-de:{name}",
+                {},
+            )
+
+    for order in ((first, second), (second, first)):
+        lexicon = GermanLexicon.__new__(GermanLexicon)
+        lexicon._backend = Selected(order)
         hit = lexicon._backend.lookup(word)
         assert hit is not None
-        assert hit.lexicon_id == f"de-de:{second}"
-    finally:
-        lexicon.close()
+        assert hit.lexicon_id == f"de-de:{order[0]}"

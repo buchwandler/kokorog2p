@@ -121,8 +121,9 @@ jobs:
   full-suite:
     name: Exhaustive isolated suite
     env:
+      KOKOROG2P_EXTERNAL_LEXPHON_DATA: "1"
       KOKOROG2P_TEST_EXTERNAL_LEXPHON_DATA: "1"
-      LEXPHON_DATA_HOME: /home/runner/.local/share/lexphon
+      LEXPHON_DATA_HOME: ${{ runner.temp }}/lexphon-data
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -143,10 +144,8 @@ jobs:
         run: |
           lexphon data install en-us:gold en-gb:gold fr-fr:gold de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
           lexphon data verify en-us:gold en-gb:gold fr-fr:gold de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
-      - name: Assert the isolated runner covers every test module
-        run: python -m pytest -q tests/test_memory_regressions.py
-      - name: Run every test module in a fresh subprocess
-        run: python tools/run_test_suite.py --pytest-arg=-q
+      - name: Run the bounded full profile
+        run: python tools/run_test_suite.py --profile full --batch-size 4 --max-rss-mb auto --pytest-arg=-q
 
   lower-bound:
     runs-on: ubuntu-latest
@@ -160,7 +159,8 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install \
-            "g2lex==0.1.8"
+            "g2lex==0.1.8" \
+            "lexphon==0.2.2"
           python -m pip install -e ".[dev]"
       - name: Run lower-bound core contract tests
         run: python -m pytest -q tests/test_dependency_contract.py tests/test_semantic_ownership.py
@@ -185,6 +185,9 @@ jobs:
   integration:
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
+    env:
+      KOKOROG2P_EXTERNAL_LEXPHON_DATA: "1"
+      LEXPHON_DATA_HOME: ${{ runner.temp }}/lexphon-data
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
@@ -197,12 +200,15 @@ jobs:
           sudo apt-get install -y espeak-ng
       - name: Install packages and routine model
         run: |
-          python -m pip install -e ".[all,dev]"
+          python -m pip install -e "[all,dev]"
           python -m spacy download en_core_web_sm
           python -m nltk.downloader cmudict
-      - name: Run isolated integration suite
-        run: python tools/run_test_suite.py --pytest-arg=-q
-
+      - name: Provision released Lexphon integration data
+        run: |
+          lexphon data install en-us:gold en-gb:gold fr-fr:gold de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
+          lexphon data verify en-us:gold en-gb:gold fr-fr:gold de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
+      - name: Run the bounded integration profile
+        run: python tools/run_test_suite.py --profile full --include-integration --batch-size 2 --max-rss-mb auto --pytest-arg=-q
   model-compatibility:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest

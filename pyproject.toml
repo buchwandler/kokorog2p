@@ -22,7 +22,7 @@ authors = [
 keywords = ["g2p", "grapheme-to-phoneme", "tts", "text-to-speech", "kokoro", "phonemizer", "espeak"]
 dependencies = [
     "g2lex>=0.1.8,<0.2.0",
-    "lexphon>=0.2.1,<0.3",
+    "lexphon>=0.2.2,<0.3",
 ]
 classifiers=[
     'Development Status :: 4 - Beta',
@@ -51,7 +51,7 @@ docs = [
     "myst-parser>=2.0.0",
 ]
 espeak = [
-    "lexphon[espeak]>=0.2.1,<0.3",
+    "lexphon[espeak]>=0.2.2,<0.3",
 ]
 espeak-direct = [
     "espeakng-loader>=0.1.0",
@@ -68,7 +68,7 @@ ar-diacritize = [
     "camel-tools>=1.6; python_version >= '3.11'",
 ]
 goruut = [
-    "lexphon[goruut]>=0.2.1,<0.3",
+    "lexphon[goruut]>=0.2.2,<0.3",
 ]
 goruut-direct = [
     "pygoruut>=0.8.0",
@@ -156,12 +156,13 @@ write_to = "kokorog2p/_version.py"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short"
+addopts = "-v --tb=short -m 'not integration and not spacy and not slow and not resource_heavy'"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "espeak: marks tests that require espeak-ng",
     "spacy: marks tests that require spaCy",
     "integration: tests requiring provisioned external Lexphon data",
+    "resource_heavy: tests that intentionally initialize high-memory optional or native resources",
 ]
 
 [tool.ruff]

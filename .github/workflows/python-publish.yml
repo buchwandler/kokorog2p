@@ -23,10 +23,17 @@ jobs:
           python-version: "3.13"
 
       - name: Install build tooling
-        run: python -m pip install --upgrade pip build
+        run: python -m pip install --upgrade pip build twine
 
       - name: Build package
-        run: python -m build
+        run: |
+          rm -rf dist
+          python -m build
+          python scripts/check_release_artifacts.py \
+            --wheel "$(find dist -maxdepth 1 -name '*.whl' -print -quit)" \
+            --sdist "$(find dist -maxdepth 1 -name '*.tar.gz' -print -quit)" \
+            --release
+          python -m twine check dist/*
 
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@v1.14.1
