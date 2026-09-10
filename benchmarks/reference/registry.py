@@ -1,4 +1,4 @@
-"""Named candidate and pinned reference profile registries."""
+"""Named candidate, reference, golden, and suite registries."""
 
 from __future__ import annotations
 
@@ -14,6 +14,20 @@ REFERENCE_PROFILES: dict[str, ReferenceMetadata] = {
     "hexgrad-en-us-v1": HexgradEnglishMisakiProvider().metadata,
     "hexgrad-en-gb-v1": HexgradEnglishMisakiProvider(british=True).metadata,
     "semidark-de-v1": SemidarkGermanMisakiProvider().metadata,
+}
+
+REFERENCE_GOLDENS: dict[str, str] = {
+    "hexgrad-en-us-v1": "hexgrad_en_us_v1.json",
+    "hexgrad-en-gb-v1": "hexgrad_en_gb_v1.json",
+    "semidark-de-v1": "semidark_de_v1.json",
+}
+
+REFERENCE_SUITES: dict[str, tuple[tuple[str, str, str], ...]] = {
+    "core": (
+        ("hexgrad-en-us-v1", "en-us-default", "en-us"),
+        ("hexgrad-en-gb-v1", "en-gb-default", "en-gb"),
+        ("semidark-de-v1", "de-default", "de"),
+    )
 }
 
 CANDIDATE_REGISTRY: dict[str, CandidateProfile] = CANDIDATE_PROFILES
@@ -44,6 +58,25 @@ def get_reference_provider(profile_id: str) -> ReferenceProvider:
         return _PROVIDER_FACTORIES[profile_id]()
     except KeyError as exc:
         raise KeyError(f"unknown reference profile: {profile_id}") from exc
+
+
+def golden_dir() -> Path:
+    return Path(__file__).with_name("goldens")
+
+
+def get_reference_golden_path(profile_id: str) -> Path:
+    try:
+        filename = REFERENCE_GOLDENS[profile_id]
+    except KeyError as exc:
+        raise KeyError(f"unknown reference golden: {profile_id}") from exc
+    return golden_dir() / filename
+
+
+def get_reference_suite(suite_id: str) -> tuple[tuple[str, str, str], ...]:
+    try:
+        return REFERENCE_SUITES[suite_id]
+    except KeyError as exc:
+        raise KeyError(f"unknown reference suite: {suite_id}") from exc
 
 
 def revisions_path() -> Path:

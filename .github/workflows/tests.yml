@@ -51,27 +51,18 @@ jobs:
         shell: pwsh
         run: |
           choco install espeak-ng -y --no-progress
-
           $command = Get-Command espeak-ng -ErrorAction SilentlyContinue
           if ($null -eq $command) {
             $command = Get-Command espeak -ErrorAction SilentlyContinue
           }
-
           if ($null -eq $command) {
             $roots = @(
               $env:ProgramFiles,
               [Environment]::GetEnvironmentVariable("ProgramFiles(x86)"),
               $env:ChocolateyInstall
             ) | Where-Object { $_ -and (Test-Path $_) }
-
-            $file = Get-ChildItem `
-              -Path $roots `
-              -Filter "espeak*.exe" `
-              -File `
-              -Recurse `
-              -ErrorAction SilentlyContinue |
+            $file = Get-ChildItem -Path $roots -Filter "espeak*.exe" -File -Recurse -ErrorAction SilentlyContinue |
               Select-Object -First 1
-
             if ($null -ne $file) {
               $directory = Split-Path -Parent $file.FullName
               Add-Content -Path $env:GITHUB_PATH -Value $directory
@@ -79,11 +70,9 @@ jobs:
               $command = Get-Command $file.FullName
             }
           }
-
           if ($null -eq $command) {
             throw "eSpeak installation completed but no executable was found."
           }
-
           & $command.Path --version
 
       - name: Install test dependencies
@@ -112,3 +101,59 @@ jobs:
 
       - name: Run full pytest suite
         run: python -m pytest
+
+      - name: Quick reference compatibility
+        if: runner.os == 'Linux' && matrix.python-version == '3.13'
+        run: python benchmarks/benchmark_reference.py --quick --suite core
+
+  live-reference:
+    name: pinned live reference verification
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      KOKOROG2P_EXTERNAL_LEXPHON_DATA: "1"
+      LEXPHON_DATA_HOME: ${{ github.workspace }}/.lexphon-data
+    strategy:
+      matrix:
+        include:
+          - reference: hexgrad-en-us-v1
+            candidate: en-us-default
+            corpus: en-us
+          - reference: hexgrad-en-gb-v1
+            candidate: en-gb-default
+            corpus: en-gb
+          - reference: semidark-de-v1
+            candidate: de-default
+            corpus: de
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install benchmark dependencies
+        run: |
+          sudo apt-get update -o Acquire::Retries=3
+          sudo apt-get install -y espeak-ng
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[all,dev]"
+          python -m pip install "misaki==0.9.4"
+      - name: Run live reference benchmark once
+        run: >-
+          python benchmarks/benchmark_reference.py
+          --reference "${{ matrix.reference }}"
+          --candidate "${{ matrix.candidate }}"
+          --corpus "${{ matrix.corpus }}"
+          --reference-source live
+          --strict-reference
+          --fail-on regression
+          --format summary
+          --json-output "reference-${{ matrix.reference }}.json"
+          --markdown-output "reference-${{ matrix.reference }}.md"
+      - name: Upload live reference artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: reference-${{ matrix.reference }}
+          path: |
+            reference-${{ matrix.reference }}.json
+            reference-${{ matrix.reference }}.md

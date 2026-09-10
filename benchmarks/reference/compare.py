@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import difflib
 import unicodedata
+from collections import Counter
 from collections.abc import Iterable, Sequence
+from dataclasses import replace
 from typing import TypeVar
 
 from .candidate import analyze_model_encoding
@@ -40,27 +41,85 @@ def _symbols(value: str) -> str:
     return "".join(ch for ch in unicodedata.normalize("NFC", value) if not ch.isspace())
 
 
+def _without_punctuation(value: str) -> str:
+    return "".join(
+        ch
+        for ch in unicodedata.normalize("NFC", value)
+        if not unicodedata.category(ch).startswith("P")
+    )
+
+
+def _without_stress(value: str) -> str:
+    return value.replace("ˈ", "").replace("ˌ", "")
+
+
 def _symbol_diff(left: str, right: str) -> SymbolDiff:
-    matcher = difflib.SequenceMatcher(a=left, b=right, autojunk=False)
-    insertions = deletions = substitutions = 0
+    """Return true Levenshtein operation counts for two short symbol strings."""
+    rows = len(left) + 1
+    columns = len(right) + 1
+    distances = [[0] * columns for _ in range(rows)]
+    operations: list[list[tuple[int, int, int]]] = [
+        [(0, 0, 0) for _ in range(columns)] for _ in range(rows)
+    ]
+    for i in range(rows):
+        distances[i][0] = i
+        if i:
+            operations[i][0] = (0, i, 0)
+    for j in range(columns):
+        distances[0][j] = j
+        if j:
+            operations[0][j] = (j, 0, 0)
+
+    for i in range(1, rows):
+        for j in range(1, columns):
+            if left[i - 1] == right[j - 1]:
+                distances[i][j] = distances[i - 1][j - 1]
+                operations[i][j] = operations[i - 1][j - 1]
+                continue
+            candidates = [
+                (
+                    distances[i - 1][j] + 1,
+                    (
+                        operations[i - 1][j][0],
+                        operations[i - 1][j][1] + 1,
+                        operations[i - 1][j][2],
+                    ),
+                ),
+                (
+                    distances[i][j - 1] + 1,
+                    (
+                        operations[i][j - 1][0] + 1,
+                        operations[i][j - 1][1],
+                        operations[i][j - 1][2],
+                    ),
+                ),
+                (
+                    distances[i - 1][j - 1] + 1,
+                    (
+                        operations[i - 1][j - 1][0],
+                        operations[i - 1][j - 1][1],
+                        operations[i - 1][j - 1][2] + 1,
+                    ),
+                ),
+            ]
+            distances[i][j], operations[i][j] = min(
+                candidates, key=lambda item: item[0]
+            )
+
     first_difference: int | None = None
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag == "equal":
-            continue
-        if first_difference is None:
-            first_difference = i1
-        if tag == "insert":
-            insertions += j2 - j1
-        elif tag == "delete":
-            deletions += i2 - i1
-        else:
-            substitutions += max(i2 - i1, j2 - j1)
+    for index, (left_char, right_char) in enumerate(zip(left, right)):
+        if left_char != right_char:
+            first_difference = index
+            break
+    if first_difference is None and len(left) != len(right):
+        first_difference = min(len(left), len(right))
+    insertions, deletions, substitutions = operations[-1][-1]
     return SymbolDiff(
         insertions=insertions,
         deletions=deletions,
         substitutions=substitutions,
         first_difference=first_difference,
-        edit_distance=insertions + deletions + substitutions,
+        edit_distance=distances[-1][-1],
     )
 
 
@@ -69,27 +128,64 @@ def _classification(
     reference: ReferenceOutput,
     exact: bool,
     normalized: bool,
-    encoding: object | None = None,
+    candidate_encoding: object | None,
+    api_ids_consistent: bool | None,
+    reference_encoding: object | None,
 ) -> str:
     if not candidate.ok:
         return "candidate-error"
     if not reference.ok:
         return "reference-error"
-    if encoding is not None and getattr(encoding, "encoding_loss", False):
+    if api_ids_consistent is False:
+        return "candidate-api-id-mismatch"
+    if candidate_encoding is not None and getattr(
+        candidate_encoding, "encoding_loss", False
+    ):
         return "candidate-encoding-loss"
+    if reference_encoding is not None and getattr(
+        reference_encoding, "encoding_loss", False
+    ):
+        return "reference-encoding-loss"
     if exact:
         return "exact"
     if normalized:
         return "whitespace-only"
-    if candidate.phonemes.translate(
-        str.maketrans("", "", "!?.,;:'\"")
-    ) == reference.phonemes.translate(str.maketrans("", "", "!?.,;:'\"")):
+    if _without_punctuation(candidate.phonemes) == _without_punctuation(
+        reference.phonemes
+    ):
         return "punctuation"
-    if candidate.phonemes.replace("ˈ", "").replace(
-        "ˌ", ""
-    ) == reference.phonemes.replace("ˈ", "").replace("ˌ", ""):
+    if _without_stress(candidate.phonemes) == _without_stress(reference.phonemes):
         return "stress"
     return "pronunciation"
+
+
+def _evaluate_policy(
+    policy: str,
+    *,
+    candidate_ok: bool,
+    reference_ok: bool,
+    exact: bool,
+    normalized: bool,
+    model_id_match: bool | None,
+    candidate_encoding: object | None,
+) -> bool | None:
+    if policy == "diagnostic":
+        return None
+    if not candidate_ok or not reference_ok:
+        return False
+    if policy == "exact":
+        return exact
+    if policy == "normalized":
+        return normalized
+    if policy == "model-id":
+        return model_id_match is True
+    if policy == "model-valid":
+        return bool(
+            candidate_encoding is not None
+            and getattr(candidate_encoding, "valid", False)
+            and not getattr(candidate_encoding, "encoding_loss", True)
+        )
+    raise ValueError(f"unsupported case policy: {policy}")
 
 
 def compare_results(
@@ -124,14 +220,21 @@ def compare_results(
     candidate_success = reference_success = comparable = 0
     candidate_encoding_failures = reference_encoding_failures = 0
     candidate_encoding_loss = reference_encoding_loss = 0
+    model_id_comparable = 0
+    policy_passed = policy_failed = 0
+    diagnostic_cases = diagnostic_differences = 0
+    candidate_errors = reference_errors = api_mismatches = 0
+    policy_counts: Counter[str] = Counter()
+    policy_failure_counts: Counter[str] = Counter()
+    classification_counts: Counter[str] = Counter()
 
     for case in case_values:
         candidate = candidate_index[case.id]
         reference = reference_index[case.id]
-        if candidate.ok:
-            candidate_success += 1
-        if reference.ok:
-            reference_success += 1
+        candidate_success += int(candidate.ok)
+        reference_success += int(reference.ok)
+        candidate_errors += int(not candidate.ok)
+        reference_errors += int(not reference.ok)
         candidate_encoding = (
             candidate.encoding
             if candidate.encoding is not None
@@ -144,7 +247,9 @@ def compare_results(
         if candidate_encoding is not None and candidate_encoding.encoding_loss:
             candidate_encoding_loss += 1
         reference_encoding = (
-            analyze_model_encoding(reference.phonemes, model=model)
+            reference.encoding
+            if reference.encoding is not None
+            else analyze_model_encoding(reference.phonemes, model=model)
             if reference.ok
             else None
         )
@@ -152,17 +257,11 @@ def compare_results(
             reference_encoding_failures += 1
         if reference_encoding is not None and reference_encoding.encoding_loss:
             reference_encoding_loss += 1
-        if reference_encoding is not None and reference.ok:
-            reference = ReferenceOutput(
-                case_id=reference.case_id,
-                input_text=reference.input_text,
-                normalized_text=reference.normalized_text,
-                phonemes=reference.phonemes,
-                error=reference.error,
-            )
+        if reference.encoding is None and reference_encoding is not None:
+            reference = replace(reference, encoding=reference_encoding)
+
         both_ok = candidate.ok and reference.ok
-        if both_ok:
-            comparable += 1
+        comparable += int(both_ok)
         exact = both_ok and candidate.phonemes == reference.phonemes
         normalized = both_ok and _normalized(candidate.phonemes) == _normalized(
             reference.phonemes
@@ -170,28 +269,48 @@ def compare_results(
         candidate_symbols = _symbols(candidate.phonemes)
         reference_symbols = _symbols(reference.phonemes)
         symbol_match = both_ok and candidate_symbols == reference_symbols
+        api_ids_consistent = (
+            candidate.token_ids == candidate_encoding.token_ids
+            if candidate.ok and candidate_encoding is not None
+            else None
+        )
+        api_mismatches += int(api_ids_consistent is False)
         model_id_match: bool | None = None
         if (
             both_ok
+            and api_ids_consistent is True
             and candidate_encoding is not None
             and not candidate_encoding.encoding_loss
             and reference_encoding is not None
             and not reference_encoding.encoding_loss
         ):
-            model_id_match = (
-                candidate_encoding.token_ids == reference_encoding.token_ids
-            )
-        if exact:
-            exact_count += 1
-        if normalized:
-            normalized_count += 1
-        if symbol_match:
-            symbol_count += 1
-        if model_id_match:
-            id_count += 1
+            model_id_comparable += 1
+            model_id_match = candidate.token_ids == reference_encoding.token_ids
+        exact_count += int(exact)
+        normalized_count += int(normalized)
+        symbol_count += int(symbol_match)
+        id_count += int(model_id_match is True)
+        policy_result = _evaluate_policy(
+            case.policy,
+            candidate_ok=candidate.ok,
+            reference_ok=reference.ok,
+            exact=exact,
+            normalized=normalized,
+            model_id_match=model_id_match,
+            candidate_encoding=candidate_encoding,
+        )
+        policy_counts[case.policy] += 1
+        if policy_result is True:
+            policy_passed += 1
+        elif policy_result is False:
+            policy_failed += 1
+            policy_failure_counts[case.policy] += 1
+        diagnostic_cases += int(case.policy == "diagnostic")
         comparison = CaseComparison(
             case_id=case.id,
             input_text=case.text,
+            policy=case.policy,
+            policy_passed=policy_result,
             candidate_ok=candidate.ok,
             reference_ok=reference.ok,
             exact_phoneme_match=exact,
@@ -200,11 +319,20 @@ def compare_results(
             model_id_match=model_id_match,
             symbol_diff=_symbol_diff(candidate_symbols, reference_symbols),
             classification=_classification(
-                candidate, reference, exact, normalized, candidate_encoding
+                candidate,
+                reference,
+                exact,
+                normalized,
+                candidate_encoding,
+                api_ids_consistent,
+                reference_encoding,
             ),
             candidate=candidate,
             reference=reference,
+            candidate_api_ids_consistent=api_ids_consistent,
         )
+        classification_counts[comparison.classification] += 1
+        diagnostic_differences += int(case.policy == "diagnostic" and not exact)
         comparisons.append(comparison)
 
     differences = [
@@ -226,6 +354,18 @@ def compare_results(
         reference_encoding_failures=reference_encoding_failures,
         candidate_encoding_loss=candidate_encoding_loss,
         reference_encoding_loss=reference_encoding_loss,
+        policy_cases=len(comparisons) - diagnostic_cases,
+        policy_passed=policy_passed,
+        policy_failed=policy_failed,
+        diagnostic_cases=diagnostic_cases,
+        diagnostic_differences=diagnostic_differences,
+        candidate_errors=candidate_errors,
+        reference_errors=reference_errors,
+        candidate_api_id_mismatches=api_mismatches,
+        model_id_comparable_cases=model_id_comparable,
+        classification_counts=dict(classification_counts),
+        policy_counts=dict(policy_counts),
+        policy_failure_counts=dict(policy_failure_counts),
     )
 
 

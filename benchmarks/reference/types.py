@@ -5,10 +5,11 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field, is_dataclass
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 MUTABLE_REVISIONS = {"main", "master", "latest", "head", "unknown", ""}
+Verdict = Literal["pass", "fail", "error"]
 
 
 def _json_value(value: Any) -> Any:
@@ -160,6 +161,7 @@ class ReferenceOutput:
     normalized_text: str | None = None
     phonemes: str = ""
     error: ErrorInfo | None = None
+    encoding: EncodingAnalysis | None = None
 
     @property
     def ok(self) -> bool:
@@ -205,6 +207,8 @@ class SymbolDiff:
 class CaseComparison:
     case_id: str
     input_text: str
+    policy: str
+    policy_passed: bool | None
     candidate_ok: bool
     reference_ok: bool
     exact_phoneme_match: bool
@@ -215,6 +219,7 @@ class CaseComparison:
     classification: str
     candidate: CandidateOutput
     reference: ReferenceOutput
+    candidate_api_ids_consistent: bool | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return _json_value(self)
@@ -237,6 +242,18 @@ class ComparisonSummary:
     reference_encoding_failures: int
     candidate_encoding_loss: int
     reference_encoding_loss: int
+    policy_cases: int = 0
+    policy_passed: int = 0
+    policy_failed: int = 0
+    diagnostic_cases: int = 0
+    diagnostic_differences: int = 0
+    candidate_errors: int = 0
+    reference_errors: int = 0
+    candidate_api_id_mismatches: int = 0
+    model_id_comparable_cases: int = 0
+    classification_counts: Mapping[str, int] = field(default_factory=dict)
+    policy_counts: Mapping[str, int] = field(default_factory=dict)
+    policy_failure_counts: Mapping[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return _json_value(self)
@@ -251,6 +268,36 @@ class BenchmarkReport:
     schema_version: int = SCHEMA_VERSION
     benchmark_kind: str = "reference"
     performance: Mapping[str, Any] | None = None
+    verdict: Verdict = "pass"
+    reference_source: str = "live"
+    execution: Mapping[str, Any] = field(default_factory=dict)
+    baseline: Mapping[str, Any] | None = None
+
+    @property
+    def identity(self) -> dict[str, Any]:
+        return {
+            "candidate": self.candidate.to_dict(),
+            "reference": self.reference.to_dict(),
+            "reference_source": self.reference_source,
+            "corpus_id": self.corpus.id,
+            "corpus_revision": self.corpus.revision,
+            "case_ids": [case.id for case in self.corpus.cases],
+            "target_model": self.candidate.target_model,
+        }
+
+    def to_dict(self) -> dict[str, Any]:
+        result = _json_value(self)
+        result["identity"] = self.identity
+        return result
+
+
+@dataclass(frozen=True)
+class BenchmarkSuiteReport:
+    suite: str
+    reports: tuple[BenchmarkReport, ...]
+    verdict: Verdict
+    schema_version: int = SCHEMA_VERSION
+    benchmark_kind: str = "reference-suite"
 
     def to_dict(self) -> dict[str, Any]:
         return _json_value(self)
@@ -259,6 +306,8 @@ class BenchmarkReport:
 class ReferenceProvider(Protocol):
     @property
     def metadata(self) -> ReferenceMetadata: ...
+
+    def prepare(self) -> None: ...
 
     def phonemize(
         self, text: str, *, case_id: str, language: str, model: str

@@ -33,6 +33,9 @@ class _MisakiProvider:
         version = str(getattr(misaki, "__version__", self.metadata.package_version))
         return replace(self.metadata, package_version=version)
 
+    def prepare(self) -> None:
+        self._load_g2p()
+
 
 class HexgradEnglishMisakiProvider(_MisakiProvider):
     """Hexgrad Misaki English G2P for the US or GB Kokoro lineage."""
@@ -74,6 +77,8 @@ class HexgradEnglishMisakiProvider(_MisakiProvider):
         try:
             phonemes, _tokens = self._load_g2p()(text)
             return ReferenceOutput(case_id, text, None, str(phonemes))
+        except ReferenceUnavailable:
+            raise
         except Exception as exc:
             return ReferenceOutput(
                 case_id, text, None, error=ErrorInfo.from_exception(exc, "reference")
@@ -115,6 +120,8 @@ class SemidarkGermanMisakiProvider(_MisakiProvider):
             )
             phonemes, _tokens = g2p(text)
             return ReferenceOutput(case_id, text, normalized, str(phonemes))
+        except ReferenceUnavailable:
+            raise
         except Exception as exc:
             return ReferenceOutput(
                 case_id, text, None, error=ErrorInfo.from_exception(exc, "reference")
