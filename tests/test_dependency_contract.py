@@ -33,7 +33,10 @@ def test_lexphon_provider_extras_are_split_from_direct_backends() -> None:
     extras = data["project"]["optional-dependencies"]
 
     assert extras["espeak"] == ["lexphon[espeak]>=0.2.3,<0.3"]
-    assert extras["espeak-direct"] == ["espeakng-loader>=0.1.0", "dlinfo>=1.2.1"]
+    assert extras["espeak-direct"] == [
+        "espeakng-loader>=0.1.0",
+        "dlinfo>=1.2.1; sys_platform != 'win32' and sys_platform != 'android'",
+    ]
     assert extras["goruut"] == ["lexphon[goruut]>=0.2.3,<0.3"]
     assert extras["goruut-direct"] == ["pygoruut>=0.8.0"]
 
