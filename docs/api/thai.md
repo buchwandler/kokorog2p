@@ -19,11 +19,11 @@ print(result.token_ids)
 
 ## Behavior
 
-Thai runs use the provisioned Lexphon `th:lexhint-native` dictionary with dictionary-driven
-segmentation and the existing Thai tone adaptation. Latin runs use the existing
-EnglishG2P lazily, so ordinary phrases such as `text to speech` are pronounced as
-English rather than spelled as Thai letter names. Whitespace and supported punctuation
-remain source-aligned.
+Thai runs use the provisioned Lexphon `th:lexhint-native` dictionary with
+dictionary-driven segmentation and the existing Thai tone adaptation. Latin runs use the
+existing EnglishG2P lazily, so ordinary phrases such as `text to speech` are pronounced
+as English rather than spelled as Thai letter names. Whitespace and supported
+punctuation remain source-aligned.
 
 The frontend version is `1.0`; its target model is the separate `wayu-kokoro-thai-v1`
 vocabulary profile. That profile maps the Thai low-tone symbol `˩` to token ID 7 and is

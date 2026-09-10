@@ -381,11 +381,10 @@ def main(argv: Sequence[str] | None = None, **defaults: str) -> int:
     ) or _default_candidate(reference_id)
     try:
         if args.suite:
+            suite = get_reference_suite(args.suite)
             reports = tuple(
                 _run_one(args, suite_reference, suite_candidate, suite_corpus)
-                for suite_reference, suite_candidate, suite_corpus in get_reference_suite(
-                    args.suite
-                )
+                for suite_reference, suite_candidate, suite_corpus in suite
             )
             report: BenchmarkReport | BenchmarkSuiteReport = BenchmarkSuiteReport(
                 suite=args.suite,

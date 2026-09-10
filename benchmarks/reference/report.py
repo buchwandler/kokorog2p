@@ -25,16 +25,20 @@ def _duration(report: BenchmarkReport) -> str:
 
 def _report_summary_line(report: BenchmarkReport) -> str:
     summary = report.summary
+    model_invalid = (
+        summary.candidate_encoding_failures + summary.candidate_encoding_loss
+    )
     return (
-        f"[{report.verdict.upper()}] {report.candidate.id} vs {report.reference.provider_id} "
-        f"[{report.reference_source}]\n"
-        f"       {summary.cases_total} cases | gates {summary.policy_passed}/{summary.policy_cases} | "
+        f"[{report.verdict.upper()}] {report.candidate.id} "
+        f"vs {report.reference.provider_id} [{report.reference_source}]\n"
+        f"       {summary.cases_total} cases | "
+        f"gates {summary.policy_passed}/{summary.policy_cases} | "
         f"diagnostic differences {summary.diagnostic_differences}\n"
-        f"       candidate errors {summary.candidate_errors} | model-invalid "
-        f"{summary.candidate_encoding_failures + summary.candidate_encoding_loss} | "
+        f"       candidate errors {summary.candidate_errors} | "
+        f"model-invalid {model_invalid} | "
         f"API-ID mismatch {summary.candidate_api_id_mismatches}\n"
-        f"       exact agreement {summary.exact_phoneme_matches}/{summary.cases_total} | "
-        f"{_duration(report)}"
+        f"       exact agreement {summary.exact_phoneme_matches}/"
+        f"{summary.cases_total} | {_duration(report)}"
     )
 
 
@@ -55,16 +59,21 @@ def render_summary(report: BenchmarkReport | BenchmarkSuiteReport) -> str:
     if isinstance(report, BenchmarkSuiteReport):
         lines = ["KokoroG2P reference compatibility [golden]", ""]
         lines.append(
-            "RESULT  CANDIDATE       REFERENCE           CASES  GATES  FAIL  DIAG Δ  ERR  INVALID"
+            "RESULT  CANDIDATE       REFERENCE           CASES  GATES  FAIL  "
+            "DIAG Δ  ERR  INVALID"
         )
         for item in report.reports:
             summary = item.summary
+            invalid = (
+                summary.candidate_encoding_failures + summary.candidate_encoding_loss
+            )
             lines.append(
-                f"{item.verdict.upper():<7} {item.candidate.id:<15} {item.reference.provider_id:<19} "
-                f"{summary.cases_total:>5}  {summary.policy_passed}/{summary.policy_cases:<4} "
+                f"{item.verdict.upper():<7} {item.candidate.id:<15} "
+                f"{item.reference.provider_id:<19} {summary.cases_total:>5}  "
+                f"{summary.policy_passed}/{summary.policy_cases:<4} "
                 f"{summary.policy_failed:>4}  {summary.diagnostic_differences:>6}  "
                 f"{summary.candidate_errors:>3}  "
-                f"{summary.candidate_encoding_failures + summary.candidate_encoding_loss:>7}"
+                f"{invalid:>7}"
             )
         total_cases = sum(item.summary.cases_total for item in report.reports)
         total_passed = sum(item.summary.policy_passed for item in report.reports)
@@ -73,9 +82,11 @@ def render_summary(report: BenchmarkReport | BenchmarkSuiteReport) -> str:
         lines.extend(
             [
                 "",
-                f"[{report.verdict.upper()}] {total_cases} cases | "
-                f"{total_passed}/{total_gates} gating expectations passed | "
-                f"{total_diag} diagnostic differences",
+                (
+                    f"[{report.verdict.upper()}] {total_cases} cases | "
+                    f"{total_passed}/{total_gates} gating expectations passed | "
+                    f"{total_diag} diagnostic differences"
+                ),
             ]
         )
         return "\n".join(lines) + "\n"
@@ -113,7 +124,10 @@ def _context(left: str, right: str, index: int | None, radius: int = 12) -> str:
     if index is None:
         return ""
     start = max(0, index - radius)
-    return f"candidate={left[start : index + radius]!r}; reference={right[start : index + radius]!r}"
+    return (
+        f"candidate={left[start : index + radius]!r}; "
+        f"reference={right[start : index + radius]!r}"
+    )
 
 
 def render_markdown(report: BenchmarkReport | BenchmarkSuiteReport) -> str:

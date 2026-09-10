@@ -107,7 +107,7 @@ def _symbol_diff(left: str, right: str) -> SymbolDiff:
             )
 
     first_difference: int | None = None
-    for index, (left_char, right_char) in enumerate(zip(left, right)):
+    for index, (left_char, right_char) in enumerate(zip(left, right, strict=False)):
         if left_char != right_char:
             first_difference = index
             break

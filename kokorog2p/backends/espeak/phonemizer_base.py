@@ -145,12 +145,7 @@ class EspeakPhonemizerBase(ABC):
 
     @staticmethod
     def _normalize_voice_code(value: str) -> str:
-        return (
-            value.strip()
-            .lower()
-            .replace("\\", "/")
-            .replace("_", "-")
-        )
+        return value.strip().lower().replace("\\", "/").replace("_", "-")
 
     @classmethod
     def _is_mbrola_request(cls, language: str) -> bool:

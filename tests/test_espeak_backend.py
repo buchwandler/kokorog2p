@@ -44,9 +44,7 @@ def test_find_espeak_library_falls_back_to_cli_install_prefix(
 
     monkeypatch.delenv(espeak_wrapper.ENV_LIBRARY_PATH, raising=False)
     monkeypatch.setitem(sys.modules, "espeakng_loader", None)
-    monkeypatch.setattr(
-        espeak_wrapper.ctypes.util, "find_library", lambda _name: None
-    )
+    monkeypatch.setattr(espeak_wrapper.ctypes.util, "find_library", lambda _name: None)
     monkeypatch.setattr(
         espeak_wrapper.shutil,
         "which",
@@ -87,13 +85,12 @@ def test_find_espeak_library_reports_missing_library(monkeypatch):
 
     monkeypatch.delenv(espeak_wrapper.ENV_LIBRARY_PATH, raising=False)
     monkeypatch.setitem(sys.modules, "espeakng_loader", None)
-    monkeypatch.setattr(
-        espeak_wrapper.ctypes.util, "find_library", lambda _name: None
-    )
+    monkeypatch.setattr(espeak_wrapper.ctypes.util, "find_library", lambda _name: None)
     monkeypatch.setattr(espeak_wrapper.shutil, "which", lambda _name: None)
 
     with pytest.raises(RuntimeError, match=espeak_wrapper.ENV_LIBRARY_PATH):
         espeak_wrapper.find_espeak_library()
+
 
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux /proc/self/maps fallback")
 def test_find_library_path_matches_versioned_soname(tmp_path, monkeypatch):
@@ -461,7 +458,6 @@ class TestPhonemizerBaseHelpers:
         assert chosen.language == "en-us"
         assert chosen.identifier == "en-us"
 
-
     @pytest.mark.parametrize(
         ("raw", "expected"),
         [
@@ -476,12 +472,8 @@ class TestPhonemizerBaseHelpers:
 
     def test_resolve_voice_excludes_windows_mbrola_identifiers(self):
         voices = [
-            Voice(
-                name="arabic-mbrola-1", language="ar", identifier=r"mb\mb-ar1"
-            ),
-            Voice(
-                name="arabic-mbrola-2", language="ar", identifier=r"mb\mb-ar2"
-            ),
+            Voice(name="arabic-mbrola-1", language="ar", identifier=r"mb\mb-ar1"),
+            Voice(name="arabic-mbrola-2", language="ar", identifier=r"mb\mb-ar2"),
             Voice(name="Arabic", language="ar", identifier=r"sem\ar"),
         ]
         backend = _DummyBase(voices)
@@ -536,6 +528,7 @@ class TestPhonemizerBaseHelpers:
         identifier, chosen = cli._resolve_voice("ar")
         assert identifier == "sem/ar"
         assert chosen.name == "Arabic"
+
     def test_resolve_voice_raises_on_invalid(self):
         d = _DummyBase([Voice(language="en-us", identifier="en-us")])
         with pytest.raises(RuntimeError):

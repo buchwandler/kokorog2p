@@ -138,7 +138,8 @@ def validate_reference_golden(
     expected_ids = {case.id for case in expected_corpus.cases}
     if set(output_ids) != expected_ids:
         raise ValueError(
-            f"golden case IDs do not match corpus: missing={sorted(expected_ids - set(output_ids))}, "
+            f"golden case IDs do not match corpus: "
+            f"missing={sorted(expected_ids - set(output_ids))}, "
             f"extra={sorted(set(output_ids) - expected_ids)}"
         )
     expected_inputs = {case.id: case.text for case in expected_corpus.cases}

@@ -123,7 +123,6 @@ def find_espeak_library() -> str:
                     return str(candidate.resolve())
         return lib_name
 
-
     executable_library = _find_espeak_library_near_executable()
     if executable_library is not None:
         return str(executable_library)

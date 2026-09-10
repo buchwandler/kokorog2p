@@ -18,8 +18,8 @@ generated name tables, evaluation corpus, or serving code is copied or vendored.
 
 ## Dependencies and licenses
 
-- Lexphon provides the provisioned `th:lexhint-native` pronunciation dictionary. The asset is
-  installed and verified outside this package and is not downloaded at runtime.
+- Lexphon provides the provisioned `th:lexhint-native` pronunciation dictionary. The
+  asset is installed and verified outside this package and is not downloaded at runtime.
 - The Wayu model repository is Apache-2.0 licensed. This implementation does not
   redistribute its weights or source.
 
