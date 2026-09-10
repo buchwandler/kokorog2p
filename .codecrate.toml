@@ -6,6 +6,7 @@ respect_gitignore = true
 exclude = ["*/.venv/*", "context_kokorog2p.*"]
 include = [
   "**/*.py",
+  "**/*.json",
   "**/*.toml",
   "**/*.rst",
   "**/*.md",

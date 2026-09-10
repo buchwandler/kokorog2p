@@ -21,7 +21,7 @@ We welcome contributions to kokorog2p! This guide will help you get started.
 3. **Install development dependencies**:
 
    ```bash
-   pip install -e ".[dev]"
+   pip install -e ".[all,dev]"
    ```
 
 4. **Install pre-commit hooks**:
@@ -32,49 +32,23 @@ We welcome contributions to kokorog2p! This guide will help you get started.
 
 ## Running Tests
 
-Run the safe core selection with plain pytest:
+Run the complete repository suite with plain pytest:
 
 ```bash
-python -m pytest -q
+python -m pytest
 ```
 
-Bare pytest excludes tests marked `integration`, `spacy`, `slow`, or `resource_heavy`.
-Use the canonical runner for deterministic sequential batches and broader profiles:
+The default command includes tests marked `integration`, `spacy`, `slow`, and
+`resource_heavy`. For a deliberately reduced local run, select exclusions explicitly:
 
 ```bash
-python tools/run_test_suite.py --profile core --batch-size 8 --max-rss-mb auto
-python tools/run_test_suite.py --profile full --batch-size 4 --max-rss-mb auto
-python tools/run_test_suite.py --profile full --include-integration --max-rss-mb auto
+python -m pytest -m "not integration and not spacy and not slow and not resource_heavy"
 ```
 
-Inspect or filter the plan without running tests:
-
-```bash
-python tools/run_test_suite.py --profile full --list-plan
-python tools/run_test_suite.py --profile full --match "en|normalization" --list-plan
-python tools/run_test_suite.py --profile full --start-at tests/test_en_g2p.py --list-plan
-```
-
-Pass pytest arguments with `--pytest-arg=-vv` or after the runner options. The runner
-executes one child at a time, applies automatic or explicit RSS ceilings, splits a
-resource-limited batch, and reports all failed groups. Do not use xdist or parallel
-workers as a memory workaround.
-
-Coverage is aggregated across the sequential subprocesses:
-
-```bash
-python tools/run_test_suite.py --profile core --coverage --junit-dir junit
-```
-
-The separate wrapper is useful for focused RSS diagnostics:
-
-```bash
-python tools/run_pytest_with_memory.py --max-rss-mb auto -q tests/test_en_g2p.py
-```
-
-Optional spaCy, native backend, multilingual, and cross-package checks remain marked and
-are run by their corresponding full or specialized workflow jobs. Provision external
-Lexphon data explicitly for released-data integration tests.
+The full environment requires the project's all/dev extras, eSpeak-ng, the `cmudict`
+corpus, and the `en_core_web_sm` spaCy model. Released-data integration tests also
+require `KOKOROG2P_EXTERNAL_LEXPHON_DATA=1` and the Lexphon assets documented in
+[installation](installation.md).
 
 ## Code Quality
 

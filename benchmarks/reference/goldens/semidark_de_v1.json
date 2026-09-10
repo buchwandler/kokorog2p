@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "reference": {
+    "provider_id": "semidark-misaki",
+    "repository": "semidark/misaki",
+    "commit": "9cda9268309160120fffee216280a9ca83ac4644",
+    "package_version": "0.9.4",
+    "frontend": "misaki.de.DEG2P",
+    "configuration": {
+      "language": "de",
+      "model": "1.0"
+    }
+  },
+  "corpus": {
+    "id": "de-semidark-reference-v1",
+    "cases": [
+      {
+        "id": "de-basic-hello-001",
+        "text": "Guten Tag!",
+        "policy": "exact",
+        "tags": ["basic"]
+      },
+      {
+        "id": "de-tech-file-001",
+        "text": "Ich kann das File downloaden.",
+        "policy": "model-valid",
+        "tags": ["technical", "foreign-word", "historical-regression"]
+      },
+      {
+        "id": "de-tech-github-001",
+        "text": "Ich nutze GitHub.",
+        "policy": "model-valid",
+        "tags": ["technical", "foreign-word"]
+      },
+      {
+        "id": "de-tech-cuda-001",
+        "text": "CUDA und PyTorch laufen.",
+        "policy": "diagnostic",
+        "tags": ["technical", "historical-regression"]
+      },
+      {
+        "id": "de-regression-manpower-001",
+        "text": "Die Manpowerdiskussion wird gecancelt.",
+        "policy": "diagnostic",
+        "tags": ["historical-regression", "mixed-language"]
+      },
+      {
+        "id": "de-regression-synthese-001",
+        "text": "Die Synthese ist stabil.",
+        "policy": "diagnostic",
+        "tags": ["historical-regression"]
+      }
+    ],
+    "revision": "1",
+    "generated": false,
+    "metadata": {
+      "language": "de",
+      "model": "1.0",
+      "provenance": "reviewed compatibility and regression corpus"
+    }
+  },
+  "cases": [
+    {
+      "case_id": "de-basic-hello-001",
+      "input_text": "Guten Tag!",
+      "normalized_text": "Guten Tag!",
+      "phonemes": "ɡˈuːtən tˈɑːk!",
+      "error": null
+    },
+    {
+      "case_id": "de-tech-file-001",
+      "input_text": "Ich kann das File downloaden.",
+      "normalized_text": "Ich kann das File downloaden.",
+      "phonemes": "ɪç kˌan das fˈIl dˈWnlQdən.",
+      "error": null
+    },
+    {
+      "case_id": "de-tech-github-001",
+      "input_text": "Ich nutze GitHub.",
+      "normalized_text": "Ich nutze GitHub.",
+      "phonemes": "ɪç nˈʊʦə ɡˈɪthab.",
+      "error": null
+    },
+    {
+      "case_id": "de-tech-cuda-001",
+      "input_text": "CUDA und PyTorch laufen.",
+      "normalized_text": "CUDA und PyTorch laufen.",
+      "phonemes": "kˈuːda ˈʊnt pˈaɪtɔːɹtʃ lˈWfən.",
+      "error": null
+    },
+    {
+      "case_id": "de-regression-manpower-001",
+      "input_text": "Die Manpowerdiskussion wird gecancelt.",
+      "normalized_text": "Die Manpowerdiskussion wird gecancelt.",
+      "phonemes": "diː mˌanpWɜdˌɪskʊsjˈoːn vˌɪɾt ɡəkˈankəlt.",
+      "error": null
+    },
+    {
+      "case_id": "de-regression-synthese-001",
+      "input_text": "Die Synthese ist stabil.",
+      "normalized_text": "Die Synthese ist stabil.",
+      "phonemes": "diː zyntˈeːzə ɪst ʃtabˈiːl.",
+      "error": null
+    }
+  ]
+}

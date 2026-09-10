@@ -1,0 +1,41 @@
+{
+  "id": "en-us-reference-v1",
+  "revision": "1",
+  "metadata": {
+    "language": "en-us",
+    "model": "1.0",
+    "provenance": "reviewed compatibility corpus"
+  },
+  "cases": [
+    {
+      "id": "en-us-basic-hello-001",
+      "text": "Hello, world!",
+      "policy": "exact",
+      "tags": ["basic"]
+    },
+    {
+      "id": "en-us-contraction-dont-001",
+      "text": "I don't know.",
+      "policy": "exact",
+      "tags": ["contraction"]
+    },
+    {
+      "id": "en-us-basic-number-001",
+      "text": "forty two",
+      "policy": "model-valid",
+      "tags": ["prepared"]
+    },
+    {
+      "id": "en-us-basic-doctor-001",
+      "text": "Doctor Smith is here.",
+      "policy": "diagnostic",
+      "tags": ["basic"]
+    },
+    {
+      "id": "en-us-technical-github-001",
+      "text": "I use GitHub.",
+      "policy": "model-valid",
+      "tags": ["technical", "foreign-word"]
+    }
+  ]
+}

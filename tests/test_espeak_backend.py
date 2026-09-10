@@ -47,6 +47,53 @@ def test_find_library_path_matches_versioned_soname(tmp_path, monkeypatch):
     assert _find_library_path(library) == mapped.resolve()
 
 
+def test_find_library_path_ignores_existing_managed_temp_copy(tmp_path, monkeypatch):
+    """Prefer a canonical mapping when a managed temp copy appears first."""
+    temp_root = tmp_path / "temp"
+    temp_copy = temp_root / "espeak_existing" / "libespeak-ng.so.1.1.51"
+    canonical = tmp_path / "usr" / "lib" / "libespeak-ng.so.1.1.51"
+    temp_copy.parent.mkdir(parents=True)
+    canonical.parent.mkdir(parents=True)
+    temp_copy.touch()
+    canonical.touch()
+
+    maps = (
+        f"00400000-00401000 r--p 00000000 00:00 0 {temp_copy}\n"
+        f"00500000-00501000 r--p 00000000 00:00 0 {canonical}\n"
+    )
+    original_read_text = Path.read_text
+
+    def read_text(path, *args, **kwargs):
+        if path == Path("/proc/self/maps"):
+            return maps
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(espeak_api, "HAS_DLINFO", False)
+    monkeypatch.setattr(espeak_api.tempfile, "gettempdir", lambda: str(temp_root))
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    library = type("DummyLibrary", (), {"_name": "libespeak-ng.so.1"})()
+
+    assert _find_library_path(library) == canonical.resolve()
+
+
+def test_text_to_phonemes_strips_boundary_whitespace():
+    """Direct C API output should be normalized at the boundaries."""
+
+    class DummyLib:
+        def __init__(self) -> None:
+            def _func(text_ptr, text_mode, phoneme_mode):
+                text_ptr.contents.value = None
+                return b" h_\xc9\x99_l_\xcb\x88o\xca\x8a "
+
+            self.espeak_TextToPhonemes = _func
+
+    library = EspeakLibrary.__new__(EspeakLibrary)
+    library._lib = DummyLib()  # type: ignore[assignment]
+
+    assert library.text_to_phonemes("hello") == "h_ə_l_ˈoʊ"
+
+
 @pytest.mark.espeak
 class TestEspeakBackend:
     """Tests for the EspeakBackend class."""

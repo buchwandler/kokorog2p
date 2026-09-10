@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "reference": {
+    "provider_id": "hexgrad-misaki",
+    "repository": "hexgrad/misaki",
+    "commit": "fba1236595f2d2bf21d414ba6e57d25256afada3",
+    "package_version": "0.9.4",
+    "frontend": "misaki.en.G2P",
+    "configuration": {
+      "language": "en-us",
+      "trf": false,
+      "british": false,
+      "fallback": "espeak.EspeakFallback"
+    }
+  },
+  "corpus": {
+    "id": "en-us-reference-v1",
+    "cases": [
+      {
+        "id": "en-us-basic-hello-001",
+        "text": "Hello, world!",
+        "policy": "exact",
+        "tags": ["basic"]
+      },
+      {
+        "id": "en-us-contraction-dont-001",
+        "text": "I don't know.",
+        "policy": "exact",
+        "tags": ["contraction"]
+      },
+      {
+        "id": "en-us-basic-number-001",
+        "text": "forty two",
+        "policy": "model-valid",
+        "tags": ["prepared"]
+      },
+      {
+        "id": "en-us-basic-doctor-001",
+        "text": "Doctor Smith is here.",
+        "policy": "diagnostic",
+        "tags": ["basic"]
+      },
+      {
+        "id": "en-us-technical-github-001",
+        "text": "I use GitHub.",
+        "policy": "model-valid",
+        "tags": ["technical", "foreign-word"]
+      }
+    ],
+    "revision": "1",
+    "generated": false,
+    "metadata": {
+      "language": "en-us",
+      "model": "1.0",
+      "provenance": "reviewed compatibility corpus"
+    }
+  },
+  "cases": [
+    {
+      "case_id": "en-us-basic-hello-001",
+      "input_text": "Hello, world!",
+      "normalized_text": null,
+      "phonemes": "həlˈO, wˈɜɹld!",
+      "error": null
+    },
+    {
+      "case_id": "en-us-contraction-dont-001",
+      "input_text": "I don't know.",
+      "normalized_text": null,
+      "phonemes": "ˌI dˈOnt nˈO.",
+      "error": null
+    },
+    {
+      "case_id": "en-us-basic-number-001",
+      "input_text": "forty two",
+      "normalized_text": null,
+      "phonemes": "fˈɔɹTi tˈu",
+      "error": null
+    },
+    {
+      "case_id": "en-us-basic-doctor-001",
+      "input_text": "Doctor Smith is here.",
+      "normalized_text": null,
+      "phonemes": "dˈɑktəɹ smˈɪθ ɪz hˈɪɹ.",
+      "error": null
+    },
+    {
+      "case_id": "en-us-technical-github-001",
+      "input_text": "I use GitHub.",
+      "normalized_text": null,
+      "phonemes": "ˌI jˈuz ɡˌɪthˈʌb.",
+      "error": null
+    }
+  ]
+}

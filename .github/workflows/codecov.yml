@@ -2,35 +2,63 @@ name: CodeCov
 
 on: push
 
+env:
+  KOKOROG2P_EXTERNAL_LEXPHON_DATA: "1"
+  LEXPHON_DATA_HOME: ${{ runner.temp }}/lexphon-data
+
 jobs:
   run:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Python
+
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - name: Configure Lexphon data home
-        run: echo "LEXPHON_DATA_HOME=${RUNNER_TEMP}/lexphon-data" >> "$GITHUB_ENV"
-      - name: Install espeak-ng
+          cache: pip
+
+      - name: Install eSpeak-ng
         run: |
           sudo apt-get update -o Acquire::Retries=3
           sudo apt-get install -y espeak-ng
-      - name: Install core test dependencies
-        run: python -m pip install -e ".[all,dev]"
-      - name: Run bounded core coverage
+
+      - name: Install test dependencies
         run: |
-          python tools/run_test_suite.py \
-            --profile core \
-            --batch-size 4 \
-            --max-rss-mb auto \
-            --coverage \
-            --junit-dir junit
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[all,dev]"
+          python -m pip check
+          python -m nltk.downloader cmudict
+          python -m spacy download en_core_web_sm
+
+      - name: Provision released Lexphon data
+        run: >-
+          lexphon data install
+          en-us:gold en-gb:gold fr-fr:gold
+          de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
+          sv-se:nst
+          ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint
+
+      - name: Verify released Lexphon data
+        run: >-
+          lexphon data verify
+          en-us:gold en-gb:gold fr-fr:gold
+          de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
+          sv-se:nst
+          ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint
+
+      - name: Run full pytest coverage
+        run: >-
+          python -m pytest
+          --cov=kokorog2p
+          --cov-report=xml
+          --junitxml=junit.xml
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/test-results-action@v1

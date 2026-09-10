@@ -2,375 +2,182 @@ name: Run tests
 
 on:
   push:
-  schedule:
-    - cron: "17 3 * * 6"
+  pull_request:
   workflow_dispatch:
 
 jobs:
-  compatibility-smoke:
-    name: Smoke (${{ matrix.os }}, Python ${{ matrix.python-version }})
+  pytest:
+    name: pytest (${{ matrix.os }}, Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - {os: ubuntu-latest, python-version: "3.10"}
-          - {os: ubuntu-latest, python-version: "3.11"}
-          - {os: ubuntu-latest, python-version: "3.12"}
-          - {os: ubuntu-latest, python-version: "3.13"}
-          - {os: ubuntu-latest, python-version: "3.14"}
-          - {os: windows-latest, python-version: "3.13"}
-          - {os: macos-latest, python-version: "3.13"}
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+        python-version:
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+
+    env:
+      KOKOROG2P_EXTERNAL_LEXPHON_DATA: "1"
+      LEXPHON_DATA_HOME: ${{ runner.temp }}/lexphon-data
+
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Python
+
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install espeak-ng (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
+          cache: pip
+
+      - name: Install eSpeak-ng (Ubuntu)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update -o Acquire::Retries=3
           sudo apt-get install -y espeak-ng
-      - name: Install espeak-ng (macOS)
-        if: matrix.os == 'macos-latest'
+
+      - name: Install eSpeak-ng (macOS)
+        if: runner.os == 'macOS'
         run: brew install espeak-ng
-      - name: Install espeak-ng (Windows)
-        if: matrix.os == 'windows-latest'
+
+      - name: Install eSpeak-ng (Windows)
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           choco install espeak-ng -y --no-progress
+
           $command = Get-Command espeak-ng -ErrorAction SilentlyContinue
           if ($null -eq $command) {
             $command = Get-Command espeak -ErrorAction SilentlyContinue
           }
-          $executable = if ($null -ne $command) { $command.Path } else { $null }
-          if ($null -eq $executable) {
+
+          if ($null -eq $command) {
             $roots = @(
               $env:ProgramFiles,
               [Environment]::GetEnvironmentVariable("ProgramFiles(x86)"),
               $env:ChocolateyInstall
             ) | Where-Object { $_ -and (Test-Path $_) }
-            $file = Get-ChildItem -Path $roots -Filter "espeak*.exe" -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+
+            $file = Get-ChildItem `
+              -Path $roots `
+              -Filter "espeak*.exe" `
+              -File `
+              -Recurse `
+              -ErrorAction SilentlyContinue |
+              Select-Object -First 1
+
             if ($null -ne $file) {
-              $executable = $file.FullName
+              $directory = Split-Path -Parent $file.FullName
+              Add-Content -Path $env:GITHUB_PATH -Value $directory
+              $env:PATH = "$directory;$env:PATH"
+              $command = Get-Command $file.FullName
             }
           }
-          if ($null -eq $executable) {
-            throw "Chocolatey installed eSpeak, but neither espeak-ng.exe nor espeak.exe was found."
-          }
-          $directory = Split-Path -Parent $executable
-          Add-Content -Path $env:GITHUB_PATH -Value $directory
-          $env:PATH = "$directory;$env:PATH"
-          & $executable --version
-      - name: Install smoke-test dependencies
-        shell: bash
-        run: python -m pip install -e ".[dev]"
-      - name: Compile executable examples
-        run: python -m compileall -q examples
-      - name: Run compatibility smoke tests
-        shell: bash
-        run: |
-          python -m pytest -q \
-            tests/test_attr_parser.py \
-            tests/test_base.py \
-            tests/test_dependency_contract.py \
-            tests/test_examples_contract.py
 
-  station-performance:
-    name: Scheduled station benchmark
-    if: github.event_name != 'push'
+          if ($null -eq $command) {
+            throw "eSpeak installation completed but no executable was found."
+          }
+
+          & $command.Path --version
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[all,dev]"
+          python -m pip check
+          python -m nltk.downloader cmudict
+          python -m spacy download en_core_web_sm
+
+      - name: Provision released Lexphon data
+        run: >-
+          lexphon data install
+          en-us:gold en-gb:gold fr-fr:gold
+          de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
+          sv-se:nst
+          ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint
+
+      - name: Verify released Lexphon data
+        run: >-
+          lexphon data verify
+          en-us:gold en-gb:gold fr-fr:gold
+          de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
+          sv-se:nst
+          ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint
+
+      - name: Run full pytest suite
+        run: python -m pytest
+
+  reference-compatibility:
+    name: reference compatibility (${{ matrix.provider }})
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - provider: hexgrad-en-us
+            reference: hexgrad-en-us-v1
+            candidate: en-us-default
+            corpus: en-us
+            package: "misaki[en] @ git+https://github.com/hexgrad/misaki.git@fba1236595f2d2bf21d414ba6e57d25256afada3"
+          - provider: hexgrad-en-gb
+            reference: hexgrad-en-gb-v1
+            candidate: en-gb-default
+            corpus: en-gb
+            package: "misaki[en] @ git+https://github.com/hexgrad/misaki.git@fba1236595f2d2bf21d414ba6e57d25256afada3"
+          - provider: semidark-de
+            reference: semidark-de-v1
+            candidate: de-default
+            corpus: de
+            package: "misaki[de] @ git+https://github.com/semidark/misaki.git@9cda9268309160120fffee216280a9ca83ac4644"
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Python
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
-      - name: Install system dependencies
+          python-version: "3.12"
+          cache: pip
+      - name: Install eSpeak-ng
         run: |
           sudo apt-get update -o Acquire::Retries=3
           sudo apt-get install -y espeak-ng
-      - name: Install benchmark dependencies
+      - name: Install KokoroG2P and pinned reference
         run: |
+          python -m pip install --upgrade pip
           python -m pip install -e ".[all,dev]"
-          python -m nltk.downloader cmudict
-          python -m spacy download en_core_web_sm
-      - name: Provision reviewed LexHint assets
+          python -m pip install "${{ matrix.package }}"
+      - name: Run pinned reference benchmark
         run: |
-          lexphon data install ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint de-de:lexhint
-          lexphon data verify ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint de-de:lexhint
-      - name: Run scaled station benchmark
-        run: |
-          python benchmarks/benchmark_all_stations.py \
-            --fallback on \
-            --runs 3 \
-            --corpus scaled \
-            --target-chars 2000 \
-            --call-shape paragraph \
-            --keep-going \
-            --json benchmark-results.json
-      - name: Upload station benchmark report
+          set +e
+          python benchmarks/benchmark_reference.py \
+            --reference "${{ matrix.reference }}" \
+            --candidate "${{ matrix.candidate }}" \
+            --corpus "${{ matrix.corpus }}" \
+            --json --output reference-results.json --fail-on regression
+          status=$?
+          if [ ! -f reference-results.json ]; then
+            printf '{"status":"benchmark failed before report generation"}\n' > reference-results.json
+          fi
+          exit $status
+      - name: Render Markdown diagnostics
+        if: always()
+        run: >-
+          python benchmarks/benchmark_reference.py
+          --reference "${{ matrix.reference }}"
+          --candidate "${{ matrix.candidate }}"
+          --corpus "${{ matrix.corpus }}"
+          --markdown --output reference-results.md || true
+      - name: Upload reference diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: station-benchmark-results
-          path: benchmark-results.json
-
-
-  full-suite:
-    name: Exhaustive isolated suite
-    env:
-      KOKOROG2P_EXTERNAL_LEXPHON_DATA: "1"
-      KOKOROG2P_TEST_EXTERNAL_LEXPHON_DATA: "1"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: Configure Lexphon data home
-        run: echo "LEXPHON_DATA_HOME=${RUNNER_TEMP}/lexphon-data" >> "$GITHUB_ENV"
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update -o Acquire::Retries=3
-          sudo apt-get install -y espeak-ng
-      - name: Install all test dependencies
-        run: |
-          python -m pip install -e ".[all,dev]"
-          python -m nltk.downloader cmudict
-          python -m spacy download en_core_web_sm
-      - name: Provision released English and French lexicons
-        run: |
-          lexphon data install en-us:gold en-gb:gold fr-fr:gold de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
-          lexphon data verify en-us:gold en-gb:gold fr-fr:gold de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
-      - name: Run the bounded full profile
-        run: python tools/run_test_suite.py --profile full --batch-size 4 --max-rss-mb auto --pytest-arg=-q
-
-  lower-bound:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: Install exact dependency floor
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install \
-            "g2lex==0.1.8" \
-            "lexphon==0.2.3"
-          python -m pip install -e ".[dev]"
-      - name: Run lower-bound core contract tests
-        run: python -m pytest -q tests/test_dependency_contract.py tests/test_semantic_ownership.py
-
-  spokenform-composition:
-    name: Spokenform composition (optional)
-    if: github.event_name != 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: Install released packages
-        run: |
-          python -m pip install -e .
-          python -m pip install "spokenform>=0.3.5,<0.4" pytest
-      - name: Run optional composition test
-        run: python -m pytest -q tests/test_spokenform_composition.py
-
-  integration:
-    if: github.event_name != 'push'
-    runs-on: ubuntu-latest
-    env:
-      KOKOROG2P_EXTERNAL_LEXPHON_DATA: "1"
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: Configure Lexphon data home
-        run: echo "LEXPHON_DATA_HOME=${RUNNER_TEMP}/lexphon-data" >> "$GITHUB_ENV"
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update -o Acquire::Retries=3
-          sudo apt-get install -y espeak-ng
-      - name: Install packages and routine model
-        run: |
-          python -m pip install -e "[all,dev]"
-          python -m spacy download en_core_web_sm
-          python -m nltk.downloader cmudict
-      - name: Provision released Lexphon integration data
-        run: |
-          lexphon data install en-us:gold en-gb:gold fr-fr:gold de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
-          lexphon data verify en-us:gold en-gb:gold fr-fr:gold de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
-      - name: Run the bounded integration profile
-        run: python tools/run_test_suite.py --profile full --include-integration --batch-size 2 --max-rss-mb auto --pytest-arg=-q
-  model-compatibility:
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: Install English model-test dependencies
-        run: python -m pip install -e ".[en,dev]"
-      - name: Download supported English models
-        run: |
-          python -m spacy download en_core_web_sm
-          python -m spacy download en_core_web_md
-      - name: Run narrow medium-model compatibility checks
-        run: |
-          python -m pytest -q -m spacy \
-            tests/test_en_g2p.py \
-            tests/test_normalization.py \
-            tests/test_tokenizer.py
-
-  minimal-install:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: Install core package only
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e .
-          python -m pip install pytest
-      - name: Run no-model smoke tests
-        run: python -m pytest -q tests/test_minimal_install.py tests/test_span_processing.py
-
-  cross-package:
-    if: github.event_name != 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: Install optional compatibility packages
-        run: |
-          python -m pip install -e .
-          python -m pip install pytest phrasplit==0.3.4 ssmd==0.8.0
-      - name: Run cross-package compatibility tests
-        run: python -m pytest -q tests/test_ssmd_phrasplit_integration.py
-
-  japanese-cutlet:
-    if: github.event_name != 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: Install Cutlet backend
-        run: python -m pip install -e ".[ja-cutlet,dev]"
-      - name: Run Japanese Cutlet smoke tests
-        run: python -m pytest -q tests/test_ja_g2p.py -k cutlet
-
-  japanese-cutlet-full-unidic:
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: Install full-UniDic backend
-        run: python -m pip install -e ".[ja-cutlet-full,dev]"
-      - name: Download UniDic
-        run: python -m unidic download
-      - name: Run Japanese Cutlet smoke tests
-        run: python -m pytest -q tests/test_ja_g2p.py -k cutlet
-
-  external-lexicons:
-    name: Released external English and French lexicons
-    if: github.event_name != 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: Install package and development dependencies
-        run: python -m pip install -e ".[dev]"
-      - name: Provision released Lexphon data
-        run: lexphon data install en-us:gold en-gb:gold fr-fr:gold
-      - name: Verify released Lexphon data
-        run: lexphon data verify en-us:gold en-gb:gold fr-fr:gold
-      - name: Build and inspect wheel and sdist
-        run: |
-          rm -rf dist
-          python -m build
-          python scripts/check_release_artifacts.py --wheel "$(ls dist/*.whl)" --sdist "$(ls dist/*.tar.gz)"
-      - name: Run external lexicon integration tests
-        run: |
-          python -m pytest -q \
-            tests/test_lexicon_registry.py \
-            tests/test_lexicon_selection.py \
-            tests/test_external_g2lex_runtime.py \
-            tests/test_en_lexicon.py \
-            tests/test_en_g2p.py \
-            tests/test_fr_g2p.py \
-            tests/test_markers.py \
-            tests/test_pipeline_api.py \
-            tests/test_public_api_consistency.py \
-            tests/test_quote_phonemes.py
-  lexhint-released-integration:
-    name: Released LexHint integration
-    if: github.event_name != 'push'
-    runs-on: ubuntu-latest
-    env:
-      KOKOROG2P_EXTERNAL_LEXPHON_DATA: "1"
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: Configure Lexphon data home
-        shell: bash
-        run: echo "LEXPHON_DATA_HOME=${RUNNER_TEMP}/lexphon-data" >> "$GITHUB_ENV"
-      - name: Install package and development dependencies
-        run: python -m pip install -e ".[dev]"
-      - name: Provision released LexHint data
-        run: |
-          lexphon data install \
-            ru:lexhint \
-            th:lexhint \
-            vi:lexhint \
-            ja:lexhint \
-            ko:lexhint \
-            pt:lexhint \
-            de-de:lexhint \
-            de-de:gold \
-            de-de:crane \
-            de-de:espeak \
-            de-de:olaph
-          lexphon data verify \
-            ru:lexhint \
-            th:lexhint \
-            vi:lexhint \
-            ja:lexhint \
-            ko:lexhint \
-            pt:lexhint \
-            de-de:lexhint \
-            de-de:gold \
-            de-de:crane \
-            de-de:espeak \
-            de-de:olaph
-      - name: Run released LexHint integration tests
-        run: python -m pytest -q tests/test_lexhint_released_integration.py
+          name: reference-results-${{ matrix.provider }}
+          path: |
+            reference-results.json
+            reference-results.md

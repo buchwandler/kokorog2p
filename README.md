@@ -242,16 +242,22 @@ abbreviation-registry calls.
 ## Development
 
 ```bash
-python -m pip install -e ".[dev]"
-python -m pytest -q
+python -m pip install -e ".[all,dev]"
+python -m pytest
 ```
 
-Bare pytest is the safe core selection. It excludes integration, spaCy, slow, and
-resource-heavy tests. Run broader coverage through the sequential, RSS-bounded runner:
+`python -m pytest` is the repository's complete test command. It does not implicitly
+exclude integration, spaCy, slow, or resource-heavy tests. For a deliberately reduced
+local run, select markers explicitly:
 
 ```bash
-python tools/run_test_suite.py --profile full --batch-size 4 --max-rss-mb auto
-python tools/run_test_suite.py --profile full --include-integration --max-rss-mb auto
+python -m pytest -m "not integration and not spacy and not slow and not resource_heavy"
 ```
 
-Provision released Lexphon data before dictionary-backed full or integration runs.
+Full integration coverage requires released Lexphon assets and the external-data flag:
+
+```bash
+export KOKOROG2P_EXTERNAL_LEXPHON_DATA=1
+lexphon data install en-us:gold en-gb:gold fr-fr:gold de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint sv-se:nst ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint
+lexphon data verify en-us:gold en-gb:gold fr-fr:gold de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint sv-se:nst ru:lexhint th:lexhint vi:lexhint ja:lexhint ko:lexhint pt:lexhint
+```

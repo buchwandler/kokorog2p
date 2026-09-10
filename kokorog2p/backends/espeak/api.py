@@ -72,12 +72,24 @@ def _find_library_path(lib: ctypes.CDLL) -> Path:
             pass
     if sys.platform == "linux":
         try:
+            candidates: list[Path] = []
             for line in pathlib.Path("/proc/self/maps").read_text().splitlines():
                 mapped = pathlib.Path(line.rsplit(maxsplit=1)[-1])
                 if (
                     mapped.name == name.name or mapped.name.startswith(f"{name.name}.")
                 ) and mapped.is_file():
-                    return mapped.resolve()
+                    candidate = mapped.resolve()
+                    if candidate not in candidates:
+                        candidates.append(candidate)
+            temp_root = pathlib.Path(tempfile.gettempdir()).resolve()
+            for candidate in candidates:
+                parent = candidate.parent
+                if not (
+                    parent.parent == temp_root and parent.name.startswith("espeak_")
+                ):
+                    return candidate
+            if candidates:
+                return candidates[0]
         except (OSError, ValueError):
             pass
     raise RuntimeError(f"Cannot determine path for library: {lib._name}")
@@ -361,4 +373,4 @@ class EspeakLibrary:
                 )
                 break
 
-        return " ".join(result_parts)
+        return " ".join(result_parts).strip()

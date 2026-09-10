@@ -1,0 +1,29 @@
+{
+  "id": "en-gb-reference-v1",
+  "revision": "1",
+  "metadata": {
+    "language": "en-gb",
+    "model": "1.0",
+    "provenance": "reviewed compatibility corpus"
+  },
+  "cases": [
+    {
+      "id": "en-gb-basic-hello-001",
+      "text": "Hello, world!",
+      "policy": "exact",
+      "tags": ["basic"]
+    },
+    {
+      "id": "en-gb-basic-number-001",
+      "text": "forty two",
+      "policy": "model-valid",
+      "tags": ["prepared"]
+    },
+    {
+      "id": "en-gb-basic-doctor-001",
+      "text": "Doctor Smith is here.",
+      "policy": "diagnostic",
+      "tags": ["basic"]
+    }
+  ]
+}

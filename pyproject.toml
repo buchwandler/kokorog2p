@@ -156,13 +156,15 @@ write_to = "kokorog2p/_version.py"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short -m 'not integration and not spacy and not slow and not resource_heavy'"
+addopts = "-v --tb=short -m 'not reference and not external_reference'"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "espeak: marks tests that require espeak-ng",
     "spacy: marks tests that require spaCy",
     "integration: tests requiring provisioned external Lexphon data",
     "resource_heavy: tests that intentionally initialize high-memory optional or native resources",
+    "reference: tests against an external pinned reference frontend",
+    "external_reference: requires an explicitly installed external reference package",
 ]
 
 [tool.ruff]

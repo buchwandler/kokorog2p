@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "reference": {
+    "provider_id": "hexgrad-misaki",
+    "repository": "hexgrad/misaki",
+    "commit": "fba1236595f2d2bf21d414ba6e57d25256afada3",
+    "package_version": "0.9.4",
+    "frontend": "misaki.en.G2P",
+    "configuration": {
+      "language": "en-gb",
+      "trf": false,
+      "british": true,
+      "fallback": "espeak.EspeakFallback"
+    }
+  },
+  "corpus": {
+    "id": "en-gb-reference-v1",
+    "cases": [
+      {
+        "id": "en-gb-basic-hello-001",
+        "text": "Hello, world!",
+        "policy": "exact",
+        "tags": ["basic"]
+      },
+      {
+        "id": "en-gb-basic-number-001",
+        "text": "forty two",
+        "policy": "model-valid",
+        "tags": ["prepared"]
+      },
+      {
+        "id": "en-gb-basic-doctor-001",
+        "text": "Doctor Smith is here.",
+        "policy": "diagnostic",
+        "tags": ["basic"]
+      }
+    ],
+    "revision": "1",
+    "generated": false,
+    "metadata": {
+      "language": "en-gb",
+      "model": "1.0",
+      "provenance": "reviewed compatibility corpus"
+    }
+  },
+  "cases": [
+    {
+      "case_id": "en-gb-basic-hello-001",
+      "input_text": "Hello, world!",
+      "normalized_text": null,
+      "phonemes": "həlˈQ, wˈɜːld!",
+      "error": null
+    },
+    {
+      "case_id": "en-gb-basic-number-001",
+      "input_text": "forty two",
+      "normalized_text": null,
+      "phonemes": "fˈɔːti tˈuː",
+      "error": null
+    },
+    {
+      "case_id": "en-gb-basic-doctor-001",
+      "input_text": "Doctor Smith is here.",
+      "normalized_text": null,
+      "phonemes": "dˈɒktə smˈɪθ ɪz hˈɪə.",
+      "error": null
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "id": "de-semidark-reference-v1",
+  "revision": "1",
+  "metadata": {
+    "language": "de",
+    "model": "1.0",
+    "provenance": "reviewed compatibility and regression corpus"
+  },
+  "cases": [
+    {
+      "id": "de-basic-hello-001",
+      "text": "Guten Tag!",
+      "policy": "exact",
+      "tags": ["basic"]
+    },
+    {
+      "id": "de-tech-file-001",
+      "text": "Ich kann das File downloaden.",
+      "policy": "model-valid",
+      "tags": ["technical", "foreign-word", "historical-regression"]
+    },
+    {
+      "id": "de-tech-github-001",
+      "text": "Ich nutze GitHub.",
+      "policy": "model-valid",
+      "tags": ["technical", "foreign-word"]
+    },
+    {
+      "id": "de-tech-cuda-001",
+      "text": "CUDA und PyTorch laufen.",
+      "policy": "diagnostic",
+      "tags": ["technical", "historical-regression"]
+    },
+    {
+      "id": "de-regression-manpower-001",
+      "text": "Die Manpowerdiskussion wird gecancelt.",
+      "policy": "diagnostic",
+      "tags": ["historical-regression", "mixed-language"]
+    },
+    {
+      "id": "de-regression-synthese-001",
+      "text": "Die Synthese ist stabil.",
+      "policy": "diagnostic",
+      "tags": ["historical-regression"]
+    }
+  ]
+}

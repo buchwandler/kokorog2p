@@ -79,19 +79,23 @@ Spokenform is not a core or core-test dependency.
 ## Development installation
 
 ```bash
-python -m pip install -e ".[dev]"
-python -m pytest -q
+python -m pip install -e ".[all,dev]"
+python -m pytest
 ```
 
-Bare pytest uses the safe core selection. It excludes integration, spaCy, slow, and
-resource-heavy tests. Use the canonical bounded runner for broader execution:
+`python -m pytest` runs the complete suite, including integration, spaCy, slow, and
+resource-heavy tests. To run a deliberately reduced local selection, choose the marker
+expression explicitly:
 
 ```bash
-python tools/run_test_suite.py --profile full --batch-size 4 --max-rss-mb auto
-python tools/run_test_suite.py --profile full --include-integration --max-rss-mb auto
+python -m pytest -m "not integration and not spacy and not slow and not resource_heavy"
 ```
 
-The full and integration profiles require the released Lexphon data listed above. Use
-`--list-plan` to inspect the deterministic plan before execution. Coverage runs through
-the same sequential runner with `--coverage`; it combines subprocess data before
-producing `coverage.xml`.
+Full and integration tests require the released Lexphon assets listed above and the
+external-data flag:
+
+```bash
+export KOKOROG2P_EXTERNAL_LEXPHON_DATA=1
+```
+
+Set `LEXPHON_DATA_HOME` when data must live in an isolated image or CI workspace.

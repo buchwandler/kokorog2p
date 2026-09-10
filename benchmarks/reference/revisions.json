@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "providers": {
+    "hexgrad-misaki": {
+      "repository": "hexgrad/misaki",
+      "commit": "fba1236595f2d2bf21d414ba6e57d25256afada3",
+      "package_name": "misaki",
+      "package_version": "0.9.4"
+    },
+    "semidark-misaki": {
+      "repository": "semidark/misaki",
+      "commit": "9cda9268309160120fffee216280a9ca83ac4644",
+      "package_name": "misaki",
+      "package_version": "0.9.4"
+    }
+  }
+}
