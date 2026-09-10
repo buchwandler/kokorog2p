@@ -59,29 +59,25 @@ PHONEMES_TIE = 0x80
 
 
 def _find_library_path(lib: ctypes.CDLL) -> Path:
-    """Get the absolute path of a loaded shared library.
-
-    Args:
-        lib: A loaded ctypes CDLL instance.
-
-    Returns:
-        Absolute path to the library file.
-
-    Raises:
-        RuntimeError: If the library path cannot be determined.
-    """
-    # Try the _name attribute first (works on Windows and sometimes Linux)
-    name_path = pathlib.Path(lib._name).resolve()
-    if name_path.is_file():
-        return name_path
-
-    # On Linux/MacOS, use dlinfo if available
+    """Get the absolute path of a loaded shared library."""
+    name = pathlib.Path(lib._name)
+    if name.is_file():
+        return name.resolve()
     if HAS_DLINFO:
         try:
-            return pathlib.Path(dlinfo.DLInfo(lib).path).resolve()
-        except Exception:  # noqa: S110
+            path = pathlib.Path(dlinfo.DLInfo(lib).path)
+            if path.is_file():
+                return path.resolve()
+        except (OSError, RuntimeError, ValueError):
             pass
-
+    if sys.platform == "linux":
+        try:
+            for line in pathlib.Path("/proc/self/maps").read_text().splitlines():
+                mapped = pathlib.Path(line.rsplit(maxsplit=1)[-1])
+                if mapped.name == name.name and mapped.is_file():
+                    return mapped.resolve()
+        except (OSError, ValueError):
+            pass
     raise RuntimeError(f"Cannot determine path for library: {lib._name}")
 
 

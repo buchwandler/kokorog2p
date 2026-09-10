@@ -120,6 +120,9 @@ jobs:
 
   full-suite:
     name: Exhaustive isolated suite
+    env:
+      KOKOROG2P_TEST_EXTERNAL_LEXPHON_DATA: "1"
+      LEXPHON_DATA_HOME: /home/runner/.local/share/lexphon
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -136,6 +139,10 @@ jobs:
           python -m pip install -e ".[all,dev]"
           python -m nltk.downloader cmudict
           python -m spacy download en_core_web_sm
+      - name: Provision released English and French lexicons
+        run: |
+          lexphon data install en-us:gold en-gb:gold fr-fr:gold de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
+          lexphon data verify en-us:gold en-gb:gold fr-fr:gold de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
       - name: Assert the isolated runner covers every test module
         run: python -m pytest -q tests/test_memory_regressions.py
       - name: Run every test module in a fresh subprocess
