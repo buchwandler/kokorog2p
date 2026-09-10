@@ -29,6 +29,7 @@ jobs:
         run: |
           rm -rf dist
           python -m build
+          python -m pip install "$(find dist -maxdepth 1 -name '*.whl' -print -quit)"
           python scripts/check_release_artifacts.py \
             --wheel "$(find dist -maxdepth 1 -name '*.whl' -print -quit)" \
             --sdist "$(find dist -maxdepth 1 -name '*.tar.gz' -print -quit)" \
