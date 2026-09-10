@@ -22,6 +22,7 @@ def test_dlinfo_is_optional_on_android():
     """Android's libdl must not be treated as glibc's dlinfo implementation."""
     if sys.platform == "android":
         from kokorog2p.backends.espeak.wrapper import find_espeak_library
+
         assert HAS_DLINFO is False
         assert find_espeak_library().endswith(".so")
 
