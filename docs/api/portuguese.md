@@ -24,7 +24,11 @@ for token in tokens:
     print(f"{token.text} -> {token.phonemes}")
 ```
 
-Known words are checked against the provisioned Lexphon `pt:lexhint` dictionary for Brazilian Portuguese and `pt-pt:lexhint` for European Portuguese before productive dialect rules. Missing or invalid dictionary data uses the existing rule-based path; KokoroG2P never downloads the dictionaries:
+Known words are checked against the provisioned Lexphon `pt:lexhint` dictionary for
+Brazilian Portuguese and `pt-pt:lexhint` for European Portuguese before productive
+dialect rules. Missing or invalid dictionary data uses the existing rule-based path;
+KokoroG2P never downloads the dictionaries:
+
 ```bash
 lexphon data install pt:lexhint pt-pt:lexhint
 lexphon data verify pt:lexhint pt-pt:lexhint

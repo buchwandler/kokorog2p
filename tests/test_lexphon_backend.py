@@ -137,6 +137,7 @@ def test_portuguese_regional_profile_and_asset_id(
     finally:
         backend.close()
 
+
 def test_provider_token_does_not_become_lexicon_evidence() -> None:
     provider_token = PronunciationToken(
         text="File",

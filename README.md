@@ -268,5 +268,6 @@ lexphon data verify en-us:gold en-gb:gold fr-fr:gold de-de:gold de-de:crane de-d
 ```
 
 The Portuguese assets are dialect-specific:
+
 - `pt:lexhint` is the current Brazilian Portuguese evidence.
 - `pt-pt:lexhint` is the European Portuguese evidence.

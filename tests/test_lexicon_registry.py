@@ -18,6 +18,7 @@ def test_portuguese_lexhint_assets_are_dialect_specific() -> None:
     assert get_lexicon_spec("pt-br", "lexhint").id == "pt:lexhint"
     assert get_lexicon_spec("pt-pt", "lexhint").id == "pt-pt:lexhint"
 
+
 def test_unrelated_external_lexicons_remain_available() -> None:
     assert available_lexicons("de") == ("gold", "crane", "espeak", "olaph", "lexhint")
     assert available_lexicons("ja") == ("lexhint",)

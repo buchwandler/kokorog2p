@@ -70,6 +70,7 @@ def _lexphon_profiles(language: str) -> ProfileRegistry | None:
         )
     )
 
+
 def _lexphon_ids(language: str, names: Sequence[str]) -> tuple[str, ...]:
     """Resolve selected logical lexicon names through the central registry."""
     ids: list[str] = []
