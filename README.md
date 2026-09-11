@@ -1,6 +1,7 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/kokorog2p)](https://pypi.org/project/kokorog2p/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/kokorog2p)
-![PyPI - Downloads](https://img.shields.io/pypi/dm/kokorogp2)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/kokorog2p)
+[![codecov](https://codecov.io/gh/buchwandler/kokorog2p/graph/badge.svg?token=Gwtvt2evrG)](https://codecov.io/gh/buchwandler/kokorog2p)
 
 # kokorog2p
 
