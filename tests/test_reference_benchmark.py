@@ -69,6 +69,17 @@ def test_exact_and_normalized_agreement_are_independent() -> None:
     assert len(summary.difference_samples) == 1
 
 
+def test_normalized_agreement_ignores_comma_spacing() -> None:
+    case = _case("comma", policy="normalized")
+    summary = compare_results(
+        [case],
+        [CandidateOutput("comma", "hello", phonemes="həlˈO,wˈɜɹld!")],
+        [ReferenceOutput("comma", "hello", phonemes="həlˈO, wˈɜɹld!")],
+    )
+    assert summary.policy_passed == 1
+    assert summary.policy_failed == 0
+
+
 def test_difference_count_is_not_truncated() -> None:
     cases = [_case(str(index), str(index)) for index in range(4)]
     candidate = [CandidateOutput(case.id, case.text, phonemes="a") for case in cases]

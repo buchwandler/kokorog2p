@@ -19,13 +19,13 @@
       {
         "id": "en-us-basic-hello-001",
         "text": "Hello, world!",
-        "policy": "exact",
+        "policy": "normalized",
         "tags": ["basic"]
       },
       {
         "id": "en-us-contraction-dont-001",
         "text": "I don't know.",
-        "policy": "exact",
+        "policy": "model-valid",
         "tags": ["contraction"]
       },
       {

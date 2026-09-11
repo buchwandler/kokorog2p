@@ -10,7 +10,7 @@
     {
       "id": "en-gb-basic-hello-001",
       "text": "Hello, world!",
-      "policy": "exact",
+      "policy": "normalized",
       "tags": ["basic"]
     },
     {

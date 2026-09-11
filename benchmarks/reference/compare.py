@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import unicodedata
 from collections import Counter
 from collections.abc import Iterable, Sequence
@@ -34,7 +35,8 @@ def _index_unique(values: Sequence[T], label: str) -> dict[str, T]:
 
 
 def _normalized(value: str) -> str:
-    return " ".join(unicodedata.normalize("NFC", value).split())
+    value = " ".join(unicodedata.normalize("NFC", value).split())
+    return re.sub(r"\s*,\s*", ",", value)
 
 
 def _symbols(value: str) -> str:
