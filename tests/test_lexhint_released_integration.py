@@ -17,7 +17,7 @@ from kokorog2p.lexicons.lexphon_backend import LexphonBackend
 )
 def test_released_lexhint_assets_are_usable() -> None:
     store = DataStore()
-    for language in ("ru-ru", "th-th", "vi-vn", "ja-jp", "ko-kr", "pt-br"):
+    for language in ("ru-ru", "th-th", "vi-vn", "ja-jp", "ko-kr", "pt-br", "pt-pt"):
         backend = LexphonBackend(language, ("lexhint",), store=store)
         try:
             assert len(backend) > 0, language

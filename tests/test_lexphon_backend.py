@@ -12,7 +12,7 @@ from lexphon import (
 )
 
 import kokorog2p.lexicons.lexphon_backend as backend_module
-from kokorog2p.lexicons.lexphon_backend import LexphonBackend
+from kokorog2p.lexicons.lexphon_backend import LexphonBackend, to_lexphon_language
 
 
 class _FakePhonemizer:
@@ -112,6 +112,30 @@ def test_swedish_backend_resolves_registry_external_id() -> None:
     finally:
         backend.close()
 
+
+def test_portuguese_regional_profile_and_asset_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created: dict[str, object] = {}
+
+    class ConstructedFake(_FakePhonemizer):
+        def __init__(self, language: str, **kwargs: object) -> None:
+            super().__init__()
+            created["language"] = language
+            created.update(kwargs)
+
+    monkeypatch.setattr(backend_module, "Phonemizer", ConstructedFake)
+    backend = LexphonBackend("pt-pt", ("lexhint",))
+    try:
+        backend.lookup_token("olá")
+        profiles = created["profiles"]
+        assert created["language"] == "pt-PT"
+        assert backend.ids == ("pt-pt:lexhint",)
+        assert profiles is not None
+        assert profiles.resolve("pt-pt").language == "pt-PT"
+        assert to_lexphon_language("pt-br") == "pt"
+    finally:
+        backend.close()
 
 def test_provider_token_does_not_become_lexicon_evidence() -> None:
     provider_token = PronunciationToken(

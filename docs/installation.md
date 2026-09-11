@@ -51,9 +51,11 @@ lexphon data verify de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhin
 Released LexHint layers for other frontends are provisioned in the same way:
 
 ```bash
-lexphon data install ru:lexhint th:lexhint-native vi:lexhint ja:lexhint ko:lexhint pt:lexhint
-lexphon data verify ru:lexhint th:lexhint-native vi:lexhint ja:lexhint ko:lexhint pt:lexhint
+lexphon data install ru:lexhint th:lexhint-native vi:lexhint ja:lexhint ko:lexhint pt:lexhint pt-pt:lexhint
+lexphon data verify ru:lexhint th:lexhint-native vi:lexhint ja:lexhint ko:lexhint pt:lexhint pt-pt:lexhint
 ```
+
+The Portuguese layers remain separate: `pt:lexhint` is Brazilian Portuguese evidence, and `pt-pt:lexhint` is European Portuguese evidence.
 
 Set `LEXPHON_DATA_HOME` when data must live in an isolated image or CI workspace.
 Integration tests additionally require `KOKOROG2P_EXTERNAL_LEXPHON_DATA=1`.

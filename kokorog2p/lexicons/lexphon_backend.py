@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from lexphon import DataStore, LexiconNotInstalledError, Phonemizer, PronunciationToken
+from lexphon.profiles import LanguageProfile, ProfileRegistry
 
 from kokorog2p.base import FallbackProvider
 from kokorog2p.language_codes import normalize_language_code
@@ -41,7 +42,7 @@ _LEXPHON_LANGUAGE_ALIASES = {
     "ja-jp": "ja",
     "ko-kr": "ko",
     "pt-br": "pt",
-    "pt-pt": "pt",
+    "pt-pt": "pt-PT",
     "cs-cz": "cs-cz",
 }
 
@@ -51,6 +52,23 @@ def to_lexphon_language(language: str) -> str:
     canonical = normalize_language_code(language)
     return _LEXPHON_LANGUAGE_ALIASES.get(canonical, canonical)
 
+
+def _lexphon_profiles(language: str) -> ProfileRegistry | None:
+    """Provide the regional Portuguese profile required by released Lexphon data."""
+    if language != "pt-pt":
+        return None
+    return ProfileRegistry(
+        (
+            LanguageProfile(
+                language="pt-PT",
+                aliases=("pt-pt",),
+                default_lexicons=(),
+                case_candidates=("exact", "lower"),
+                unicode_normalization="NFC",
+                apostrophe_normalization="ascii",
+            ),
+        )
+    )
 
 def _lexphon_ids(language: str, names: Sequence[str]) -> tuple[str, ...]:
     """Resolve selected logical lexicon names through the central registry."""
@@ -99,6 +117,7 @@ class LexphonBackend:
                     lexicons=list(self.ids),
                     store=self.store,
                     fallback=self.fallback_provider,
+                    profiles=_lexphon_profiles(self.language),
                 )
             except LexiconNotInstalledError as exc:
                 if not self.ids:

@@ -78,7 +78,7 @@ _EXTERNAL_SPECS_BY_LANGUAGE: dict[str, tuple[LexiconSpec, ...]] = {
     "ja-jp": (_external_spec("ja-jp", "lexhint", external_language="ja"),),
     "ko-kr": (_external_spec("ko-kr", "lexhint", external_language="ko"),),
     "pt-br": (_external_spec("pt-br", "lexhint", external_language="pt"),),
-    "pt-pt": (_external_spec("pt-pt", "lexhint", external_language="pt"),),
+    "pt-pt": (_external_spec("pt-pt", "lexhint"),),
 }
 
 _EXTERNAL_SPECS: tuple[LexiconSpec, ...] = tuple(

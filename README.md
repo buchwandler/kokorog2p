@@ -263,6 +263,10 @@ Full integration coverage requires released Lexphon assets and the external-data
 
 ```bash
 export KOKOROG2P_EXTERNAL_LEXPHON_DATA=1
-lexphon data install en-us:gold en-gb:gold fr-fr:gold de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint sv-se:nst ru:lexhint th:lexhint-native vi:lexhint ja:lexhint ko:lexhint pt:lexhint
-lexphon data verify en-us:gold en-gb:gold fr-fr:gold de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint sv-se:nst ru:lexhint th:lexhint-native vi:lexhint ja:lexhint ko:lexhint pt:lexhint
+lexphon data install en-us:gold en-gb:gold fr-fr:gold de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint sv-se:nst ru:lexhint th:lexhint-native vi:lexhint ja:lexhint ko:lexhint pt:lexhint pt-pt:lexhint
+lexphon data verify en-us:gold en-gb:gold fr-fr:gold de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint sv-se:nst ru:lexhint th:lexhint-native vi:lexhint ja:lexhint ko:lexhint pt:lexhint pt-pt:lexhint
 ```
+
+The Portuguese assets are dialect-specific:
+- `pt:lexhint` is the current Brazilian Portuguese evidence.
+- `pt-pt:lexhint` is the European Portuguese evidence.

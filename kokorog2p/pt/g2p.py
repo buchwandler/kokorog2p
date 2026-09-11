@@ -155,6 +155,7 @@ class PortugueseG2P(G2PBase):
             else None
         )
         self._last_source = "rules"
+        self._last_lexicon_id: str | None = None
 
     def __call__(self, text: str) -> list[GToken]:
         """Convert text to a list of tokens with phonemes.
@@ -189,7 +190,8 @@ class PortugueseG2P(G2PBase):
                     token.rating = "5" if self._last_source == "lexicon" else "3"
                     if self._last_source == "lexicon":
                         token.set("source", "lexicon")
-                        token.set("lexicon_id", "pt:lexhint")
+                        if self._last_lexicon_id is not None:
+                            token.set("lexicon_id", self._last_lexicon_id)
 
         # Handle remaining unknown words
         for token in tokens:
@@ -657,18 +659,24 @@ class PortugueseG2P(G2PBase):
 
         return [], i, False
 
-    def _lexhint_phonemes(self, word: str) -> str | None:
+    def _lexhint_phonemes(self, word: str) -> tuple[str, str] | None:
         if self._lexphon is None:
             return None
         try:
             token = self._lexphon.lookup(word)
         except LexiconNotInstalledError:
             return None
-        if token is None or not token.known or token.pronunciation is None:
+        if (
+            token is None
+            or token.source != "lexicon"
+            or not token.known
+            or token.pronunciation is None
+            or token.lexicon_id is None
+        ):
             return None
         phonemes = unicodedata.normalize("NFC", token.pronunciation)
         valid, _invalid = validate_for_kokoro(phonemes, model=self.version)
-        return phonemes if valid else None
+        return (phonemes, str(token.lexicon_id)) if valid else None
 
     def _word_to_phonemes(self, word: str) -> str:
         """Convert a single word to phonemes.
@@ -683,6 +691,7 @@ class PortugueseG2P(G2PBase):
             return ""
 
         self._last_source = "rules"
+        self._last_lexicon_id = None
         # Check lexicon first
         word_lower = word.lower()
         if word_lower in self._LEXICON:
@@ -694,7 +703,8 @@ class PortugueseG2P(G2PBase):
         lexhint = self._lexhint_phonemes(word_lower)
         if lexhint is not None:
             self._last_source = "lexicon"
-            return lexhint
+            phonemes, self._last_lexicon_id = lexhint
+            return phonemes
 
         # Convert to lowercase for processing
         text = word.lower()

@@ -151,7 +151,7 @@ jobs:
           en-us:gold en-gb:gold fr-fr:gold
           de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
           sv-se:nst
-          ru:lexhint th:lexhint-native vi:lexhint ja:lexhint ko:lexhint pt:lexhint
+          ru:lexhint th:lexhint-native vi:lexhint ja:lexhint ko:lexhint pt:lexhint pt-pt:lexhint
 
       - name: Verify released Lexphon data
         run: >-
@@ -159,7 +159,7 @@ jobs:
           en-us:gold en-gb:gold fr-fr:gold
           de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
           sv-se:nst
-          ru:lexhint th:lexhint-native vi:lexhint ja:lexhint ko:lexhint pt:lexhint
+          ru:lexhint th:lexhint-native vi:lexhint ja:lexhint ko:lexhint pt:lexhint pt-pt:lexhint
 
       - name: Run full pytest suite
         run: python -m pytest

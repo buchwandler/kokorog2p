@@ -14,6 +14,10 @@ def test_consolidated_english_and_french_registry() -> None:
     assert get_lexicon_spec("fr-fr", "gold").id == "fr-fr:gold"
 
 
+def test_portuguese_lexhint_assets_are_dialect_specific() -> None:
+    assert get_lexicon_spec("pt-br", "lexhint").id == "pt:lexhint"
+    assert get_lexicon_spec("pt-pt", "lexhint").id == "pt-pt:lexhint"
+
 def test_unrelated_external_lexicons_remain_available() -> None:
     assert available_lexicons("de") == ("gold", "crane", "espeak", "olaph", "lexhint")
     assert available_lexicons("ja") == ("lexhint",)
@@ -26,6 +30,7 @@ def test_defaults_and_explicit_selection() -> None:
     assert normalize_lexicon_selection("en-us", "gold") == ("gold",)
     assert normalize_lexicon_selection("en-us", ("gold",)) == ("gold",)
     assert normalize_lexicon_selection("en-us", ()) == ()
+    assert normalize_lexicon_selection("pt-pt", None) == ("lexhint",)
 
 
 def test_silver_is_not_an_english_option() -> None:

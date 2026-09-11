@@ -1,5 +1,7 @@
 """Tests for Brazilian Portuguese G2P."""
 
+import os
+
 import pytest
 
 from kokorog2p.phonemes import PT_BR_VOCAB
@@ -188,3 +190,42 @@ class TestPortugueseG2P:
                     assert char in PT_BR_VOCAB or char in '!?.,;:—…"()❓-', (
                         f"Invalid phoneme '{char}' in word '{word}' -> '{phonemes}'"
                     )
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(
+    not os.environ.get("KOKOROG2P_EXTERNAL_LEXPHON_DATA"),
+    reason="released Lexphon data is not provisioned",
+)
+def test_released_portuguese_assets_drive_dialect_specific_provenance() -> None:
+    european = PortugueseG2P(language="pt-pt", use_spacy=False)
+    brazilian = PortugueseG2P(language="pt-br", use_spacy=False)
+    try:
+        assert european.dialect == "pt"
+        assert european._lexphon is not None
+        assert european._lexphon.ids == ("pt-pt:lexhint",)
+        european_hit = european._lexphon.lookup_lexicon_token("olá")
+        assert european_hit is not None
+        assert european_hit.source == "lexicon"
+        assert european_hit.lexicon_id == "pt-pt:lexhint"
+        european_token = next(token for token in european("olá") if token.is_word)
+        assert european_token.phonemes == european_hit.pronunciation
+        assert european_token.get("lexicon_id") == "pt-pt:lexhint"
+
+        assert brazilian._lexphon is not None
+        assert brazilian._lexphon.ids == ("pt:lexhint",)
+        brazilian_token = next(token for token in brazilian("olá") if token.is_word)
+        assert brazilian_token.get("lexicon_id") == "pt:lexhint"
+    finally:
+        european.close()
+        brazilian.close()
+
+
+def test_rule_fallback_does_not_report_lexicon_provenance() -> None:
+    g2p = PortugueseG2P(language="pt-pt", lexicons=(), use_spacy=False)
+    try:
+        token = next(token for token in g2p("olá") if token.is_word)
+        assert token.get("source") is None
+        assert token.get("lexicon_id") is None
+    finally:
+        g2p.close()
