@@ -43,6 +43,7 @@ def test_find_espeak_library_falls_back_to_cli_install_prefix(
     library.touch()
 
     monkeypatch.delenv(espeak_wrapper.ENV_LIBRARY_PATH, raising=False)
+    monkeypatch.delenv(espeak_wrapper.ENV_EXECUTABLE_PATH, raising=False)
     monkeypatch.setitem(sys.modules, "espeakng_loader", None)
     monkeypatch.setattr(espeak_wrapper.ctypes.util, "find_library", lambda _name: None)
     monkeypatch.setattr(
@@ -137,6 +138,7 @@ def test_find_espeak_library_reports_missing_library(monkeypatch):
     from kokorog2p.backends.espeak import wrapper as espeak_wrapper
 
     monkeypatch.delenv(espeak_wrapper.ENV_LIBRARY_PATH, raising=False)
+    monkeypatch.delenv(espeak_wrapper.ENV_EXECUTABLE_PATH, raising=False)
     monkeypatch.setitem(sys.modules, "espeakng_loader", None)
     monkeypatch.setattr(espeak_wrapper.ctypes.util, "find_library", lambda _name: None)
     monkeypatch.setattr(espeak_wrapper.shutil, "which", lambda _name: None)
@@ -691,12 +693,15 @@ class TestVoiceListing:
 
         p = Phonemizer()
         mbrola = p.list_voices("mbrola")
-        espeak = p.list_voices()
+        all_voices = p.list_voices()
 
         if mbrola:
-            espeak_ids = {v.identifier for v in espeak}
-            mbrola_ids = {v.identifier for v in mbrola}
-            assert not espeak_ids.intersection(mbrola_ids)
+            normalize = EspeakPhonemizerBase._normalize_voice_code
+            all_ids = {normalize(v.identifier) for v in all_voices}
+            mbrola_ids = {normalize(v.identifier) for v in mbrola}
+
+            assert mbrola_ids <= all_ids
+            assert all(identifier.startswith("mb/") for identifier in mbrola_ids)
 
 
 @pytest.mark.espeak

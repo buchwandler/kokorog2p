@@ -43,7 +43,8 @@ def test_language_config_and_pinned_url() -> None:
 def test_load_test_tsv_preserves_spelling_and_line_numbers(tmp_path: Path) -> None:
     path = tmp_path / "test.tsv"
     path.write_text(
-        "apostrophe's\tɑ\n50-Franken-Noten\ta\nAstronomischen Kalender\ti\nҚазақ\tu\n"
+        "apostrophe's\tɑ\n50-Franken-Noten\ta\nAstronomischen Kalender\ti\nҚазақ\tu\n",
+        encoding="utf-8",
     )
     entries = load_test_tsv(path)
     assert entries == [
@@ -59,22 +60,22 @@ def test_load_test_tsv_rejects_wrong_field_count(
     tmp_path: Path, content: str, fields: int
 ) -> None:
     path = tmp_path / "bad.tsv"
-    path.write_text(content + "\n")
-    with pytest.raises(
-        ValueError, match=rf"{path}:1: expected 2 tab-separated fields, got {fields}"
-    ):
+    path.write_text(content + "\n", encoding="utf-8")
+    expected = f"{path}:1: expected 2 tab-separated fields, got {fields}"
+    with pytest.raises(ValueError) as exc_info:
         load_test_tsv(path)
+    assert str(exc_info.value) == expected
 
 
 def test_load_normalizer_ref_parses_empty_values_and_ids(tmp_path: Path) -> None:
     path = tmp_path / "normalizer.tsv"
-    path.write_text("\t\t0,0\na\tb\t43,0\n")
+    path.write_text("\t\t0,0\na\tb\t43,0\n", encoding="utf-8")
     assert load_normalizer_ref(path) == [
         NormalizerReference("", "", (0, 0), 1),
         NormalizerReference("a", "b", (43, 0), 2),
     ]
 
-    path.write_text("a\tb\tnot-an-int\n")
+    path.write_text("a\tb\tnot-an-int\n", encoding="utf-8")
     with pytest.raises(ValueError, match="invalid comma-separated token IDs"):
         load_normalizer_ref(path)
 
