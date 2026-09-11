@@ -1,3 +1,7 @@
+[![PyPI - Version](https://img.shields.io/pypi/v/kokorog2p)](https://pypi.org/project/kokorog2p/)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/kokorog2p)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/kokorogp2)
+
 # kokorog2p
 
 Multilingual grapheme-to-phoneme and Kokoro model adaptation for prepared text.
