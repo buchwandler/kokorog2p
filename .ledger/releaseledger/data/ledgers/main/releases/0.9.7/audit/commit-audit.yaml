@@ -1,0 +1,121 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 3
+release_version: 0.9.7
+git_base_ref: v0.9.6
+git_base_sha: 5d7f0ca9afe1d305924374a4ce6808e5709991f5
+git_head_ref: HEAD
+git_head_sha: 695672cab3c126d54903ffedebbe0501e084813d
+git_range: 5d7f0ca9afe1d305924374a4ce6808e5709991f5..695672cab3c126d54903ffedebbe0501e084813d
+commit_count: 3
+rows:
+  - sha: ea046852b243da6b5240006d11c5f5baed602d02
+    source_ref: git:ea046852b243da6b5240006d11c5f5baed602d02
+    short_sha: ea04685
+    changed_paths:
+      - README.md
+    stats:
+      files_changed: 0
+      insertions: 2
+      deletions: 1
+    inspected: true
+    inspected_paths:
+      - README.md
+    observed_behavior:
+      README now exposes a working PyPI download badge and a Codecov coverage badge.
+    public_impact: docs
+    decision: accepted
+    stale: false
+    evidence_subject: "doc: add batches"
+    target_entry_key: readme-badges
+    target_entry_id: entry-0001
+    notes: Public README documentation and project visibility improvements.
+  - sha: 93d4062334817721ef6cb5b3a3146d2cd8687168
+    source_ref: git:93d4062334817721ef6cb5b3a3146d2cd8687168
+    short_sha: 93d4062
+    changed_paths:
+      - .github/workflows/codecov.yml
+      - .github/workflows/tests.yml
+      - README.md
+      - docs/api/portuguese.md
+      - docs/installation.md
+      - kokorog2p/lexicons/lexphon_backend.py
+      - kokorog2p/lexicons/registry.py
+      - kokorog2p/pt/g2p.py
+      - tests/test_lexhint_released_integration.py
+      - tests/test_lexicon_registry.py
+      - tests/test_lexphon_backend.py
+      - tests/test_pt_g2p.py
+    stats:
+      files_changed: 0
+      insertions: 125
+      deletions: 23
+    inspected: true
+    inspected_paths:
+      - .github/workflows/codecov.yml
+      - .github/workflows/tests.yml
+      - README.md
+      - docs/api/portuguese.md
+      - docs/installation.md
+      - kokorog2p/lexicons/lexphon_backend.py
+      - kokorog2p/lexicons/registry.py
+      - kokorog2p/pt/g2p.py
+      - tests/test_lexhint_released_integration.py
+      - tests/test_lexicon_registry.py
+      - tests/test_lexphon_backend.py
+      - tests/test_pt_g2p.py
+    observed_behavior:
+      European Portuguese now uses its regional LexHint asset and profile, reports the
+      selected lexicon provenance, documents provisioning for both Portuguese dialects,
+      and verifies the integration with focused tests and CI data setup.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "feat: add pt-pt for pt"
+    target_entry_key: european-portuguese-lexhint
+    target_entry_id: entry-0002
+    notes:
+      Adds dialect-specific pt-PT pronunciation data support while preserving Brazilian
+      Portuguese behavior.
+  - sha: 695672cab3c126d54903ffedebbe0501e084813d
+    source_ref: git:695672cab3c126d54903ffedebbe0501e084813d
+    short_sha: 695672c
+    changed_paths:
+      - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.6/release.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.7/release.md
+      - README.md
+      - docs/api/portuguese.md
+      - docs/changelog.md
+      - docs/installation.md
+      - kokorog2p/lexicons/lexphon_backend.py
+      - tests/test_lexicon_registry.py
+      - tests/test_lexphon_backend.py
+    stats:
+      files_changed: 0
+      insertions: 48
+      deletions: 6
+    inspected: true
+    inspected_paths:
+      - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.6/release.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.7/release.md
+      - README.md
+      - docs/api/portuguese.md
+      - docs/changelog.md
+      - docs/installation.md
+      - kokorog2p/lexicons/lexphon_backend.py
+      - tests/test_lexicon_registry.py
+      - tests/test_lexphon_backend.py
+    observed_behavior:
+      Releaseledger metadata was finalized for 0.9.6 and initialized for 0.9.7;
+      generated documentation and source formatting were normalized without introducing
+      product behavior.
+    public_impact: internal
+    decision: internal
+    stale: false
+    evidence_subject: "chore: pre-commit"
+    target_entry_id: entry-0003
+    notes: Release bookkeeping and formatting only. Exclude from the public changelog.
