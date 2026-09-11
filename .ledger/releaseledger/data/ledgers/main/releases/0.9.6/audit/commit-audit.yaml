@@ -1,0 +1,79 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 3
+release_version: 0.9.6
+git_base_ref: v0.9.5
+git_base_sha: 96f567706be228dd90abdb2fd1c71e7582ffc62c
+git_head_ref: HEAD
+git_head_sha: b8d6658ac62ef75084226e4f9e0943aedceb0a04
+git_range: 96f567706be228dd90abdb2fd1c71e7582ffc62c..b8d6658ac62ef75084226e4f9e0943aedceb0a04
+commit_count: 3
+rows:
+  - sha: fbdf509e340764362bad45e150cadbc507edb055
+    source_ref: git:fbdf509e340764362bad45e150cadbc507edb055
+    short_sha: fbdf509
+    changed_paths:
+      - README.md
+    stats:
+      files_changed: 0
+      insertions: 4
+      deletions: 0
+    inspected: true
+    inspected_paths:
+      - README.md
+    observed_behavior:
+      README now displays PyPI package version, supported Python versions, and
+      download-count badges
+    public_impact: docs
+    decision: accepted
+    stale: false
+    evidence_subject: "doc: add batch"
+    target_entry_id: entry-0001
+    notes: ""
+  - sha: a1e486fa2b014fa77fb8f770193af75834ab1911
+    source_ref: git:a1e486fa2b014fa77fb8f770193af75834ab1911
+    short_sha: a1e486f
+    changed_paths:
+      - tests/test_crane_test_data_benchmark.py
+      - tests/test_espeak_backend.py
+    stats:
+      files_changed: 0
+      insertions: 17
+      deletions: 11
+    inspected: true
+    inspected_paths:
+      - tests/test_crane_test_data_benchmark.py
+      - tests/test_espeak_backend.py
+    observed_behavior:
+      Windows-oriented tests now write fixture files as UTF-8, assert exact parser
+      errors, isolate environment variables, and normalize voice identifiers before
+      checking MBROLA results
+    public_impact: internal
+    decision: internal
+    stale: false
+    evidence_subject: "feat: improve windows tests"
+    target_entry_id: entry-0002
+    notes: ""
+  - sha: b8d6658ac62ef75084226e4f9e0943aedceb0a04
+    source_ref: git:b8d6658ac62ef75084226e4f9e0943aedceb0a04
+    short_sha: b8d6658
+    changed_paths:
+      - tests/test_espeak_backend.py
+    stats:
+      files_changed: 0
+      insertions: 0
+      deletions: 5
+    inspected: true
+    inspected_paths:
+      - tests/test_espeak_backend.py
+    observed_behavior:
+      The voice-listing test now validates normalized MBROLA identifiers and their mb/
+      namespace without requiring the complete voice list
+    public_impact: internal
+    decision: internal
+    stale: false
+    evidence_subject: "feat: fix voice listing test"
+    target_entry_id: entry-0003
+    notes: ""
