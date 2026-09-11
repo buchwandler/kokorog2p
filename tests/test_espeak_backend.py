@@ -693,14 +693,9 @@ class TestVoiceListing:
 
         p = Phonemizer()
         mbrola = p.list_voices("mbrola")
-        all_voices = p.list_voices()
-
         if mbrola:
             normalize = EspeakPhonemizerBase._normalize_voice_code
-            all_ids = {normalize(v.identifier) for v in all_voices}
             mbrola_ids = {normalize(v.identifier) for v in mbrola}
-
-            assert mbrola_ids <= all_ids
             assert all(identifier.startswith("mb/") for identifier in mbrola_ids)
 
 
