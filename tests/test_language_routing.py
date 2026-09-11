@@ -205,6 +205,7 @@ def test_language_inventory_includes_all_benchmark_variants() -> None:
         "sv-se",
         "ru-ru",
         "kk",
+        "hi-in",
         "he",
         "ar",
         "zh",
@@ -216,6 +217,10 @@ def test_language_inventory_includes_all_benchmark_variants() -> None:
     assert LanguageRoutingConfig(
         mode="auto", languages=("pt-pt", "en-gb")
     ).languages == ("pt-pt", "en-gb")
+    assert LanguageRoutingConfig(mode="auto", languages=("hi", "en")).languages == (
+        "hi-in",
+        "en-us",
+    )
 
 
 def test_all_language_allowlist_resolves_each_frontend_once() -> None:

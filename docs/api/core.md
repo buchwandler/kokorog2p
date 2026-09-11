@@ -78,8 +78,8 @@ document language. It inspects positive membership in the effective selected lex
 resources through `G2PBase.lexicon_evidence()`. Externally provisioned G2Lex evidence is
 available for English US/GB and French. Provisioned Lexphon evidence is available for
 German, Portuguese BR/PT, Russian, Thai, Vietnamese, Japanese, Korean, and Swedish when
-NST is selected. Spanish, Italian, Czech, Hebrew, Arabic, Chinese, and Kazakh remain
-pronounceable but have no selected evidence provider in this release.
+NST is selected. Spanish, Italian, Czech, Hebrew, Arabic, Chinese, Kazakh, and Hindi
+remain pronounceable but have no selected evidence provider in this release.
 
 Generic lookup, proper-noun spelling, eSpeak, Goruut, pypinyin, Phonikud, g2pK,
 pyopenjtalk, and rule fallback are not evidence. Lexicon collisions and ambiguity stay

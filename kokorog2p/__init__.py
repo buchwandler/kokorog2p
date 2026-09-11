@@ -172,6 +172,7 @@ _FACTORY_KWARGS_BY_LANGUAGE = {
     "ru": frozenset({"preserve_stress", "latin_policy", "reduction", "store"}),
     "ja": frozenset({"store"}),
     "kk": frozenset(),
+    "hi": frozenset(),
     "sv": frozenset({"dialect", "preserve_stress", "store"}),
 }
 
@@ -477,11 +478,21 @@ def get_g2p(  # noqa: C901
             language=implementation_language, strict=strict, version=version, **kwargs
         )
     elif backend == "espeak":
-        # Kazakh must use raw IPA even when the generic backend is requested.
+        # Kazakh and Hindi must use raw IPA even when the generic backend is requested.
         if lang == "kk":
             from kokorog2p.kk import KazakhG2P
 
             g2p = KazakhG2P(
+                language=implementation_language,
+                strict=strict,
+                version=version,
+                use_cli=use_cli,
+                **kwargs,
+            )
+        elif lang == "hi-in":
+            from kokorog2p.hi import HindiG2P
+
+            g2p = HindiG2P(
                 language=implementation_language,
                 strict=strict,
                 version=version,
@@ -503,6 +514,16 @@ def get_g2p(  # noqa: C901
         from kokorog2p.kk import KazakhG2P
 
         g2p = KazakhG2P(
+            language=implementation_language,
+            strict=strict,
+            version=version,
+            use_cli=use_cli,
+            **kwargs,
+        )
+    elif lang == "hi-in":
+        from kokorog2p.hi import HindiG2P
+
+        g2p = HindiG2P(
             language=implementation_language,
             strict=strict,
             version=version,

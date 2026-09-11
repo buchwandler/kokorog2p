@@ -35,6 +35,7 @@ python -m pip install "kokorog2p[fr]"
 python -m pip install "kokorog2p[ko]"
 python -m pip install "kokorog2p[ja]"
 python -m pip install "kokorog2p[espeak]"
+python -m pip install "kokorog2p[hi]"
 ```
 
 German dictionaries are no longer bundled. Install the Lexphon runtime data explicitly
@@ -140,8 +141,8 @@ Evidence comes only from the effective selected lexical resources through
 - Provisioned Lexphon evidence: German, Portuguese BR/PT, Russian, Thai, Vietnamese,
   Japanese, Korean, and Swedish when NST is explicitly selected.
 - Native frontends without a selected evidence resource: Spanish, Italian, Czech,
-  Hebrew, Arabic, Chinese, and Kazakh. These frontends phonemize normally but cannot
-  positively claim foreign ownership through automatic routing.
+  Hebrew, Arabic, Chinese, Kazakh, and Hindi. These frontends phonemize normally but
+  cannot positively claim foreign ownership through automatic routing.
 
 A spelling present in multiple selected stacks remains in the default language, and
 unresolved or ambiguous text also remains there. Generic lookup, rules, eSpeak, Goruut,
@@ -204,8 +205,8 @@ dictionaries automatically.
 English (`en-us`, `en-gb`), German (`de`), French (`fr`), Spanish (`es`), Italian
 (`it`), Portuguese (`pt-br`, `pt-pt`), Czech (`cs`), Chinese (`zh`), Japanese (`ja`),
 Korean (`ko`), Vietnamese (`vi`), Swedish (`sv-se`), Hebrew (`he`), Arabic (`ar`),
-Russian (`ru`), Kazakh (`kk`), and optional Thai (`th`) are supported by
-language-specific frontends. See [Language support](docs/languages.md).
+Russian (`ru`), Kazakh (`kk`), Hindi (`hi`, canonical `hi-in`), and optional Thai (`th`)
+are supported by language-specific frontends. See [Language support](docs/languages.md).
 
 Russian, Thai, Vietnamese, Japanese, Korean, and Portuguese pronunciation uses released
 LexHint dictionaries provisioned separately through Lexphon. KokoroG2P does not bundle

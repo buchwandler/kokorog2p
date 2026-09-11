@@ -67,6 +67,10 @@ _LANGUAGE_ALIASES: dict[str, str] = {
     "kk-kz": "kk",
     "kaz": "kk",
     "kazakh": "kk",
+    "hi": "hi-in",
+    "hi-in": "hi-in",
+    "hin": "hi-in",
+    "hindi": "hi-in",
 }
 
 

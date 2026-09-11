@@ -33,10 +33,15 @@ python -m pip install "kokorog2p[fr]"
 python -m pip install "kokorog2p[ja]"
 python -m pip install "kokorog2p[ko]"
 python -m pip install "kokorog2p[espeak]"
+python -m pip install "kokorog2p[hi]"
 python -m pip install "kokorog2p[goruut]"
 ```
 
 Optional spaCy models and system tools such as `espeak-ng` are installed separately.
+Hindi uses the existing eSpeak-NG integration with the `hi` voice and preserves raw IPA
+for Kokoro v1.0. It does not require `lexphon data install ...` because no Hindi runtime
+lexicon or automatic-routing evidence provider is included.
+
 KokoroG2P never downloads models or dictionary assets during construction or lookup.
 
 ## Released Lexphon dictionaries

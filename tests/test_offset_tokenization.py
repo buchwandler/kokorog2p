@@ -96,6 +96,22 @@ class TestTokenizeWithOffsets:
         assert tokens[0].char_start == 0
         assert tokens[0].char_end == len(text)
 
+    def test_devanagari_marks_remain_attached_to_hindi_words(self):
+        """Devanagari marks stay in the source word with exact offsets."""
+        texts = {
+            "नमस्ते दुनिया!": ["नमस्ते", "दुनिया", "!"],
+            "हिंदी हूँ": ["हिंदी", "हूँ"],
+            "फ़िल्म ज़िंदगी": ["फ़िल्म", "ज़िंदगी"],
+            "क्षेत्र": ["क्षेत्र"],
+        }
+        for text, expected in texts.items():
+            tokens = tokenize_with_offsets(text, lang="hi-in")
+            assert [token.text for token in tokens] == expected
+            assert all(
+                token.text == text[token.char_start : token.char_end]
+                for token in tokens
+            )
+
 
 class TestGtokensToTokenspans:
     """Tests for gtokens_to_tokenspans function."""

@@ -170,6 +170,33 @@ def test_kazakh_explicit_espeak_backend_uses_native_frontend() -> None:
     assert isinstance(get_g2p("kk", backend="espeak", lexicons=()), KazakhG2P)
 
 
+def test_hindi_factory_aliases_share_cached_native_instance() -> None:
+    from kokorog2p import clear_cache
+    from kokorog2p.hi import HindiG2P
+
+    clear_cache()
+    instances = [
+        get_g2p(alias, lexicons=()) for alias in ("hi", "hi-in", "hin", "hindi")
+    ]
+    assert all(isinstance(instance, HindiG2P) for instance in instances)
+    assert len({id(instance) for instance in instances}) == 1
+    assert instances[0].language == "hi-in"
+    assert instances[0].get_target_model() == "1.0"
+
+
+def test_hindi_explicit_espeak_backend_uses_native_frontend() -> None:
+    from kokorog2p import clear_cache
+    from kokorog2p.hi import HindiG2P
+
+    clear_cache()
+    assert isinstance(get_g2p("hi", backend="espeak", lexicons=()), HindiG2P)
+
+
+def test_hindi_rejects_unsupported_factory_options() -> None:
+    with pytest.raises(TypeError, match="Unsupported get_g2p options"):
+        get_g2p("hi", unsupported=True, lexicons=())
+
+
 def test_kazakh_rejects_unsupported_factory_options() -> None:
     with pytest.raises(TypeError, match="Unsupported get_g2p options"):
         get_g2p("kk", unsupported=True, lexicons=())

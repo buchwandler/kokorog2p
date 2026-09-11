@@ -49,3 +49,11 @@ def test_kazakh_frontend_imports_without_loading_espeak() -> None:
     g2p = get_g2p("kk", lexicons=())
     assert isinstance(g2p, KazakhG2P)
     assert g2p._espeak_backend is None
+
+
+def test_hindi_frontend_imports_without_loading_espeak() -> None:
+    from kokorog2p.hi import HindiG2P
+
+    g2p = get_g2p("hi", lexicons=())
+    assert isinstance(g2p, HindiG2P)
+    assert g2p._espeak_backend is None

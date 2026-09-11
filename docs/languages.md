@@ -33,12 +33,19 @@ included.
 | Swedish         | `sv-se`          | native rule-based            |
 | Russian         | `ru`             | LexHint with eSpeak fallback |
 | Kazakh          | `kk`             | eSpeak adapter               |
+| Hindi           | `hi`, `hi-in`    | eSpeak-NG raw-IPA adapter    |
 | Hebrew          | `he`             | Phonikud adapter             |
 | Arabic          | `ar`             | optional diacritizer adapter |
 | Chinese         | `zh`             | pypinyin/Zhuyin frontend     |
 | Japanese        | `ja`             | pyopenjtalk or Cutlet        |
 | Korean          | `ko`             | LexHint fast path plus g2pK  |
 | Thai            | `th`             | LexHint with native fallback |
+
+Hindi accepts `hi`, `hi-in`, `hi_IN`, `hin`, and `hindi`, and uses the eSpeak-NG `hi`
+voice as a lazy raw-IPA adapter for stock Kokoro v1.0. The frontend preserves Hindi
+vowel length, nasalization, aspiration, retroflexion, and native vowel quality, then
+validates the result against the model vocabulary. Hindi is prepared-text only, has no
+bundled or downloaded runtime lexicon, and provides no automatic-routing evidence.
 
 Install language-specific optional dependencies from the matching extras in
 `pyproject.toml`, for example `pip install "kokorog2p[ja]"`.

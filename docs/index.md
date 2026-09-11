@@ -45,6 +45,7 @@ api/russian
 api/hebrew
 api/thai
 api/kazakh
+api/hindi
 api/arabic
 api/backends
 api/utils

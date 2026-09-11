@@ -181,3 +181,23 @@ def test_kazakh_public_api_uses_standard_result_shape() -> None:
     assert isinstance(result, PhonemizeResult)
     assert result.phonemes == "rxeqʁ!"
     assert result.tokens
+
+
+def test_hindi_public_api_preserves_raw_ipa_result_shape() -> None:
+    from kokorog2p.hi import HindiG2P
+
+    class FakeBackend:
+        def word_phonemes(self, word: str, convert_to_kokoro: bool = True) -> str:
+            assert convert_to_kokoro is False
+            return "nəmˈʌsteː"
+
+        def phonemize(self, text: str, convert_to_kokoro: bool = True) -> str:
+            assert convert_to_kokoro is False
+            return "nəmˈʌsteː"
+
+    g2p = HindiG2P()
+    g2p._espeak_backend = FakeBackend()
+    result = phonemize("नमस्ते!", language="hi", g2p=g2p, return_ids=False)
+    assert isinstance(result, PhonemizeResult)
+    assert result.phonemes == "nəmˈʌsteː!"
+    assert result.tokens

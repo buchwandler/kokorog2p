@@ -93,6 +93,7 @@ def test_automatic_spacy_factory_resolution_does_not_probe_loader(
         ("ko", "_g2pk_instance"),
         ("he", "_phonikud"),
         ("kk", "_espeak_backend"),
+        ("hi", "_espeak_backend"),
     ],
 )
 def test_factory_preserves_lazy_optional_resource(

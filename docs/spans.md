@@ -124,12 +124,13 @@ Evidence-capable resources are:
 - Provisioned Lexphon: German, Portuguese BR/PT, Russian, Thai, Vietnamese, Japanese,
   Korean, and Swedish when NST is explicitly selected.
 
-Spanish, Italian, Czech, Hebrew, Arabic, Chinese, and Kazakh still phonemize normally,
-but they have no selected lexical evidence provider and cannot positively claim a
-foreign token. Generic pronunciation, rules, eSpeak, Goruut, pypinyin, Phonikud, g2pK,
-pyopenjtalk, and fallback paths are never used as evidence. Candidate frontends are lazy
-and may be supplied with `g2p_resolver`; default foreign frontends do not inherit
-default-language lexicon or language-specific options.
+Spanish, Italian, Czech, Hebrew, Arabic, Chinese, Kazakh, and Hindi still phonemize
+normally, but they have no selected lexical evidence provider and cannot positively
+claim a foreign token. Generic pronunciation, rules, eSpeak, Goruut, pypinyin, Phonikud,
+g2pK, pyopenjtalk, and fallback paths are never used as evidence. Candidate frontends
+are lazy and may be supplied with `g2p_resolver`; default foreign frontends do not
+inherit default-language lexicon or language-specific options. Hindi eSpeak
+pronunciation is realization data, not lexical evidence for automatic routing.
 
 Use `target_model="1.0"` to constrain every automatic candidate and the final token IDs
 to one fixed Kokoro vocabulary. If evidence exists but the routed pronunciation is

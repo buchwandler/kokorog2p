@@ -60,6 +60,10 @@ espeak-direct = [
 kk = [
     "kokorog2p[espeak]",
 ]
+
+hi = [
+    "kokorog2p[espeak]",
+]
 ar = [
     "kokorog2p[espeak]",
 ]
@@ -128,7 +132,7 @@ he = [
     "phonikud"
 ]
 all = [
-    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,ar,th,ru,kk]"
+    "kokorog2p[espeak,goruut,en,de,fr,zh,ja,ja-cutlet,ko,he,ar,th,ru,kk,hi]"
 ]
 dev = [
     "pytest>=7.0.0",
