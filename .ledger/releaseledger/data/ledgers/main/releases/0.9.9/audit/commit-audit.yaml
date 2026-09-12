@@ -1,0 +1,48 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 2
+release_version: 0.9.9
+git_base_ref: v0.9.8
+git_base_sha: 91ec57683973b3ce1d2c44471a1eca7bd3d9c14f
+git_head_ref: HEAD
+git_head_sha: 9aa30c9a54eabeb04ec217ca52463484db22d3d4
+git_range: 91ec57683973b3ce1d2c44471a1eca7bd3d9c14f..9aa30c9a54eabeb04ec217ca52463484db22d3d4
+commit_count: 1
+rows:
+- sha: 9aa30c9a54eabeb04ec217ca52463484db22d3d4
+  source_ref: git:9aa30c9a54eabeb04ec217ca52463484db22d3d4
+  short_sha: 9aa30c9
+  changed_paths:
+  - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+  - .ledger/releaseledger/data/ledgers/main/releases/0.9.8/release.md
+  - .ledger/releaseledger/data/ledgers/main/releases/0.9.9/entries/entry-0001.md
+  - .ledger/releaseledger/data/ledgers/main/releases/0.9.9/release.md
+  - kokorog2p/__init__.py
+  - kokorog2p/ru/g2p.py
+  - kokorog2p/ru/model_profile.py
+  - tests/test_ru_g2p.py
+  - tests/test_ru_model_profile.py
+  stats:
+    files_changed: 0
+    insertions: 224
+    deletions: 16
+  inspected: true
+  inspected_paths:
+  - kokorog2p/__init__.py
+  - kokorog2p/ru/g2p.py
+  - kokorog2p/ru/model_profile.py
+  - tests/test_ru_g2p.py
+  - tests/test_ru_model_profile.py
+  observed_behavior: Russian LexHint misses now use the configured Lexphon fallback
+    provider, provider provenance and low-confidence ratings are preserved, and the
+    Russian model profile accepts the observed eSpeak symbols. The release ledger
+    records the 0.9.9 release and the 0.9.8 tag reconciliation.
+  public_impact: public
+  decision: accepted
+  stale: false
+  evidence_subject: 'fix: restore Russian LexHint fallback'
+  target_entry_id: entry-0001
+  notes: Behavior verified by focused unit tests and the exact Russian fallback sentence
+    probe.
