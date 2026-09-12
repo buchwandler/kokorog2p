@@ -2,14 +2,14 @@ schema_version: 1
 object_type: commit_audit_sheet
 versioning:
   schema_version: 1
-  revision: 2
+  revision: 4
 release_version: 0.9.9
 git_base_ref: v0.9.8
 git_base_sha: 91ec57683973b3ce1d2c44471a1eca7bd3d9c14f
 git_head_ref: HEAD
-git_head_sha: 9aa30c9a54eabeb04ec217ca52463484db22d3d4
-git_range: 91ec57683973b3ce1d2c44471a1eca7bd3d9c14f..9aa30c9a54eabeb04ec217ca52463484db22d3d4
-commit_count: 1
+git_head_sha: 454b4f24522aec9807c4ac594517a989ec8e263b
+git_range: 91ec57683973b3ce1d2c44471a1eca7bd3d9c14f..454b4f24522aec9807c4ac594517a989ec8e263b
+commit_count: 2
 rows:
 - sha: 9aa30c9a54eabeb04ec217ca52463484db22d3d4
   source_ref: git:9aa30c9a54eabeb04ec217ca52463484db22d3d4
@@ -46,3 +46,29 @@ rows:
   target_entry_id: entry-0001
   notes: Behavior verified by focused unit tests and the exact Russian fallback sentence
     probe.
+- sha: 454b4f24522aec9807c4ac594517a989ec8e263b
+  source_ref: git:454b4f24522aec9807c4ac594517a989ec8e263b
+  short_sha: 454b4f2
+  changed_paths:
+  - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+  - .ledger/releaseledger/data/ledgers/main/releases/0.9.9/audit/commit-audit.yaml
+  - .ledger/releaseledger/data/ledgers/main/releases/0.9.9/entries/entry-0001.md
+  - .ledger/releaseledger/data/ledgers/main/releases/0.9.9/release.md
+  stats:
+    files_changed: 0
+    insertions: 61
+    deletions: 8
+  inspected: true
+  inspected_paths:
+  - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+  - .ledger/releaseledger/data/ledgers/main/releases/0.9.9/audit/commit-audit.yaml
+  - .ledger/releaseledger/data/ledgers/main/releases/0.9.9/entries/entry-0001.md
+  - .ledger/releaseledger/data/ledgers/main/releases/0.9.9/release.md
+  observed_behavior: Adds the releaseledger audit sheet and updates the release record
+    and entry with the pinned git snapshot. It contains no product code or runtime
+    behavior change.
+  public_impact: internal
+  decision: internal
+  stale: false
+  evidence_subject: 'chore: record 0.9.9 release evidence'
+  notes: Release bookkeeping only; excluded from public release entries.
