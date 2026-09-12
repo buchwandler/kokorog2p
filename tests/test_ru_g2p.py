@@ -94,3 +94,26 @@ def test_latin_policy_and_no_hidden_espeak() -> None:
     dropped = _g2p(latin_policy="drop")("hello")
     assert dropped[0].get("source_kind") == "LATIN_DROPPED"
     assert dropped[0].get("drop") is True
+
+
+def test_russian_word_analysis_accepts_lexhint_tied_affricate():
+    g2p = _g2p()
+    g2p._lexphon = FakeLexphon("t͡ɕɪˈtɨrʲɪ")
+
+    analysis = g2p._word_analysis("четыре")
+
+    assert analysis.phonemes == "ʨɪˈtɪrʲɪ"
+    assert analysis.invalid_symbols == ()
+
+
+def test_russian_four_token_keeps_source_metadata_after_affricate_normalization():
+    g2p = _g2p()
+    g2p._lexphon = FakeLexphon("t͡ɕɪˈtɨrʲɪ")
+
+    token = g2p("четыре")[0]
+
+    assert token.text == "четыре"
+    assert token.phonemes == "ʨɪˈtɪrʲɪ"
+    assert token.get("source_kind") == "RUSSIAN_WORD"
+    assert token.get("source") == "lexicon"
+    assert token.get("lexicon_id") == "ru:lexhint"

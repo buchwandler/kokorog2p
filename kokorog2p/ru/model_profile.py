@@ -11,6 +11,32 @@ from kokorog2p.vocab import get_vocab, validate_for_kokoro
 TARGET_MODEL = "1.0"
 PROFILE_NAME = "KokoroRussianV2"
 
+_RUSSIAN_AFFRICATE_MAP = {
+    "t͡s": "ʦ",
+    "t͜s": "ʦ",
+    "t͡ɕ": "ʨ",
+    "t͜ɕ": "ʨ",
+    "t͡ʃ": "ʧ",
+    "t͜ʃ": "ʧ",
+    "d͡z": "ʣ",
+    "d͜z": "ʣ",
+    "d͡ʒ": "ʤ",
+    "d͜ʒ": "ʤ",
+    "d͡ʑ": "ʥ",
+    "d͜ʑ": "ʥ",
+}
+
+
+def _normalize_russian_affricates(ipa: str) -> str:
+    normalized = ipa
+    for source, target in sorted(
+        _RUSSIAN_AFFRICATE_MAP.items(),
+        key=lambda item: -len(item[0]),
+    ):
+        normalized = normalized.replace(source, target)
+    return normalized
+
+
 # Model compatibility substitutions for IPA symbols observed in LexHint data.
 _MODEL_SYMBOL_MAP = {
     "ɫ": "l",  # hard-l allophone is represented by the ordinary lateral label.
@@ -19,6 +45,7 @@ _MODEL_SYMBOL_MAP = {
     "ɤ": "ə",  # central back vowel is represented by the schwa label.
     "ɵ": "ə",  # centralized rounded vowel has no separate target ID.
     "ɒ": "ɑ",  # open back allophone folds into the target back vowel.
+    "ʐ": "ʒ",  # voiced retroflex fricative uses the stock voiced fricative label.
 }
 
 RUSSIAN_VOWELS = frozenset("aɑɐeɛiɪoɔuʊəɨɤɵɒ")
@@ -52,6 +79,7 @@ class RussianVocabularyError(ValueError):
 def normalize_russian_lexicon_ipa(ipa: str, *, preserve_stress: bool = True) -> str:
     """Normalize LexHint IPA into the Russian Kokoro model vocabulary."""
     normalized = unicodedata.normalize("NFC", ipa)
+    normalized = _normalize_russian_affricates(normalized)
     normalized = "".join(_MODEL_SYMBOL_MAP.get(char, char) for char in normalized)
     normalized = re.sub(r"([bcdfghjklmnpqrstvwxyzɡʃʒʂɕɣʁʎɹɾ])ʲʲ+", r"\1ʲ", normalized)
     if not preserve_stress:

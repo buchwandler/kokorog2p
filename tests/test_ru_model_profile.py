@@ -20,6 +20,44 @@ def test_profile_targets_stock_vocab_and_known_symbol_folds():
     ).get_vocab("1.0")
 
 
+def test_russian_tied_alveolopalatal_affricate_maps_to_stock_label():
+    assert normalize_espeak_symbols("t͡ɕɪˈtɨrʲɪ") == "ʨɪˈtɪrʲɪ"
+    assert (
+        validate_russian_symbols(
+            "ʨɪˈtɪrʲɪ",
+            source_token="четыре",
+            raw_ipa="t͡ɕɪˈtɨrʲɪ",
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("t͡s", "ʦ"),
+        ("t͜s", "ʦ"),
+        ("t͡ɕ", "ʨ"),
+        ("t͜ɕ", "ʨ"),
+        ("t͡ʃ", "ʧ"),
+        ("d͡z", "ʣ"),
+        ("d͡ʒ", "ʤ"),
+        ("d͡ʑ", "ʥ"),
+        ("ʐ", "ʒ"),
+    ],
+)
+def test_russian_known_tied_affricates_use_stock_single_labels(raw, expected):
+    assert normalize_espeak_symbols(raw) == expected
+
+
+def test_unknown_tied_sequence_remains_strictly_invalid():
+    raw = "k͡x"
+    normalized = normalize_espeak_symbols(raw)
+    assert "͡" in normalized
+    with pytest.raises(ValueError, match="U\\+0361"):
+        validate_russian_symbols(normalized, source_token="fixture", raw_ipa=raw)
+
+
 def test_vowel_reduction_positions():
     assert apply_russian_vowel_reduction("baˈo") == "bɐˈo"
     assert apply_russian_vowel_reduction("baaˈo") == "bəɐˈo"
