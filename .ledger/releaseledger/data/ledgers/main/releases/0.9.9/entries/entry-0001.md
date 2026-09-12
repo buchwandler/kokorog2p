@@ -7,18 +7,19 @@ versioning:
 entry_id: entry-0001
 release_version: 0.9.9
 kind: fixed
-summary: Fixed Russian LexHint OOV handling to use configured Lexphon fallback providers
-  with accurate provenance
+summary:
+  Fixed Russian LexHint OOV handling to use configured Lexphon fallback providers with
+  accurate provenance
 status: accepted
 audience: null
 scopes: []
 source_refs:
-- tl:task-0038
-- git:9aa30c9a54eabeb04ec217ca52463484db22d3d4
+  - tl:task-0038
+  - git:9aa30c9a54eabeb04ec217ca52463484db22d3d4
 paths:
-- kokorog2p/ru/g2p.py
-- kokorog2p/__init__.py
-- tests/test_ru_g2p.py
+  - kokorog2p/ru/g2p.py
+  - kokorog2p/__init__.py
+  - tests/test_ru_g2p.py
 issues: []
 prs: []
 sources: []

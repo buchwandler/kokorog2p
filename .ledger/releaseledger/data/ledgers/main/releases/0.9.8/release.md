@@ -8,7 +8,7 @@ version: 0.9.8
 status: released
 history_state: curated
 title: KokoroG2P 0.9.8
-released_at: '2026-09-12'
+released_at: "2026-09-12"
 previous_version: 0.9.7
 cancel_reason: null
 superseded_by: null
