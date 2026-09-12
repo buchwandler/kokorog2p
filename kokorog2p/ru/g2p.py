@@ -84,13 +84,17 @@ class RussianG2P(G2PBase):
         self.lexicons = ("lexhint",) if lexicons is None else tuple(lexicons)
         self.store = store
         self._lexphon = (
+            LexphonBackend("ru-ru", self.lexicons, store=store)
+            if self.lexicons
+            else None
+        )
+        self._fallback = (
             LexphonBackend(
                 "ru-ru",
-                self.lexicons,
                 fallback_provider=self.fallback_provider,
                 store=store,
             )
-            if self.lexicons or self.fallback_provider is not None
+            if self.fallback_provider is not None
             else None
         )
 
@@ -114,9 +118,20 @@ class RussianG2P(G2PBase):
         return _STRESS_RE.sub("", normalized).casefold()
 
     def _word_analysis(self, source: str) -> RussianAnalysis:
-        if self._lexphon is None:
-            return RussianAnalysis(source, source, "")
-        lookup = self._lexphon.lookup(self._lookup_text(source))
+        lookup = None
+        lookup_text = self._lookup_text(source)
+        if self._lexphon is not None:
+            lookup = self._lexphon.lookup(lookup_text)
+        if (
+            lookup is None or not lookup.known or lookup.pronunciation is None
+        ) and self._fallback is not None:
+            fallback_lookup = self._fallback.lookup(lookup_text)
+            if (
+                fallback_lookup is not None
+                and fallback_lookup.known
+                and fallback_lookup.pronunciation is not None
+            ):
+                lookup = fallback_lookup
         if lookup is None or not lookup.known or lookup.pronunciation is None:
             if self.strict:
                 raise RussianG2PError(
@@ -266,6 +281,8 @@ class RussianG2P(G2PBase):
     def close(self) -> None:
         if self._lexphon is not None:
             self._lexphon.close()
+        if self._fallback is not None:
+            self._fallback.close()
 
     def __repr__(self) -> str:
         return f"RussianG2P(language={self.language!r}, model={TARGET_MODEL!r})"

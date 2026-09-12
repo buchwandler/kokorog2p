@@ -128,6 +128,22 @@ def test_russian_provider_provenance_rating_and_evidence() -> None:
     assert g2p.lexicon_evidence("локальная") is None
 
 
+def test_russian_fallback_works_without_selected_lexicon() -> None:
+    g2p = RussianG2P(
+        lexicons=(),
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+    )
+    g2p._fallback = ProviderLexphon()  # type: ignore[assignment]
+
+    token = g2p("локальная")[0]
+
+    assert g2p._lexphon is None
+    assert token.phonemes
+    assert token.get("source") == "provider"
+    assert token.get("rating") == 1
+
+
 def test_russian_lexhint_provenance_and_offsets() -> None:
     g2p = _g2p()
     tokens = g2p("слово!")
