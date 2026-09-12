@@ -2,14 +2,14 @@ schema_version: 1
 object_type: commit_audit_sheet
 versioning:
   schema_version: 1
-  revision: 6
+  revision: 8
 release_version: 0.9.9
 git_base_ref: v0.9.8
 git_base_sha: 91ec57683973b3ce1d2c44471a1eca7bd3d9c14f
 git_head_ref: HEAD
-git_head_sha: e4478c23d667233238bf91043ec8b918891ae333
-git_range: 91ec57683973b3ce1d2c44471a1eca7bd3d9c14f..e4478c23d667233238bf91043ec8b918891ae333
-commit_count: 3
+git_head_sha: f5d453115713936f148c24f6491ad01336700da8
+git_range: 91ec57683973b3ce1d2c44471a1eca7bd3d9c14f..f5d453115713936f148c24f6491ad01336700da8
+commit_count: 4
 rows:
   - sha: 9aa30c9a54eabeb04ec217ca52463484db22d3d4
     source_ref: git:9aa30c9a54eabeb04ec217ca52463484db22d3d4
@@ -100,3 +100,34 @@ rows:
     stale: false
     evidence_subject: "chore: complete 0.9.9 release audit"
     notes: Release bookkeeping only; excluded from public release entries.
+  - sha: f5d453115713936f148c24f6491ad01336700da8
+    source_ref: git:f5d453115713936f148c24f6491ad01336700da8
+    short_sha: f5d4531
+    changed_paths:
+      - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.8/release.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.9/audit/commit-audit.yaml
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.9/entries/entry-0001.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.9/entries/entry-0002.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.9/entries/entry-0003.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.9/release.md
+    stats:
+      files_changed: 0
+      insertions: 138
+      deletions: 80
+    inspected: true
+    inspected_paths:
+      - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.8/release.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.9/audit/commit-audit.yaml
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.9/entries/entry-0001.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.9/entries/entry-0002.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.9/entries/entry-0003.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.9/release.md
+    observed_behavior:
+      Release ledger bookkeeping only; no product code or runtime behavior changed
+    public_impact: internal
+    decision: internal
+    stale: false
+    evidence_subject: "chore: pre-commit"
+    notes: Exclude this bookkeeping commit from public release notes
