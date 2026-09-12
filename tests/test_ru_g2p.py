@@ -29,11 +29,103 @@ class FakeLexphon:
     def close(self) -> None:
         self.closed = True
 
+    def lexicon_evidence(self, word: str, tag: str | None = None):
+        return None
+
 
 def _g2p(**kwargs: object) -> RussianG2P:
     g2p = RussianG2P(**kwargs)
     g2p._lexphon = FakeLexphon()  # type: ignore[assignment]
     return g2p
+
+
+@pytest.mark.parametrize(
+    ("use_espeak_fallback", "use_goruut_fallback", "expected"),
+    [
+        (True, False, "espeak"),
+        (False, True, "goruut"),
+        (False, False, None),
+    ],
+)
+def test_russian_constructor_configures_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+    use_espeak_fallback: bool,
+    use_goruut_fallback: bool,
+    expected: str | None,
+) -> None:
+    created: list[str | None] = []
+
+    class CapturingBackend:
+        def __init__(
+            self,
+            language: str,
+            names: tuple[str, ...] = (),
+            *,
+            fallback_provider: str | None = None,
+            store: object | None = None,
+        ) -> None:
+            del language, names, store
+            created.append(fallback_provider)
+
+        def close(self) -> None:
+            return
+
+    monkeypatch.setattr("kokorog2p.ru.g2p.LexphonBackend", CapturingBackend)
+    g2p = RussianG2P(
+        lexicons=(),
+        use_espeak_fallback=use_espeak_fallback,
+        use_goruut_fallback=use_goruut_fallback,
+    )
+
+    assert g2p.fallback_provider == expected
+    assert created == ([] if expected is None else [expected])
+
+
+def test_russian_factory_forwards_fallback_controls() -> None:
+    from kokorog2p import clear_cache, get_g2p
+
+    for options, expected in (
+        ({"use_espeak_fallback": True, "use_goruut_fallback": False}, "espeak"),
+        ({"use_espeak_fallback": False, "use_goruut_fallback": True}, "goruut"),
+        ({"use_espeak_fallback": False, "use_goruut_fallback": False}, None),
+    ):
+        clear_cache(deep=True)
+        g2p = get_g2p("ru", lexicons=(), **options)
+        assert g2p.fallback_provider == expected
+
+
+class ProviderLexphon(FakeLexphon):
+    def lookup(self, word: str, tag: str | None = None) -> PronunciationToken:
+        del tag
+        return PronunciationToken(
+            text=word,
+            source="provider",
+            provider="espeak",
+            requested_language="ru",
+            variants=(
+                PronunciationVariant(
+                    pronunciation="lɐˈkɑlʲnəjə",
+                    source_pronunciation="lɐˈkɑlʲnəjə",
+                ),
+            ),
+        )
+
+
+def test_russian_provider_provenance_rating_and_evidence() -> None:
+    g2p = _g2p()
+    g2p._lexphon = ProviderLexphon()  # type: ignore[assignment]
+
+    token = g2p("локальная")[0]
+
+    assert token.phonemes
+    assert token.get("source") == "provider"
+    assert token.get("pronunciation_source") == "provider"
+    assert token.get("pronunciation_provider") == "espeak"
+    assert token.get("pronunciation_requested_language") == "ru"
+    assert token.get("pronunciation_source_ipa") == "lɐˈkɑlʲnəjə"
+    assert token.get("lexicon_id") is None
+    assert token.get("rating") == 1
+    assert g2p.lexicon_evidence("локальная") is None
 
 
 def test_russian_lexhint_provenance_and_offsets() -> None:
@@ -44,6 +136,7 @@ def test_russian_lexhint_provenance_and_offsets() -> None:
     assert tokens[0].get("source_kind") == "RUSSIAN_WORD"
     assert tokens[0].get("source") == "lexicon"
     assert tokens[0].get("lexicon_id") == "ru:lexhint"
+    assert tokens[0].get("rating") == 5
     assert (tokens[0].get("char_start"), tokens[0].get("char_end")) == (0, 5)
 
 
@@ -77,12 +170,16 @@ def test_unknown_words_are_strict_or_unresolved() -> None:
         def lookup(self, word: str, tag: str | None = None):
             return PronunciationToken(word, "lexicon")
 
-    strict = RussianG2P()
+    strict = RussianG2P(use_espeak_fallback=False, use_goruut_fallback=False)
     strict._lexphon = UnknownLexphon()  # type: ignore[assignment]
     with pytest.raises(ValueError, match="ru:lexhint"):
         strict("неслово")
 
-    relaxed = RussianG2P(strict=False)
+    relaxed = RussianG2P(
+        strict=False,
+        use_espeak_fallback=False,
+        use_goruut_fallback=False,
+    )
     relaxed._lexphon = UnknownLexphon()  # type: ignore[assignment]
     assert relaxed("неслово")[0].phonemes is None
     assert relaxed.warnings

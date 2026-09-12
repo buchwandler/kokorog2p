@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
 from kokorog2p.base import G2PBase
 from kokorog2p.lexicons.evidence import LexiconEvidence
-from kokorog2p.lexicons.lexphon_backend import LexphonBackend
+from kokorog2p.lexicons.lexphon_backend import LexphonBackend, provider_metadata
 from kokorog2p.punctuation import normalize_punctuation
 from kokorog2p.ru.model_profile import (
     TARGET_MODEL,
@@ -37,6 +37,10 @@ class RussianAnalysis:
     applied_rules: tuple[str, ...] = ()
     invalid_symbols: tuple[str, ...] = ()
 
+    pronunciation_source: str | None = None
+    lexicon_id: str | None = None
+    provider_metadata: Mapping[str, object] | None = None
+
 
 class RussianG2P(G2PBase):
     """Russian frontend using the provisioned ``ru:lexhint`` dictionary."""
@@ -49,6 +53,8 @@ class RussianG2P(G2PBase):
         *,
         reduction: bool = False,
         preserve_stress: bool = True,
+        use_espeak_fallback: bool = True,
+        use_goruut_fallback: bool = False,
         use_cli: bool = False,
         strict: bool = True,
         version: str = "1.0",
@@ -63,7 +69,13 @@ class RussianG2P(G2PBase):
             raise ValueError("RussianG2P supports frontend version '1.0'.")
         if latin_policy not in {"preserve", "english", "drop"}:
             raise ValueError("latin_policy must be 'preserve', 'english', or 'drop'.")
-        super().__init__(language="ru-ru", use_cli=use_cli, strict=strict)
+        super().__init__(
+            language="ru-ru",
+            use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
+            use_cli=use_cli,
+            strict=strict,
+        )
         self.version = version
         self.reduction = reduction
         self.preserve_stress = preserve_stress
@@ -71,10 +83,16 @@ class RussianG2P(G2PBase):
         self.warnings: list[str] = []
         self.lexicons = ("lexhint",) if lexicons is None else tuple(lexicons)
         self.store = store
-        if self.lexicons:
-            self._lexphon = LexphonBackend("ru-ru", self.lexicons, store=store)
-        else:
-            self._lexphon = None
+        self._lexphon = (
+            LexphonBackend(
+                "ru-ru",
+                self.lexicons,
+                fallback_provider=self.fallback_provider,
+                store=store,
+            )
+            if self.lexicons or self.fallback_provider is not None
+            else None
+        )
 
     @staticmethod
     def _is_punctuation(text: str) -> bool:
@@ -124,7 +142,17 @@ class RussianG2P(G2PBase):
                 f"symbols: {''.join(invalid)}"
             )
             phonemes = ""
-        return RussianAnalysis(source, source, phonemes, invalid_symbols=invalid)
+        return RussianAnalysis(
+            source,
+            source,
+            phonemes,
+            invalid_symbols=invalid,
+            pronunciation_source=lookup.source,
+            lexicon_id=lookup.lexicon_id,
+            provider_metadata=provider_metadata(lookup)
+            if lookup.source == "provider"
+            else None,
+        )
 
     def _token(self, source: str, whitespace: str, start: int, end: int) -> GToken:
         if self._is_punctuation(source):
@@ -149,14 +177,30 @@ class RussianG2P(G2PBase):
                 tag="X",
                 whitespace=whitespace,
                 phonemes=analysis.phonemes or None,
-                rating="5" if analysis.phonemes else None,
+                rating=(
+                    "1"
+                    if analysis.pronunciation_source == "provider"
+                    else "5"
+                    if analysis.phonemes
+                    else None
+                ),
             )
             token.set(
                 "source_kind",
                 "RUSSIAN_WORD" if self._is_cyrillic(source) else "OTHER",
             )
-            token.set("source", "lexicon")
-            token.set("lexicon_id", "ru:lexhint")
+            if analysis.pronunciation_source is not None:
+                token.set("source", analysis.pronunciation_source)
+            if analysis.lexicon_id is not None:
+                token.set("lexicon_id", analysis.lexicon_id)
+            if analysis.provider_metadata is not None:
+                for key, value in analysis.provider_metadata.items():
+                    token.set(key, value)
+            if analysis.phonemes:
+                token.set(
+                    "rating",
+                    1 if analysis.pronunciation_source == "provider" else 5,
+                )
             if analysis.invalid_symbols:
                 token.set("invalid_symbols", analysis.invalid_symbols)
         token.set("char_start", start)

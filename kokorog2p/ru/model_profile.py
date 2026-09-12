@@ -40,6 +40,8 @@ def _normalize_russian_affricates(ipa: str) -> str:
 # Model compatibility substitutions for IPA symbols observed in LexHint data.
 _MODEL_SYMBOL_MAP = {
     "ɫ": "l",  # hard-l allophone is represented by the ordinary lateral label.
+    "ɭ": "l",  # eSpeak's retroflex lateral is not in the stock Russian profile.
+    "\u200d": "",  # remove eSpeak's zero-width joiner before model validation.
     "ɨ": "ɪ",  # central high vowel uses the model's front reduced-vowel label.
     "ᵻ": "ɪ",  # eSpeak's internal near-high notation is not a target symbol.
     "ɤ": "ə",  # central back vowel is represented by the schwa label.

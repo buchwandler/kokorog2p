@@ -693,6 +693,8 @@ def get_g2p(  # noqa: C901
         g2p = RussianG2P(
             language=implementation_language,
             lexicons=selected_lexicons,
+            use_espeak_fallback=use_espeak_fallback,
+            use_goruut_fallback=use_goruut_fallback,
             strict=strict,
             version=version,
             use_cli=use_cli,

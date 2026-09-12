@@ -20,6 +20,10 @@ def test_profile_targets_stock_vocab_and_known_symbol_folds():
     ).get_vocab("1.0")
 
 
+def test_russian_espeak_provider_symbols_fold_to_stock_profile():
+    assert normalize_espeak_symbols("ɭʌkˈɑɭnʌj\u200da") == "lʌkˈɑlnʌja"
+
+
 def test_russian_tied_alveolopalatal_affricate_maps_to_stock_label():
     assert normalize_espeak_symbols("t͡ɕɪˈtɨrʲɪ") == "ʨɪˈtɪrʲɪ"
     assert (

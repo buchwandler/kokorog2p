@@ -3,20 +3,20 @@ schema_version: 2
 object_type: release
 versioning:
   schema_version: 1
-  revision: 4
-version: 0.9.8
-status: released
+  revision: 2
+version: 0.9.9
+status: planned
 history_state: curated
-title: KokoroG2P 0.9.8
-released_at: '2026-09-12'
-previous_version: 0.9.7
+title: KokoroG2P 0.9.9
+released_at: null
+previous_version: 0.9.8
 cancel_reason: null
 superseded_by: null
 changelog_file: null
 boundary_ref: null
 source_refs: []
 source_count: null
-entry_count: 2
+entry_count: 1
 artifact_count: 0
 git_base_ref: null
 git_base_sha: null
