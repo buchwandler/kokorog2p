@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """Show conservative automatic German-English loanword routing."""
 
-from kokorog2p import LanguageRoutingConfig, phonemize_to_result
+from kokorog2p import LanguageRoutingConfig, phonemize_prepared
 
 TEXT = "Die Manpowerdiskussion wird gecancelt, du kannst das File downloaden."
 
 
 def main() -> None:
-    result = phonemize_to_result(
+    result = phonemize_prepared(
         TEXT,
-        lang="de",
+        language="de",
         language_routing=LanguageRoutingConfig(
             mode="auto", languages=("de-de", "en-us")
         ),
-        g2p_options={"use_spacy": False, "use_espeak_fallback": True},
+        use_spacy=False,
+        use_espeak_fallback=True,
         return_ids=False,
     )
     for route in result.language_routes:

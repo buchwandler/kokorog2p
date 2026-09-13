@@ -5,7 +5,7 @@ This example demonstrates how to use the marker-delimited helper
 to easily mark text spans and apply pronunciation or language overrides.
 """
 
-from kokorog2p import phonemize_to_result
+from kokorog2p import phonemize_prepared
 from kokorog2p.markers import apply_marker_overrides, parse_delimited
 
 
@@ -32,7 +32,7 @@ def demo_basic_markers():
 
     # Step 3: Convert to overrides and phonemize
     overrides = apply_marker_overrides(clean_text, ranges, assignments)
-    result = phonemize_to_result(clean_text, lang="en-us", overrides=overrides)
+    result = phonemize_prepared(clean_text, language="en-us", overrides=overrides)
 
     print(f"\nPhonemes: {result.phonemes}")
     print(f"Warnings: {result.warnings if result.warnings else 'None'}")
@@ -58,7 +58,7 @@ def demo_duplicate_words():
     }
 
     overrides = apply_marker_overrides(clean_text, ranges, assignments)
-    result = phonemize_to_result(clean_text, lang="en-us", overrides=overrides)
+    result = phonemize_prepared(clean_text, language="en-us", overrides=overrides)
 
     print(f"Phonemes: {result.phonemes}")
 
@@ -82,7 +82,7 @@ def demo_language_switching():
     }
 
     overrides = apply_marker_overrides(clean_text, ranges, assignments)
-    result = phonemize_to_result(clean_text, lang="de", overrides=overrides)
+    result = phonemize_prepared(clean_text, language="de", overrides=overrides)
 
     print(f"Phonemes: {result.phonemes}")
 
@@ -104,7 +104,7 @@ def demo_multi_word_spans():
     }
 
     overrides = apply_marker_overrides(clean_text, ranges, assignments)
-    result = phonemize_to_result(clean_text, lang="en-us", overrides=overrides)
+    result = phonemize_prepared(clean_text, language="en-us", overrides=overrides)
 
     print(f"Phonemes: {result.phonemes}")
 
@@ -126,7 +126,7 @@ def demo_custom_markers():
     }
 
     overrides = apply_marker_overrides(clean_text, ranges, assignments)
-    result = phonemize_to_result(clean_text, lang="en-us", overrides=overrides)
+    result = phonemize_prepared(clean_text, language="en-us", overrides=overrides)
 
     print(f"Phonemes: {result.phonemes}")
 
@@ -150,7 +150,7 @@ def demo_escaped_markers():
     }
 
     overrides = apply_marker_overrides(clean_text, ranges, assignments)
-    result = phonemize_to_result(clean_text, lang="en-us", overrides=overrides)
+    result = phonemize_prepared(clean_text, language="en-us", overrides=overrides)
 
     print(f"Phonemes: {result.phonemes}")
 
@@ -174,7 +174,7 @@ def demo_list_assignments():
     ]
 
     overrides = apply_marker_overrides(clean_text, ranges, assignments)
-    result = phonemize_to_result(clean_text, lang="en-us", overrides=overrides)
+    result = phonemize_prepared(clean_text, language="en-us", overrides=overrides)
 
     print(f"Phonemes: {result.phonemes}")
 
@@ -195,7 +195,7 @@ def demo_error_handling():
     print(f"Warnings: {warnings}")
 
     # Text still works, just no marked ranges
-    result = phonemize_to_result(clean_text, lang="en-us")
+    result = phonemize_prepared(clean_text, language="en-us")
     print(f"Phonemes: {result.phonemes}")
 
 

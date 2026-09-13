@@ -58,6 +58,7 @@ api/utils
 quickstart
 prepared_phonemization
 languages
+lexicons
 spans
 advanced
 installation

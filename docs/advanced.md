@@ -42,6 +42,24 @@ instances using the same resolution rules.
 
 ### Memory-Efficient Loading
 
+`get_g2p()` keeps a bounded LRU cache of configured frontend instances. Reuse one
+frontend when processing a batch instead of constructing one per text, and inspect its
+policy with `cache_info()`.
+
+```python
+from kokorog2p import cache_info, clear_cache, get_g2p
+
+g2p = get_g2p("de", lexicons=(), use_spacy=False)
+for text in ("Hallo Welt", "Guten Tag"):
+    print(g2p.phonemize(text))
+
+print(cache_info())  # policy is "bounded-lru"
+clear_cache(deep=True)  # also release parsed lexicon resources
+```
+
+See [`examples/cache_and_batch.py`](../examples/cache_and_batch.py) for a runnable reuse
+pattern.
+
 ### External lexicon provisioning
 
 English and French dictionaries are installed outside KokoroG2P through Lexphon:
@@ -201,7 +219,8 @@ print(g2p.phonemize("Guten Tag"))
 The runtime uses the installed local store without network access. Install
 `de-de:crane`, `de-de:espeak`, `de-de:olaph`, or `de-de:lexhint` before selecting those
 names. `lexicons="espeak"` selects the static Lexphon dictionary and is distinct from
-`use_espeak_fallback=True`. Use `use_lexicon=False` for fallback-only operation.
+`use_espeak_fallback=True`, which enables the dynamic provider after a lexicon miss. Use
+`lexicons=()` for operation without a selected dictionary layer.
 
 ## Phoneme Utilities
 
@@ -737,9 +756,9 @@ Use `available_lexicons(language)` to inspect registered names and pass `lexicon
 `get_g2p` or `phonemize`. A sequence is an ordered precedence stack. English and French
 expose only the external `gold` selection; `lexicons=()` disables dictionary lookup.
 
-For German, `available_lexicons("de")` returns `("gold", "crane", "espeak", "olaph")`.
-`gold` remains the implicit default. Explicit order controls collisions, and runtime
-pronunciation selection is offline. `espeak` is a static Lexphon dictionary and is
-distinct from the optional `use_espeak_fallback=True` backend. Unsupported source IPA
-fails closed and may fall through to configured fallback. See {doc}`api/german` for
-provenance and examples.
+For German, `available_lexicons("de")` returns
+`("gold", "crane", "espeak", "olaph", "lexhint")`. `gold` remains the implicit default.
+Explicit order controls collisions, and runtime pronunciation selection is offline.
+`espeak` is a static Lexphon dictionary and is distinct from the optional
+`use_espeak_fallback=True` backend. Unsupported source IPA fails closed and may fall
+through to configured fallback. See {doc}`api/german` for provenance and examples.

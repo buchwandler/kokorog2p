@@ -200,6 +200,16 @@ Direct `backend="espeak"` and `backend="goruut"` remain available as compatibili
 paths. Lexphon data installation is also explicit; KokoroG2P does not provision
 dictionaries automatically.
 
+## Examples
+
+Runnable examples are indexed in [`examples/`](examples/README.md). Start with:
+
+- `new_api_demo.py` — prepared phonemization and overrides
+- `lexicon_selection.py` — discover and explicitly select external lexicons
+- `espeak_fallback.py` — force and inspect dynamic eSpeak fallback
+- `result_inspection.py` — inspect spans, phonemes, warnings, and Kokoro IDs
+- `mixed_language_auto.py` — conservative automatic language routing
+
 ## Supported languages
 
 English (`en-us`, `en-gb`), German (`de`), French (`fr`), Spanish (`es`), Italian
