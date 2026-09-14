@@ -28,6 +28,13 @@ def test_profile_maps_velarized_lateral_to_stock_model_lateral() -> None:
     assert transform_kazakh_ipa("sɵjlemdˈɪ") == "səjlemdˈɪ"
 
 
+def test_profile_maps_uvular_trill_to_stock_model_rhotic() -> None:
+    raw = "ʒˈuz ˈɑlpəstˈoʀəz"
+    phonemes = transform_kazakh_ipa(raw)
+    assert phonemes == "ʒˈuz ˈɑlpəstˈorəz"
+    assert validate_kazakh_symbols(phonemes) == []
+
+
 def test_profile_validates_against_stock_model() -> None:
     assert validate_kazakh_symbols("rxeqʁ") == []
     assert set(model_profile_vocab()) >= set("rxeqʁ")

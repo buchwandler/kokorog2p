@@ -39,6 +39,7 @@ _ESPEAK_TIED_MAP = {
 _MODEL_SYMBOL_MAP = {
     "ɫ": "l",
     "ɵ": "ə",  # centralized rounded vowel has no separate stock label.
+    "ʀ": "r",  # map eSpeak's uvular trill to the stock rhotic label.
 }
 
 
