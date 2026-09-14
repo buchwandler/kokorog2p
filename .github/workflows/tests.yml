@@ -146,12 +146,25 @@ jobs:
           python -c "from kokorog2p.backends.espeak.cli_wrapper import CliPhonemizer; p = CliPhonemizer('en-us'); print('CLI eSpeak:', p.version)"
           python -c "from kokorog2p.backends.espeak.wrapper import Phonemizer; p = Phonemizer(); p.set_voice('en-us'); print('native eSpeak:', p.version, p.library_path)"
       - name: Provision released Lexphon data
-        run: >-
-          lexphon data install
-          en-us:gold en-gb:gold fr-fr:gold
-          de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint
-          sv-se:nst
-          ru:lexhint th:lexhint-native vi:lexhint ja:lexhint ko:lexhint pt:lexhint pt-pt:lexhint
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            echo "Provisioning released Lexphon data (attempt ${attempt}/3)"
+            if lexphon data install \
+              en-us:gold en-gb:gold fr-fr:gold \
+              de-de:gold de-de:crane de-de:espeak de-de:olaph de-de:lexhint \
+              sv-se:nst \
+              ru:lexhint th:lexhint-native vi:lexhint ja:lexhint ko:lexhint pt:lexhint pt-pt:lexhint; then
+              break
+            fi
+            if [ "${attempt}" -eq 3 ]; then
+              echo "Lexphon data installation failed after 3 attempts." >&2
+              exit 1
+            fi
+            delay=$((attempt * 10))
+            echo "Retrying Lexphon data installation in ${delay}s..."
+            sleep "${delay}"
+          done
 
       - name: Verify released Lexphon data
         run: >-

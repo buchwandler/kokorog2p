@@ -8,6 +8,7 @@ def test_russian_factory_aliases_are_native_and_lazy() -> None:
         assert isinstance(g2p, RussianG2P)
         assert g2p._lexphon is None
 
+
 def test_russian_factory_cache_distinguishes_store_identity() -> None:
     first = get_g2p("ru", store=object(), lexicons=())
     second = get_g2p("ru", store=object(), lexicons=())
