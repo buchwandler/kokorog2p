@@ -1,0 +1,116 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 3
+release_version: 0.9.10
+git_base_ref: v0.9.9
+git_base_sha: f2b751e5b579ba13a83289a5e764f1a2b6ca0389
+git_head_ref: HEAD
+git_head_sha: fe1947bdfa2227d11d4d34008c074a61062da18f
+git_range: f2b751e5b579ba13a83289a5e764f1a2b6ca0389..fe1947bdfa2227d11d4d34008c074a61062da18f
+commit_count: 3
+rows:
+  - sha: 42cd6e70b06945fefa78374e3c3712521c07ed8a
+    source_ref: git:42cd6e70b06945fefa78374e3c3712521c07ed8a
+    short_sha: 42cd6e7
+    changed_paths:
+      - kokorog2p/ru/g2p.py
+      - tests/test_ru_g2p.py
+    stats:
+      files_changed: 0
+      insertions: 38
+      deletions: 5
+    inspected: true
+    inspected_paths:
+      - kokorog2p/ru/g2p.py
+      - tests/test_ru_g2p.py
+    observed_behavior:
+      RussianG2P now keeps selected lexicon lookup separate from the configured fallback
+      provider, tries the fallback after a miss, preserves provider provenance, and
+      closes both backends. The regression test verifies fallback pronunciation when no
+      selected lexicon is configured.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "feat: fix russion g2p"
+    target_entry_key: russian-fallback-provider
+    target_entry_id: entry-0001
+    notes: Reviewed implementation and focused regression test.
+  - sha: 7f0953db165da0406e1f4fad1246db26ee6e62f6
+    source_ref: git:7f0953db165da0406e1f4fad1246db26ee6e62f6
+    short_sha: 7f0953d
+    changed_paths:
+      - README.md
+      - docs/advanced.md
+      - docs/index.md
+      - examples/README.md
+      - examples/cache_and_batch.py
+      - examples/espeak_fallback.py
+      - examples/external_annotations.py
+      - examples/lexicon_selection.py
+      - examples/marker_demo.py
+      - examples/mixed_language_auto.py
+      - examples/result_inspection.py
+      - examples/structured_stress.py
+      - tests/test_examples.py
+    stats:
+      files_changed: 0
+      insertions: 566
+      deletions: 20
+    inspected: true
+    inspected_paths:
+      - README.md
+      - docs/advanced.md
+      - docs/index.md
+      - examples/README.md
+      - examples/cache_and_batch.py
+      - examples/espeak_fallback.py
+      - examples/external_annotations.py
+      - examples/lexicon_selection.py
+      - examples/marker_demo.py
+      - examples/mixed_language_auto.py
+      - examples/result_inspection.py
+      - examples/structured_stress.py
+      - tests/test_examples.py
+    observed_behavior:
+      Added a runnable examples catalog covering the prepared-text API, lexicon
+      selection, dynamic eSpeak fallback, result inspection, structured stress, cache
+      reuse, and caller annotations, with documentation links and contract tests for the
+      dependency-light paths.
+    public_impact: docs
+    decision: accepted
+    stale: false
+    evidence_subject: "feat: add examples"
+    target_entry_key: runnable-examples
+    target_entry_id: entry-0002
+    notes:
+      Reviewed README and advanced documentation updates, example scripts, and example
+      contract tests.
+  - sha: fe1947bdfa2227d11d4d34008c074a61062da18f
+    source_ref: git:fe1947bdfa2227d11d4d34008c074a61062da18f
+    short_sha: fe1947b
+    changed_paths:
+      - kokorog2p/kk/model_profile.py
+      - tests/test_kk_model_profile.py
+      - tests/test_ru_factory.py
+    stats:
+      files_changed: 0
+      insertions: 10
+      deletions: 1
+    inspected: true
+    inspected_paths:
+      - kokorog2p/kk/model_profile.py
+      - tests/test_kk_model_profile.py
+      - tests/test_ru_factory.py
+    observed_behavior:
+      Kazakh model symbol normalization now maps the eSpeak uvular trill to the stock
+      rhotic symbol, and the regression test confirms the transformed output passes
+      stock-vocabulary validation.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "feat: fix symbol map"
+    target_entry_key: kazakh-symbol-normalization
+    target_entry_id: entry-0003
+    notes: Reviewed the model profile change and validation regression test.
