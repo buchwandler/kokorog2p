@@ -534,6 +534,17 @@ phonemes = backend.phonemize("hello")
 print(phonemes)
 ```
 
+`EspeakBackend` is a Kokoro policy adapter over `espeakng-runtime`. It keeps runtime
+creation lazy, uses native-to-CLI fallback by default, and forces CLI when
+`use_cli=True`. After use, `backend.runtime_info` reports the selected implementation,
+fallback diagnostics, discovery source, version, and capability metadata. A bundled
+native runtime does not provide an executable for explicit CLI mode.
+
+Legacy configuration variables remain supported: `KOKOROG2P_ESPEAK_EXECUTABLE`,
+`KOKOROG2P_ESPEAK_LIBRARY`, and `KOKOROG2P_ESPEAK_DATA`. New applications can use the
+neutral `ESPEAKNG_RUNTIME_*` variables instead. These direct-backend settings are
+separate from Lexphon's `use_espeak_fallback=True` provider path.
+
 ## Caching and Performance
 
 ### Managing Cache

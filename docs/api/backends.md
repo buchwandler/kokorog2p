@@ -39,6 +39,17 @@ phonemes = backend.phonemize("hello")
 print(phonemes)
 ```
 
+`EspeakBackend` delegates discovery and native/CLI lifecycle to `espeakng-runtime`.
+Default mode prefers native and falls back to CLI; `use_cli=True` forces CLI. Inspect
+the selected implementation after first use with `backend.runtime_info`, then call
+`backend.close()` when the instance is no longer needed.
+
+The neutral runtime configuration variables are `ESPEAKNG_RUNTIME_EXECUTABLE`,
+`ESPEAKNG_RUNTIME_LIBRARY`, and `ESPEAKNG_RUNTIME_DATA`. The legacy
+`KOKOROG2P_ESPEAK_EXECUTABLE`, `KOKOROG2P_ESPEAK_LIBRARY`, and `KOKOROG2P_ESPEAK_DATA`
+variables remain compatibility aliases. This direct backend is distinct from the Lexphon
+eSpeak fallback selected with `use_espeak_fallback=True`.
+
 ### Using espeak-only G2P
 
 ```python

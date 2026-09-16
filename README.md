@@ -38,6 +38,16 @@ python -m pip install "kokorog2p[espeak]"
 python -m pip install "kokorog2p[hi]"
 ```
 
+Direct eSpeak support is provided by `espeakng-runtime`. The core package includes its
+runtime adapter, while `kokorog2p[espeak-direct]` also installs the runtime's bundled
+native loader. A bundled native library does not provide an `espeak-ng` executable, so
+`use_cli=True` still requires system eSpeak on `PATH` or an explicit executable.
+
+The direct backend and Lexphon's eSpeak fallback are separate paths:
+`get_g2p("en-us", backend="espeak")` uses the direct runtime adapter, while
+`use_espeak_fallback=True` uses Lexphon's provider and is configured with
+`kokorog2p[espeak]`.
+
 German dictionaries are no longer bundled. Install the Lexphon runtime data explicitly
 before German dictionary lookup:
 

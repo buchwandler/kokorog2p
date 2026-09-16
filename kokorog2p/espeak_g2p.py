@@ -336,6 +336,12 @@ class EspeakOnlyG2P(G2PBase):
                 )
                 return ""
 
+    def close(self) -> None:
+        if self._espeak_backend is not None:
+            self._espeak_backend.close()
+            self._espeak_backend = None
+        super().close()
+
     def __repr__(self) -> str:
         return (
             f"EspeakOnlyG2P(language={self.language!r}, voice={self._espeak_voice!r})"

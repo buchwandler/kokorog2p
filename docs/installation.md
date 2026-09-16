@@ -37,6 +37,19 @@ python -m pip install "kokorog2p[hi]"
 python -m pip install "kokorog2p[goruut]"
 ```
 
+### Direct eSpeak runtime
+
+`backend="espeak"` uses the core `espeakng-runtime` adapter. Install
+`kokorog2p[espeak-direct]` for the runtime's bundled native loader:
+
+```bash
+python -m pip install "kokorog2p[espeak-direct]"
+```
+
+The bundled native loader does not install an eSpeak executable. Explicit CLI mode
+(`use_cli=True`) requires `espeak-ng` or `espeak` on `PATH`, or a configured executable.
+The `espeak` extra above remains the separate Lexphon eSpeak fallback provider path.
+
 Optional spaCy models and system tools such as `espeak-ng` are installed separately.
 Hindi uses the existing eSpeak-NG integration with the `hi` voice and preserves raw IPA
 for Kokoro v1.0. It does not require `lexphon data install ...` because no Hindi runtime

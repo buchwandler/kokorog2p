@@ -23,6 +23,7 @@ keywords = ["g2p", "grapheme-to-phoneme", "tts", "text-to-speech", "kokoro", "ph
 dependencies = [
     "g2lex>=0.1.8,<0.2.0",
     "lexphon>=0.2.3,<0.3",
+    "espeakng-runtime>=0.2.0,<0.3",
 ]
 classifiers=[
     'Development Status :: 4 - Beta',
@@ -54,8 +55,7 @@ espeak = [
     "lexphon[espeak]>=0.2.3,<0.3",
 ]
 espeak-direct = [
-    "espeakng-loader>=0.1.0",
-    "dlinfo>=1.2.1; sys_platform != 'win32' and sys_platform != 'android'",
+    "espeakng-runtime[bundled]>=0.2.0,<0.3",
 ]
 kk = [
     "kokorog2p[espeak]",

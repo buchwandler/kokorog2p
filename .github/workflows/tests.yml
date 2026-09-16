@@ -143,8 +143,8 @@ jobs:
 
       - name: Verify eSpeak backends
         run: |
-          python -c "from kokorog2p.backends.espeak.cli_wrapper import CliPhonemizer; p = CliPhonemizer('en-us'); print('CLI eSpeak:', p.version)"
-          python -c "from kokorog2p.backends.espeak.wrapper import Phonemizer; p = Phonemizer(); p.set_voice('en-us'); print('native eSpeak:', p.version, p.library_path)"
+          python -c "from kokorog2p.backends.espeak import EspeakBackend; b = EspeakBackend('en-us'); print('direct eSpeak:', b.phonemize('hello')); print('runtime:', b.runtime_info); b.close()"
+          python -c "from kokorog2p.backends.espeak import EspeakBackend; b = EspeakBackend('en-us', use_cli=True); print('direct eSpeak CLI:', b.phonemize('hello')); print('runtime:', b.runtime_info); b.close()"
       - name: Provision released Lexphon data
         shell: bash
         run: |

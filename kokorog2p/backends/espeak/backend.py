@@ -1,22 +1,17 @@
-"""High-level espeak backend for Kokoro TTS phonemization.
+"""Kokoro-facing adapter for the shared :mod:`espeakng_runtime` package."""
 
-This module provides a convenient interface for converting text to phonemes
-using espeak-ng, with automatic conversion to Kokoro's phoneme format.
-
-Copyright 2024 kokorog2p contributors
-Licensed under the Apache License, Version 2.0
-"""
+from __future__ import annotations
 
 import logging
+import os
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, cast
+from typing import Any, Literal
 
-from kokorog2p.backends.espeak.cli_wrapper import CliPhonemizer
-from kokorog2p.backends.espeak.phonemizer_base import EspeakPhonemizerBase
-from kokorog2p.backends.espeak.wrapper import Phonemizer
+from espeakng_runtime import EspeakRuntime, RuntimeInfo
+
 from kokorog2p.phonemes import from_espeak, strip_espeak_language_markers
 
 logger = logging.getLogger(__name__)
@@ -24,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class EspeakBackendInfo:
-    """Stable, non-initializing description of the selected eSpeak backend."""
+    """Stable, non-initializing description of the direct eSpeak adapter."""
 
     implementation: Literal["native", "cli", "uninitialized"]
     executable: str | None
@@ -35,16 +30,11 @@ class EspeakBackendInfo:
 
 
 class EspeakBackend:
-    """High-level espeak backend for Kokoro TTS phonemization.
+    """Apply Kokoro phoneme policy on top of ``EspeakRuntime``.
 
-    This class provides a simple interface for converting text to phonemes
-    using espeak-ng. It automatically converts espeak's IPA output to
-    Kokoro's phoneme format.
-
-    Example:
-        >>> backend = EspeakBackend("en-us")
-        >>> backend.phonemize("hello world")
-        'hˈɛlO wˈɜɹld'
+    Runtime discovery, native calls, CLI calls, voice resolution, batching, and
+    lifecycle are owned by ``espeakng-runtime``. This adapter owns only the
+    Kokoro conversion and punctuation policy.
     """
 
     def __init__(
@@ -55,93 +45,78 @@ class EspeakBackend:
         use_cli: bool = False,
         data_path: str | Path | None = None,
     ) -> None:
-        """Initialize the espeak backend.
-
-        Args:
-            language: Language code (e.g., "en-us", "en-gb", "fr-fr").
-            with_stress: Whether to include stress markers in output.
-            tie: Tie character mode. "^" uses tie character for affricates.
-            use_cli: If True, force use of CLI phonemizer instead of library.
-            data_path: Optional instance-scoped espeak-ng data directory.
-        """
         self.language = language
         self.with_stress = with_stress
         self.tie = tie
         self.use_cli = use_cli
         self.data_path = Path(data_path) if data_path is not None else None
-        self._phonemizer: EspeakPhonemizerBase | None = None
+        self._runtime: EspeakRuntime | None = None
+        self._runtime_error: Exception | None = None
 
-        self._native_error: Exception | None = None
+    def _make_runtime(self) -> EspeakRuntime:
+        """Construct the shared runtime using Kokoro's legacy overrides."""
+        return EspeakRuntime(
+            mode="cli" if self.use_cli else "auto",
+            executable=os.getenv("KOKOROG2P_ESPEAK_EXECUTABLE") or None,
+            library=os.getenv("KOKOROG2P_ESPEAK_LIBRARY") or None,
+            data=str(self.data_path)
+            if self.data_path is not None
+            else os.getenv("KOKOROG2P_ESPEAK_DATA") or None,
+        )
+
+    def _get_runtime(self) -> EspeakRuntime:
+        if self._runtime is None:
+            self._runtime = self._make_runtime()
+        return self._runtime
 
     @property
-    def wrapper(self) -> EspeakPhonemizerBase:
-        """Get the underlying Phonemizer instance (lazy initialization)."""
-        if self._phonemizer is None and not self.use_cli:
-            try:
-                self._phonemizer = Phonemizer(data_path=self.data_path)
-                self._phonemizer.set_voice(self.language)
-            except Exception as exc:
-                self._native_error = exc
-                logger.debug(
-                    "native eSpeak backend initialization failed "
-                    "(%s: %s); using CLI backend",
-                    type(exc).__name__,
-                    exc,
-                )
-                self._phonemizer = CliPhonemizer(
-                    language=self.language, tie_char=self.tie, data_path=self.data_path
-                )
-        elif self._phonemizer is None and self.use_cli:
-            self._phonemizer = CliPhonemizer(
-                language=self.language, tie_char=self.tie, data_path=self.data_path
-            )
-        if self._phonemizer is not None and self._phonemizer.voice is None:
-            try:
-                self._phonemizer.set_voice(self.language)
-            except Exception as exc:
-                if not isinstance(self._phonemizer, CliPhonemizer):
-                    self._native_error = exc
-                    logger.debug(
-                        "native eSpeak voice selection failed "
-                        "(%s: %s); using CLI backend",
-                        type(exc).__name__,
-                        exc,
-                    )
-                    self._phonemizer = CliPhonemizer(
-                        language=self.language,
-                        tie_char=self.tie,
-                        data_path=self.data_path,
-                    )
-        return cast(EspeakPhonemizerBase, self._phonemizer)
+    def runtime_info(self) -> RuntimeInfo | None:
+        """Return shared-runtime diagnostics after initialization, if any."""
+        return None if self._runtime is None else self._runtime.info
 
     @property
     def native_error(self) -> Exception | None:
-        """Return the native setup error that caused an automatic CLI downgrade."""
-        return self._native_error
+        """Deprecated compatibility view of automatic native fallback."""
+        if self._runtime_error is not None:
+            return self._runtime_error
+        runtime = self._runtime
+        if runtime is None:
+            return None
+        info = runtime.info
+        if info.fallback_code is None:
+            return None
+        return RuntimeError(info.fallback_reason or info.fallback_code)
+
+    @property
+    def wrapper(self) -> Any:
+        """Return the initialized runtime for legacy callers.
+
+        New code should use :attr:`runtime_info` and the adapter methods. The
+        old wrapper modules remain available as separate compatibility facades.
+        """
+        return self._get_runtime()
 
     @property
     def info(self) -> EspeakBackendInfo:
-        """Return backend metadata without resolving the lazy wrapper."""
-        wrapper = self._phonemizer
-        if wrapper is None:
-            implementation: Literal["native", "cli", "uninitialized"] = "uninitialized"
-        elif isinstance(wrapper, CliPhonemizer):
-            implementation = "cli"
-        else:
-            implementation = "native"
-        executable = (
-            getattr(wrapper, "executable", None) if implementation == "cli" else None
-        )
-        library_path = None
-        if implementation == "native":
-            path = getattr(wrapper, "library_path", None)
-            library_path = str(path) if path is not None else None
-        error = self._native_error
+        """Return compatibility diagnostics without initializing the runtime."""
+        if self._runtime is None:
+            error = self._runtime_error
+            return EspeakBackendInfo(
+                implementation="uninitialized",
+                executable=None,
+                library_path=None,
+                data_path=str(self.data_path) if self.data_path is not None else None,
+                native_error_type=type(error).__name__ if error is not None else None,
+                native_error=str(error) if error is not None else None,
+            )
+
+        runtime_info = self._runtime.info
+        error = self.native_error
         return EspeakBackendInfo(
-            implementation=implementation,
-            executable=str(executable) if executable is not None else None,
-            library_path=library_path,
-            data_path=str(self.data_path) if self.data_path is not None else None,
+            implementation=runtime_info.implementation,
+            executable=runtime_info.executable,
+            library_path=runtime_info.library,
+            data_path=runtime_info.data,
             native_error_type=type(error).__name__ if error is not None else None,
             native_error=str(error) if error is not None else None,
         )
@@ -152,82 +127,35 @@ class EspeakBackend:
 
     @property
     def is_british(self) -> bool:
-        """Check if using British English variant."""
         return self.language.lower() in ("en-gb", "en_gb")
 
     def remove_punctuation(self, text: str) -> str:
-        """Remove punctuation from text before phonemization.
-
-        Preserves:
-        - Hyphens between letters: "my-world" → "my-world"
-        - Apostrophes between letters: "don't" → "don't"
-        - Single periods between letters: "Dr. Smith" → "Dr. Smith"
-
-        Removes:
-        - Quote marks around words: "'Hello'" → "Hello"
-        - Repeated punctuation: "Hello??" → "Hello?"
-        - Standalone punctuation: "!" → "", "?" → ""
-        - Standalone dots: ".." → ""
-        - Ellipsis sequences: "I like this ... . Hello." → "I like this. Hello."
-        - Special sequences: "I dont't like you.!" → "I dont't like you."
-
-        Enforces:
-        - Single punctuation between words
-        - Space after punctuation: "Hello,world" → "Hello, world"
-
-        Preserves special symbols: @, #, etc.
-
-        Args:
-            text: Input text.
-
-        Returns:
-            Text with punctuation cleaned.
-        """
-        # Placeholders for protected characters
-        APOS_PROTECT = "__APOS__"
-        HYPHEN_PROTECT = "__HYPHEN__"
-
-        # Step 1: Protect apostrophes between letters (contractions)
-        text = re.sub(r"(?<=\w)'(?=\w)", APOS_PROTECT, text)
-
-        # Step 2: Protect hyphens between letters (compound words)
-        text = re.sub(r"(?<=\w)-(?=\w)", HYPHEN_PROTECT, text)
-
-        # Step 3: Remove quote marks (single and double)
+        """Normalize punctuation while preserving Kokoro's existing policy."""
+        apos_protect = "__APOS__"
+        hyphen_protect = "__HYPHEN__"
+        text = re.sub(r"(?<=\w)'(?=\w)", apos_protect, text)
+        text = re.sub(r"(?<=\w)-(?=\w)", hyphen_protect, text)
         text = re.sub(r"[\"']", "", text)
-
-        # Step 4: Remove spaces before punctuation
         text = re.sub(r"\s+([.,;:!?])", r"\1", text)
-
-        # Step 5: Collapse repeated punctuation (?!;: to single)
         text = re.sub(r"([?!;:,])\1+", r"\1", text)
-
-        # Step 6: Collapse dot sequences
-        # First, handle ellipsis-like patterns: "..." becomes "."
-        # But keep single period between letters (abbreviations)
         text = re.sub(r"\.{2,}", ".", text)
-
-        # Step 7: Remove standalone punctuation (not attached to words)
-        # Remove standalone !, ?, ;, : not between letters
         text = re.sub(r"(?<!\w)[?!;:,](?!\w)", "", text)
-
-        # Step 8: Remove standalone dots
         text = re.sub(r"(?<!\w)\.(?!\w)", "", text)
-
-        # Step 9: Clean up multiple spaces
         text = re.sub(r" +", " ", text)
-
-        # Step 10: Enforce space after punctuation when followed by letter
         text = re.sub(r"([.,;:!?])(?=\w)", r"\1 ", text)
+        return text.replace(apos_protect, "'").replace(hyphen_protect, "-").strip()
 
-        # Step 11: Restore protected characters
-        text = text.replace(APOS_PROTECT, "'")
-        text = text.replace(HYPHEN_PROTECT, "-")
+    def _raw_options(self) -> dict[str, object]:
+        use_tie = self.tie == "^"
+        return {
+            "separator": None if use_tie else "_",
+            "use_tie": use_tie,
+            "tie_char": "͡",
+        }
 
-        # Step 12: Strip leading/trailing whitespace
-        text = text.strip()
-
-        return text
+    def _convert_raw_phonemes(self, raw: str) -> str:
+        raw = strip_espeak_language_markers(raw)
+        return from_espeak(raw, british=self.is_british)
 
     def phonemize(
         self,
@@ -235,41 +163,24 @@ class EspeakBackend:
         convert_to_kokoro: bool = True,
         remove_punctuation: bool = True,
     ) -> str:
-        """Convert text to phonemes.
-
-        Args:
-            text: Text to convert to phonemes.
-            convert_to_kokoro: If True, convert espeak IPA to Kokoro format.
-                              If False, return raw espeak IPA output.
-            remove_punctuation: If True, remove punctuation before phonemization.
-        Returns:
-            Phoneme string.
-        """
-        # Use tie character for better handling of affricates (dʒ, tʃ)
-        use_tie = self.tie == "^"
         if remove_punctuation:
             text = self.remove_punctuation(text)
-        raw_phonemes = self.wrapper.phonemize(text, use_tie=use_tie)
-        raw_phonemes = strip_espeak_language_markers(raw_phonemes)
-
-        if convert_to_kokoro:
-            return from_espeak(raw_phonemes, british=self.is_british)
-        return raw_phonemes
+        raw = self._get_runtime().phonemize(
+            text,
+            voice=self.language,
+            **self._raw_options(),
+        )
+        if not convert_to_kokoro:
+            return raw
+        result = self._convert_raw_phonemes(raw)
+        return result
 
     def phonemize_list(
         self,
         texts: list[str],
         convert_to_kokoro: bool = True,
     ) -> list[str]:
-        """Convert multiple texts to phonemes.
-
-        Args:
-            texts: List of texts to convert.
-            convert_to_kokoro: If True, convert to Kokoro format.
-
-        Returns:
-            List of phoneme strings.
-        """
+        """Convert multiple texts while preserving the historical list API."""
         return [self.phonemize(text, convert_to_kokoro) for text in texts]
 
     def phonemize_many(
@@ -277,38 +188,42 @@ class EspeakBackend:
         texts: Sequence[str],
         convert_to_kokoro: bool = True,
     ) -> list[str]:
-        """Convert independently framed texts while reusing one eSpeak backend."""
-        use_tie = self.tie == "^"
-        raw_results = [
-            strip_espeak_language_markers(raw)
-            for raw in self.wrapper.phonemize_many(texts, use_tie=use_tie)
-        ]
+        """Convert independently framed texts through the runtime batch API."""
+        raw_items = self._get_runtime().phonemize_many(
+            texts,
+            voice=self.language,
+            **self._raw_options(),
+        )
         if not convert_to_kokoro:
-            return raw_results
-        return [from_espeak(raw, british=self.is_british) for raw in raw_results]
+            return raw_items
+        return [self._convert_raw_phonemes(item) for item in raw_items]
 
-    def word_phonemes(
-        self,
-        word: str,
-        convert_to_kokoro: bool = True,
-    ) -> str:
-        """Convert a single word to phonemes.
-
-        Args:
-            word: Word to convert.
-            convert_to_kokoro: If True, convert to Kokoro format.
-
-        Returns:
-            Phoneme string for the word (without separators).
-        """
-        result = self.phonemize(word, convert_to_kokoro)
-        # Clean up: remove separators and trailing whitespace
+    def word_phonemes(self, word: str, convert_to_kokoro: bool = True) -> str:
+        """Convert one word and remove output separators."""
+        result = self.phonemize(word, convert_to_kokoro, remove_punctuation=True)
         return result.strip().replace("_", "")
 
     @property
     def version(self) -> str:
-        """Get espeak version as string (e.g., "1.51.1")."""
-        return ".".join(str(v) for v in self.wrapper.version)
+        """Return the runtime's reported eSpeak version."""
+        version = self._get_runtime().info.version
+        return version or ""
+
+    def close(self) -> None:
+        """Release the runtime; repeated calls are safe."""
+        runtime = self._runtime
+        self._runtime = None
+        if runtime is not None:
+            runtime.close()
+
+    def __getstate__(self) -> dict[str, object]:
+        state = self.__dict__.copy()
+        state["_runtime"] = None
+        return state
+
+    def __setstate__(self, state: dict[str, object]) -> None:
+        self.__dict__.update(state)
+        self._runtime = None
 
     def __repr__(self) -> str:
         return f"EspeakBackend(language={self.language!r})"

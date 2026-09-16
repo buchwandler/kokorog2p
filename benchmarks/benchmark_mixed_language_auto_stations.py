@@ -169,10 +169,11 @@ def instrument(recorder: Recorder) -> Iterator[None]:
         stack.callback(setattr, kokorog2p, "get_g2p", original_factory)
         kokorog2p.get_g2p = factory
 
+        import espeakng_runtime.backends.cli as runtime_cli
+
         import kokorog2p.de.g2p as de_g2p
         import kokorog2p.en.g2p as en_g2p
         from kokorog2p import language_routing, pipeline_api
-        from kokorog2p.backends.espeak import cli_wrapper
         from kokorog2p.lexicons.lexphon_backend import LexphonBackend
 
         def timed(
@@ -259,7 +260,7 @@ def instrument(recorder: Recorder) -> Iterator[None]:
         LexphonBackend.lookup_many = lookup_many
         stack.callback(setattr, LexphonBackend, "lookup_many", original_lookup_many)
 
-        original_subprocess_run = cli_wrapper.subprocess.run
+        original_subprocess_run = runtime_cli.subprocess.run
 
         def subprocess_run(*args: Any, **kwargs: Any) -> Any:
             command = args[0] if args else kwargs.get("args", ())
@@ -271,8 +272,8 @@ def instrument(recorder: Recorder) -> Iterator[None]:
                 recorder.counts["eSpeak subprocess count"] += 1
             return result
 
-        cli_wrapper.subprocess.run = subprocess_run
-        stack.callback(setattr, cli_wrapper.subprocess, "run", original_subprocess_run)
+        runtime_cli.subprocess.run = subprocess_run
+        stack.callback(setattr, runtime_cli.subprocess, "run", original_subprocess_run)
 
         for module in (de_g2p, en_g2p):
             original_load = module.load_spacy_model

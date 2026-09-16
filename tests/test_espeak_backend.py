@@ -1,1012 +1,209 @@
-"""Tests for the espeak-ng backend.
+"""Tests for the runtime-backed direct eSpeak adapter."""
 
-Copyright 2024 kokorog2p contributors
-Licensed under the Apache License, Version 2.0
-"""
+from __future__ import annotations
 
-import os
 import pickle
-import sys
-from pathlib import Path
-from types import SimpleNamespace
+from typing import ClassVar
 
 import pytest
-
-from kokorog2p.backends.espeak import api as espeak_api
-from kokorog2p.backends.espeak.api import HAS_DLINFO, EspeakLibrary, _find_library_path
-from kokorog2p.backends.espeak.backend import EspeakBackend
-from kokorog2p.backends.espeak.phonemizer_base import EspeakPhonemizerBase
-from kokorog2p.backends.espeak.voice import Voice
-
-
-def test_dlinfo_is_optional_on_android():
-    """Android's libdl must not be treated as glibc's dlinfo implementation."""
-    if sys.platform == "android":
-        from kokorog2p.backends.espeak.wrapper import find_espeak_library
-
-        assert HAS_DLINFO is False
-        assert find_espeak_library().endswith(".so")
-
-
-def test_find_espeak_library_falls_back_to_cli_install_prefix(
-    tmp_path, monkeypatch
-) -> None:
-    """Find a library under the prefix of an eSpeak executable."""
-    from kokorog2p.backends.espeak import wrapper as espeak_wrapper
-
-    prefix = tmp_path / "prefix"
-    executable = prefix / "bin" / "espeak-ng"
-    library = prefix / "lib" / "libespeak-ng.dylib"
-    executable.parent.mkdir(parents=True)
-    library.parent.mkdir(parents=True)
-    executable.touch()
-    library.touch()
-
-    monkeypatch.delenv(espeak_wrapper.ENV_LIBRARY_PATH, raising=False)
-    monkeypatch.delenv(espeak_wrapper.ENV_EXECUTABLE_PATH, raising=False)
-    monkeypatch.setitem(sys.modules, "espeakng_loader", None)
-    monkeypatch.setattr(espeak_wrapper.ctypes.util, "find_library", lambda _name: None)
-    monkeypatch.setattr(
-        espeak_wrapper.shutil,
-        "which",
-        lambda name: str(executable) if name == "espeak-ng" else None,
-    )
-
-    assert espeak_wrapper.find_espeak_library() == str(library.resolve())
-
-
-def test_find_espeak_library_near_explicit_executable(tmp_path, monkeypatch):
-    """Find the native library beside an explicitly configured executable."""
-    from kokorog2p.backends.espeak import wrapper as espeak_wrapper
-
-    install = tmp_path / "eSpeak NG"
-    install.mkdir()
-    executable = install / "espeak-ng.exe"
-    executable.write_bytes(b"")
-    library = install / "libespeak-ng.dll"
-    library.write_bytes(b"")
-
-    monkeypatch.setenv(espeak_wrapper.ENV_EXECUTABLE_PATH, str(executable))
-    monkeypatch.delenv(espeak_wrapper.ENV_LIBRARY_PATH, raising=False)
-    monkeypatch.setitem(sys.modules, "espeakng_loader", None)
-    monkeypatch.setattr(espeak_wrapper.ctypes.util, "find_library", lambda _name: None)
-    monkeypatch.setattr(espeak_wrapper.shutil, "which", lambda _name: None)
-
-    assert espeak_wrapper.find_espeak_library() == str(library.resolve())
-
-
-def test_find_espeak_data_near_explicit_executable(tmp_path, monkeypatch):
-    """Find the data directory beside an explicitly configured executable."""
-    from kokorog2p.backends.espeak import wrapper as espeak_wrapper
-
-    install = tmp_path / "eSpeak NG"
-    install.mkdir()
-    executable = install / "espeak-ng.exe"
-    executable.write_bytes(b"")
-    data = install / "espeak-ng-data"
-    data.mkdir()
-
-    monkeypatch.setenv(espeak_wrapper.ENV_EXECUTABLE_PATH, str(executable))
-    monkeypatch.delenv(espeak_wrapper.ENV_DATA_PATH, raising=False)
-    monkeypatch.setitem(sys.modules, "espeakng_loader", None)
-    monkeypatch.setattr(espeak_wrapper.shutil, "which", lambda _name: None)
-
-    assert espeak_wrapper.find_espeak_data() == data.resolve()
-
-
-def test_cli_prefers_explicit_espeak_executable(tmp_path, monkeypatch):
-    """Prefer explicit CLI configuration over PATH discovery."""
-    from kokorog2p.backends.espeak import cli_wrapper
-
-    executable = tmp_path / "custom-espeak-ng.exe"
-    executable.write_bytes(b"")
-    monkeypatch.setenv("KOKOROG2P_ESPEAK_EXECUTABLE", str(executable))
-
-    cli = cli_wrapper.CliPhonemizer.__new__(cli_wrapper.CliPhonemizer)
-    cli.executable = None
-
-    assert cli._exe() == str(executable.resolve())
-
-
-def test_find_espeak_library_prefers_environment_override(tmp_path, monkeypatch):
-    """Prefer the explicit library environment variable over auto-discovery."""
-    from kokorog2p.backends.espeak import wrapper as espeak_wrapper
-
-    prefix = tmp_path / "prefix"
-    executable = prefix / "bin" / "espeak-ng"
-    discovered_library = prefix / "lib" / "libespeak-ng.dylib"
-    environment_library = tmp_path / "explicit" / "libespeak-ng.dylib"
-    executable.parent.mkdir(parents=True)
-    discovered_library.parent.mkdir(parents=True)
-    environment_library.parent.mkdir(parents=True)
-    executable.touch()
-    discovered_library.touch()
-    environment_library.touch()
-
-    monkeypatch.setenv(espeak_wrapper.ENV_LIBRARY_PATH, str(environment_library))
-    monkeypatch.setattr(
-        espeak_wrapper.shutil,
-        "which",
-        lambda name: str(executable) if name == "espeak-ng" else None,
-    )
-
-    assert espeak_wrapper.find_espeak_library() == str(environment_library.resolve())
-
-
-def test_find_espeak_library_reports_missing_library(monkeypatch):
-    """Report the supported environment override when discovery fails."""
-    from kokorog2p.backends.espeak import wrapper as espeak_wrapper
-
-    monkeypatch.delenv(espeak_wrapper.ENV_LIBRARY_PATH, raising=False)
-    monkeypatch.delenv(espeak_wrapper.ENV_EXECUTABLE_PATH, raising=False)
-    monkeypatch.setitem(sys.modules, "espeakng_loader", None)
-    monkeypatch.setattr(espeak_wrapper.ctypes.util, "find_library", lambda _name: None)
-    monkeypatch.setattr(espeak_wrapper.shutil, "which", lambda _name: None)
-
-    with pytest.raises(RuntimeError, match=espeak_wrapper.ENV_LIBRARY_PATH):
-        espeak_wrapper.find_espeak_library()
-
-
-@pytest.mark.skipif(sys.platform != "linux", reason="Linux /proc/self/maps fallback")
-def test_find_library_path_matches_versioned_soname(tmp_path, monkeypatch):
-    """Resolve a soname to the versioned filename reported by Linux maps."""
-    mapped = tmp_path / "libespeak-ng.so.1.1.51"
-    mapped.touch()
-    maps = f"00400000-00401000 r--p 00000000 00:00 0 {mapped}\n"
-    original_read_text = Path.read_text
-
-    def read_text(path, *args, **kwargs):
-        if path == Path("/proc/self/maps"):
-            return maps
-        return original_read_text(path, *args, **kwargs)
-
-    monkeypatch.setattr(espeak_api, "HAS_DLINFO", False)
-    monkeypatch.setattr(Path, "read_text", read_text)
-    library = type("DummyLibrary", (), {"_name": "libespeak-ng.so.1"})()
-
-    assert _find_library_path(library) == mapped.resolve()
-
-
-@pytest.mark.skipif(sys.platform != "linux", reason="Linux /proc/self/maps fallback")
-def test_find_library_path_ignores_existing_managed_temp_copy(tmp_path, monkeypatch):
-    """Prefer a canonical mapping when a managed temp copy appears first."""
-    temp_root = tmp_path / "temp"
-    temp_copy = temp_root / "espeak_existing" / "libespeak-ng.so.1.1.51"
-    canonical = tmp_path / "usr" / "lib" / "libespeak-ng.so.1.1.51"
-    temp_copy.parent.mkdir(parents=True)
-    canonical.parent.mkdir(parents=True)
-    temp_copy.touch()
-    canonical.touch()
-
-    maps = (
-        f"00400000-00401000 r--p 00000000 00:00 0 {temp_copy}\n"
-        f"00500000-00501000 r--p 00000000 00:00 0 {canonical}\n"
-    )
-    original_read_text = Path.read_text
-
-    def read_text(path, *args, **kwargs):
-        if path == Path("/proc/self/maps"):
-            return maps
-        return original_read_text(path, *args, **kwargs)
-
-    monkeypatch.setattr(espeak_api, "HAS_DLINFO", False)
-    monkeypatch.setattr(espeak_api.tempfile, "gettempdir", lambda: str(temp_root))
-    monkeypatch.setattr(Path, "read_text", read_text)
-
-    library = type("DummyLibrary", (), {"_name": "libespeak-ng.so.1"})()
-
-    assert _find_library_path(library) == canonical.resolve()
-
-
-def test_text_to_phonemes_strips_boundary_whitespace():
-    """Direct C API output should be normalized at the boundaries."""
-
-    class DummyLib:
-        def __init__(self) -> None:
-            def _func(text_ptr, text_mode, phoneme_mode):
-                text_ptr.contents.value = None
-                return b" h_\xc9\x99_l_\xcb\x88o\xca\x8a "
-
-            self.espeak_TextToPhonemes = _func
-
-    library = EspeakLibrary.__new__(EspeakLibrary)
-    library._lib = DummyLib()  # type: ignore[assignment]
-
-    assert library.text_to_phonemes("hello") == "h_ə_l_ˈoʊ"
-
-
-@pytest.mark.espeak
-class TestEspeakBackend:
-    """Tests for the EspeakBackend class."""
-
-    def test_creation(self, espeak_backend, espeak_backend_cli):
-        """Test backend creation with default parameters."""
-        assert espeak_backend.language == "en-us"
-        assert espeak_backend.with_stress is True
-        assert espeak_backend.tie == "^"
-        assert espeak_backend.use_cli is False
-        assert espeak_backend_cli.use_cli is True
-        assert espeak_backend_cli.tie == "^"
-        assert espeak_backend_cli.with_stress is True
-        assert espeak_backend_cli.language == "en-us"
-
-    def test_is_british(self, espeak_backend, espeak_backend_gb):
-        """Test British English detection."""
-        assert espeak_backend.is_british is False
-        assert espeak_backend_gb.is_british is True
-
-    def test_phonemize_word(self, espeak_backend, espeak_backend_cli):
-        """Test converting a single word to phonemes."""
-        result = espeak_backend.phonemize("hello")
-        result_cli = espeak_backend_cli.phonemize("hello")
-        assert isinstance(result, str)
-        assert len(result) > 0
-        assert isinstance(result_cli, str)
-        assert len(result_cli) > 0
-        assert result == result_cli
-
-    def test_multiple_exclamation_marks(self, espeak_backend):
-        """Test converting !!!."""
-        result = espeak_backend.phonemize("!!!")
-        assert isinstance(result, str)
-        assert len(result) == 0
-
-    def test_phonemize_sentence(self, espeak_backend):
-        """Test converting a sentence to phonemes."""
-        result = espeak_backend.phonemize("Hello world")
-        assert isinstance(result, str)
-        assert len(result) > 0
-
-    def test_phonemize_with_kokoro(self, espeak_backend, espeak_backend_cli):
-        """Test phonemization with Kokoro format conversion."""
-        result = espeak_backend.phonemize("say", convert_to_kokoro=True)
-        result_cli = espeak_backend_cli.phonemize("say", convert_to_kokoro=True)
-        assert isinstance(result, str)
-        assert len(result) > 0
-        assert result == result_cli
-
-    def test_phonemize_raw_ipa(self, espeak_backend):
-        """Test phonemization without Kokoro conversion."""
-        result = espeak_backend.phonemize("say", convert_to_kokoro=False)
-        assert isinstance(result, str)
-        assert len(result) > 0
-
-    def test_phonemize_list(self, espeak_backend):
-        """Test batch phonemization."""
-        texts = ["hello", "world", "test"]
-        results = espeak_backend.phonemize_list(texts)
-        assert isinstance(results, list)
-        assert len(results) == 3
-        assert all(isinstance(r, str) for r in results)
-
-    def test_word_phonemes(self, espeak_backend):
-        """Test single word phonemization without separators."""
-        result = espeak_backend.word_phonemes("hello")
-        assert isinstance(result, str)
-        assert "_" not in result
-
-    def test_version_string(self, espeak_backend, espeak_backend_cli):
-        """Test version string format."""
-        version = espeak_backend.version
-        version_cli = espeak_backend_cli.version
-        assert isinstance(version, str)
-        parts = version.split(".")
-        assert len(parts) >= 1
-        assert isinstance(version_cli, str)
-        parts_cli = version_cli.split(".")
-        assert len(parts_cli) >= 1
-
-    def test_repr(self, espeak_backend):
-        """Test string representation."""
-        result = repr(espeak_backend)
-        assert "EspeakBackend" in result
-        assert "en-us" in result
-
-    def test_british_phonemization(self, espeak_backend_gb):
-        """Test British English phonemization."""
-        result = espeak_backend_gb.phonemize("hello")
-        assert isinstance(result, str)
-        assert len(result) > 0
-
-    def test_remove_punctuation_hyphen_preserved(self, espeak_backend):
-        """Test hyphens between letters are preserved."""
-        result = espeak_backend.remove_punctuation("my-world")
-        assert result == "my-world"
-
-    def test_remove_punctuation_single_quotes_removed(self, espeak_backend):
-        """Test single quotes around words are removed."""
-        result = espeak_backend.remove_punctuation("'Hello'")
-        assert result == "Hello"
-
-    def test_remove_punctuation_double_quotes_removed(self, espeak_backend):
-        """Test double quotes around words are removed."""
-        result = espeak_backend.remove_punctuation('"Hello"')
-        assert result == "Hello"
-
-    def test_remove_punctuation_contraction_preserved(self, espeak_backend):
-        """Test apostrophes in contractions are preserved."""
-        result = espeak_backend.remove_punctuation("don't")
-        assert result == "don't"
-        assert "'" in result
-
-    def test_remove_punctuation_possessive_preserved(self, espeak_backend):
-        """Test apostrophes in possessives are preserved."""
-        result = espeak_backend.remove_punctuation("John's book")
-        assert result == "John's book"
-
-    def test_remove_punctuation_collapse_question_marks(self, espeak_backend):
-        """Test multiple question marks collapse to one."""
-        result = espeak_backend.remove_punctuation("Hello??")
-        assert result == "Hello?"
-
-    def test_remove_punctuation_single_question_kept(self, espeak_backend):
-        """Test single question mark at end is kept."""
-        result = espeak_backend.remove_punctuation("Hello?")
-        assert result == "Hello?"
-
-    def test_remove_punctuation_standalone_question_removed(self, espeak_backend):
-        """Test standalone question mark is removed."""
-        result = espeak_backend.remove_punctuation("?")
-        assert result == ""
-
-    def test_remove_punctuation_standalone_exclamation_removed(self, espeak_backend):
-        """Test standalone exclamation mark is removed."""
-        result = espeak_backend.remove_punctuation("!")
-        assert result == ""
-
-    def test_remove_punctuation_trailing_exclamation_after_period(self, espeak_backend):
-        """Test trailing exclamation after period is removed."""
-        result = espeak_backend.remove_punctuation("I don't like you.!")
-        assert result == "I don't like you."
-
-    def test_remove_punctuation_standalone_dots_removed(self, espeak_backend):
-        """Test standalone dots are removed."""
-        result = espeak_backend.remove_punctuation("..")
-        assert result == ""
-
-    def test_remove_punctuation_ellipsis_normalized(self, espeak_backend):
-        """Test ellipsis sequences are normalized to single period."""
-        result = espeak_backend.remove_punctuation("I like this ... . Hello.")
-        assert result == "I like this. Hello."
-
-    def test_remove_punctuation_multiple_contractions(self, espeak_backend):
-        """Test multiple contractions are preserved."""
-        result = espeak_backend.remove_punctuation("we're sure you're right")
-        assert "we're" in result
-        assert "you're" in result
-
-    def test_remove_punctuation_special_symbols_preserved(self, espeak_backend):
-        """Test special symbols like @ and # are preserved."""
-        result = espeak_backend.remove_punctuation("test@example.com #tag")
-        assert "@" in result
-        assert "#" in result
-
-    def test_remove_punctuation_spacing_enforced(self, espeak_backend):
-        """Test space is enforced after punctuation."""
-        result = espeak_backend.remove_punctuation("Hello,world")
-        assert result == "Hello, world"
-
-    def test_remove_punctuation_collapse_semicolons(self, espeak_backend):
-        """Test multiple semicolons collapse to one."""
-        result = espeak_backend.remove_punctuation("Hello;;world")
-        assert result == "Hello; world"
-
-    def test_remove_punctuation_collapse_colons(self, espeak_backend):
-        """Test multiple colons collapse to one."""
-        result = espeak_backend.remove_punctuation("Hello::world")
-        assert result == "Hello: world"
-
-    def test_remove_punctuation_collapse_exclamations(self, espeak_backend):
-        """Test multiple exclamation marks collapse to one."""
-        result = espeak_backend.remove_punctuation("Hello!!world")
-        assert result == "Hello! world"
-
-    def test_remove_punctuation_abbreviation_period_kept(self, espeak_backend):
-        """Test period in abbreviation is kept."""
-        result = espeak_backend.remove_punctuation("Dr. Smith")
-        assert result == "Dr. Smith"
-
-    def test_remove_punctuation_quotes_with_contraction(self, espeak_backend):
-        """Test quotes removed but contractions kept."""
-        result = espeak_backend.remove_punctuation("'I don't know'")
-        assert "don't" in result
-        assert result.count("'") == 1  # Only contraction apostrophe
-
-    def test_remove_punctuation_empty_string(self, espeak_backend):
-        """Test empty string handling."""
-        result = espeak_backend.remove_punctuation("")
-        assert result == ""
-
-    def test_remove_punctuation_complex_sentence(self, espeak_backend):
-        """Test complex sentence with mixed punctuation."""
-        result = espeak_backend.remove_punctuation(
-            "Don't worry, 'they're' happy! What's up??"
-        )
-        assert "Don't" in result
-        assert "they're" in result
-        assert "What's" in result
-        assert "," in result
-        assert "!" in result
-        assert result.count("?") == 1  # Only one ?
-        # Contraction apostrophes present (don't / they're / what's)
-        assert "'" in result
-
-    def test_remove_punctuation_hyphen_compound_words(self, espeak_backend):
-        """Test hyphens in compound words are preserved."""
-        result = espeak_backend.remove_punctuation("state-of-the-art technology")
-        assert result == "state-of-the-art technology"
-
-
-def test_text_to_phonemes_no_progress_guard():
-    """EspeakLibrary should stop when pointer does not advance."""
-
-    class DummyLib:
-        def __init__(self) -> None:
-            self.calls = 0
-
-            def _func(text_ptr, text_mode, phoneme_mode):
-                self.calls += 1
-                return b"a"
-
-            self.espeak_TextToPhonemes = _func
-
-    dummy = DummyLib()
-    library = EspeakLibrary.__new__(EspeakLibrary)
-    library._lib = dummy  # type: ignore[assignment]
-
-    result = library.text_to_phonemes("abc")
-    assert result == "a"
-    assert dummy.calls == 1
-
-
-class _DummyBase(EspeakPhonemizerBase):
-    """Minimal concrete subclass to unit-test EspeakPhonemizerBase helpers."""
-
-    def __init__(self, voices: list[Voice]) -> None:
-        super().__init__()
-        self._voices = voices
+from espeakng_runtime import Voice
+
+from kokorog2p.backends.espeak import CliPhonemizer, EspeakBackend, Phonemizer
+from kokorog2p.backends.espeak import backend as backend_module
+
+
+class FakeInfo:
+    requested_mode = "auto"
+    implementation = "native"
+    executable = "/usr/bin/espeak-ng"
+    library = "/usr/lib/libespeak-ng.so"
+    data = "/usr/share/espeak-ng-data"
+    source = "fake"
+    version = "1.52.0"
+    exact_clause_api = False
+    parity = "best-effort"
+    fallback_reason = None
+    fallback_code = None
 
     @property
-    def version(self) -> tuple[int, ...]:
+    def version_tuple(self) -> tuple[int, ...]:
         return (1, 52, 0)
 
-    def set_voice(self, language: str) -> None:
-        raise NotImplementedError
 
-    def phonemize(self, text: str, use_tie: bool = False) -> str:
-        raise NotImplementedError
+class FakeRuntime:
+    instances: ClassVar[list[FakeRuntime]] = []
+    fallback = False
 
-    def list_voices(self, filter_name: str | None = None) -> list[Voice]:
-        return list(self._voices)
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+        self.info = FakeInfo()
+        if self.fallback:
+            self.info.implementation = "cli"
+            self.info.fallback_code = "native-init-failed"
+            self.info.fallback_reason = "native setup failed"
+        self.closed = False
+        self.voices = [Voice(name="English", language="en-us", identifier="en-us")]
+        self.instances.append(self)
 
+    def resolve_voice(self, voice: str) -> Voice:
+        if voice == "en-gb":
+            return Voice(name="English", language="en-gb", identifier="en")
+        return Voice(name="English", language=voice, identifier=voice)
 
-class TestPhonemizerBaseHelpers:
-    """Pure unit tests for shared helper logic (no espeak install required)."""
+    def phonemize(self, text: str, **kwargs) -> str:
+        self.last_call = (text, kwargs)
+        return "həlˈo͡ʊ"
 
-    def test_parse_version_string_strips_dev_suffix(self):
-        assert EspeakPhonemizerBase._parse_version_string("1.51.1-dev") == (1, 51, 1)
-        assert EspeakPhonemizerBase._parse_version_string("1.51.1-dev foo") == (
-            1,
-            51,
-            1,
-        )
-        assert EspeakPhonemizerBase._parse_version_string("1.50") == (1, 50)
+    def phonemize_many(self, texts, **kwargs) -> list[str]:
+        self.last_batch = (list(texts), kwargs)
+        return ["həlˈo͡ʊ" for _ in texts]
 
-    def test_parse_version_output_extracts_data_path(self):
-        text = "eSpeak NG text-to-speech: 1.50  Data at: /usr/lib/espeak-ng-data\n"
-        ver, data = EspeakPhonemizerBase._parse_version_output(text)
-        assert ver == (1, 50)
-        assert data is not None
-        assert data.as_posix().endswith("/usr/lib/espeak-ng-data")
+    def list_voices(self, filter_name=None):
+        return self.voices
 
-    def test_resolve_voice_regular_prefers_first_identifier_per_language(self):
-        voices = [
-            Voice(name="A", language="en-us", identifier="en-us"),
-            Voice(
-                name="B", language="en-us", identifier="en-us-variant"
-            ),  # should be ignored
-            Voice(name="C", language="en-gb", identifier="en-gb"),
-        ]
-        d = _DummyBase(voices)
-        identifier, chosen = d._resolve_voice("en-us")
-        assert identifier == "en-us"
-        assert chosen.language == "en-us"
-        assert chosen.identifier == "en-us"
-
-    @pytest.mark.parametrize(
-        ("raw", "expected"),
-        [
-            (r"sem\ar", "sem/ar"),
-            (r"mb\mb-ar1", "mb/mb-ar1"),
-            ("sem/ar", "sem/ar"),
-            ("mb/mb-ar1", "mb/mb-ar1"),
-        ],
-    )
-    def test_voice_code_normalization_is_platform_independent(self, raw, expected):
-        assert EspeakPhonemizerBase._normalize_voice_code(raw) == expected
-
-    def test_resolve_voice_excludes_windows_mbrola_identifiers(self):
-        voices = [
-            Voice(name="arabic-mbrola-1", language="ar", identifier=r"mb\mb-ar1"),
-            Voice(name="arabic-mbrola-2", language="ar", identifier=r"mb\mb-ar2"),
-            Voice(name="Arabic", language="ar", identifier=r"sem\ar"),
-        ]
-        backend = _DummyBase(voices)
-        identifier, chosen = backend._resolve_voice("ar")
-
-        assert chosen.name == "Arabic"
-        assert chosen.language == "ar"
-        assert identifier.replace("\\", "/") == "sem/ar"
-
-    def test_resolve_voice_excludes_posix_mbrola_identifiers(self):
-        voices = [
-            Voice(name="arabic-mbrola-1", language="ar", identifier="mb/mb-ar1"),
-            Voice(name="Arabic", language="ar", identifier="sem/ar"),
-        ]
-        backend = _DummyBase(voices)
-        identifier, chosen = backend._resolve_voice("ar")
-
-        assert chosen.name == "Arabic"
-        assert identifier == "sem/ar"
-
-    def test_explicit_windows_mbrola_request_is_recognized(self):
-        assert EspeakPhonemizerBase._is_mbrola_request(r"mb\mb-ar1")
-
-    def test_cli_parser_normalizes_windows_identifiers(self, monkeypatch):
-        from kokorog2p.backends.espeak import cli_wrapper
-
-        output = (
-            "Pty Language Age/Gender VoiceName File Other Languages\n"
-            r" 1  ar       --/M       arabic-mbrola-1 mb\mb-ar1"
-            "\n"
-            r" 2  ar       --/M       arabic-mbrola-2 mb\mb-ar2"
-            "\n"
-            r" 5  ar       --/M       Arabic           sem\ar"
-            "\n"
-        )
-
-        def run(*args, **kwargs):
-            return SimpleNamespace(returncode=0, stdout=output, stderr="")
-
-        monkeypatch.setattr(cli_wrapper.subprocess, "run", run)
-        cli = cli_wrapper.CliPhonemizer.__new__(cli_wrapper.CliPhonemizer)
-        cli.executable = "espeak-ng"
-        cli._data_path = None
-
-        voices = cli.list_voices("ar")
-        assert [voice.identifier for voice in voices] == [
-            "mb/mb-ar1",
-            "mb/mb-ar2",
-            "sem/ar",
-        ]
-
-        identifier, chosen = cli._resolve_voice("ar")
-        assert identifier == "sem/ar"
-        assert chosen.name == "Arabic"
-
-    def test_resolve_voice_raises_on_invalid(self):
-        d = _DummyBase([Voice(language="en-us", identifier="en-us")])
-        with pytest.raises(RuntimeError):
-            d._resolve_voice("")
-        with pytest.raises(RuntimeError):
-            d._resolve_voice("xx-zz-not-a-lang")
+    def close(self):
+        self.closed = True
 
 
-@pytest.mark.espeak
-class TestPhonemizer:
-    """Tests for the Phonemizer (wrapper) class."""
+@pytest.fixture
+def fake_runtime(monkeypatch):
+    FakeRuntime.instances.clear()
+    FakeRuntime.fallback = False
+    monkeypatch.setattr(backend_module, "EspeakRuntime", FakeRuntime)
+    return FakeRuntime
 
-    def test_version(self, has_espeak):
-        """Test version is available."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
 
-        from kokorog2p.backends.espeak import Phonemizer
+def test_info_and_runtime_info_are_lazy(fake_runtime):
+    backend = EspeakBackend("en-us", data_path="/tmp/data")
 
-        p = Phonemizer()
-        assert p.version is not None
-        assert isinstance(p.version, tuple)
-        assert len(p.version) >= 2
+    assert backend.info.implementation == "uninitialized"
+    assert backend.info.data_path == "/tmp/data"
+    assert backend.runtime_info is None
+    assert not fake_runtime.instances
 
-    def test_phonemize(self, has_espeak, has_espeak_cli):
-        """Test basic phonemization."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
+    backend.phonemize("hello", convert_to_kokoro=False)
 
-        from kokorog2p.backends.espeak import CliPhonemizer, Phonemizer
+    assert backend.runtime_info is not None
+    assert backend.info.implementation == "native"
 
-        p = Phonemizer()
-        p.set_voice("en-us")
 
-        result = p.phonemize("hello")
-        assert isinstance(result, str)
-        assert len(result) > 0
-        if has_espeak_cli:
-            p2 = CliPhonemizer()
-            p2.set_voice("en-us")
+def test_runtime_construction_forwards_legacy_overrides(fake_runtime, monkeypatch):
+    monkeypatch.setenv("KOKOROG2P_ESPEAK_EXECUTABLE", "/custom/espeak")
+    monkeypatch.setenv("KOKOROG2P_ESPEAK_LIBRARY", "/custom/lib.so")
+    monkeypatch.setenv("KOKOROG2P_ESPEAK_DATA", "/custom/data")
 
-            result2 = p2.phonemize("hello")
-            assert isinstance(result2, str)
-            assert len(result2) > 0
-            assert result == result2
+    EspeakBackend("en-us").phonemize("hello", convert_to_kokoro=False)
 
-    def test_set_voice(self, has_espeak, has_espeak_cli):
-        """Test voice selection."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
+    assert fake_runtime.instances[0].kwargs == {
+        "mode": "auto",
+        "executable": "/custom/espeak",
+        "library": "/custom/lib.so",
+        "data": "/custom/data",
+    }
 
-        from kokorog2p.backends.espeak import CliPhonemizer, Phonemizer
 
-        p = Phonemizer()
-        p.set_voice("en-us")
-        p.set_voice("en-gb")
-        if has_espeak_cli:
-            p2 = CliPhonemizer()
-            p2.set_voice("en-us")
-            p2.set_voice("en-gb")
-            assert p.phonemize("hello") == p2.phonemize("hello")
+def test_explicit_data_path_precedes_legacy_data(fake_runtime, monkeypatch):
+    monkeypatch.setenv("KOKOROG2P_ESPEAK_DATA", "/legacy/data")
+    EspeakBackend("en-us", data_path="/explicit/data").phonemize("hello")
+    assert fake_runtime.instances[0].kwargs["data"] == "/explicit/data"
+
+
+def test_cli_mode_and_tie_options(fake_runtime):
+    backend = EspeakBackend("en-us", use_cli=True, tie="^")
+    backend.phonemize("hello", convert_to_kokoro=False)
+
+    runtime = fake_runtime.instances[0]
+    assert runtime.kwargs["mode"] == "cli"
+    assert runtime.last_call[1] == {
+        "voice": "en-us",
+        "separator": None,
+        "use_tie": True,
+        "tie_char": "͡",
+    }
+
+
+def test_non_tie_mode_uses_separator(fake_runtime):
+    backend = EspeakBackend("en-us", tie="_")
+    backend.phonemize("hello", convert_to_kokoro=False)
+    assert fake_runtime.instances[0].last_call[1]["separator"] == "_"
+    assert fake_runtime.instances[0].last_call[1]["use_tie"] is False
+
+
+def test_batch_and_word_conversion(fake_runtime):
+    backend = EspeakBackend("en-us")
+    result = backend.phonemize_many(["hello", "world"])
+    assert len(result) == 2
+    assert backend.word_phonemes("hello")
+    assert fake_runtime.instances[0].last_batch[0] == ["hello", "world"]
+
+
+def test_auto_fallback_is_exposed_as_compatibility_error(fake_runtime):
+    fake_runtime.fallback = True
+    backend = EspeakBackend("en-us")
+    backend.phonemize("hello", convert_to_kokoro=False)
+    assert backend.info.implementation == "cli"
+    assert backend.native_error is not None
+    assert backend.info.native_error_type == "RuntimeError"
+
+
+def test_close_is_idempotent_and_allows_recreation(fake_runtime):
+    backend = EspeakBackend("en-us")
+    backend.phonemize("hello")
+    first = fake_runtime.instances[0]
+    backend.close()
+    backend.close()
+    assert first.closed
+    backend.phonemize("hello")
+    assert len(fake_runtime.instances) == 2
+
+
+def test_backend_pickle_drops_runtime(fake_runtime):
+    backend = EspeakBackend("en-us")
+    backend.phonemize("hello")
+    restored = pickle.loads(pickle.dumps(backend))
+    assert restored.runtime_info is None
+    assert restored.language == "en-us"
+
+
+def test_en_gb_uses_requested_voice(fake_runtime):
+    backend = EspeakBackend("en-gb")
+    backend.phonemize("hello", convert_to_kokoro=False)
+    assert fake_runtime.instances[0].last_call[1]["voice"] == "en-gb"
 
 
 @pytest.mark.espeak
-class TestVoice:
-    """Tests for the Voice class."""
-
-    def test_from_language(self, has_espeak):
-        """Test creating voice from language code."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
-
-        from kokorog2p.backends.espeak import Voice
-
-        voice = Voice.from_language("en-us")
-        assert voice.language == "en-us"
-
-        voice_gb = Voice.from_language("en-gb")
-        assert voice_gb.language == "en-gb"
+def test_real_runtime_auto_smoke():
+    backend = EspeakBackend("en-us")
+    try:
+        assert backend.phonemize("hello")
+        assert backend.runtime_info is not None
+    finally:
+        backend.close()
 
 
 @pytest.mark.espeak
-class TestVoiceListing:
-    """Tests for listing available voices."""
-
-    def test_list_voices(self, has_espeak):
-        """Test listing all voices."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
-
-        from kokorog2p.backends.espeak import Phonemizer
-
-        p = Phonemizer()
-        voices = p.list_voices()
-
-        assert voices
-        assert len(voices) > 0
-        languages = {v.language for v in voices}
-        assert any(lang.startswith("en") for lang in languages if lang)
-
-    def test_list_voices_filtered(self, has_espeak):
-        """Test listing voices with filter."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
-
-        from kokorog2p.backends.espeak import Phonemizer
-
-        p = Phonemizer()
-        mbrola = p.list_voices("mbrola")
-        if mbrola:
-            normalize = EspeakPhonemizerBase._normalize_voice_code
-            mbrola_ids = {normalize(v.identifier) for v in mbrola}
-            assert all(identifier.startswith("mb/") for identifier in mbrola_ids)
-
-
-@pytest.mark.espeak
-class TestVoiceSelection:
-    """Tests for voice selection."""
-
-    def test_set_and_get_voice(self, has_espeak):
-        """Test setting and retrieving voice."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
-
-        from kokorog2p.backends.espeak import Phonemizer
-
-        p = Phonemizer()
-        assert p.voice is None
-
-        p.set_voice("en-us")
-        assert p.voice is not None
-        assert p.voice.language == "en-us"
-
-        p.set_voice("fr-fr")
-        assert p.voice.language == "fr-fr"
-
-    def test_invalid_voice(self, has_espeak):
-        """Test error on invalid voice."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
-
-        from kokorog2p.backends.espeak import Phonemizer
-
-        p = Phonemizer()
-
-        with pytest.raises(RuntimeError):
-            p.set_voice("")
-
-        with pytest.raises(RuntimeError):
-            p.set_voice("nonexistent-xyz")
-
-
-@pytest.mark.espeak
-class TestPickling:
-    """Tests for pickle support."""
-
-    def test_pickle_phonemizer(self, has_espeak):
-        """Test pickling and unpickling."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
-
-        from kokorog2p.backends.espeak import Phonemizer
-
-        p1 = Phonemizer()
-        p1.set_voice("en-us")
-
-        data = pickle.dumps(p1)
-        p2 = pickle.loads(data)
-
-        assert p1.version == p2.version
-        assert p1.library_path == p2.library_path
-        assert p1.voice is not None
-        assert p2.voice is not None
-        assert p1.voice.language == p2.voice.language
-
-    def test_pickle_preserves_results(self, has_espeak):
-        """Test pickled instance produces same output."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
-
-        from kokorog2p.backends.espeak import Phonemizer
-
-        p1 = Phonemizer()
-        p1.set_voice("en-us")
-        result1 = p1.phonemize("hello")
-
-        data = pickle.dumps(p1)
-        p2 = pickle.loads(data)
-        result2 = p2.phonemize("hello")
-
-        assert result1 == result2
-
-
-@pytest.mark.espeak
-class TestMultipleInstances:
-    """Tests for multiple phonemizer instances."""
-
-    def test_shared_properties(self, has_espeak):
-        """Test instances share some properties."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
-
-        from kokorog2p.backends.espeak import Phonemizer
-
-        p1 = Phonemizer()
-        p2 = Phonemizer()
-
-        assert p1.version == p2.version
-        assert p1.library_path == p2.library_path
-
-    def test_independent_voices(self, has_espeak, has_espeak_cli):
-        """Test instances have independent voice selection."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
-        if not has_espeak_cli:
-            pytest.skip("espeak CLI not available")
-
-        from kokorog2p.backends.espeak import CliPhonemizer, Phonemizer
-
-        p1 = Phonemizer()
-        p2 = Phonemizer()
-        p3 = CliPhonemizer()
-
-        p1.set_voice("fr-fr")
-        p2.set_voice("en-us")
-        p3.set_voice("de")
-
-        assert p1.voice is not None
-        assert p2.voice is not None
-        assert p3.voice is not None
-        assert p1.voice.language == "fr-fr"
-        assert p2.voice.language == "en-us"
-        assert p3.voice.language == "de"
-
-
-@pytest.mark.espeak
-class TestLibraryInfo:
-    """Tests for library information."""
-
-    def test_version_tuple(self, has_espeak, has_espeak_cli):
-        """Test version format."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
-
-        from kokorog2p.backends.espeak import CliPhonemizer, Phonemizer
-
-        p = Phonemizer()
-        assert p.version >= (1, 48)
-        assert all(isinstance(v, int) for v in p.version)
-        if has_espeak_cli:
-            p_cli = CliPhonemizer()
-            assert p_cli.version >= (1, 48)
-            assert all(isinstance(v, int) for v in p_cli.version)
-
-    def test_library_path(self, has_espeak):
-        """Test library path."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
-
-        from kokorog2p.backends.espeak import Phonemizer
-
-        p = Phonemizer()
-        assert "espeak" in str(p.library_path)
-        assert os.path.isabs(p.library_path)
-
-    def test_data_path(self, has_espeak):
-        """Test data path."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
-
-        from kokorog2p.backends.espeak import Phonemizer
-
-        p = Phonemizer()
-        assert p.data_path is not None
-
-
-@pytest.mark.espeak
-class TestTieCharacter:
-    """Tests for tie character handling."""
-
-    def test_with_separator(self, has_espeak, has_espeak_cli):
-        """Test output with separator."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
-
-        from kokorog2p.backends.espeak import CliPhonemizer, Phonemizer
-
-        p = Phonemizer()
-        p.set_voice("en-us")
-
-        result = p.phonemize("Jackie", use_tie=False)
-        assert "_" in result
-        if has_espeak_cli:
-            p_cli = CliPhonemizer()
-            p_cli.set_voice("en-us")
-
-            result = p_cli.phonemize("Jackie", use_tie=False)
-            assert "_" in result
-
-    def test_with_tie(self, has_espeak, has_espeak_cli):
-        """Test output with tie character."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
-
-        from kokorog2p.backends.espeak import CliPhonemizer, Phonemizer
-
-        p = Phonemizer()
-        p.set_voice("en-us")
-
-        if p.version >= (1, 49):
-            result = p.phonemize("Jackie", use_tie=True)
-            assert "͡" in result or "_" not in result
-        if has_espeak_cli:
-            p_cli = CliPhonemizer()
-            p_cli.set_voice("en-us")
-
-            if p_cli.version >= (1, 49):
-                result = p_cli.phonemize("Jackie", use_tie=True)
-                assert "͡" in result or "_" not in result
-
-
-@pytest.mark.espeak
-@pytest.mark.skipif(sys.platform == "win32", reason="Different on Windows")
-class TestTempDirectory:
-    """Tests for temporary directory handling."""
-
-    def test_temp_dir_exists(self, has_espeak):
-        """Test temp directory exists during use."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
-
-        import pathlib
-
-        from kokorog2p.backends.espeak import Phonemizer
-
-        p = Phonemizer()
-        p.set_voice("en-us")
-
-        assert p._api.temp_dir is not None
-        temp_dir = pathlib.Path(p._api.temp_dir)
-        assert temp_dir.exists()
-        files = list(temp_dir.iterdir())
-        assert len(files) >= 1
-
-
-# Backwards compatibility tests
-@pytest.mark.espeak
-class TestBackwardsCompatibility:
-    """Tests for backwards compatible aliases."""
-
-    def test_espeak_wrapper_alias(self, has_espeak):
-        """Test EspeakWrapper alias works."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
-
-        from kokorog2p.backends.espeak import EspeakWrapper
-
-        w = EspeakWrapper()
-        assert w.version is not None
-
-    def test_espeak_voice_alias(self, has_espeak):
-        """Test EspeakVoice alias works."""
-        if not has_espeak:
-            pytest.skip("espeak not available")
-
-        from kokorog2p.backends.espeak import EspeakVoice
-
-        v = EspeakVoice.from_language("en-us")
-        assert v.language == "en-us"
-
-
-def test_espeak_only_explicit_use_cli_and_hooks() -> None:
-    from kokorog2p.espeak_g2p import EspeakOnlyG2P
-
-    class FakeBackend:
-        def word_phonemes(self, word: str) -> str:
-            return f"word:{word}"
-
-        def phonemize(self, text: str) -> str:
-            return f"text:{text}"
-
-    g2p = EspeakOnlyG2P(language="fr", use_cli=True)
-    g2p._espeak_backend = FakeBackend()
-    assert g2p.use_cli is True
-    assert g2p._phonemize_word("bonjour") == "word:bonjour"
-    assert g2p._phonemize_text("bonjour") == "text:bonjour"
-
-
-class _MarkerWrapper:
-    voice = object()
-
-    def phonemize(self, text: str, use_tie: bool = False) -> str:
-        return "(en)fˈa^ɪl(de)"
-
-    def phonemize_many(
-        self, texts: list[str] | tuple[str, ...], use_tie: bool = False
-    ) -> list[str]:
-        return ["(en)fˈa^ɪl(de)", "hˈa^ʊs"]
-
-
-def _backend_with_marker_wrapper() -> EspeakBackend:
-    backend = EspeakBackend(language="de")
-    backend._phonemizer = _MarkerWrapper()  # type: ignore[assignment]
-    return backend
-
-
-def test_espeak_backend_strips_markers_before_single_call_conversion():
-    backend = _backend_with_marker_wrapper()
-
-    assert backend.phonemize("File", convert_to_kokoro=False) == "fˈa^ɪl"
-    assert backend.phonemize("File", convert_to_kokoro=True) == "fˈIl"
-    assert backend.word_phonemes("File", convert_to_kokoro=False) == "fˈa^ɪl"
-    assert backend.word_phonemes("File", convert_to_kokoro=True) == "fˈIl"
-
-
-def test_espeak_backend_strips_markers_before_batch_conversion():
-    backend = _backend_with_marker_wrapper()
-
-    assert backend.phonemize_many(["File", "Haus"], convert_to_kokoro=False) == [
-        "fˈa^ɪl",
-        "hˈa^ʊs",
-    ]
-    assert backend.phonemize_many(["File", "Haus"], convert_to_kokoro=True) == [
-        "fˈIl",
-        "hˈWs",
-    ]
+def test_real_runtime_cli_smoke():
+    backend = EspeakBackend("en-us", use_cli=True)
+    try:
+        assert backend.phonemize("hello")
+    finally:
+        backend.close()
+
+
+def test_compatibility_facades_support_voice_and_pickle(fake_runtime, monkeypatch):
+    monkeypatch.setattr("kokorog2p.backends.espeak.compat.EspeakRuntime", FakeRuntime)
+    phonemizer = Phonemizer()
+    phonemizer.set_voice("en-us")
+    assert phonemizer.voice_language == "en-us"
+    assert phonemizer.phonemize("hello")
+    restored = pickle.loads(pickle.dumps(phonemizer))
+    assert restored.voice is not None
+    assert restored.phonemize("hello")
+
+
+def test_cli_compatibility_facade_selects_cli(fake_runtime, monkeypatch):
+    monkeypatch.setattr("kokorog2p.backends.espeak.compat.EspeakRuntime", FakeRuntime)
+    phonemizer = CliPhonemizer("en-us")
+    phonemizer.set_voice("en-us")
+    phonemizer.phonemize("hello")
+    assert fake_runtime.instances[-1].kwargs["mode"] == "cli"

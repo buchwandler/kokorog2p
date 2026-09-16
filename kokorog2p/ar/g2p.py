@@ -236,6 +236,12 @@ class ArabicG2P(G2PBase):
             self.warnings = list(dict.fromkeys(self.warnings))
         return tokens
 
+    def close(self) -> None:
+        if self._espeak_backend is not None:
+            self._espeak_backend.close()
+            self._espeak_backend = None
+        super().close()
+
     def _phonemize_word(self, word: str) -> str | None:
         try:
             raw = self.espeak_backend.phonemize(
