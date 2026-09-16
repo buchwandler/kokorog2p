@@ -142,6 +142,8 @@ jobs:
           & $env:KOKOROG2P_ESPEAK_EXECUTABLE --version
 
       - name: Verify eSpeak backends
+        env:
+          PYTHONIOENCODING: utf-8
         run: |
           python -c "from kokorog2p.backends.espeak import EspeakBackend; b = EspeakBackend('en-us'); print('direct eSpeak:', b.phonemize('hello')); print('runtime:', b.runtime_info); b.close()"
           python -c "from kokorog2p.backends.espeak import EspeakBackend; b = EspeakBackend('en-us', use_cli=True); print('direct eSpeak CLI:', b.phonemize('hello')); print('runtime:', b.runtime_info); b.close()"
