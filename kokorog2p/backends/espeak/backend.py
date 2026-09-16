@@ -49,7 +49,11 @@ class EspeakBackend:
         self.with_stress = with_stress
         self.tie = tie
         self.use_cli = use_cli
-        self.data_path = Path(data_path) if data_path is not None else None
+        # Keep the caller's spelling intact; Path normalizes POSIX-looking paths
+        # into backslashes when this code runs on Windows. The runtime accepts
+        # path-like strings directly and should receive the configured override
+        # unchanged across platforms.
+        self.data_path = data_path
         self._runtime: EspeakRuntime | None = None
         self._runtime_error: Exception | None = None
 
