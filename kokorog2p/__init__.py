@@ -743,6 +743,8 @@ def get_g2p(  # noqa: C901
             evicted.close()
 
 
+    return g2p
+
 def phonemize(
     text: str,
     language: str,
