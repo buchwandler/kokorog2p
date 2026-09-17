@@ -140,11 +140,8 @@ class EnglishG2P(G2PBase):
             return None, 0, None
         metadata = provider_metadata(token)
         if token.provider == "espeak":
-            return (
-                from_espeak(token.pronunciation, british=self.is_british),
-                3,
-                metadata,
-            )
+            pronunciation = from_espeak(token.pronunciation, british=self.is_british)
+            return pronunciation, 3, metadata
         if token.provider == "goruut":
             return (
                 from_goruut(token.pronunciation, british=self.is_british),

@@ -213,6 +213,18 @@ class TestDebugMode:
         # Should produce identical phoneme sequences
         assert debug_phonemes == regular_phonemes
 
+    def test_debug_were_fallback_consistency(self, g2p):
+        """Test that 'we're' produces same result in debug and regular mode."""
+        direct = g2p.phonemize("we're")
+        debug = g2p.process_with_debug("we're")
+        # Extract phonemes from debug tokens
+        debug_phonemes = ""
+        for tok in debug.tokens:
+            if tok.phoneme:
+                debug_phonemes += tok.phoneme
+        # Both should produce the same phonemes
+        assert direct == debug_phonemes
+
     def test_unicode_normalization_in_debug(self, g2p):
         """Test that Unicode normalization is reflected in debug output."""
         # Use a composed character (é) vs decomposed (e + combining acute)

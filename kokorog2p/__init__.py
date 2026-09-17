@@ -742,8 +742,8 @@ def get_g2p(  # noqa: C901
             _evicted_key, evicted = _g2p_cache.popitem(last=False)
             evicted.close()
 
-
     return g2p
+
 
 def phonemize(
     text: str,
