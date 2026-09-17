@@ -222,9 +222,15 @@ class EspeakOnlyG2P(G2PBase):
         pronunciations: list[str | None] = [None] * len(token_spans)
         if words:
             try:
-                batch_result = self.espeak_backend.phonemize_many(
-                    words, convert_to_kokoro=True, remove_punctuation=True
-                )
+                backend = self.espeak_backend
+                if hasattr(backend, "phonemize_many"):
+                    batch_result = backend.phonemize_many(
+                        words, convert_to_kokoro=True, remove_punctuation=True
+                    )
+                else:
+                    # Keep compatibility with minimal backend adapters that only
+                    # implement the single-word interface.
+                    batch_result = [self._phonemize_word(word) for word in words]
                 for pos, phonemes in zip(word_positions, batch_result, strict=True):
                     pronunciations[pos] = phonemes if phonemes else None
             except Exception as e:
