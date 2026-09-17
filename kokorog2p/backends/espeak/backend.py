@@ -27,6 +27,11 @@ class EspeakBackendInfo:
     data_path: str | None
     native_error_type: str | None
     native_error: str | None
+    requested_mode: str | None = None
+    source: str | None = None
+    version: str | None = None
+    fallback_code: str | None = None
+    fallback_reason: str | None = None
 
 
 class EspeakBackend:
@@ -123,6 +128,11 @@ class EspeakBackend:
             data_path=runtime_info.data,
             native_error_type=type(error).__name__ if error is not None else None,
             native_error=str(error) if error is not None else None,
+            requested_mode=runtime_info.requested_mode,
+            source=runtime_info.source,
+            version=runtime_info.version,
+            fallback_code=runtime_info.fallback_code,
+            fallback_reason=runtime_info.fallback_reason,
         )
 
     def diagnostics(self) -> EspeakBackendInfo:
@@ -183,16 +193,24 @@ class EspeakBackend:
         self,
         texts: list[str],
         convert_to_kokoro: bool = True,
+        remove_punctuation: bool = True,
     ) -> list[str]:
         """Convert multiple texts while preserving the historical list API."""
-        return [self.phonemize(text, convert_to_kokoro) for text in texts]
+        return self.phonemize_many(
+            texts,
+            convert_to_kokoro=convert_to_kokoro,
+            remove_punctuation=remove_punctuation,
+        )
 
     def phonemize_many(
         self,
         texts: Sequence[str],
         convert_to_kokoro: bool = True,
+        remove_punctuation: bool = True,
     ) -> list[str]:
         """Convert independently framed texts through the runtime batch API."""
+        if remove_punctuation:
+            texts = [self.remove_punctuation(t) for t in texts]
         raw_items = self._get_runtime().phonemize_many(
             texts,
             voice=self.language,

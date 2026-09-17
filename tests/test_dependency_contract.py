@@ -13,8 +13,8 @@ def test_core_dependency_contract() -> None:
     dependencies = data["project"]["dependencies"]
 
     assert "g2lex>=0.1.8,<0.2.0" in dependencies
-    assert "lexphon>=0.2.3,<0.3" in dependencies
-    assert "espeakng-runtime>=0.1.0,<0.2.0" in dependencies
+    assert "lexphon>=0.2.4,<0.3" in dependencies
+    assert "espeakng-runtime>=0.1.3,<0.2.0" in dependencies
     semantic_packages = (
         "spokenform",
         "abbr2words",
@@ -33,11 +33,11 @@ def test_lexphon_provider_extras_are_split_from_direct_backends() -> None:
     data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
     extras = data["project"]["optional-dependencies"]
 
-    assert extras["espeak"] == ["lexphon[espeak]>=0.2.3,<0.3"]
+    assert extras["espeak"] == ["lexphon[espeak]>=0.2.4,<0.3"]
     assert extras["espeak-direct"] == [
-        "espeakng-runtime[bundled]>=0.1.0,<0.2.0",
+        "espeakng-runtime[bundled]>=0.1.3,<0.2.0",
     ]
-    assert extras["goruut"] == ["lexphon[goruut]>=0.2.3,<0.3"]
+    assert extras["goruut"] == ["lexphon[goruut]>=0.2.4,<0.3"]
     assert extras["goruut-direct"] == ["pygoruut>=0.8.0"]
 
 

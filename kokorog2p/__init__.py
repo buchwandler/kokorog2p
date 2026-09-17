@@ -739,8 +739,8 @@ def get_g2p(  # noqa: C901
         _g2p_cache[cache_key] = g2p
         _g2p_cache.move_to_end(cache_key)
         while len(_g2p_cache) > _G2P_CACHE_MAXSIZE:
-            _g2p_cache.popitem(last=False)
-        return g2p
+            _evicted_key, evicted = _g2p_cache.popitem(last=False)
+            evicted.close()
 
 
 def phonemize(
@@ -1078,8 +1078,9 @@ def clear_cache(*, deep: bool = False) -> None:
             useful when a long-running process must release parsed lexicons.
     """
     with _g2p_cache_lock:
+        for g2p in _g2p_cache.values():
+            g2p.close()
         _g2p_cache.clear()
-
     if deep:
         from kokorog2p.lexicons.runtime import clear_resource_cache
 

@@ -82,6 +82,31 @@ print(result.phonemes)
 `phonemize()` remains an equivalent prepared-text entry point. The input text is
 retained as the coordinate space for tokens and offsets.
 
+## eSpeak diagnostics
+
+Inspect runtime selection and fallback status without triggering initialization:
+
+```python
+from kokorog2p.backends.espeak import EspeakBackend
+
+backend = EspeakBackend("en-us")
+print(backend.info)
+# EspeakBackendInfo(implementation='uninitialized', ...)
+
+# After first use, full runtime diagnostics are available:
+backend.phonemize("hello")
+print(backend.info.implementation)   # 'native' or 'cli'
+print(backend.info.requested_mode)   # 'auto'
+print(backend.info.version)           # e.g. '1.52.0'
+print(backend.info.fallback_code)     # None if no fallback occurred
+print(backend.info.fallback_reason)   # None if no fallback occurred
+backend.close()
+```
+
+The `kokorog2p[espeak]` extra provides Lexphon's eSpeak fallback for generic/OOV lookup.
+The `kokorog2p[espeak-direct]` extra provides `espeakng-runtime` with a bundled native
+library for the direct `backend="espeak"` path.
+
 ## Semantic preparation composition
 
 Use an external preparation package only when written semantics need expansion:

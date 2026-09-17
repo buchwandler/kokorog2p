@@ -207,8 +207,46 @@ class EspeakOnlyG2P(G2PBase):
         if not text or not text.strip():
             return []
 
-        tokens: list[GToken] = []
         token_spans = tokenize_with_offsets(text, keep_punct=True)
+
+        # Collect word-like spans and their indices for batch phonemization.
+        word_positions: list[int] = []
+        words: list[str] = []
+        for i, span in enumerate(token_spans):
+            is_punct = not any(c.isalnum() for c in span.text)
+            if not is_punct:
+                word_positions.append(i)
+                words.append(span.text)
+
+        # Batch phonemize all words in one call.
+        pronunciations: list[str | None] = [None] * len(token_spans)
+        if words:
+            try:
+                batch_result = self.espeak_backend.phonemize_many(
+                    words, convert_to_kokoro=True, remove_punctuation=True
+                )
+                for pos, phonemes in zip(word_positions, batch_result, strict=True):
+                    pronunciations[pos] = phonemes if phonemes else None
+            except Exception as e:
+                if self.strict:
+                    if isinstance(e, RuntimeError):
+                        raise RuntimeError(
+                            f"EspeakOnlyG2P batch phonemization failed. "
+                            f"This usually means espeak-ng is not properly "
+                            f"installed or initialized. Original error: {e}"
+                        ) from e
+                    else:
+                        raise RuntimeError(
+                            f"Unexpected error in batch phonemization: {e}"
+                        ) from e
+                else:
+                    logger.error(
+                        f"EspeakOnlyG2P batch phonemization failed: {e}. "
+                        f"Returning None for all words (strict=False mode)."
+                    )
+
+        # Reconstruct tokens in original order.
+        tokens: list[GToken] = []
         for idx, span in enumerate(token_spans):
             next_start = (
                 token_spans[idx + 1].char_start
@@ -230,28 +268,7 @@ class EspeakOnlyG2P(G2PBase):
                 tokens.append(token)
                 continue
 
-            try:
-                phonemes = self._phonemize_word(span.text)
-            except Exception as e:
-                if self.strict:
-                    if isinstance(e, RuntimeError):
-                        raise RuntimeError(
-                            f"EspeakOnlyG2P failed to process word '{span.text}' "
-                            f"with espeak-ng. This usually means espeak-ng is "
-                            f"not properly installed or initialized. "
-                            f"Original error: {e}"
-                        ) from e
-                    else:
-                        raise RuntimeError(
-                            f"Unexpected error processing word '{span.text}': {e}"
-                        ) from e
-                else:
-                    logger.error(
-                        f"EspeakOnlyG2P failed to process word '{span.text}': {e}. "
-                        f"Returning None (strict=False mode)."
-                    )
-                    phonemes = None
-
+            phonemes = pronunciations[idx]
             token = GToken(
                 text=span.text,
                 tag="X",

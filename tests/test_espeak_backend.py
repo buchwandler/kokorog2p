@@ -146,6 +146,27 @@ def test_auto_fallback_is_exposed_as_compatibility_error(fake_runtime):
     assert backend.info.native_error_type == "RuntimeError"
 
 
+def test_extended_info_fields_populated_after_init(fake_runtime):
+    backend = EspeakBackend("en-us")
+    backend.phonemize("hello", convert_to_kokoro=False)
+    info = backend.info
+    assert info.requested_mode == "auto"
+    assert info.source == "fake"
+    assert info.version == "1.52.0"
+    assert info.fallback_code is None
+    assert info.fallback_reason is None
+
+
+def test_extended_info_fields_show_fallback(fake_runtime):
+    fake_runtime.fallback = True
+    backend = EspeakBackend("en-us")
+    backend.phonemize("hello", convert_to_kokoro=False)
+    info = backend.info
+    assert info.implementation == "cli"
+    assert info.fallback_code == "native-init-failed"
+    assert info.fallback_reason == "native setup failed"
+
+
 def test_close_is_idempotent_and_allows_recreation(fake_runtime):
     backend = EspeakBackend("en-us")
     backend.phonemize("hello")
