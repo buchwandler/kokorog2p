@@ -1,0 +1,200 @@
+ kokorog2p/__init__.py             |  2 +-
+ kokorog2p/en/g2p.py               |  7 ++---
+ pyproject.toml                    | 10 +++----
+ tests/test_dependency_contract.py | 10 +++----
+ tests/test_en_debug.py            | 12 ++++++++
+ tests/test_en_g2p.py              | 61 +++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 86 insertions(+), 16 deletions(-)
+
+diff --git a/kokorog2p/__init__.py b/kokorog2p/__init__.py
+index 36829bf..247f2e8 100644
+--- a/kokorog2p/__init__.py
++++ b/kokorog2p/__init__.py
+@@ -742,9 +742,9 @@ def get_g2p(  # noqa: C901
+             _evicted_key, evicted = _g2p_cache.popitem(last=False)
+             evicted.close()
+
+-
+     return g2p
+
++
+ def phonemize(
+     text: str,
+     language: str,
+diff --git a/kokorog2p/en/g2p.py b/kokorog2p/en/g2p.py
+index 0e72623..6311bdc 100644
+--- a/kokorog2p/en/g2p.py
++++ b/kokorog2p/en/g2p.py
+@@ -140,11 +140,8 @@ class EnglishG2P(G2PBase):
+             return None, 0, None
+         metadata = provider_metadata(token)
+         if token.provider == "espeak":
+-            return (
+-                from_espeak(token.pronunciation, british=self.is_british),
+-                3,
+-                metadata,
+-            )
++            pronunciation = from_espeak(token.pronunciation, british=self.is_british)
++            return pronunciation, 3, metadata
+         if token.provider == "goruut":
+             return (
+                 from_goruut(token.pronunciation, british=self.is_british),
+diff --git a/pyproject.toml b/pyproject.toml
+index f509031..081fee0 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -22,8 +22,8 @@ authors = [
+ keywords = ["g2p", "grapheme-to-phoneme", "tts", "text-to-speech", "kokoro", "phonemizer", "espeak"]
+ dependencies = [
+     "g2lex>=0.1.8,<0.2.0",
+-    "lexphon>=0.2.4,<0.3",
+-    "espeakng-runtime>=0.1.3,<0.2.0",
++    "lexphon>=0.2.5,<0.3",
++    "espeakng-runtime>=0.1.4,<0.2.0",
+ ]
+ classifiers=[
+     'Development Status :: 4 - Beta',
+@@ -52,10 +52,10 @@ docs = [
+     "myst-parser>=2.0.0",
+ ]
+ espeak = [
+-    "lexphon[espeak]>=0.2.4,<0.3",
++    "lexphon[espeak]>=0.2.5,<0.3",
+ ]
+ espeak-direct = [
+-    "espeakng-runtime[bundled]>=0.1.3,<0.2.0",
++    "espeakng-runtime[bundled]>=0.1.4,<0.2.0",
+ ]
+ kk = [
+     "kokorog2p[espeak]",
+@@ -72,7 +72,7 @@ ar-diacritize = [
+     "camel-tools>=1.6; python_version >= '3.11'",
+ ]
+ goruut = [
+-    "lexphon[goruut]>=0.2.4,<0.3",
++    "lexphon[goruut]>=0.2.5,<0.3",
+ ]
+ goruut-direct = [
+     "pygoruut>=0.8.0",
+diff --git a/tests/test_dependency_contract.py b/tests/test_dependency_contract.py
+index f87728d..4995714 100644
+--- a/tests/test_dependency_contract.py
++++ b/tests/test_dependency_contract.py
+@@ -13,8 +13,8 @@ def test_core_dependency_contract() -> None:
+     dependencies = data["project"]["dependencies"]
+
+     assert "g2lex>=0.1.8,<0.2.0" in dependencies
+-    assert "lexphon>=0.2.4,<0.3" in dependencies
+-    assert "espeakng-runtime>=0.1.3,<0.2.0" in dependencies
++    assert "lexphon>=0.2.5,<0.3" in dependencies
++    assert "espeakng-runtime>=0.1.4,<0.2.0" in dependencies
+     semantic_packages = (
+         "spokenform",
+         "abbr2words",
+@@ -33,11 +33,11 @@ def test_lexphon_provider_extras_are_split_from_direct_backends() -> None:
+     data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+     extras = data["project"]["optional-dependencies"]
+
+-    assert extras["espeak"] == ["lexphon[espeak]>=0.2.4,<0.3"]
++    assert extras["espeak"] == ["lexphon[espeak]>=0.2.5,<0.3"]
+     assert extras["espeak-direct"] == [
+-        "espeakng-runtime[bundled]>=0.1.3,<0.2.0",
++        "espeakng-runtime[bundled]>=0.1.4,<0.2.0",
+     ]
+-    assert extras["goruut"] == ["lexphon[goruut]>=0.2.4,<0.3"]
++    assert extras["goruut"] == ["lexphon[goruut]>=0.2.5,<0.3"]
+     assert extras["goruut-direct"] == ["pygoruut>=0.8.0"]
+
+
+diff --git a/tests/test_en_debug.py b/tests/test_en_debug.py
+index 41d4c3d..8230fca 100644
+--- a/tests/test_en_debug.py
++++ b/tests/test_en_debug.py
+@@ -213,6 +213,18 @@ class TestDebugMode:
+         # Should produce identical phoneme sequences
+         assert debug_phonemes == regular_phonemes
+
++    def test_debug_were_fallback_consistency(self, g2p):
++        """Test that 'we're' produces same result in debug and regular mode."""
++        direct = g2p.phonemize("we're")
++        debug = g2p.process_with_debug("we're")
++        # Extract phonemes from debug tokens
++        debug_phonemes = ""
++        for tok in debug.tokens:
++            if tok.phoneme:
++                debug_phonemes += tok.phoneme
++        # Both should produce the same phonemes
++        assert direct == debug_phonemes
++
+     def test_unicode_normalization_in_debug(self, g2p):
+         """Test that Unicode normalization is reflected in debug output."""
+         # Use a composed character (é) vs decomposed (e + combining acute)
+diff --git a/tests/test_en_g2p.py b/tests/test_en_g2p.py
+index 5f37596..58686eb 100644
+--- a/tests/test_en_g2p.py
++++ b/tests/test_en_g2p.py
+@@ -50,3 +50,64 @@ def test_phonemize_no_lexicon_mode() -> None:
+         return_ids=False,
+     )
+     assert result.phonemes == "❓"
++
++
++def test_fallback_only_were_regression() -> None:
++    """Test that 'we're' uses corrected provider pronunciation without a Kokoro spelling exception.
++
++    This test should fail if an old/broken runtime is accidentally installed.
++    """
++    g2p = EnglishG2P(
++        language="en-us",
++        lexicons=(),
++        use_spacy=False,
++    )
++    result = g2p.phonemize("we're")
++    # Expected Kokoro-compatible scalar fallback form from corrected eSpeak provider
++    assert result == "wˈɪ\u200dɹ"
++    g2p.close()
++
++
++def test_context_weak_forms_preserved() -> None:
++    """Test that normal English sentence/context output does not receive a global new stress rule.
++
++    This verifies the cleanup did not move fallback stress policy into the primary English lexicon.
++    """
++    g2p = EnglishG2P(
++        language="en-us",
++        use_spacy=False,
++    )
++    # Use normal lexicons (default) rather than lexicons=()
++    result = g2p.phonemize("I'm going where we're meeting.")
++    # Should produce phonemes without error
++    assert result is not None
++    assert len(result) > 0
++    g2p.close()
++
++
++def test_fallback_only_were_no_spacy() -> None:
++    """Test fallback pronunciation for 'we're' without spaCy."""
++    g2p = EnglishG2P(
++        language="en-us",
++        lexicons=(),
++        use_spacy=False,
++    )
++    result = g2p.phonemize("we're")
++    assert result == "wˈɪ\u200dɹ"
++    g2p.close()
++
++
++@pytest.mark.spacy
++def test_fallback_only_were_with_spacy() -> None:
++    """Test fallback pronunciation for 'we're' with spaCy (if available)."""
++    try:
++        g2p = EnglishG2P(
++            language="en-us",
++            lexicons=(),
++            use_spacy=True,
++        )
++        result = g2p.phonemize("we're")
++        assert result == "wˈɪ\u200dɹ"
++        g2p.close()
++    except Exception:
++        pytest.skip("spaCy model not available")

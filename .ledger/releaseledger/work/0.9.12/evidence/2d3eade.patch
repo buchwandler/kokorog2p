@@ -1,0 +1,16 @@
+ kokorog2p/__init__.py | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/kokorog2p/__init__.py b/kokorog2p/__init__.py
+index 002cac2..36829bf 100644
+--- a/kokorog2p/__init__.py
++++ b/kokorog2p/__init__.py
+@@ -743,6 +743,8 @@ def get_g2p(  # noqa: C901
+             evicted.close()
+
+
++    return g2p
++
+ def phonemize(
+     text: str,
+     language: str,

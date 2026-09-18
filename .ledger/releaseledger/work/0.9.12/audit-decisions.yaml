@@ -1,0 +1,82 @@
+rows:
+  - sha: 9ce1dabd70fdf3957e83655ca91d6d61c682c556
+    inspected: true
+    inspected_paths:
+      - README.md
+      - kokorog2p/__init__.py
+      - kokorog2p/backends/espeak/backend.py
+      - kokorog2p/espeak_g2p.py
+      - pyproject.toml
+      - tests/test_dependency_contract.py
+      - tests/test_espeak_backend.py
+      - tests/test_espeak_batching.py
+    observed_behavior:
+      "Added runtime diagnostics, explicit cache-resource cleanup, and batch
+      phonemization coverage while raising supported Lexphon and espeakng-runtime
+      minimum versions."
+    public_impact: public
+    decision: accepted
+    target_entry_key: null
+    target_entry_id: null
+    notes: ""
+    stale: false
+  - sha: 2d3eade13134e2b15fdd68a50fc55402536c8892
+    inspected: true
+    inspected_paths:
+      - kokorog2p/__init__.py
+    observed_behavior:
+      "Restored the get_g2p return value after cache eviction cleanup so callers receive
+      the selected G2P instance."
+    public_impact: public
+    decision: accepted
+    target_entry_key: null
+    target_entry_id: null
+    notes: ""
+    stale: false
+  - sha: 86c987b414c30a153d9b918bc7e3bc3dacfa7f57
+    inspected: true
+    inspected_paths:
+      - kokorog2p/espeak_g2p.py
+    observed_behavior:
+      "Added a compatibility path that uses batch phonemization when available and
+      retains scalar processing for minimal backend adapters."
+    public_impact: public
+    decision: accepted
+    target_entry_key: null
+    target_entry_id: null
+    notes: ""
+    stale: false
+  - sha: bdce59723286c945f33a8045b3add484612ab255
+    inspected: true
+    inspected_paths:
+      - kokorog2p/__init__.py
+      - kokorog2p/en/g2p.py
+      - pyproject.toml
+      - tests/test_dependency_contract.py
+      - tests/test_en_debug.py
+      - tests/test_en_g2p.py
+    observed_behavior:
+      "Corrected English eSpeak fallback pronunciation handling, added regression
+      coverage for fallback and debug consistency, and updated runtime dependency
+      bounds."
+    public_impact: public
+    decision: accepted
+    target_entry_key: null
+    target_entry_id: null
+    notes: ""
+    stale: false
+  - sha: e19100ff6e397ee54d80c383b02568b5543b0cf8
+    inspected: true
+    inspected_paths:
+      - tests/test_en_g2p.py
+    observed_behavior:
+      "Adjusted regression-test documentation formatting only; no product behavior
+      changed."
+    public_impact: internal
+    decision: internal
+    target_entry_key: null
+    target_entry_id: null
+    notes:
+      "Test-only formatting maintenance; intentionally excluded from public release
+      notes."
+    stale: false

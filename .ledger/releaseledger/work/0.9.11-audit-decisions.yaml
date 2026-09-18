@@ -1,0 +1,99 @@
+rows:
+  - sha: c43852b07e0e4932556662dd83d94a65bfbb1cde
+    inspected: true
+    inspected_paths:
+      - .github/workflows/codecov.yml
+      - .github/workflows/tests.yml
+      - tests/test_ru_factory.py
+    observed_behavior:
+      "Updated CI workflow configuration and added Russian factory regression coverage;
+      no direct product behavior changed."
+    public_impact: internal
+    decision: internal
+    target_entry_key: null
+    target_entry_id: null
+    notes:
+      "CI and regression-test maintenance; intentionally excluded from public release
+      notes."
+    stale: false
+  - sha: 014e832e9de874b8243adabaa88fe5d85f5d7e1d
+    inspected: true
+    inspected_paths:
+      - .github/workflows/tests.yml
+      - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.11/entries/entry-0001.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.11/entries/entry-0002.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.11/release.md
+      - README.md
+      - benchmarks/benchmark_mixed_language_auto_stations.py
+      - docs/advanced.md
+      - docs/api/backends.md
+      - docs/changelog.md
+      - docs/installation.md
+      - kokorog2p/ar/g2p.py
+      - kokorog2p/backends/espeak/api.py
+      - kokorog2p/backends/espeak/backend.py
+      - kokorog2p/backends/espeak/cli_wrapper.py
+      - kokorog2p/backends/espeak/compat.py
+      - kokorog2p/backends/espeak/phonemizer_base.py
+      - kokorog2p/backends/espeak/voice.py
+      - kokorog2p/backends/espeak/wrapper.py
+      - kokorog2p/espeak_g2p.py
+      - pyproject.toml
+      - tests/test_de_gold_performance.py
+      - tests/test_dependency_contract.py
+      - tests/test_espeak_architecture.py
+      - tests/test_espeak_backend.py
+      - tests/test_espeak_phonemizer_base.py
+    observed_behavior:
+      "Replaced the in-repository low-level eSpeak implementation with an
+      espeakng-runtime adapter, retained compatibility facades, and added direct-runtime
+      configuration, documentation, and coverage."
+    public_impact: public
+    decision: accepted
+    target_entry_key: null
+    notes:
+      "Primary coverage owner for the direct eSpeak runtime integration; documentation
+      is covered by the separate docs entry."
+    stale: false
+  - sha: 62da249d6d38d750aabb087ea6bbf27c958e6aec
+    inspected: true
+    inspected_paths:
+      - pyproject.toml
+      - tests/test_dependency_contract.py
+    observed_behavior:
+      "Updated package dependency constraints and matching dependency-contract tests for
+      the release dependency set; no standalone user-facing behavior beyond the covered
+      runtime integration."
+    public_impact: none
+    decision: internal
+    target_entry_key: null
+    target_entry_id: null
+    notes:
+      "Dependency/version contract maintenance is accounted for as internal release
+      work."
+    stale: false
+  - sha: b7ea62b57254bb10f7b13312ce0148449a39dda2
+    inspected: true
+    inspected_paths:
+      - .github/workflows/tests.yml
+    observed_behavior:
+      "Adjusted the CI test workflow configuration; no direct product behavior changed."
+    public_impact: internal
+    decision: internal
+    target_entry_key: null
+    target_entry_id: null
+    notes: "CI-only maintenance; intentionally excluded from public release notes."
+    stale: false
+  - sha: a01487907af795958ff68f39c9bafdda59da5b9d
+    inspected: true
+    inspected_paths:
+      - kokorog2p/backends/espeak/backend.py
+    observed_behavior:
+      "Preserved the caller's configured eSpeak data-path spelling when constructing the
+      runtime, avoiding platform-dependent path normalization."
+    public_impact: public
+    decision: accepted
+    target_entry_key: null
+    notes: "Covered by the dedicated path-handling fix entry."
+    stale: false

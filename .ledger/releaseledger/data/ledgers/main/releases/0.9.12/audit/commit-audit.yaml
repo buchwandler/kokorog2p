@@ -1,0 +1,146 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 3
+release_version: 0.9.12
+git_base_ref: v0.9.11
+git_base_sha: a01487907af795958ff68f39c9bafdda59da5b9d
+git_head_ref: HEAD
+git_head_sha: e19100ff6e397ee54d80c383b02568b5543b0cf8
+git_range: a01487907af795958ff68f39c9bafdda59da5b9d..e19100ff6e397ee54d80c383b02568b5543b0cf8
+commit_count: 5
+rows:
+  - sha: 9ce1dabd70fdf3957e83655ca91d6d61c682c556
+    source_ref: git:9ce1dabd70fdf3957e83655ca91d6d61c682c556
+    short_sha: 9ce1dab
+    changed_paths:
+      - README.md
+      - kokorog2p/__init__.py
+      - kokorog2p/backends/espeak/backend.py
+      - kokorog2p/espeak_g2p.py
+      - pyproject.toml
+      - tests/test_dependency_contract.py
+      - tests/test_espeak_backend.py
+      - tests/test_espeak_batching.py
+    stats:
+      files_changed: 8
+      insertions: 287
+      deletions: 37
+    inspected: true
+    inspected_paths:
+      - README.md
+      - kokorog2p/__init__.py
+      - kokorog2p/backends/espeak/backend.py
+      - kokorog2p/espeak_g2p.py
+      - pyproject.toml
+      - tests/test_dependency_contract.py
+      - tests/test_espeak_backend.py
+      - tests/test_espeak_batching.py
+    observed_behavior:
+      Added runtime diagnostics, explicit cache-resource cleanup, and batch
+      phonemization coverage while raising supported Lexphon and espeakng-runtime
+      minimum versions.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "feat: use updated lexphon"
+    target_entry_id: entry-0001
+    notes: ""
+  - sha: 2d3eade13134e2b15fdd68a50fc55402536c8892
+    source_ref: git:2d3eade13134e2b15fdd68a50fc55402536c8892
+    short_sha: 2d3eade
+    changed_paths:
+      - kokorog2p/__init__.py
+    stats:
+      files_changed: 1
+      insertions: 2
+      deletions: 0
+    inspected: true
+    inspected_paths:
+      - kokorog2p/__init__.py
+    observed_behavior:
+      Restored the get_g2p return value after cache eviction cleanup so callers receive
+      the selected G2P instance.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "fix: missing return"
+    target_entry_id: entry-0002
+    notes: ""
+  - sha: 86c987b414c30a153d9b918bc7e3bc3dacfa7f57
+    source_ref: git:86c987b414c30a153d9b918bc7e3bc3dacfa7f57
+    short_sha: 86c987b
+    changed_paths:
+      - kokorog2p/espeak_g2p.py
+    stats:
+      files_changed: 1
+      insertions: 9
+      deletions: 3
+    inspected: true
+    inspected_paths:
+      - kokorog2p/espeak_g2p.py
+    observed_behavior:
+      Added a compatibility path that uses batch phonemization when available and
+      retains scalar processing for minimal backend adapters.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "feat: use phonemize_many when available"
+    target_entry_id: entry-0003
+    notes: ""
+  - sha: bdce59723286c945f33a8045b3add484612ab255
+    source_ref: git:bdce59723286c945f33a8045b3add484612ab255
+    short_sha: bdce597
+    changed_paths:
+      - kokorog2p/__init__.py
+      - kokorog2p/en/g2p.py
+      - pyproject.toml
+      - tests/test_dependency_contract.py
+      - tests/test_en_debug.py
+      - tests/test_en_g2p.py
+    stats:
+      files_changed: 6
+      insertions: 86
+      deletions: 16
+    inspected: true
+    inspected_paths:
+      - kokorog2p/__init__.py
+      - kokorog2p/en/g2p.py
+      - pyproject.toml
+      - tests/test_dependency_contract.py
+      - tests/test_en_debug.py
+      - tests/test_en_g2p.py
+    observed_behavior:
+      Corrected English eSpeak fallback pronunciation handling, added regression
+      coverage for fallback and debug consistency, and updated runtime dependency
+      bounds.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "feat: solve espeak pytest bug"
+    target_entry_id: entry-0004
+    notes: ""
+  - sha: e19100ff6e397ee54d80c383b02568b5543b0cf8
+    source_ref: git:e19100ff6e397ee54d80c383b02568b5543b0cf8
+    short_sha: e19100f
+    changed_paths:
+      - tests/test_en_g2p.py
+    stats:
+      files_changed: 1
+      insertions: 7
+      deletions: 4
+    inspected: true
+    inspected_paths:
+      - tests/test_en_g2p.py
+    observed_behavior:
+      Adjusted regression-test documentation formatting only; no product behavior
+      changed.
+    public_impact: internal
+    decision: internal
+    stale: false
+    evidence_subject: "chore: prr-commit"
+    target_entry_id: entry-0005
+    notes:
+      Test-only formatting maintenance; intentionally excluded from public release
+      notes.

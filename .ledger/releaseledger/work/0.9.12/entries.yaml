@@ -1,0 +1,93 @@
+schema: releaseledger.entry-batch.v1
+operation: create
+schema_version: 1
+object_type: release_entry_batch
+release_version: 0.9.12
+git_base_ref: a01487907af795958ff68f39c9bafdda59da5b9d
+git_base_sha: a01487907af795958ff68f39c9bafdda59da5b9d
+git_head_ref: e19100ff6e397ee54d80c383b02568b5543b0cf8
+git_head_sha: e19100ff6e397ee54d80c383b02568b5543b0cf8
+include_merges: nontrivial
+entries:
+  - kind: changed
+    summary:
+      "Changed eSpeak runtime diagnostics, cache cleanup, and batch phonemization
+      support"
+    status: accepted
+    source_refs:
+      - git:9ce1dabd70fdf3957e83655ca91d6d61c682c556
+    paths:
+      - README.md
+      - kokorog2p/__init__.py
+      - kokorog2p/backends/espeak/backend.py
+      - kokorog2p/espeak_g2p.py
+      - pyproject.toml
+      - tests/test_dependency_contract.py
+      - tests/test_espeak_backend.py
+      - tests/test_espeak_batching.py
+    sources:
+      - git:9ce1dabd70fdf3957e83655ca91d6d61c682c556
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"
+  - kind: fixed
+    summary: "Fixed get_g2p to return the cached or newly created instance"
+    status: accepted
+    source_refs:
+      - git:2d3eade13134e2b15fdd68a50fc55402536c8892
+    paths:
+      - kokorog2p/__init__.py
+    sources:
+      - git:2d3eade13134e2b15fdd68a50fc55402536c8892
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"
+  - kind: added
+    summary: "Added compatibility fallback for backends without phonemize_many"
+    status: accepted
+    source_refs:
+      - git:86c987b414c30a153d9b918bc7e3bc3dacfa7f57
+    paths:
+      - kokorog2p/espeak_g2p.py
+    sources:
+      - git:86c987b414c30a153d9b918bc7e3bc3dacfa7f57
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"
+  - kind: fixed
+    summary:
+      "Fixed English eSpeak fallback pronunciation and debug consistency while updating
+      runtime dependency bounds"
+    status: accepted
+    source_refs:
+      - git:bdce59723286c945f33a8045b3add484612ab255
+    paths:
+      - kokorog2p/__init__.py
+      - kokorog2p/en/g2p.py
+      - pyproject.toml
+      - tests/test_dependency_contract.py
+      - tests/test_en_debug.py
+      - tests/test_en_g2p.py
+    sources:
+      - git:bdce59723286c945f33a8045b3add484612ab255
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"
+  - kind: internal
+    summary: "Changed regression-test documentation formatting for consistency"
+    status: accepted
+    internal: true
+    source_refs:
+      - git:e19100ff6e397ee54d80c383b02568b5543b0cf8
+    paths:
+      - tests/test_en_g2p.py
+    sources:
+      - git:e19100ff6e397ee54d80c383b02568b5543b0cf8
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"

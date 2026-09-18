@@ -1,0 +1,481 @@
+ README.md                            |  25 ++++++
+ kokorog2p/__init__.py                |   7 +-
+ kokorog2p/backends/espeak/backend.py |  20 ++++-
+ kokorog2p/espeak_g2p.py              |  63 ++++++++-----
+ pyproject.toml                       |  10 +--
+ tests/test_dependency_contract.py    |  10 +--
+ tests/test_espeak_backend.py         |  21 +++++
+ tests/test_espeak_batching.py        | 168 +++++++++++++++++++++++++++++++++++
+ 8 files changed, 287 insertions(+), 37 deletions(-)
+
+diff --git a/README.md b/README.md
+index 327be0c..720ec75 100644
+--- a/README.md
++++ b/README.md
+@@ -82,6 +82,31 @@ print(result.phonemes)
+ `phonemize()` remains an equivalent prepared-text entry point. The input text is
+ retained as the coordinate space for tokens and offsets.
+
++## eSpeak diagnostics
++
++Inspect runtime selection and fallback status without triggering initialization:
++
++```python
++from kokorog2p.backends.espeak import EspeakBackend
++
++backend = EspeakBackend("en-us")
++print(backend.info)
++# EspeakBackendInfo(implementation='uninitialized', ...)
++
++# After first use, full runtime diagnostics are available:
++backend.phonemize("hello")
++print(backend.info.implementation)   # 'native' or 'cli'
++print(backend.info.requested_mode)   # 'auto'
++print(backend.info.version)           # e.g. '1.52.0'
++print(backend.info.fallback_code)     # None if no fallback occurred
++print(backend.info.fallback_reason)   # None if no fallback occurred
++backend.close()
++```
++
++The `kokorog2p[espeak]` extra provides Lexphon's eSpeak fallback for generic/OOV lookup.
++The `kokorog2p[espeak-direct]` extra provides `espeakng-runtime` with a bundled native
++library for the direct `backend="espeak"` path.
++
+ ## Semantic preparation composition
+
+ Use an external preparation package only when written semantics need expansion:
+diff --git a/kokorog2p/__init__.py b/kokorog2p/__init__.py
+index 8fbaa2e..002cac2 100644
+--- a/kokorog2p/__init__.py
++++ b/kokorog2p/__init__.py
+@@ -739,8 +739,8 @@ def get_g2p(  # noqa: C901
+         _g2p_cache[cache_key] = g2p
+         _g2p_cache.move_to_end(cache_key)
+         while len(_g2p_cache) > _G2P_CACHE_MAXSIZE:
+-            _g2p_cache.popitem(last=False)
+-        return g2p
++            _evicted_key, evicted = _g2p_cache.popitem(last=False)
++            evicted.close()
+
+
+ def phonemize(
+@@ -1078,8 +1078,9 @@ def clear_cache(*, deep: bool = False) -> None:
+             useful when a long-running process must release parsed lexicons.
+     """
+     with _g2p_cache_lock:
++        for g2p in _g2p_cache.values():
++            g2p.close()
+         _g2p_cache.clear()
+-
+     if deep:
+         from kokorog2p.lexicons.runtime import clear_resource_cache
+
+diff --git a/kokorog2p/backends/espeak/backend.py b/kokorog2p/backends/espeak/backend.py
+index 89c0f48..e76ab41 100644
+--- a/kokorog2p/backends/espeak/backend.py
++++ b/kokorog2p/backends/espeak/backend.py
+@@ -27,6 +27,11 @@ class EspeakBackendInfo:
+     data_path: str | None
+     native_error_type: str | None
+     native_error: str | None
++    requested_mode: str | None = None
++    source: str | None = None
++    version: str | None = None
++    fallback_code: str | None = None
++    fallback_reason: str | None = None
+
+
+ class EspeakBackend:
+@@ -123,6 +128,11 @@ class EspeakBackend:
+             data_path=runtime_info.data,
+             native_error_type=type(error).__name__ if error is not None else None,
+             native_error=str(error) if error is not None else None,
++            requested_mode=runtime_info.requested_mode,
++            source=runtime_info.source,
++            version=runtime_info.version,
++            fallback_code=runtime_info.fallback_code,
++            fallback_reason=runtime_info.fallback_reason,
+         )
+
+     def diagnostics(self) -> EspeakBackendInfo:
+@@ -183,16 +193,24 @@ class EspeakBackend:
+         self,
+         texts: list[str],
+         convert_to_kokoro: bool = True,
++        remove_punctuation: bool = True,
+     ) -> list[str]:
+         """Convert multiple texts while preserving the historical list API."""
+-        return [self.phonemize(text, convert_to_kokoro) for text in texts]
++        return self.phonemize_many(
++            texts,
++            convert_to_kokoro=convert_to_kokoro,
++            remove_punctuation=remove_punctuation,
++        )
+
+     def phonemize_many(
+         self,
+         texts: Sequence[str],
+         convert_to_kokoro: bool = True,
++        remove_punctuation: bool = True,
+     ) -> list[str]:
+         """Convert independently framed texts through the runtime batch API."""
++        if remove_punctuation:
++            texts = [self.remove_punctuation(t) for t in texts]
+         raw_items = self._get_runtime().phonemize_many(
+             texts,
+             voice=self.language,
+diff --git a/kokorog2p/espeak_g2p.py b/kokorog2p/espeak_g2p.py
+index 0bf663d..105c7d9 100644
+--- a/kokorog2p/espeak_g2p.py
++++ b/kokorog2p/espeak_g2p.py
+@@ -207,8 +207,46 @@ class EspeakOnlyG2P(G2PBase):
+         if not text or not text.strip():
+             return []
+
+-        tokens: list[GToken] = []
+         token_spans = tokenize_with_offsets(text, keep_punct=True)
++
++        # Collect word-like spans and their indices for batch phonemization.
++        word_positions: list[int] = []
++        words: list[str] = []
++        for i, span in enumerate(token_spans):
++            is_punct = not any(c.isalnum() for c in span.text)
++            if not is_punct:
++                word_positions.append(i)
++                words.append(span.text)
++
++        # Batch phonemize all words in one call.
++        pronunciations: list[str | None] = [None] * len(token_spans)
++        if words:
++            try:
++                batch_result = self.espeak_backend.phonemize_many(
++                    words, convert_to_kokoro=True, remove_punctuation=True
++                )
++                for pos, phonemes in zip(word_positions, batch_result, strict=True):
++                    pronunciations[pos] = phonemes if phonemes else None
++            except Exception as e:
++                if self.strict:
++                    if isinstance(e, RuntimeError):
++                        raise RuntimeError(
++                            f"EspeakOnlyG2P batch phonemization failed. "
++                            f"This usually means espeak-ng is not properly "
++                            f"installed or initialized. Original error: {e}"
++                        ) from e
++                    else:
++                        raise RuntimeError(
++                            f"Unexpected error in batch phonemization: {e}"
++                        ) from e
++                else:
++                    logger.error(
++                        f"EspeakOnlyG2P batch phonemization failed: {e}. "
++                        f"Returning None for all words (strict=False mode)."
++                    )
++
++        # Reconstruct tokens in original order.
++        tokens: list[GToken] = []
+         for idx, span in enumerate(token_spans):
+             next_start = (
+                 token_spans[idx + 1].char_start
+@@ -230,28 +268,7 @@ class EspeakOnlyG2P(G2PBase):
+                 tokens.append(token)
+                 continue
+
+-            try:
+-                phonemes = self._phonemize_word(span.text)
+-            except Exception as e:
+-                if self.strict:
+-                    if isinstance(e, RuntimeError):
+-                        raise RuntimeError(
+-                            f"EspeakOnlyG2P failed to process word '{span.text}' "
+-                            f"with espeak-ng. This usually means espeak-ng is "
+-                            f"not properly installed or initialized. "
+-                            f"Original error: {e}"
+-                        ) from e
+-                    else:
+-                        raise RuntimeError(
+-                            f"Unexpected error processing word '{span.text}': {e}"
+-                        ) from e
+-                else:
+-                    logger.error(
+-                        f"EspeakOnlyG2P failed to process word '{span.text}': {e}. "
+-                        f"Returning None (strict=False mode)."
+-                    )
+-                    phonemes = None
+-
++            phonemes = pronunciations[idx]
+             token = GToken(
+                 text=span.text,
+                 tag="X",
+diff --git a/pyproject.toml b/pyproject.toml
+index ecd97e6..f509031 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -22,8 +22,8 @@ authors = [
+ keywords = ["g2p", "grapheme-to-phoneme", "tts", "text-to-speech", "kokoro", "phonemizer", "espeak"]
+ dependencies = [
+     "g2lex>=0.1.8,<0.2.0",
+-    "lexphon>=0.2.3,<0.3",
+-    "espeakng-runtime>=0.1.0,<0.2.0",
++    "lexphon>=0.2.4,<0.3",
++    "espeakng-runtime>=0.1.3,<0.2.0",
+ ]
+ classifiers=[
+     'Development Status :: 4 - Beta',
+@@ -52,10 +52,10 @@ docs = [
+     "myst-parser>=2.0.0",
+ ]
+ espeak = [
+-    "lexphon[espeak]>=0.2.3,<0.3",
++    "lexphon[espeak]>=0.2.4,<0.3",
+ ]
+ espeak-direct = [
+-    "espeakng-runtime[bundled]>=0.1.0,<0.2.0",
++    "espeakng-runtime[bundled]>=0.1.3,<0.2.0",
+ ]
+ kk = [
+     "kokorog2p[espeak]",
+@@ -72,7 +72,7 @@ ar-diacritize = [
+     "camel-tools>=1.6; python_version >= '3.11'",
+ ]
+ goruut = [
+-    "lexphon[goruut]>=0.2.3,<0.3",
++    "lexphon[goruut]>=0.2.4,<0.3",
+ ]
+ goruut-direct = [
+     "pygoruut>=0.8.0",
+diff --git a/tests/test_dependency_contract.py b/tests/test_dependency_contract.py
+index d47a1f7..f87728d 100644
+--- a/tests/test_dependency_contract.py
++++ b/tests/test_dependency_contract.py
+@@ -13,8 +13,8 @@ def test_core_dependency_contract() -> None:
+     dependencies = data["project"]["dependencies"]
+
+     assert "g2lex>=0.1.8,<0.2.0" in dependencies
+-    assert "lexphon>=0.2.3,<0.3" in dependencies
+-    assert "espeakng-runtime>=0.1.0,<0.2.0" in dependencies
++    assert "lexphon>=0.2.4,<0.3" in dependencies
++    assert "espeakng-runtime>=0.1.3,<0.2.0" in dependencies
+     semantic_packages = (
+         "spokenform",
+         "abbr2words",
+@@ -33,11 +33,11 @@ def test_lexphon_provider_extras_are_split_from_direct_backends() -> None:
+     data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+     extras = data["project"]["optional-dependencies"]
+
+-    assert extras["espeak"] == ["lexphon[espeak]>=0.2.3,<0.3"]
++    assert extras["espeak"] == ["lexphon[espeak]>=0.2.4,<0.3"]
+     assert extras["espeak-direct"] == [
+-        "espeakng-runtime[bundled]>=0.1.0,<0.2.0",
++        "espeakng-runtime[bundled]>=0.1.3,<0.2.0",
+     ]
+-    assert extras["goruut"] == ["lexphon[goruut]>=0.2.3,<0.3"]
++    assert extras["goruut"] == ["lexphon[goruut]>=0.2.4,<0.3"]
+     assert extras["goruut-direct"] == ["pygoruut>=0.8.0"]
+
+
+diff --git a/tests/test_espeak_backend.py b/tests/test_espeak_backend.py
+index 357da50..c74f1b7 100644
+--- a/tests/test_espeak_backend.py
++++ b/tests/test_espeak_backend.py
+@@ -146,6 +146,27 @@ def test_auto_fallback_is_exposed_as_compatibility_error(fake_runtime):
+     assert backend.info.native_error_type == "RuntimeError"
+
+
++def test_extended_info_fields_populated_after_init(fake_runtime):
++    backend = EspeakBackend("en-us")
++    backend.phonemize("hello", convert_to_kokoro=False)
++    info = backend.info
++    assert info.requested_mode == "auto"
++    assert info.source == "fake"
++    assert info.version == "1.52.0"
++    assert info.fallback_code is None
++    assert info.fallback_reason is None
++
++
++def test_extended_info_fields_show_fallback(fake_runtime):
++    fake_runtime.fallback = True
++    backend = EspeakBackend("en-us")
++    backend.phonemize("hello", convert_to_kokoro=False)
++    info = backend.info
++    assert info.implementation == "cli"
++    assert info.fallback_code == "native-init-failed"
++    assert info.fallback_reason == "native setup failed"
++
++
+ def test_close_is_idempotent_and_allows_recreation(fake_runtime):
+     backend = EspeakBackend("en-us")
+     backend.phonemize("hello")
+diff --git a/tests/test_espeak_batching.py b/tests/test_espeak_batching.py
+new file mode 100644
+index 0000000..02bd324
+--- /dev/null
++++ b/tests/test_espeak_batching.py
+@@ -0,0 +1,168 @@
++"""Tests for eSpeak batch phonemization and preprocessing parity."""
++
++from __future__ import annotations
++
++from typing import ClassVar
++
++import pytest
++
++from kokorog2p.backends.espeak import EspeakBackend
++from kokorog2p.backends.espeak import backend as backend_module
++from kokorog2p.espeak_g2p import EspeakOnlyG2P
++
++
++class FakeInfo:
++    requested_mode = "auto"
++    implementation = "native"
++    executable = "/usr/bin/espeak-ng"
++    library = "/usr/lib/libespeak-ng.so"
++    data = "/usr/share/espeak-ng-data"
++    source = "fake"
++    version = "1.52.0"
++    exact_clause_api = False
++    parity = "best-effort"
++    fallback_reason = None
++    fallback_code = None
++
++    @property
++    def version_tuple(self) -> tuple[int, ...]:
++        return (1, 52, 0)
++
++
++class CountingFakeRuntime:
++    """Fake runtime that counts phonemize and phonemize_many calls."""
++
++    instances: ClassVar[list[CountingFakeRuntime]] = []
++
++    def __init__(self, **kwargs):
++        self.kwargs = kwargs
++        self.info = FakeInfo()
++        self.phonemize_count = 0
++        self.phonemize_many_count = 0
++        self.last_batch_texts = None
++        self.closed = False
++        CountingFakeRuntime.instances.append(self)
++
++    def resolve_voice(self, voice: str):
++        from espeakng_runtime import Voice
++
++        return Voice(name="English", language=voice, identifier=voice)
++
++    def phonemize(self, text: str, **kwargs) -> str:
++        self.phonemize_count += 1
++        return "həlˈo͡ʊ"
++
++    def phonemize_many(self, texts, **kwargs) -> list[str]:
++        self.phonemize_many_count += 1
++        self.last_batch_texts = list(texts)
++        return ["həlˈo͡ʊ" for _ in texts]
++
++    def list_voices(self, filter_name=None):
++        return []
++
++    def close(self):
++        self.closed = True
++
++
++@pytest.fixture
++def counting_runtime(monkeypatch):
++    CountingFakeRuntime.instances.clear()
++    monkeypatch.setattr(backend_module, "EspeakRuntime", CountingFakeRuntime)
++    return CountingFakeRuntime
++
++
++def test_phonemize_list_delegates_to_phonemize_many(counting_runtime):
++    """phonemize_list() should call phonemize_many(), not scalar phonemize()."""
++    backend = EspeakBackend("en-us")
++    result = backend.phonemize_list(["hello", "world", "test"])
++    assert len(result) == 3
++    runtime = counting_runtime.instances[0]
++    assert runtime.phonemize_many_count == 1
++    assert runtime.phonemize_count == 0
++
++
++def test_preprocessing_parity_with_punctuation(counting_runtime):
++    """phonemize_many([x, y]) == [phonemize(x), phonemize(y)]
++    with punctuation removal."""
++    backend = EspeakBackend("en-us")
++    texts = ["Hello, world!", "Test... sentence;"]
++
++    batch_result = backend.phonemize_many(texts, remove_punctuation=True)
++    scalar_results = [backend.phonemize(t, remove_punctuation=True) for t in texts]
++
++    assert batch_result == scalar_results
++
++
++def test_preprocessing_parity_without_punctuation(counting_runtime):
++    """phonemize_many([x, y]) == [phonemize(x), phonemize(y)]
++    without punctuation removal."""
++    backend = EspeakBackend("en-us")
++    texts = ["Hello, world!", "Test... sentence;"]
++
++    batch_result = backend.phonemize_many(texts, remove_punctuation=False)
++    scalar_results = [backend.phonemize(t, remove_punctuation=False) for t in texts]
++
++    assert batch_result == scalar_results
++
++
++def test_preprocessing_parity_raw_mode(counting_runtime):
++    """phonemize_many([x, y]) == [phonemize(x), phonemize(y)] in raw mode."""
++    backend = EspeakBackend("en-us")
++    texts = ["Hello, world!", "Test... sentence;"]
++
++    batch_result = backend.phonemize_many(
++        texts, convert_to_kokoro=False, remove_punctuation=True
++    )
++    scalar_results = [
++        backend.phonemize(t, convert_to_kokoro=False, remove_punctuation=True)
++        for t in texts
++    ]
++
++    assert batch_result == scalar_results
++
++
++def test_espeak_only_g2p_batches_word_calls(monkeypatch):
++    """EspeakOnlyG2P.__call__() invokes
++    phonemize_many() exactly once for multiple words."""
++    CountingFakeRuntime.instances.clear()
++    monkeypatch.setattr(backend_module, "EspeakRuntime", CountingFakeRuntime)
++
++    g2p = EspeakOnlyG2P("en-us")
++    tokens = g2p("Hello world this is a test")
++
++    runtime = CountingFakeRuntime.instances[0]
++    # Should use exactly one batch call. The 1 scalar call is from _validate_backend().
++    assert runtime.phonemize_many_count == 1
++    # validate_backend calls phonemize once; no additional scalar calls for words.
++    assert runtime.phonemize_count == 1  # validation only
++    # Should have produced tokens for all 6 words.
++    word_tokens = [t for t in tokens if t.tag != "PUNCT"]
++    assert len(word_tokens) == 6
++
++
++def test_espeak_only_g2p_preserves_punctuation_tokens(monkeypatch):
++    """Punctuation tokens should be preserved without phonemization calls."""
++    CountingFakeRuntime.instances.clear()
++    monkeypatch.setattr(backend_module, "EspeakRuntime", CountingFakeRuntime)
++
++    g2p = EspeakOnlyG2P("en-us")
++    tokens = g2p("Hello, world!")
++
++    punct_tokens = [t for t in tokens if t.tag == "PUNCT"]
++    assert len(punct_tokens) == 2
++    assert punct_tokens[0].text == ","
++    assert punct_tokens[1].text == "!"
++    # Punctuation phonemes should be the text itself.
++    assert punct_tokens[0].phonemes == ","
++    assert punct_tokens[1].phonemes == "!"
++
++
++def test_espeak_only_g2p_empty_input(monkeypatch):
++    """Empty input should return no tokens without calling the runtime."""
++    CountingFakeRuntime.instances.clear()
++    monkeypatch.setattr(backend_module, "EspeakRuntime", CountingFakeRuntime)
++
++    g2p = EspeakOnlyG2P("en-us")
++    assert g2p("") == []
++    assert g2p("   ") == []
++    assert len(CountingFakeRuntime.instances) == 0

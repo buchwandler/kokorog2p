@@ -3,26 +3,23 @@ schema_version: 2
 object_type: release_entry
 versioning:
   schema_version: 1
-  revision: 3
-entry_id: entry-0001
+  revision: 1
+entry_id: entry-0003
 release_version: 0.9.11
-kind: changed
-summary:
-  Changed direct eSpeak support to use espeakng-runtime while preserving Kokoro
-  conversion and native-to-CLI fallback
+kind: fixed
+summary: Fixed eSpeak data-path handling to preserve configured paths across platforms
 status: accepted
 audience: null
 scopes: []
 source_refs:
-  - git:014e832e9de874b8243adabaa88fe5d85f5d7e1d
+  - git:a01487907af795958ff68f39c9bafdda59da5b9d
 paths:
   - kokorog2p/backends/espeak/backend.py
-  - pyproject.toml
 issues: []
 prs: []
 sources: []
 contributors: []
 breaking: false
 internal: false
-order: 1
+order: 3
 ---

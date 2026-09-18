@@ -1,0 +1,175 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 2
+release_version: 0.9.11
+git_base_ref: v0.9.10
+git_base_sha: 52e12ce0e56434b08b2adfd7e4e5148fc7a68bb5
+git_head_ref: v0.9.11
+git_head_sha: a01487907af795958ff68f39c9bafdda59da5b9d
+git_range: 52e12ce0e56434b08b2adfd7e4e5148fc7a68bb5..a01487907af795958ff68f39c9bafdda59da5b9d
+commit_count: 5
+rows:
+  - sha: c43852b07e0e4932556662dd83d94a65bfbb1cde
+    source_ref: git:c43852b07e0e4932556662dd83d94a65bfbb1cde
+    short_sha: c43852b
+    changed_paths:
+      - .github/workflows/codecov.yml
+      - .github/workflows/tests.yml
+      - tests/test_ru_factory.py
+    stats:
+      files_changed: 3
+      insertions: 39
+      deletions: 12
+    inspected: true
+    inspected_paths:
+      - .github/workflows/codecov.yml
+      - .github/workflows/tests.yml
+      - tests/test_ru_factory.py
+    observed_behavior:
+      Updated CI workflow configuration and added Russian factory regression coverage;
+      no direct product behavior changed.
+    public_impact: internal
+    decision: internal
+    stale: false
+    evidence_subject: "chore: fix ci"
+    notes:
+      CI and regression-test maintenance; intentionally excluded from public release
+      notes.
+  - sha: 014e832e9de874b8243adabaa88fe5d85f5d7e1d
+    source_ref: git:014e832e9de874b8243adabaa88fe5d85f5d7e1d
+    short_sha: 014e832
+    changed_paths:
+      - .github/workflows/tests.yml
+      - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.11/entries/entry-0001.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.11/entries/entry-0002.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.11/release.md
+      - README.md
+      - benchmarks/benchmark_mixed_language_auto_stations.py
+      - docs/advanced.md
+      - docs/api/backends.md
+      - docs/changelog.md
+      - docs/installation.md
+      - kokorog2p/ar/g2p.py
+      - kokorog2p/backends/espeak/api.py
+      - kokorog2p/backends/espeak/backend.py
+      - kokorog2p/backends/espeak/cli_wrapper.py
+      - kokorog2p/backends/espeak/compat.py
+      - kokorog2p/backends/espeak/phonemizer_base.py
+      - kokorog2p/backends/espeak/voice.py
+      - kokorog2p/backends/espeak/wrapper.py
+      - kokorog2p/espeak_g2p.py
+      - pyproject.toml
+      - tests/test_de_gold_performance.py
+      - tests/test_dependency_contract.py
+      - tests/test_espeak_architecture.py
+      - tests/test_espeak_backend.py
+      - tests/test_espeak_phonemizer_base.py
+    stats:
+      files_changed: 26
+      insertions: 746
+      deletions: 2662
+    inspected: true
+    inspected_paths:
+      - .github/workflows/tests.yml
+      - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.11/entries/entry-0001.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.11/entries/entry-0002.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.11/release.md
+      - README.md
+      - benchmarks/benchmark_mixed_language_auto_stations.py
+      - docs/advanced.md
+      - docs/api/backends.md
+      - docs/changelog.md
+      - docs/installation.md
+      - kokorog2p/ar/g2p.py
+      - kokorog2p/backends/espeak/api.py
+      - kokorog2p/backends/espeak/backend.py
+      - kokorog2p/backends/espeak/cli_wrapper.py
+      - kokorog2p/backends/espeak/compat.py
+      - kokorog2p/backends/espeak/phonemizer_base.py
+      - kokorog2p/backends/espeak/voice.py
+      - kokorog2p/backends/espeak/wrapper.py
+      - kokorog2p/espeak_g2p.py
+      - pyproject.toml
+      - tests/test_de_gold_performance.py
+      - tests/test_dependency_contract.py
+      - tests/test_espeak_architecture.py
+      - tests/test_espeak_backend.py
+      - tests/test_espeak_phonemizer_base.py
+    observed_behavior:
+      Replaced the in-repository low-level eSpeak implementation with an
+      espeakng-runtime adapter, retained compatibility facades, and added direct-runtime
+      configuration, documentation, and coverage.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "feat: use espeak library"
+    notes:
+      Primary coverage owner for the direct eSpeak runtime integration; documentation is
+      covered by the separate docs entry.
+  - sha: 62da249d6d38d750aabb087ea6bbf27c958e6aec
+    source_ref: git:62da249d6d38d750aabb087ea6bbf27c958e6aec
+    short_sha: 62da249
+    changed_paths:
+      - pyproject.toml
+      - tests/test_dependency_contract.py
+    stats:
+      files_changed: 2
+      insertions: 4
+      deletions: 4
+    inspected: true
+    inspected_paths:
+      - pyproject.toml
+      - tests/test_dependency_contract.py
+    observed_behavior:
+      Updated package dependency constraints and matching dependency-contract tests for
+      the release dependency set; no standalone user-facing behavior beyond the covered
+      runtime integration.
+    public_impact: none
+    decision: internal
+    stale: false
+    evidence_subject: "fix: version"
+    notes:
+      Dependency/version contract maintenance is accounted for as internal release work.
+  - sha: b7ea62b57254bb10f7b13312ce0148449a39dda2
+    source_ref: git:b7ea62b57254bb10f7b13312ce0148449a39dda2
+    short_sha: b7ea62b
+    changed_paths:
+      - .github/workflows/tests.yml
+    stats:
+      files_changed: 1
+      insertions: 2
+      deletions: 0
+    inspected: true
+    inspected_paths:
+      - .github/workflows/tests.yml
+    observed_behavior:
+      Adjusted the CI test workflow configuration; no direct product behavior changed.
+    public_impact: internal
+    decision: internal
+    stale: false
+    evidence_subject: "chore: ci"
+    notes: CI-only maintenance; intentionally excluded from public release notes.
+  - sha: a01487907af795958ff68f39c9bafdda59da5b9d
+    source_ref: git:a01487907af795958ff68f39c9bafdda59da5b9d
+    short_sha: a014879
+    changed_paths:
+      - kokorog2p/backends/espeak/backend.py
+    stats:
+      files_changed: 1
+      insertions: 5
+      deletions: 1
+    inspected: true
+    inspected_paths:
+      - kokorog2p/backends/espeak/backend.py
+    observed_behavior:
+      Preserved the caller's configured eSpeak data-path spelling when constructing the
+      runtime, avoiding platform-dependent path normalization.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "fix: path"
+    notes: Covered by the dedicated path-handling fix entry.
