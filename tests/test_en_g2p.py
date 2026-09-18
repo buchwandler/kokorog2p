@@ -53,9 +53,10 @@ def test_phonemize_no_lexicon_mode() -> None:
 
 
 def test_fallback_only_were_regression() -> None:
-    """Test that 'we're' uses corrected provider pronunciation without a Kokoro spelling exception.
+    """Test that 'we're' uses corrected provider pronunciation.
 
-    This test should fail if an old/broken runtime is accidentally installed.
+    Without a Kokoro spelling exception.  This test should fail
+    if an old/broken runtime is accidentally installed.
     """
     g2p = EnglishG2P(
         language="en-us",
@@ -69,9 +70,11 @@ def test_fallback_only_were_regression() -> None:
 
 
 def test_context_weak_forms_preserved() -> None:
-    """Test that normal English sentence/context output does not receive a global new stress rule.
+    """Test that normal English sentence/context output.
 
-    This verifies the cleanup did not move fallback stress policy into the primary English lexicon.
+    Does not receive a global new stress rule.  This verifies
+    the cleanup did not move fallback stress policy into the
+    primary English lexicon.
     """
     g2p = EnglishG2P(
         language="en-us",
