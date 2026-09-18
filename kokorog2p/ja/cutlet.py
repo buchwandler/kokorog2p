@@ -10,13 +10,27 @@ Licensed under the Apache License, Version 2.0
 import re
 import unicodedata
 from dataclasses import dataclass
+from functools import lru_cache
 
-import jaconv
-import mojimoji
-from fugashi import Tagger
 from lexphon import DataStore
 
 from kokorog2p.lexicons.lexphon_backend import LexphonBackend
+
+
+@lru_cache(maxsize=1)
+def _load_cutlet_dependencies():
+    """Lazy-load optional Cutlet dependencies (jaconv, mojimoji, fugashi)."""
+    try:
+        import jaconv
+        import mojimoji
+        from fugashi import Tagger
+    except ImportError as exc:
+        raise ImportError(
+            "Japanese Cutlet support is not installed. "
+            "Install it with `pip install 'kokorog2p[ja-cutlet]'`."
+        ) from exc
+    return jaconv, mojimoji, Tagger
+
 
 # Hiragana to IPA mapping
 HEPBURN = {
@@ -288,8 +302,11 @@ class Cutlet:
         *,
         store: DataStore | None = None,
     ) -> None:
+        jaconv, mojimoji, tagger_cls = _load_cutlet_dependencies()
+        self._jaconv = jaconv
+        self._mojimoji = mojimoji
         try:
-            self.tagger = Tagger()
+            self.tagger = tagger_cls()
         except Exception as exc:
             raise RuntimeError(
                 "Japanese Cutlet requires a usable MeCab dictionary. "
@@ -315,6 +332,11 @@ class Cutlet:
         if not text:
             return "", None
 
+        # Lazy-load jaconv if needed (e.g., when __new__ bypassed __init__)
+        jaconv = getattr(self, "_jaconv", None)
+        if jaconv is None:
+            jaconv, _, _ = _load_cutlet_dependencies()
+
         text = self._normalize_text(text)
         words = [
             Word(
@@ -336,15 +358,23 @@ class Cutlet:
 
     def _normalize_text(self, text: str) -> str:
         """Given text, normalize variations in Japanese."""
+        # Lazy-load mojimoji if needed (e.g., when __new__ bypassed __init__)
+        mojimoji = getattr(self, "_mojimoji", None)
+        if mojimoji is None:
+            try:
+                _, mojimoji, _ = _load_cutlet_dependencies()
+            except ImportError:
+                mojimoji = None  # dependency-independent normalization only
         # perform unicode normalization
         text = re.sub(r"[〜～](?=\d)", "から", text)  # wave dash range
         for k, v in KATAKANA_PHONETIC_EXT.items():
             text = text.replace(k, v)
         text = unicodedata.normalize("NFKC", text)
-        # convert all full-width alphanum to half-width
-        text = mojimoji.zen_to_han(text, kana=False)
-        # replace half-width katakana with full-width
-        text = mojimoji.han_to_zen(text, digit=False, ascii=False)
+        if mojimoji is not None:
+            # convert all full-width alphanum to half-width
+            text = mojimoji.zen_to_han(text, kana=False)
+            # replace half-width katakana with full-width
+            text = mojimoji.han_to_zen(text, digit=False, ascii=False)
         # Spokenform owns digit-to-spoken conversion; retain only typography.
         return "".join(re.findall(r"\d+|\D+", text))
 

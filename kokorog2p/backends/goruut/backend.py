@@ -7,9 +7,17 @@ Copyright 2024 kokorog2p contributors
 Licensed under the Apache License, Version 2.0
 """
 
+import platform
+from contextlib import contextmanager
+from threading import RLock
 from typing import Optional
 
 from kokorog2p.phonemes import from_goruut
+
+
+class GoruutBackendError(RuntimeError):
+    """Raised when pygoruut is installed but cannot run on this platform."""
+
 
 # Language mapping from standard codes to pygoruut language names
 LANGUAGE_MAP: dict[str, str] = {
@@ -133,18 +141,119 @@ LANGUAGE_MAP: dict[str, str] = {
 
 # Singleton instance for the pygoruut process
 _goruut_instance: Optional["Pygoruut"] = None  # noqa: F821
+_goruut_init_lock = RLock()
 _GORUUT_STARTUP_RETRIES = 3
+
+
+def _get_pygoruut_version() -> str:
+    """Return installed pygoruut version string, or 'unknown'."""
+    try:
+        import importlib.metadata
+
+        return importlib.metadata.version("pygoruut")
+    except Exception:
+        return "unknown"
+
+
+def _format_goruut_platform_error(exc: Exception) -> str:
+    """Build an actionable error message for platform/architecture failures."""
+    system = platform.system()
+    machine = platform.machine()
+    version = _get_pygoruut_version()
+    return (
+        f"Goruut cannot initialize on {system}/{machine} with pygoruut {version}: {exc}"
+    )
+
+
+@contextmanager
+def _pygoruut_platform_compat():
+    """Narrow compatibility bridge for pygoruut on Android/Termux.
+
+    On Termux/Android, ``platform.system()`` returns ``"Android"`` which
+    pygoruut's platform detector does not recognize.  This context manager
+    patches ``pygoruut.executable.Platform`` with an Android-aware subclass
+    for the duration of ``Pygoruut()`` construction, then restores the
+    original.
+
+    The patch is only applied when:
+    1. The host reports ``platform.system() == 'Android'``.
+    2. Upstream pygoruut *cannot* already map the OS (future-proof).
+    3. The installed pygoruut exposes an ``OS.ANDROID`` enum member.
+    """
+    if platform.system().lower() != "android":
+        yield
+        return
+
+    try:
+        from pygoruut import executable
+        from pygoruut.goplatform import OS
+        from pygoruut.goplatform import Platform as UpstreamPlatform
+    except ImportError:
+        yield
+        return
+
+    # Check whether upstream already understands this platform.
+    try:
+        UpstreamPlatform()
+    except ValueError as exc:
+        if "unsupported os: android" not in str(exc).lower():
+            raise
+    else:
+        yield
+        return
+
+    if not hasattr(OS, "ANDROID"):
+        yield
+        return
+
+    class AndroidAwarePlatform(UpstreamPlatform):
+        def _determine_os(self):
+            if platform.system().lower() == "android":
+                return OS.ANDROID
+            return super()._determine_os()
+
+    original = executable.Platform
+    executable.Platform = AndroidAwarePlatform
+    try:
+        yield
+    finally:
+        executable.Platform = original
+
+
+def _probe_platform_executable() -> bool:
+    """Return True when pygoruut can select an executable for this host.
+
+    This is a side-effect-free check: no download, no subprocess, no network.
+    """
+    try:
+        from pygoruut.executable import MyPlatformExecutable
+    except ImportError:
+        return False
+    try:
+        with _pygoruut_platform_compat():
+            executable, _platform, _version = MyPlatformExecutable().get()
+        return executable is not None
+    except (ValueError, OSError):
+        return False
 
 
 def _get_goruut() -> "Pygoruut":  # noqa: F821
     """Get or create the singleton pygoruut instance."""
     global _goruut_instance
-    if _goruut_instance is None:
+
+    if _goruut_instance is not None:
+        return _goruut_instance
+
+    with _goruut_init_lock:
+        if _goruut_instance is not None:
+            return _goruut_instance
+
         from pygoruut.pygoruut import Pygoruut
 
         for attempt in range(_GORUUT_STARTUP_RETRIES):
             try:
-                _goruut_instance = Pygoruut(writeable_bin_dir="")
+                with _pygoruut_platform_compat():
+                    _goruut_instance = Pygoruut(writeable_bin_dir="")
                 break
             except RuntimeError as exc:
                 # pygoruut >= 0.8.1 reports a process that exits while its
@@ -155,6 +264,10 @@ def _get_goruut() -> "Pygoruut":  # noqa: F821
                     or attempt == _GORUUT_STARTUP_RETRIES - 1
                 ):
                     raise
+            except ValueError as exc:
+                # Platform/architecture failures cannot be fixed by retrying.
+                raise GoruutBackendError(_format_goruut_platform_error(exc)) from exc
+
     return _goruut_instance
 
 
@@ -273,17 +386,16 @@ class GoruutBackend:
 
     @staticmethod
     def is_available() -> bool:
-        """Check if pygoruut is available.
+        """Check if pygoruut is installed and has a selectable executable.
+
+        This performs a side-effect-free platform selection probe.
+        It does NOT download the Goruut binary, start a subprocess,
+        open a port, or make a network request.
 
         Returns:
-            True if pygoruut can be imported.
+            True if pygoruut is installed and can select an executable for this host.
         """
-        try:
-            from pygoruut.pygoruut import Pygoruut  # noqa: F401
-
-            return True
-        except ImportError:
-            return False
+        return _probe_platform_executable()
 
     def __repr__(self) -> str:
         return f"GoruutBackend(language={self.language!r})"

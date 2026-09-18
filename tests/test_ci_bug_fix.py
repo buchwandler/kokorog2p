@@ -12,16 +12,6 @@ import pytest
 from kokorog2p import get_g2p
 
 
-def _is_goruut_available() -> bool:
-    """Check if pygoruut is available."""
-    try:
-        from kokorog2p.goruut_g2p import GoruutOnlyG2P
-
-        return GoruutOnlyG2P.is_available()
-    except ImportError:
-        return False
-
-
 class TestEspeakEmptyStringBugFix:
     """Test that espeak backend never returns empty strings silently."""
 
@@ -96,33 +86,63 @@ class TestEspeakEmptyStringBugFix:
 
 
 class TestGoruutEmptyStringBugFix:
-    """Test that goruut backend never returns empty strings silently."""
+    """Test that goruut backend never returns empty strings silently.
 
-    @pytest.mark.skipif(not _is_goruut_available(), reason="pygoruut not installed")
-    def test_goruut_phonemize_not_empty(self):
+    These tests use an injected fake goruut process — they never download
+    or start the real Goruut executable.
+    """
+
+    def test_goruut_phonemize_not_empty(self, monkeypatch: pytest.MonkeyPatch):
         """Goruut backend should never return empty strings for valid input."""
-        g2p = get_g2p(language="en-us", backend="goruut", lexicons=())
 
-        result = g2p.phonemize("test")
+        from kokorog2p.backends.goruut import backend
 
-        assert len(result) > 0, (
-            f"phonemize() returned empty string: [{result}]. "
-            f"This indicates goruut is not properly initialized."
-        )
-        assert result != "", "phonemize() should not return empty string"
+        class FakeResult:
+            def __str__(self):
+                return "tˈɛst"
 
-    @pytest.mark.skipif(not _is_goruut_available(), reason="pygoruut not installed")
-    def test_goruut_lookup_not_none(self):
+        class FakeGoruut:
+            def phonemize(self, language, sentence, is_punct=True):
+                return FakeResult()
+
+        monkeypatch.setattr(backend, "_goruut_instance", FakeGoruut())
+        try:
+            g2p = get_g2p(language="en-us", backend="goruut", lexicons=())
+
+            result = g2p.phonemize("test")
+
+            assert len(result) > 0, (
+                f"phonemize() returned empty string: [{result}]. "
+                f"This indicates goruut is not properly initialized."
+            )
+            assert result != "", "phonemize() should not return empty string"
+        finally:
+            monkeypatch.setattr(backend, "_goruut_instance", None)
+
+    def test_goruut_lookup_not_none(self, monkeypatch: pytest.MonkeyPatch):
         """Goruut lookup should return phonemes or raise error, not None."""
+        from kokorog2p.backends.goruut import backend
         from kokorog2p.goruut_g2p import GoruutOnlyG2P
 
-        g2p = GoruutOnlyG2P(language="en-us")
+        class FakeResult:
+            def __str__(self):
+                return "tˈɛst"
 
-        result = g2p.lookup("test")
+        class FakeGoruut:
+            def phonemize(self, language, sentence, is_punct=True):
+                return FakeResult()
 
-        assert result is not None, "lookup() should not return None for valid words"
-        assert isinstance(result, str), "lookup() should return a string"
-        assert len(result) > 0, "lookup() should not return empty string"
+        monkeypatch.setattr(backend, "_goruut_instance", FakeGoruut())
+        try:
+            g2p = GoruutOnlyG2P(language="en-us")
+
+            result = g2p.lookup("test")
+
+            assert result is not None, "lookup() should not return None for valid words"
+            assert isinstance(result, str), "lookup() should return a string"
+            assert len(result) > 0, "lookup() should not return empty string"
+        finally:
+            monkeypatch.setattr(backend, "_goruut_instance", None)
 
 
 class TestErrorHandling:
@@ -205,43 +225,45 @@ class TestStrictParameter:
         )
         assert g2p_lenient.strict is False, "strict should be False"
 
-    def test_goruut_strict_true_raises_on_error(self):
+    def test_goruut_strict_true_raises_on_error(self, monkeypatch: pytest.MonkeyPatch):
         """With strict=True, goruut should raise errors."""
+        from kokorog2p.backends.goruut import backend
         from kokorog2p.goruut_g2p import GoruutOnlyG2P
 
-        if not _is_goruut_available():
-            pytest.skip("pygoruut not installed")
+        class FakeGoruut:
+            def phonemize(self, language, sentence, is_punct=True):
+                raise RuntimeError("Test error")
 
-        g2p = GoruutOnlyG2P(language="en-us", strict=True)
-
-        # Mock the backend to raise an exception
-        from unittest.mock import patch
-
-        with patch.object(g2p, "_goruut_backend") as mock_backend:
-            mock_backend.phonemize.side_effect = RuntimeError("Test error")
+        monkeypatch.setattr(backend, "_goruut_instance", FakeGoruut())
+        try:
+            g2p = GoruutOnlyG2P(language="en-us", strict=True)
 
             # Should raise RuntimeError in strict mode
             with pytest.raises(RuntimeError, match="GoruutOnlyG2P failed to phonemize"):
                 g2p.phonemize("test")
+        finally:
+            monkeypatch.setattr(backend, "_goruut_instance", None)
 
-    def test_goruut_strict_false_returns_empty_string(self):
+    def test_goruut_strict_false_returns_empty_string(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
         """With strict=False, goruut should return empty string on error."""
+        from kokorog2p.backends.goruut import backend
         from kokorog2p.goruut_g2p import GoruutOnlyG2P
 
-        if not _is_goruut_available():
-            pytest.skip("pygoruut not installed")
+        class FakeGoruut:
+            def phonemize(self, language, sentence, is_punct=True):
+                raise RuntimeError("Test error")
 
-        g2p = GoruutOnlyG2P(language="en-us", strict=False)
-
-        # Mock the backend to raise an exception
-        from unittest.mock import patch
-
-        with patch.object(g2p, "_goruut_backend") as mock_backend:
-            mock_backend.phonemize.side_effect = RuntimeError("Test error")
+        monkeypatch.setattr(backend, "_goruut_instance", FakeGoruut())
+        try:
+            g2p = GoruutOnlyG2P(language="en-us", strict=False)
 
             # Should return empty string in non-strict mode
             result = g2p.phonemize("test")
             assert result == "", "Should return empty string in non-strict mode"
+        finally:
+            monkeypatch.setattr(backend, "_goruut_instance", None)
 
     def test_english_g2p_strict_parameter(self):
         """EnglishG2P should accept strict parameter."""

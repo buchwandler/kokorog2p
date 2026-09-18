@@ -11,6 +11,7 @@ Licensed under the Apache License, Version 2.0
 import logging
 import re
 
+from kokorog2p.backends.goruut.backend import GoruutBackendError
 from kokorog2p.base import G2PBase
 from kokorog2p.token import GToken
 from kokorog2p.tokenization import ensure_gtoken_positions
@@ -116,24 +117,17 @@ class GoruutOnlyG2P(G2PBase):
                 phonemes = self.goruut_backend.word_phonemes(part)
             except Exception as e:
                 if self.strict:
-                    if isinstance(e, RuntimeError):
-                        raise RuntimeError(
-                            f"GoruutOnlyG2P failed to process word '{part}' "
-                            f"with goruut. This usually means pygoruut is not "
-                            f"properly installed or initialized. "
-                            f"Original error: {e}"
-                        ) from e
-                    else:
-                        raise RuntimeError(
-                            f"Unexpected error processing word '{part}': {e}"
-                        ) from e
+                    if isinstance(e, GoruutBackendError):
+                        raise
+                    raise RuntimeError(
+                        f"GoruutOnlyG2P failed to process word '{part}': {e}"
+                    ) from e
                 else:
                     logger.error(
                         f"GoruutOnlyG2P failed to process word '{part}': {e}. "
                         f"Returning None (strict=False mode)."
                     )
                     phonemes = None
-
             token = GToken(
                 text=part,
                 tag="X",  # Unknown tag
@@ -163,15 +157,11 @@ class GoruutOnlyG2P(G2PBase):
             return self.goruut_backend.word_phonemes(word)
         except Exception as e:
             if self.strict:
-                if isinstance(e, RuntimeError):
-                    raise RuntimeError(
-                        f"GoruutOnlyG2P.lookup() failed for word '{word}' with goruut. "
-                        f"Original error: {e}"
-                    ) from e
-                else:
-                    raise RuntimeError(
-                        f"Unexpected error in lookup for '{word}': {e}"
-                    ) from e
+                if isinstance(e, GoruutBackendError):
+                    raise
+                raise RuntimeError(
+                    f"GoruutOnlyG2P.lookup() failed for word '{word}': {e}"
+                ) from e
             else:
                 logger.error(
                     f"GoruutOnlyG2P.lookup() failed for word '{word}': {e}. "
@@ -195,18 +185,11 @@ class GoruutOnlyG2P(G2PBase):
             return self.goruut_backend.phonemize(text)
         except Exception as e:
             if self.strict:
-                if isinstance(e, RuntimeError):
-                    # goruut initialization or configuration errors
-                    raise RuntimeError(
-                        f"GoruutOnlyG2P failed to phonemize text with goruut. "
-                        f"This usually means pygoruut is not properly "
-                        f"installed or initialized. Original error: {e}"
-                    ) from e
-                else:
-                    # Unexpected errors - don't hide them!
-                    raise RuntimeError(
-                        f"Unexpected error in GoruutOnlyG2P.phonemize(): {e}"
-                    ) from e
+                if isinstance(e, GoruutBackendError):
+                    raise
+                raise RuntimeError(
+                    f"GoruutOnlyG2P failed to phonemize text: {e}"
+                ) from e
             else:
                 logger.error(
                     f"GoruutOnlyG2P.phonemize() failed: {e}. "
@@ -216,10 +199,14 @@ class GoruutOnlyG2P(G2PBase):
 
     @staticmethod
     def is_available() -> bool:
-        """Check if pygoruut is available.
+        """Check if pygoruut is installed and has a selectable executable.
+
+        This performs a side-effect-free platform selection probe.
+        It does NOT download the Goruut binary, start a subprocess,
+        open a port, or make a network request.
 
         Returns:
-            True if pygoruut can be imported.
+            True if pygoruut is installed and can select an executable for this host.
         """
         try:
             from kokorog2p.backends.goruut import GoruutBackend

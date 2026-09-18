@@ -227,8 +227,13 @@ language frontend. Provider results are realization data, not lexical routing ev
 Install provider extras explicitly when needed:
 
 ```bash
+# Preferred generic fallback/provider path (via Lexphon)
 python -m pip install "kokorog2p[espeak]"
 python -m pip install "kokorog2p[goruut]"
+
+# Direct backend compatibility path (no Lexphon provider layer)
+python -m pip install "kokorog2p[espeak-direct]"
+python -m pip install "kokorog2p[goruut-direct]"
 ```
 
 Direct `backend="espeak"` and `backend="goruut"` remain available as compatibility

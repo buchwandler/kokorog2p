@@ -160,7 +160,7 @@ write_to = "kokorog2p/_version.py"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short -m 'not reference and not external_reference'"
+addopts = "-v --tb=short -m 'not reference and not external_reference and not external_backend'"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "espeak: marks tests that require espeak-ng",
@@ -169,6 +169,7 @@ markers = [
     "resource_heavy: tests that intentionally initialize high-memory optional or native resources",
     "reference: tests against an external pinned reference frontend",
     "external_reference: requires an explicitly installed external reference package",
+    "external_backend: tests that require a real external backend process (e.g., Goruut)",
 ]
 
 [tool.ruff]

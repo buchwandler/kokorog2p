@@ -242,3 +242,18 @@ def test_cutlet_lexhint_missing_data_is_actionable() -> None:
     cutlet._lexphon = MissingLexphon()  # type: ignore[assignment]
     with pytest.raises(LexiconNotInstalledError, match="ja:lexhint"):
         cutlet._romaji_tokens([Word("東京", "とうきょう", 6)])
+
+
+def test_cutlet_mapping_module_imports_without_cutlet_runtime_dependencies() -> None:
+    """Word, Token, HEPBURN, and Cutlet are importable without jaconv."""
+    from kokorog2p.ja.cutlet import HEPBURN, Cutlet, Word
+
+    # The module-level mapping dict is always available
+    assert "a" in HEPBURN.values()
+
+    # The data classes are always importable
+    word = Word("テスト", "てすと", 6)
+    assert word.surface == "テスト"
+
+    # The Cutlet class itself is importable (the method is on the class)
+    assert hasattr(Cutlet, "_romaji_tokens")
