@@ -1,0 +1,84 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 3
+release_version: 0.9.13
+git_base_ref: v0.9.12
+git_base_sha: ad73ebdd19773c28a9ecacd9ee158646633de016
+git_head_ref: HEAD
+git_head_sha: 18e101e89d90a836631714db6260b26044d830d6
+git_range: ad73ebdd19773c28a9ecacd9ee158646633de016..18e101e89d90a836631714db6260b26044d830d6
+commit_count: 2
+rows:
+  - sha: cdd2f473f1609cd971f0347d0b383c40cd8c1505
+    source_ref: git:cdd2f473f1609cd971f0347d0b383c40cd8c1505
+    short_sha: cdd2f47
+    changed_paths:
+      - README.md
+      - kokorog2p/backends/goruut/backend.py
+      - kokorog2p/goruut_g2p.py
+      - kokorog2p/ja/cutlet.py
+      - pyproject.toml
+      - tests/test_ci_bug_fix.py
+      - tests/test_goruut_backend.py
+      - tests/test_goruut_live.py
+      - tests/test_ja_g2p.py
+    stats:
+      files_changed: 9
+      insertions: 530
+      deletions: 135
+    inspected: true
+    inspected_paths:
+      - README.md
+      - kokorog2p/backends/goruut/backend.py
+      - kokorog2p/goruut_g2p.py
+      - kokorog2p/ja/cutlet.py
+      - pyproject.toml
+      - tests/test_ci_bug_fix.py
+      - tests/test_goruut_backend.py
+      - tests/test_goruut_live.py
+      - tests/test_ja_g2p.py
+    observed_behavior:
+      The Goruut backend now performs a side-effect-free executable-selection probe for
+      availability, serializes singleton initialization, supports the Android platform
+      compatibility bridge, and raises actionable platform errors. Goruut tests use an
+      injected deterministic process by default, while live backend smoke tests are
+      opt-in. Japanese Cutlet dependencies load lazily with an actionable extra-install
+      message, and direct backend extras are documented.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "feat: fix pytest when goruut is not available"
+    target_entry_key: goruut-platform-and-testability
+    target_entry_id: entry-0001
+    notes:
+      Reviewed implementation, documentation, packaging configuration, and deterministic
+      and opt-in live tests.
+  - sha: 18e101e89d90a836631714db6260b26044d830d6
+    source_ref: git:18e101e89d90a836631714db6260b26044d830d6
+    short_sha: 18e101e
+    changed_paths:
+      - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.12/release.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.13/release.md
+      - docs/changelog.md
+    stats:
+      files_changed: 4
+      insertions: 38
+      deletions: 4
+    inspected: true
+    inspected_paths:
+      - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.12/release.md
+      - .ledger/releaseledger/data/ledgers/main/releases/0.9.13/release.md
+      - docs/changelog.md
+    observed_behavior:
+      Updated releaseledger metadata and moved the generated changelog heading from
+      unreleased 0.9.13 to the 0.9.12 released section. This is release administration
+      and generated-document preparation, not product behavior.
+    public_impact: internal
+    decision: internal
+    stale: false
+    evidence_subject: "doc: changelog"
+    notes: Release administration and generated changelog preparation.
