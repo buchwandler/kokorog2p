@@ -11,6 +11,7 @@ from typing import Any, Final
 
 from lexphon import DataStore
 
+from kokorog2p.en.phoneme_codec import DecodedPronunciation, decode_hit
 from kokorog2p.lexicons.runtime import LexiconHit, SelectedLexicons, open_selected
 
 # =============================================================================
@@ -21,7 +22,7 @@ from kokorog2p.lexicons.runtime import LexiconHit, SelectedLexicons, open_select
 LEXICON_ORDS: Final[list[int]] = [39, 45, *range(65, 91), *range(97, 123)]
 
 # Consonants
-CONSONANTS: Final[frozenset[str]] = frozenset("bdfhjklmnpstvwzðŋɡɹɾʃʒʤʧθ")
+CONSONANTS: Final[frozenset[str]] = frozenset("bdfhjklmnpstTvwzðŋɡɹɾʃʒʤʧθ")
 
 # Vowels
 VOWELS: Final[frozenset[str]] = frozenset("AIOQWYaiuæɑɒɔəɛɜɪʊʌᵻ")
@@ -195,18 +196,17 @@ class Lexicon:
         """Return only an exact selected lexical-layer hit."""
         return self._selected_hit(word)
 
+    def _decoded_hit(
+        self, hit: LexiconHit, tag: str | None = None
+    ) -> DecodedPronunciation | None:
+        return decode_hit(hit, tag, british=self.british)
+
     def pronunciation_from_hit(
         self, hit: LexiconHit, tag: str | None = None
     ) -> str | None:
         """Decode a selected hit without invoking fallback or spelling rules."""
-        value = hit.value
-        if isinstance(value, Mapping):
-            selected_tag = tag if tag in value else self.get_parent_tag(tag)
-            value = value.get(selected_tag, value.get("DEFAULT"))
-        elif isinstance(value, tuple):
-            value = value[0] if value else None
-        return value if isinstance(value, str) else None
-
+        decoded = self._decoded_hit(hit, tag)
+        return None if decoded is None else decoded.pronunciation
     @staticmethod
     def _grow_dictionary(d: dict[str, Any]) -> dict[str, Any]:
         """Expand dictionary with capitalization variants.
@@ -258,19 +258,24 @@ class Lexicon:
 
     def get_NNP(self, word: str) -> tuple[str | None, int | None]:
         """Get phonemes for a proper noun by spelling."""
-        ps = [
-            hit.value if (hit := self._get_hit(c.upper())) is not None else None
-            for c in word
-            if c.isalpha()
-        ]
+        ps: list[str | None] = []
+        for char in word:
+            if not char.isalpha():
+                continue
+            hit = self._get_hit(char.upper())
+            decoded = (
+                None
+                if hit is None
+                else self._decoded_hit(hit, "CHARACTER") or self._decoded_hit(hit)
+            )
+            ps.append(None if decoded is None else decoded.pronunciation)
         if None in ps:
             return None, None
-        ps_str = apply_stress("".join(str(p) for p in ps if isinstance(p, str)), 0)
+        ps_str = apply_stress("".join(str(p) for p in ps), 0)
         if ps_str is None:
             return None, None
         parts = ps_str.rsplit(SECONDARY_STRESS, 1)
         return PRIMARY_STRESS.join(parts), 3
-
     def lookup(
         self,
         word: str,
@@ -295,24 +300,24 @@ class Lexicon:
             is_NNP = tag == "NNP"
 
         hit = self._get_hit(word)
-        ps = hit.value if hit is not None else None
+        if (
+            hit is not None
+            and ctx
+            and ctx.future_vowel is None
+            and isinstance(hit.value, Mapping)
+            and "None" in hit.value
+        ):
+            tag = "None"
+        decoded = None if hit is None else self._decoded_hit(hit, tag)
+        ps = None if decoded is None else decoded.pronunciation
         rating = hit.rating if hit is not None and hit.rating is not None else 4
-        if isinstance(ps, Mapping):
-            if ctx and ctx.future_vowel is None and "None" in ps:
-                tag = "None"
-            elif tag not in ps:
-                tag = self.get_parent_tag(tag)
-            ps = ps.get(tag, ps.get("DEFAULT"))
-        elif isinstance(ps, tuple):
-            ps = ps[0] if ps else None
 
-        if ps is None or (is_NNP and PRIMARY_STRESS not in (ps or "")):
+        if ps is None or (is_NNP and PRIMARY_STRESS not in ps):
             ps, rating = self.get_NNP(word)
             if ps is not None:
                 return ps, rating
 
         return apply_stress(ps, stress), rating
-
     def close(self) -> None:
         self._selected.close()
 
@@ -346,10 +351,9 @@ class Lexicon:
                 or (stress and stress > 0)
             ):
                 hit = self._get_hit("am")
+                decoded = None if hit is None else self._decoded_hit(hit)
                 return (
-                    hit.value
-                    if hit is not None and isinstance(hit.value, str)
-                    else None,
+                    None if decoded is None else decoded.pronunciation,
                     hit.rating if hit is not None else 4,
                 )
             return ("ɐm", 4)
@@ -364,10 +368,9 @@ class Lexicon:
         elif word in ("to", "To") or (word == "TO" and tag in ("TO", "IN")):
             if ctx is None or ctx.future_vowel is None:
                 hit = self._get_hit("to")
+                decoded = None if hit is None else self._decoded_hit(hit)
                 return (
-                    hit.value
-                    if hit is not None and isinstance(hit.value, str)
-                    else None,
+                    None if decoded is None else decoded.pronunciation,
                     hit.rating if hit is not None else 4,
                 )
             return ("tʊ" if ctx.future_vowel else "tə", 4)
@@ -384,13 +387,18 @@ class Lexicon:
             return self.lookup("versus", None, None, ctx)
         elif word in ("used", "Used", "USED"):
             hit = self._get_hit("used")
-            used_dict = hit.value if hit is not None else None
-            if isinstance(used_dict, Mapping):
-                if tag in ("VBD", "JJ") and ctx and ctx.future_to:
-                    return (used_dict.get("VBD"), 4)
-                return (used_dict.get("DEFAULT"), 4)
-        return (None, None)
+            if hit is not None:
+                selected_tag = (
+                    "VBD"
+                    if tag in ("VBD", "JJ") and ctx and ctx.future_to
+                    else None
+                )
+                decoded = self._decoded_hit(hit, selected_tag)
+                if decoded is not None:
+                    rating = hit.rating if hit.rating is not None else 4
+                    return decoded.pronunciation, rating
 
+        return (None, None)
     # ==========================================================================
     # Suffix handling
     # ==========================================================================

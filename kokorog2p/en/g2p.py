@@ -6,6 +6,9 @@ from kokorog2p._optional import load_spacy_model
 from kokorog2p.base import G2PBase
 from kokorog2p.en.lexicon import Lexicon, TokenContext
 from kokorog2p.en.normalizer import EnglishNormalizer
+from kokorog2p.en.phoneme_codec import MISAKI_V1
+from kokorog2p.en.realization import finalize_english_phonemes, resolve_compound_stress
+from kokorog2p.en.subtokens import EnglishSubtoken, split_english_lexical_token
 from kokorog2p.lexicons.evidence import LexiconEvidence
 from kokorog2p.lexicons.lexphon_backend import LexphonBackend, provider_metadata
 from kokorog2p.phonemes import from_espeak, from_goruut
@@ -86,6 +89,7 @@ class EnglishG2P(G2PBase):
         )
 
         self.version = version
+        self.frontend_profile = MISAKI_V1
         self.unk = unk
         if use_spacy and (spacy_model is None or spacy_model.lower() == "auto"):
             spacy_model = resolve_spacy_model(
@@ -324,6 +328,70 @@ class EnglishG2P(G2PBase):
             # Add as a special case (single token)
             self._nlp.tokenizer.add_special_case(normalized, [{"ORTH": normalized}])  # type: ignore
 
+    def _lookup_subtokens(
+        self,
+        text: str,
+        tag: str | None,
+        ctx: TokenContext | None,
+    ) -> tuple[str | None, int | None, tuple[EnglishSubtoken, ...]]:
+        """Resolve lexical pieces before falling back for the source token."""
+        subtokens = split_english_lexical_token(text)
+        if len(subtokens) < 2:
+            return None, None, ()
+
+        def resolve(
+            start: int, end: int
+        ) -> tuple[list[EnglishSubtoken], list[int]] | None:
+            word = "".join(item.text for item in subtokens[start:end])
+            phonemes, rating = self.lexicon(word, tag, None, ctx)
+            if phonemes is not None:
+                first = subtokens[start]
+                last = subtokens[end - 1]
+                return [
+                    EnglishSubtoken(
+                        word,
+                        first.start,
+                        last.end,
+                        phonemes,
+                        "lexicon",
+                    )
+                ], [rating if rating is not None else 4]
+            if end - start == 1:
+                return None
+            for split in range(end - 1, start, -1):
+                left = resolve(start, split)
+                right = resolve(split, end)
+                if left is not None and right is not None:
+                    return left[0] + right[0], left[1] + right[1]
+            return None
+
+        resolved = resolve(0, len(subtokens))
+        if resolved is None:
+            return None, None, ()
+        children, ratings = resolved
+        resolve_compound_stress(children, british=self.is_british)
+        phonemes = "".join(item.phonemes or "" for item in children)
+        return phonemes, min(ratings), tuple(children)
+
+    @staticmethod
+    def _record_subtokens(
+        token: GToken, subtokens: tuple[EnglishSubtoken, ...]
+    ) -> None:
+        if subtokens:
+            token.set(
+                "subtokens",
+                [
+                    {
+                        "text": item.text,
+                        "start": item.start,
+                        "end": item.end,
+                        "phonemes": item.phonemes,
+                        "source": item.source,
+                    }
+                    for item in subtokens
+                ],
+            )
+
     def __call__(self, text: str) -> list[GToken]:
         """Convert text to a list of tokens with phonemes.
 
@@ -354,20 +422,31 @@ class EnglishG2P(G2PBase):
 
             # Try lexicon lookup
             ps, rating = self.lexicon(token.text, token.tag, None, ctx)
+            subtokens: tuple[EnglishSubtoken, ...] = ()
+            if ps is None:
+                ps, rating, subtokens = self._lookup_subtokens(
+                    token.text, token.tag, ctx
+                )
 
             if ps is not None:
-                token.phonemes = ps
+                token.phonemes = finalize_english_phonemes(
+                    ps, profile=self.frontend_profile
+                )
                 token.set("rating", rating)
+                token.set("frontend_profile", self.frontend_profile.id)
+                self._record_subtokens(token, subtokens)
             elif self.fallback is not None:
                 # Try espeak fallback
                 ps, rating, metadata = self._fallback_result(token.text)
                 if ps is not None:
-                    token.phonemes = ps
+                    token.phonemes = finalize_english_phonemes(
+                        ps, profile=self.frontend_profile
+                    )
                     token.set("rating", rating)
+                    token.set("frontend_profile", self.frontend_profile.id)
                     if metadata is not None:
                         for key, value in metadata.items():
                             token.set(key, value)
-
             # Update context
             ctx = self._update_context(ctx, token.phonemes, token)
 
@@ -447,24 +526,49 @@ class EnglishG2P(G2PBase):
 
             # Try lexicon lookup
             ps, rating = self.lexicon(token.text, token.pos_tag, None, ctx)
+            subtokens: tuple[EnglishSubtoken, ...] = ()
+            if ps is None:
+                ps, rating, subtokens = self._lookup_subtokens(
+                    token.text, token.pos_tag, ctx
+                )
 
             if ps is not None:
-                token.phoneme = ps
+                token.phoneme = finalize_english_phonemes(
+                    ps, profile=self.frontend_profile
+                )
                 token.phoneme_source = PhonemeSource.from_rating(rating)
                 token.phoneme_rating = rating
+                token.language_metadata["frontend_profile"] = (
+                    self.frontend_profile.id
+                )
+                if subtokens:
+                    token.language_metadata["subtokens"] = [
+                        {
+                            "text": item.text,
+                            "start": item.start,
+                            "end": item.end,
+                            "phonemes": item.phonemes,
+                            "source": item.source,
+                        }
+                        for item in subtokens
+                    ]
             elif self.fallback is not None:
                 # Try fallback
                 ps, rating, metadata = self._fallback_result(token.text)
                 if ps is not None:
-                    token.phoneme = ps
+                    token.phoneme = finalize_english_phonemes(
+                        ps, profile=self.frontend_profile
+                    )
                     if self.use_goruut_fallback:
                         token.phoneme_source = PhonemeSource.GORUUT
                     else:
                         token.phoneme_source = PhonemeSource.ESPEAK
                     token.phoneme_rating = rating
+                    token.language_metadata["frontend_profile"] = (
+                        self.frontend_profile.id
+                    )
                     if metadata is not None:
                         token.language_metadata.update(metadata)
-
             # Update context
             ctx = self._update_context(ctx, token.phoneme, None)
 
@@ -671,7 +775,13 @@ class EnglishG2P(G2PBase):
             Phoneme string or None if not found.
         """
         ps, _ = self.lexicon(word, tag, None, None)
-        return ps
+        if ps is None:
+            ps, _, _ = self._lookup_subtokens(word, tag, None)
+        return (
+            None
+            if ps is None
+            else finalize_english_phonemes(ps, profile=self.frontend_profile)
+        )
 
     def lexicon_evidence(
         self, word: str, tag: str | None = None

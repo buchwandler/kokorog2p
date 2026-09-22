@@ -6,24 +6,27 @@ files.
 
 ## English and French
 
-English and French each expose one logical `gold` lexicon backed by an external asset:
+English exposes a default `gold` lexicon and an explicit `lexhint` source backed by external assets:
+the two sources use different encodings but share the KokoroG2P English realization layer.
 
-| Language   | Lexphon ID   |
-| ---------- | ------------ |
-| US English | `en-us:gold` |
-| GB English | `en-gb:gold` |
-| French     | `fr-fr:gold` |
+| Language   | Lexphon ID      | Default | Encoding    |
+| ---------- | --------------- | ------- | ----------- |
+| US English | `en-us:gold`    | yes     | `kokoro-v1` |
+| US English | `en-us:lexhint` | no      | IPA         |
+| GB English | `en-gb:gold`    | yes     | `kokoro-v1` |
+| GB English | `en-gb:lexhint` | no      | IPA         |
+| French     | `fr-fr:gold`    | yes     | `kokoro-v1` |
 
 Provision released data before using the default English or French dictionary path:
 
 ```bash
-lexphon data install en-us:gold en-gb:gold fr-fr:gold
-lexphon data verify en-us:gold en-gb:gold fr-fr:gold
+lexphon data install en-us:gold en-us:lexhint en-gb:gold en-gb:lexhint fr-fr:gold
+lexphon data verify en-us:gold en-us:lexhint en-gb:gold en-gb:lexhint fr-fr:gold
 ```
 
 `get_g2p("en-us")`, `get_g2p("en-gb")`, and `get_g2p("fr-fr")` select `gold` by default.
-Use `lexicons=()` for fallback-only operation. `silver` is not an English runtime
-option.
+Use `lexicons="lexhint"` for the IPA source and `lexicons=()` for fallback-only operation.
+`silver` is not an English runtime option.
 
 Runtime lookup is offline. KokoroG2P does not fetch catalogs, download assets, invoke
 the Lexphon CLI, or rebuild source dictionaries during construction or lookup. Missing

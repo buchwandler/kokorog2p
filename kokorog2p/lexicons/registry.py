@@ -54,8 +54,26 @@ def _external_spec(
 
 
 _EXTERNAL_SPECS_BY_LANGUAGE: dict[str, tuple[LexiconSpec, ...]] = {
-    "en-us": (_external_spec("en-us", "gold", rating=4, phoneme_encoding="kokoro-v1"),),
-    "en-gb": (_external_spec("en-gb", "gold", rating=4, phoneme_encoding="kokoro-v1"),),
+    "en-us": (
+        _external_spec("en-us", "gold", rating=4, phoneme_encoding="kokoro-v1"),
+        _external_spec(
+            "en-us",
+            "lexhint",
+            rating=None,
+            default_priority=None,
+            phoneme_encoding="ipa",
+        ),
+    ),
+    "en-gb": (
+        _external_spec("en-gb", "gold", rating=4, phoneme_encoding="kokoro-v1"),
+        _external_spec(
+            "en-gb",
+            "lexhint",
+            rating=None,
+            default_priority=None,
+            phoneme_encoding="ipa",
+        ),
+    ),
     "fr-fr": (_external_spec("fr-fr", "gold", rating=4, phoneme_encoding="kokoro-v1"),),
     "de-de": (
         _external_spec("de-de", "gold", rating=4),

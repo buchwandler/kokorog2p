@@ -28,12 +28,12 @@ class FakeSelected:
 
 
 def test_lookup_uses_one_external_gold_layer(monkeypatch) -> None:
-    selected = FakeSelected({"hello": "hɛˈloʊ", "word": "wɝːd"})
+    selected = FakeSelected({"hello": "hɛˈlO", "word": "wɜɹd"})
     monkeypatch.setattr(en_lexicon, "open_selected", lambda *args, **kwargs: selected)
 
     lexicon = Lexicon(british=False, lexicons=("gold",))
     assert lexicon.lexicons == ("gold",)
-    assert lexicon.lookup("hello") == ("hɛˈloʊ", 4)
+    assert lexicon.lookup("hello") == ("hɛˈlO", 4)
     assert lexicon.lookup("missing") == (None, None)
     lexicon.close()
 
@@ -55,10 +55,10 @@ def test_no_lexicon_selection_does_not_require_external_data(monkeypatch) -> Non
 
 
 def test_mapping_values_support_tag_selection(monkeypatch) -> None:
-    selected = FakeSelected({"read": {"VERB": "ɹiːd", "DEFAULT": "ɹɛd"}})
+    selected = FakeSelected({"read": {"VERB": "ɹid", "DEFAULT": "ɹɛd"}})
     monkeypatch.setattr(en_lexicon, "open_selected", lambda *args, **kwargs: selected)
 
     lexicon = Lexicon(lexicons=("gold",))
-    assert lexicon.lookup("read", tag="VBP") == ("ɹiːd", 4)
+    assert lexicon.lookup("read", tag="VBP") == ("ɹid", 4)
     assert lexicon.lookup("read", tag="NN") == ("ɹɛd", 4)
     lexicon.close()

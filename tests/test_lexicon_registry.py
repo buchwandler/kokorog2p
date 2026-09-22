@@ -6,8 +6,8 @@ from kokorog2p.lexicons import (
 
 
 def test_consolidated_english_and_french_registry() -> None:
-    assert available_lexicons("en-us") == ("gold",)
-    assert available_lexicons("en-gb") == ("gold",)
+    assert available_lexicons("en-us") == ("gold", "lexhint")
+    assert available_lexicons("en-gb") == ("gold", "lexhint")
     assert available_lexicons("fr-fr") == ("gold",)
     assert get_lexicon_spec("en-us", "gold").id == "en-us:gold"
     assert get_lexicon_spec("en-gb", "gold").id == "en-gb:gold"
@@ -39,7 +39,7 @@ def test_silver_is_not_an_english_option() -> None:
         try:
             normalize_lexicon_selection(language, "silver")
         except ValueError as exc:
-            assert "Available lexicons: gold" in str(exc)
+            assert "Available lexicons: gold, lexhint" in str(exc)
         else:
             raise AssertionError("silver was accepted")
 
