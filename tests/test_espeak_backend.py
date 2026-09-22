@@ -203,6 +203,18 @@ def test_real_runtime_auto_smoke():
 
 
 @pytest.mark.espeak
+def test_real_runtime_auto_phonemization_does_not_write_phonemes_to_stdout(capfd):
+    backend = EspeakBackend("en-us")
+    try:
+        result = backend.phonemize("words", convert_to_kokoro=False)
+    finally:
+        backend.close()
+    captured = capfd.readouterr()
+    assert result
+    assert captured.out == ""
+
+
+@pytest.mark.espeak
 def test_real_runtime_cli_smoke():
     backend = EspeakBackend("en-us", use_cli=True)
     try:
