@@ -538,9 +538,7 @@ class EnglishG2P(G2PBase):
                 )
                 token.phoneme_source = PhonemeSource.from_rating(rating)
                 token.phoneme_rating = rating
-                token.language_metadata["frontend_profile"] = (
-                    self.frontend_profile.id
-                )
+                token.language_metadata["frontend_profile"] = self.frontend_profile.id
                 if subtokens:
                     token.language_metadata["subtokens"] = [
                         {

@@ -207,6 +207,7 @@ class Lexicon:
         """Decode a selected hit without invoking fallback or spelling rules."""
         decoded = self._decoded_hit(hit, tag)
         return None if decoded is None else decoded.pronunciation
+
     @staticmethod
     def _grow_dictionary(d: dict[str, Any]) -> dict[str, Any]:
         """Expand dictionary with capitalization variants.
@@ -276,6 +277,7 @@ class Lexicon:
             return None, None
         parts = ps_str.rsplit(SECONDARY_STRESS, 1)
         return PRIMARY_STRESS.join(parts), 3
+
     def lookup(
         self,
         word: str,
@@ -318,6 +320,7 @@ class Lexicon:
                 return ps, rating
 
         return apply_stress(ps, stress), rating
+
     def close(self) -> None:
         self._selected.close()
 
@@ -389,9 +392,7 @@ class Lexicon:
             hit = self._get_hit("used")
             if hit is not None:
                 selected_tag = (
-                    "VBD"
-                    if tag in ("VBD", "JJ") and ctx and ctx.future_to
-                    else None
+                    "VBD" if tag in ("VBD", "JJ") and ctx and ctx.future_to else None
                 )
                 decoded = self._decoded_hit(hit, selected_tag)
                 if decoded is not None:
@@ -399,6 +400,7 @@ class Lexicon:
                     return decoded.pronunciation, rating
 
         return (None, None)
+
     # ==========================================================================
     # Suffix handling
     # ==========================================================================

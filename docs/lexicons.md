@@ -6,8 +6,9 @@ files.
 
 ## English and French
 
-English exposes a default `gold` lexicon and an explicit `lexhint` source backed by external assets:
-the two sources use different encodings but share the KokoroG2P English realization layer.
+English exposes a default `gold` lexicon and an explicit `lexhint` source backed by
+external assets: the two sources use different encodings but share the KokoroG2P English
+realization layer.
 
 | Language   | Lexphon ID      | Default | Encoding    |
 | ---------- | --------------- | ------- | ----------- |
@@ -25,8 +26,8 @@ lexphon data verify en-us:gold en-us:lexhint en-gb:gold en-gb:lexhint fr-fr:gold
 ```
 
 `get_g2p("en-us")`, `get_g2p("en-gb")`, and `get_g2p("fr-fr")` select `gold` by default.
-Use `lexicons="lexhint"` for the IPA source and `lexicons=()` for fallback-only operation.
-`silver` is not an English runtime option.
+Use `lexicons="lexhint"` for the IPA source and `lexicons=()` for fallback-only
+operation. `silver` is not an English runtime option.
 
 Runtime lookup is offline. KokoroG2P does not fetch catalogs, download assets, invoke
 the Lexphon CLI, or rebuild source dictionaries during construction or lookup. Missing

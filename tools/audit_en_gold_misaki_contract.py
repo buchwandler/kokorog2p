@@ -18,9 +18,11 @@ _LETTERS = tuple("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 def _finding(stage: str, key: str, message: str) -> dict[str, str]:
     return {"stage": stage, "key": key, "message": message}
 
+
 def _valid_pronunciation(value: str) -> bool:
     vocabulary = get_vocab()
     return bool(value) and all(char in vocabulary for char in value)
+
 
 def _selector_items(
     value: object,
@@ -31,7 +33,6 @@ def _selector_items(
     if items is None or callable(items):
         return None
     return tuple(items)
-
 
 
 def _audit_value(
@@ -47,7 +48,6 @@ def _audit_value(
         invalid = "".join(sorted({char for char in value if char not in get_vocab()}))
         return [_finding("encoding", key, f"unsupported symbols: {invalid}")]
     return []
-
 
 
 def audit_entries(entries: Mapping[str, object]) -> tuple[dict[str, str], ...]:
@@ -117,9 +117,7 @@ def _load_fixture(path: Path) -> Mapping[str, object]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     entries = payload.get("entries", payload) if isinstance(payload, Mapping) else None
     if not isinstance(entries, Mapping):
-        raise TypeError(
-            "fixture must contain an object mapping lexical keys to values"
-        )
+        raise TypeError("fixture must contain an object mapping lexical keys to values")
     return entries
 
 

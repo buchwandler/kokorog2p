@@ -62,7 +62,7 @@ def coerce_token_annotations(
         ):
             raise ValueError(f"annotation {index} text does not match source slice")
         values: dict[str, str | None] = {}
-        for name in ("pos", "tag", "lemma", "language"):
+        for name in ("pos", "tag", "lemma", "language", "morph"):
             value = _annotation_value(raw, name)
             if value is not None and not isinstance(value, str):
                 raise TypeError(f"annotation {index} {name} must be a string or None")
@@ -103,6 +103,7 @@ def tokens_from_annotations(
                             "pos": annotation.pos,
                             "tag": annotation.tag,
                             "lemma": annotation.lemma,
+                            "morph": annotation.morph,
                         }.items()
                         if value is not None
                     }

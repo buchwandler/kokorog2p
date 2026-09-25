@@ -6,6 +6,7 @@ class TaggedValueLike:
     def __init__(self, *items: tuple[str, object]) -> None:
         self.items = items
 
+
 def _valid_fixture() -> dict[str, object]:
     entries: dict[str, object] = {
         letter: "ˈA" for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -26,6 +27,7 @@ def test_gold_contract_accepts_g2lex_tagged_values() -> None:
     tagged = TaggedValueLike(("DEFAULT", "jˈuzd"), ("VBD", None))
     assert select_source_value(tagged, "VBD") == ("jˈuzd", "DEFAULT")
     assert audit_entries({**_valid_fixture(), "used": tagged}) == ()
+
 
 def test_gold_contract_fixture_passes() -> None:
     assert audit_entries(_valid_fixture()) == ()

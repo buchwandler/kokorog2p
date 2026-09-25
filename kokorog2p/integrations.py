@@ -205,6 +205,7 @@ def annotations_for_segment(
                 annotation.tag,
                 annotation.lemma,
                 annotation.language,
+                annotation.morph,
             )
         )
     return rebased

@@ -87,6 +87,7 @@ class TokenAnnotationLike(Protocol):
     tag: str | None
     lemma: str | None
     language: str | None
+    morph: str | None
 
 
 @dataclass(frozen=True)
@@ -105,6 +106,8 @@ class TokenAnnotation:
     tag: str | None = None
     lemma: str | None = None
     language: str | None = None
+
+    morph: str | None = None
 
     def __post_init__(self) -> None:
         if self.start < 0 or self.end <= self.start:

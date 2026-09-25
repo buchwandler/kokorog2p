@@ -50,12 +50,15 @@ def test_external_annotations_supply_pos_without_spacy() -> None:
     result = phonemize_prepared(
         "record",
         language="en-us",
-        annotations=[TokenAnnotation(0, 6, "record", pos="NOUN", tag="NN")],
+        annotations=[
+            TokenAnnotation(0, 6, "record", pos="NOUN", tag="NN", morph="Number=Sing")
+        ],
         g2p=AnnotatedFakeG2P(),
         return_ids=False,
     )
     assert result.phonemes == "noun"
     assert result.tokens[0].meta["tag"] == "NN"
+    assert result.tokens[0].meta["morph"] == "Number=Sing"
 
 
 def test_tokens_from_annotations_keeps_default_language_as_fallback() -> None:
@@ -94,9 +97,10 @@ def test_annotation_validation_is_ordered_and_source_aligned() -> None:
 
 def test_segment_annotations_are_rebased() -> None:
     text = "record this"
-    annotations = [TokenAnnotation(0, 6, "record", tag="NN")]
+    annotations = [TokenAnnotation(0, 6, "record", tag="NN", morph="Number=Sing")]
     rebased = annotations_for_segment(0, 6, annotations, clean_text=text)
     assert [(item.start, item.end, item.text) for item in rebased] == [(0, 6, "record")]
+    assert rebased[0].morph == "Number=Sing"
     results = phonemize_segments(
         text,
         [Segment("record", 0, 6)],

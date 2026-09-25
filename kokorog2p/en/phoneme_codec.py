@@ -62,6 +62,7 @@ def selector_candidates(tag: str | None) -> tuple[str, ...]:
     }
     return parent_map.get(tag, (tag,))
 
+
 def _source_scalar(value: object) -> str | None:
     if isinstance(value, str):
         return value
@@ -71,13 +72,11 @@ def _source_scalar(value: object) -> str | None:
     return None
 
 
-
 def _tagged_items(value: object) -> tuple[tuple[object, object], ...] | None:
     items = getattr(value, "items", None)
     if items is None or callable(items):
         return None
     return tuple(items)
-
 
 
 def select_source_value(

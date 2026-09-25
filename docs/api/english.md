@@ -24,7 +24,7 @@ preserves supplied text and token offsets; semantic preparation belongs to the c
 ## Lexicon controls
 
 English exposes `gold` and an explicitly selected `lexhint` source. Gold values use the
-`kokoro-v1` encoding; LexHint values use IPA and pass through the same English realization
-profile after decoding. Use `lexicons=()` for fallback-only operation. There is no English
-silver tier or runtime API for loading packaged dictionaries. `use_spacy` and explicit
-local model settings control optional POS-aware tokenization.
+`kokoro-v1` encoding; LexHint values use IPA and pass through the same English
+realization profile after decoding. Use `lexicons=()` for fallback-only operation. There
+is no English silver tier or runtime API for loading packaged dictionaries. `use_spacy`
+and explicit local model settings control optional POS-aware tokenization.

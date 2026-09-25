@@ -22,10 +22,7 @@ def test_split_delimiters_and_letter_digit_boundaries() -> None:
         "Hub",
         "style",
     ]
-    actual = [
-        item.text
-        for item in split_english_lexical_token("mixed_letter9_groups")
-    ]
+    actual = [item.text for item in split_english_lexical_token("mixed_letter9_groups")]
     assert actual == [
         "mixed",
         "letter",

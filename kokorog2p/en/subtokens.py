@@ -48,11 +48,7 @@ def split_english_lexical_token(text: str) -> tuple[EnglishSubtoken, ...]:
         if (
             char.isdigit() != previous.isdigit()
             or (previous.islower() and char.isupper())
-            or (
-                previous.isupper()
-                and char.isupper()
-                and next_char.islower()
-            )
+            or (previous.isupper() and char.isupper() and next_char.islower())
         ):
             flush(index)
             start = index
