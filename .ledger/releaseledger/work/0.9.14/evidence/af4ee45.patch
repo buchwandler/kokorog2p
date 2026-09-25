@@ -1,0 +1,731 @@
+ .../reference/data/en_us_misaki_contract_v1.json   | 308 ++++++++++++++++++---
+ docs/api/english.md                                |   8 +-
+ docs/en/PROVENANCE.md                              |  47 ++--
+ docs/lexicons.md                                   |   9 +-
+ kokorog2p/en/g2p.py                                |   4 +-
+ kokorog2p/en/lexicon.py                            |   8 +-
+ kokorog2p/en/phoneme_codec.py                      |   3 +-
+ kokorog2p/en/subtokens.py                          |   6 +-
+ kokorog2p/integrations.py                          |   1 +
+ kokorog2p/tokenization.py                          |   3 +-
+ kokorog2p/types.py                                 |   3 +
+ tests/test_en_gold_contract.py                     |   2 +
+ tests/test_en_subtokens.py                         |   5 +-
+ tests/test_prepared_core.py                        |   8 +-
+ tools/audit_en_gold_misaki_contract.py             |   8 +-
+ 15 files changed, 322 insertions(+), 101 deletions(-)
+
+diff --git a/benchmarks/reference/data/en_us_misaki_contract_v1.json b/benchmarks/reference/data/en_us_misaki_contract_v1.json
+index 4b681c0..bd0653d 100644
+--- a/benchmarks/reference/data/en_us_misaki_contract_v1.json
++++ b/benchmarks/reference/data/en_us_misaki_contract_v1.json
+@@ -17,49 +17,269 @@
+     "comparison_policy": "diagnostic until reference outputs are refreshed"
+   },
+   "cases": [
+-    {"id": "tag-live-001", "text": "I live here.", "policy": "diagnostic", "tags": ["tagged", "heteronym"]},
+-    {"id": "tag-live-002", "text": "The live show starts now.", "policy": "diagnostic", "tags": ["tagged", "heteronym"]},
+-    {"id": "tag-record-001", "text": "Please record this.", "policy": "diagnostic", "tags": ["tagged", "heteronym"]},
+-    {"id": "tag-record-002", "text": "That is a record.", "policy": "diagnostic", "tags": ["tagged", "heteronym"]},
+-    {"id": "tag-object-001", "text": "They object.", "policy": "diagnostic", "tags": ["tagged", "heteronym"]},
+-    {"id": "tag-object-002", "text": "The object moved.", "policy": "diagnostic", "tags": ["tagged", "heteronym"]},
+-    {"id": "tag-conduct-001", "text": "They conduct music.", "policy": "diagnostic", "tags": ["tagged", "heteronym"]},
+-    {"id": "tag-conduct-002", "text": "His conduct changed.", "policy": "diagnostic", "tags": ["tagged", "heteronym"]},
+-    {"id": "function-a-001", "text": "a dog", "policy": "diagnostic", "tags": ["function-word", "article"]},
+-    {"id": "function-a-002", "text": "A letter", "policy": "diagnostic", "tags": ["function-word", "article", "capitalization"]},
+-    {"id": "function-am-001", "text": "am I", "policy": "diagnostic", "tags": ["function-word", "context"]},
+-    {"id": "function-am-002", "text": "I am here", "policy": "diagnostic", "tags": ["function-word", "context"]},
+-    {"id": "function-an-001", "text": "an apple", "policy": "diagnostic", "tags": ["function-word", "article", "future-vowel"]},
+-    {"id": "function-by-001", "text": "by then", "policy": "diagnostic", "tags": ["function-word", "context"]},
+-    {"id": "function-to-001", "text": "to eat", "policy": "diagnostic", "tags": ["function-word", "future-vowel"]},
+-    {"id": "function-to-002", "text": "to sleep", "policy": "diagnostic", "tags": ["function-word", "future-vowel"]},
+-    {"id": "function-in-001", "text": "in order", "policy": "diagnostic", "tags": ["function-word", "future-vowel"]},
+-    {"id": "function-in-002", "text": "in a room", "policy": "diagnostic", "tags": ["function-word", "context"]},
+-    {"id": "function-the-001", "text": "the apple", "policy": "diagnostic", "tags": ["function-word", "future-vowel"]},
+-    {"id": "function-the-002", "text": "the dog", "policy": "diagnostic", "tags": ["function-word", "future-vowel"]},
+-    {"id": "function-used-001", "text": "used to", "policy": "diagnostic", "tags": ["function-word", "future-to"]},
+-    {"id": "function-used-002", "text": "used equipment", "policy": "diagnostic", "tags": ["function-word", "context"]},
+-    {"id": "function-versus-001", "text": "vs.", "policy": "diagnostic", "tags": ["function-word", "special-case"]},
+-    {"id": "capitalization-001", "text": "word Word WORD", "policy": "diagnostic", "tags": ["capitalization", "stress"]},
+-    {"id": "capitalization-002", "text": "A ABC USA CPU API", "policy": "diagnostic", "tags": ["capitalization", "spelling"]},
+-    {"id": "morphology-s-001", "text": "cats", "policy": "diagnostic", "tags": ["morphology", "suffix-s"]},
+-    {"id": "morphology-s-002", "text": "boxes", "policy": "diagnostic", "tags": ["morphology", "suffix-es"]},
+-    {"id": "morphology-s-003", "text": "cities", "policy": "diagnostic", "tags": ["morphology", "suffix-ies"]},
+-    {"id": "morphology-possessive-001", "text": "the dog's bowl", "policy": "diagnostic", "tags": ["morphology", "possessive"]},
+-    {"id": "morphology-ed-001", "text": "walked", "policy": "diagnostic", "tags": ["morphology", "suffix-ed"]},
+-    {"id": "morphology-ed-002", "text": "wanted", "policy": "diagnostic", "tags": ["morphology", "suffix-ed"]},
+-    {"id": "morphology-ing-001", "text": "running", "policy": "diagnostic", "tags": ["morphology", "suffix-ing"]},
+-    {"id": "compound-camel-001", "text": "CamelCase", "policy": "diagnostic", "tags": ["subtoken", "compound"]},
+-    {"id": "compound-camel-002", "text": "ABCWord", "policy": "diagnostic", "tags": ["subtoken", "acronym"]},
+-    {"id": "compound-camel-003", "text": "wordABC", "policy": "diagnostic", "tags": ["subtoken", "acronym"]},
+-    {"id": "compound-delimited-001", "text": "GitHub-style forms", "policy": "diagnostic", "tags": ["subtoken", "hyphen"]},
+-    {"id": "compound-delimited-002", "text": "mixed_letter9_groups", "policy": "diagnostic", "tags": ["subtoken", "underscore", "number"]},
+-    {"id": "context-punctuation-001", "text": "the apple", "policy": "diagnostic", "tags": ["context", "future-vowel"]},
+-    {"id": "context-punctuation-002", "text": "the, apple", "policy": "diagnostic", "tags": ["context", "boundary"]},
+-    {"id": "context-punctuation-003", "text": "the. Apple", "policy": "diagnostic", "tags": ["context", "boundary", "capitalization"]},
+-    {"id": "context-punctuation-004", "text": "to eat", "policy": "diagnostic", "tags": ["context", "future-vowel"]},
+-    {"id": "context-punctuation-005", "text": "to, eat", "policy": "diagnostic", "tags": ["context", "boundary"]},
+-    {"id": "finalization-001", "text": "butter", "policy": "diagnostic", "tags": ["finalization", "flap"]},
+-    {"id": "finalization-002", "text": "button", "policy": "diagnostic", "tags": ["finalization", "glottal"]}
++    {
++      "id": "tag-live-001",
++      "text": "I live here.",
++      "policy": "diagnostic",
++      "tags": ["tagged", "heteronym"]
++    },
++    {
++      "id": "tag-live-002",
++      "text": "The live show starts now.",
++      "policy": "diagnostic",
++      "tags": ["tagged", "heteronym"]
++    },
++    {
++      "id": "tag-record-001",
++      "text": "Please record this.",
++      "policy": "diagnostic",
++      "tags": ["tagged", "heteronym"]
++    },
++    {
++      "id": "tag-record-002",
++      "text": "That is a record.",
++      "policy": "diagnostic",
++      "tags": ["tagged", "heteronym"]
++    },
++    {
++      "id": "tag-object-001",
++      "text": "They object.",
++      "policy": "diagnostic",
++      "tags": ["tagged", "heteronym"]
++    },
++    {
++      "id": "tag-object-002",
++      "text": "The object moved.",
++      "policy": "diagnostic",
++      "tags": ["tagged", "heteronym"]
++    },
++    {
++      "id": "tag-conduct-001",
++      "text": "They conduct music.",
++      "policy": "diagnostic",
++      "tags": ["tagged", "heteronym"]
++    },
++    {
++      "id": "tag-conduct-002",
++      "text": "His conduct changed.",
++      "policy": "diagnostic",
++      "tags": ["tagged", "heteronym"]
++    },
++    {
++      "id": "function-a-001",
++      "text": "a dog",
++      "policy": "diagnostic",
++      "tags": ["function-word", "article"]
++    },
++    {
++      "id": "function-a-002",
++      "text": "A letter",
++      "policy": "diagnostic",
++      "tags": ["function-word", "article", "capitalization"]
++    },
++    {
++      "id": "function-am-001",
++      "text": "am I",
++      "policy": "diagnostic",
++      "tags": ["function-word", "context"]
++    },
++    {
++      "id": "function-am-002",
++      "text": "I am here",
++      "policy": "diagnostic",
++      "tags": ["function-word", "context"]
++    },
++    {
++      "id": "function-an-001",
++      "text": "an apple",
++      "policy": "diagnostic",
++      "tags": ["function-word", "article", "future-vowel"]
++    },
++    {
++      "id": "function-by-001",
++      "text": "by then",
++      "policy": "diagnostic",
++      "tags": ["function-word", "context"]
++    },
++    {
++      "id": "function-to-001",
++      "text": "to eat",
++      "policy": "diagnostic",
++      "tags": ["function-word", "future-vowel"]
++    },
++    {
++      "id": "function-to-002",
++      "text": "to sleep",
++      "policy": "diagnostic",
++      "tags": ["function-word", "future-vowel"]
++    },
++    {
++      "id": "function-in-001",
++      "text": "in order",
++      "policy": "diagnostic",
++      "tags": ["function-word", "future-vowel"]
++    },
++    {
++      "id": "function-in-002",
++      "text": "in a room",
++      "policy": "diagnostic",
++      "tags": ["function-word", "context"]
++    },
++    {
++      "id": "function-the-001",
++      "text": "the apple",
++      "policy": "diagnostic",
++      "tags": ["function-word", "future-vowel"]
++    },
++    {
++      "id": "function-the-002",
++      "text": "the dog",
++      "policy": "diagnostic",
++      "tags": ["function-word", "future-vowel"]
++    },
++    {
++      "id": "function-used-001",
++      "text": "used to",
++      "policy": "diagnostic",
++      "tags": ["function-word", "future-to"]
++    },
++    {
++      "id": "function-used-002",
++      "text": "used equipment",
++      "policy": "diagnostic",
++      "tags": ["function-word", "context"]
++    },
++    {
++      "id": "function-versus-001",
++      "text": "vs.",
++      "policy": "diagnostic",
++      "tags": ["function-word", "special-case"]
++    },
++    {
++      "id": "capitalization-001",
++      "text": "word Word WORD",
++      "policy": "diagnostic",
++      "tags": ["capitalization", "stress"]
++    },
++    {
++      "id": "capitalization-002",
++      "text": "A ABC USA CPU API",
++      "policy": "diagnostic",
++      "tags": ["capitalization", "spelling"]
++    },
++    {
++      "id": "morphology-s-001",
++      "text": "cats",
++      "policy": "diagnostic",
++      "tags": ["morphology", "suffix-s"]
++    },
++    {
++      "id": "morphology-s-002",
++      "text": "boxes",
++      "policy": "diagnostic",
++      "tags": ["morphology", "suffix-es"]
++    },
++    {
++      "id": "morphology-s-003",
++      "text": "cities",
++      "policy": "diagnostic",
++      "tags": ["morphology", "suffix-ies"]
++    },
++    {
++      "id": "morphology-possessive-001",
++      "text": "the dog's bowl",
++      "policy": "diagnostic",
++      "tags": ["morphology", "possessive"]
++    },
++    {
++      "id": "morphology-ed-001",
++      "text": "walked",
++      "policy": "diagnostic",
++      "tags": ["morphology", "suffix-ed"]
++    },
++    {
++      "id": "morphology-ed-002",
++      "text": "wanted",
++      "policy": "diagnostic",
++      "tags": ["morphology", "suffix-ed"]
++    },
++    {
++      "id": "morphology-ing-001",
++      "text": "running",
++      "policy": "diagnostic",
++      "tags": ["morphology", "suffix-ing"]
++    },
++    {
++      "id": "compound-camel-001",
++      "text": "CamelCase",
++      "policy": "diagnostic",
++      "tags": ["subtoken", "compound"]
++    },
++    {
++      "id": "compound-camel-002",
++      "text": "ABCWord",
++      "policy": "diagnostic",
++      "tags": ["subtoken", "acronym"]
++    },
++    {
++      "id": "compound-camel-003",
++      "text": "wordABC",
++      "policy": "diagnostic",
++      "tags": ["subtoken", "acronym"]
++    },
++    {
++      "id": "compound-delimited-001",
++      "text": "GitHub-style forms",
++      "policy": "diagnostic",
++      "tags": ["subtoken", "hyphen"]
++    },
++    {
++      "id": "compound-delimited-002",
++      "text": "mixed_letter9_groups",
++      "policy": "diagnostic",
++      "tags": ["subtoken", "underscore", "number"]
++    },
++    {
++      "id": "context-punctuation-001",
++      "text": "the apple",
++      "policy": "diagnostic",
++      "tags": ["context", "future-vowel"]
++    },
++    {
++      "id": "context-punctuation-002",
++      "text": "the, apple",
++      "policy": "diagnostic",
++      "tags": ["context", "boundary"]
++    },
++    {
++      "id": "context-punctuation-003",
++      "text": "the. Apple",
++      "policy": "diagnostic",
++      "tags": ["context", "boundary", "capitalization"]
++    },
++    {
++      "id": "context-punctuation-004",
++      "text": "to eat",
++      "policy": "diagnostic",
++      "tags": ["context", "future-vowel"]
++    },
++    {
++      "id": "context-punctuation-005",
++      "text": "to, eat",
++      "policy": "diagnostic",
++      "tags": ["context", "boundary"]
++    },
++    {
++      "id": "finalization-001",
++      "text": "butter",
++      "policy": "diagnostic",
++      "tags": ["finalization", "flap"]
++    },
++    {
++      "id": "finalization-002",
++      "text": "button",
++      "policy": "diagnostic",
++      "tags": ["finalization", "glottal"]
++    }
+   ]
+ }
+diff --git a/docs/api/english.md b/docs/api/english.md
+index 0d32c34..e75c765 100644
+--- a/docs/api/english.md
++++ b/docs/api/english.md
+@@ -24,7 +24,7 @@ preserves supplied text and token offsets; semantic preparation belongs to the c
+ ## Lexicon controls
+
+ English exposes `gold` and an explicitly selected `lexhint` source. Gold values use the
+-`kokoro-v1` encoding; LexHint values use IPA and pass through the same English realization
+-profile after decoding. Use `lexicons=()` for fallback-only operation. There is no English
+-silver tier or runtime API for loading packaged dictionaries. `use_spacy` and explicit
+-local model settings control optional POS-aware tokenization.
++`kokoro-v1` encoding; LexHint values use IPA and pass through the same English
++realization profile after decoding. Use `lexicons=()` for fallback-only operation. There
++is no English silver tier or runtime API for loading packaged dictionaries. `use_spacy`
++and explicit local model settings control optional POS-aware tokenization.
+diff --git a/docs/en/PROVENANCE.md b/docs/en/PROVENANCE.md
+index 8ed3e8a..c90efd8 100644
+--- a/docs/en/PROVENANCE.md
++++ b/docs/en/PROVENANCE.md
+@@ -3,12 +3,12 @@
+ ## Reference
+
+ The English realization contract is based on `hexgrad/misaki`, specifically
+-`misaki/en.py` at commit `fba1236595f2d2bf21d414ba6e57d25256afada3`, package
+-version `0.9.4`, frontend `misaki.en.G2P`.
++`misaki/en.py` at commit `fba1236595f2d2bf21d414ba6e57d25256afada3`, package version
++`0.9.4`, frontend `misaki.en.G2P`.
+
+-The pinned implementation is the compatibility oracle for model-facing English
+-phoneme behavior. The reference package is used only by isolated benchmark and
+-review tooling. KokoroG2P does not import Misaki at runtime.
++The pinned implementation is the compatibility oracle for model-facing English phoneme
++behavior. The reference package is used only by isolated benchmark and review tooling.
++KokoroG2P does not import Misaki at runtime.
+
+ ## Ported semantic areas
+
+@@ -32,14 +32,14 @@ selected source value
+     -> Kokoro inventory validation
+ ```
+
+-`en-us:gold` stores `kokoro-v1` values. The logical gold asset represents the
+-legacy gold and silver data after the G2Lex transform, including case aliases and
+-gold precedence. Those dataset semantics belong to the G2Lex data layer and are
+-not reconstructed in KokoroG2P.
++`en-us:gold` stores `kokoro-v1` values. The logical gold asset represents the legacy
++gold and silver data after the G2Lex transform, including case aliases and gold
++precedence. Those dataset semantics belong to the G2Lex data layer and are not
++reconstructed in KokoroG2P.
+
+-`en-us:lexhint` stores IPA values and uses the same realization path after the
+-English IPA-to-Kokoro codec. The source encoding is therefore data metadata, not
+-a second English frontend.
++`en-us:lexhint` stores IPA values and uses the same realization path after the English
++IPA-to-Kokoro codec. The source encoding is therefore data metadata, not a second
++English frontend.
+
+ ## Intentional differences
+
+@@ -52,9 +52,9 @@ KokoroG2P intentionally differs from the reference architecture in these areas:
+ - Prepared-text APIs keep written-to-spoken semantic expansion outside the core.
+ - Consolidated gold/silver data is selected by the G2Lex transform.
+
+-These differences are allowed only when they do not change the model-facing
+-English realization contract. Any retained phoneme difference must be recorded
+-in a regression test and explained here.
++These differences are allowed only when they do not change the model-facing English
++realization contract. Any retained phoneme difference must be recorded in a regression
++test and explained here.
+
+ ## Compatibility profile
+
+@@ -66,15 +66,14 @@ resolution and uses the legacy finalization rewrites:
+ ʔ -> t
+ ```
+
+-The profile is deliberately separate from KokoroG2P's public target-model
+-`version` field. A target model version and a frontend compatibility version are
+-independent concepts.
++The profile is deliberately separate from KokoroG2P's public target-model `version`
++field. A target model version and a frontend compatibility version are independent
++concepts.
+
+ ## Contract corpus
+
+-`benchmarks/reference/data/en_us_misaki_contract_v1.json` is the maintained
+-review corpus. It covers tagged entries, function words, capitalization,
+-morphology, compounds, punctuation context boundaries, proper-noun spelling,
+-compound stress, and generated flap/glottal finalization. Cases are compared to
+-the pinned reference with stage-aware diagnostics when the reference environment
+-is available.
++`benchmarks/reference/data/en_us_misaki_contract_v1.json` is the maintained review
++corpus. It covers tagged entries, function words, capitalization, morphology, compounds,
++punctuation context boundaries, proper-noun spelling, compound stress, and generated
++flap/glottal finalization. Cases are compared to the pinned reference with stage-aware
++diagnostics when the reference environment is available.
+diff --git a/docs/lexicons.md b/docs/lexicons.md
+index 3bfa446..c843133 100644
+--- a/docs/lexicons.md
++++ b/docs/lexicons.md
+@@ -6,8 +6,9 @@ files.
+
+ ## English and French
+
+-English exposes a default `gold` lexicon and an explicit `lexhint` source backed by external assets:
+-the two sources use different encodings but share the KokoroG2P English realization layer.
++English exposes a default `gold` lexicon and an explicit `lexhint` source backed by
++external assets: the two sources use different encodings but share the KokoroG2P English
++realization layer.
+
+ | Language   | Lexphon ID      | Default | Encoding    |
+ | ---------- | --------------- | ------- | ----------- |
+@@ -25,8 +26,8 @@ lexphon data verify en-us:gold en-us:lexhint en-gb:gold en-gb:lexhint fr-fr:gold
+ ```
+
+ `get_g2p("en-us")`, `get_g2p("en-gb")`, and `get_g2p("fr-fr")` select `gold` by default.
+-Use `lexicons="lexhint"` for the IPA source and `lexicons=()` for fallback-only operation.
+-`silver` is not an English runtime option.
++Use `lexicons="lexhint"` for the IPA source and `lexicons=()` for fallback-only
++operation. `silver` is not an English runtime option.
+
+ Runtime lookup is offline. KokoroG2P does not fetch catalogs, download assets, invoke
+ the Lexphon CLI, or rebuild source dictionaries during construction or lookup. Missing
+diff --git a/kokorog2p/en/g2p.py b/kokorog2p/en/g2p.py
+index 08a55f3..3b609ad 100644
+--- a/kokorog2p/en/g2p.py
++++ b/kokorog2p/en/g2p.py
+@@ -538,9 +538,7 @@ class EnglishG2P(G2PBase):
+                 )
+                 token.phoneme_source = PhonemeSource.from_rating(rating)
+                 token.phoneme_rating = rating
+-                token.language_metadata["frontend_profile"] = (
+-                    self.frontend_profile.id
+-                )
++                token.language_metadata["frontend_profile"] = self.frontend_profile.id
+                 if subtokens:
+                     token.language_metadata["subtokens"] = [
+                         {
+diff --git a/kokorog2p/en/lexicon.py b/kokorog2p/en/lexicon.py
+index 493bd07..23a33fc 100644
+--- a/kokorog2p/en/lexicon.py
++++ b/kokorog2p/en/lexicon.py
+@@ -207,6 +207,7 @@ class Lexicon:
+         """Decode a selected hit without invoking fallback or spelling rules."""
+         decoded = self._decoded_hit(hit, tag)
+         return None if decoded is None else decoded.pronunciation
++
+     @staticmethod
+     def _grow_dictionary(d: dict[str, Any]) -> dict[str, Any]:
+         """Expand dictionary with capitalization variants.
+@@ -276,6 +277,7 @@ class Lexicon:
+             return None, None
+         parts = ps_str.rsplit(SECONDARY_STRESS, 1)
+         return PRIMARY_STRESS.join(parts), 3
++
+     def lookup(
+         self,
+         word: str,
+@@ -318,6 +320,7 @@ class Lexicon:
+                 return ps, rating
+
+         return apply_stress(ps, stress), rating
++
+     def close(self) -> None:
+         self._selected.close()
+
+@@ -389,9 +392,7 @@ class Lexicon:
+             hit = self._get_hit("used")
+             if hit is not None:
+                 selected_tag = (
+-                    "VBD"
+-                    if tag in ("VBD", "JJ") and ctx and ctx.future_to
+-                    else None
++                    "VBD" if tag in ("VBD", "JJ") and ctx and ctx.future_to else None
+                 )
+                 decoded = self._decoded_hit(hit, selected_tag)
+                 if decoded is not None:
+@@ -399,6 +400,7 @@ class Lexicon:
+                     return decoded.pronunciation, rating
+
+         return (None, None)
++
+     # ==========================================================================
+     # Suffix handling
+     # ==========================================================================
+diff --git a/kokorog2p/en/phoneme_codec.py b/kokorog2p/en/phoneme_codec.py
+index ebf1f77..64bb557 100644
+--- a/kokorog2p/en/phoneme_codec.py
++++ b/kokorog2p/en/phoneme_codec.py
+@@ -62,6 +62,7 @@ def selector_candidates(tag: str | None) -> tuple[str, ...]:
+     }
+     return parent_map.get(tag, (tag,))
+
++
+ def _source_scalar(value: object) -> str | None:
+     if isinstance(value, str):
+         return value
+@@ -71,7 +72,6 @@ def _source_scalar(value: object) -> str | None:
+     return None
+
+
+-
+ def _tagged_items(value: object) -> tuple[tuple[object, object], ...] | None:
+     items = getattr(value, "items", None)
+     if items is None or callable(items):
+@@ -79,7 +79,6 @@ def _tagged_items(value: object) -> tuple[tuple[object, object], ...] | None:
+     return tuple(items)
+
+
+-
+ def select_source_value(
+     value: object, tag: str | None = None
+ ) -> tuple[str | None, str | None]:
+diff --git a/kokorog2p/en/subtokens.py b/kokorog2p/en/subtokens.py
+index 8e1b43e..3bc6772 100644
+--- a/kokorog2p/en/subtokens.py
++++ b/kokorog2p/en/subtokens.py
+@@ -48,11 +48,7 @@ def split_english_lexical_token(text: str) -> tuple[EnglishSubtoken, ...]:
+         if (
+             char.isdigit() != previous.isdigit()
+             or (previous.islower() and char.isupper())
+-            or (
+-                previous.isupper()
+-                and char.isupper()
+-                and next_char.islower()
+-            )
++            or (previous.isupper() and char.isupper() and next_char.islower())
+         ):
+             flush(index)
+             start = index
+diff --git a/kokorog2p/integrations.py b/kokorog2p/integrations.py
+index 5a19199..21d2501 100644
+--- a/kokorog2p/integrations.py
++++ b/kokorog2p/integrations.py
+@@ -205,6 +205,7 @@ def annotations_for_segment(
+                 annotation.tag,
+                 annotation.lemma,
+                 annotation.language,
++                annotation.morph,
+             )
+         )
+     return rebased
+diff --git a/kokorog2p/tokenization.py b/kokorog2p/tokenization.py
+index cc7b377..548b3f1 100644
+--- a/kokorog2p/tokenization.py
++++ b/kokorog2p/tokenization.py
+@@ -62,7 +62,7 @@ def coerce_token_annotations(
+         ):
+             raise ValueError(f"annotation {index} text does not match source slice")
+         values: dict[str, str | None] = {}
+-        for name in ("pos", "tag", "lemma", "language"):
++        for name in ("pos", "tag", "lemma", "language", "morph"):
+             value = _annotation_value(raw, name)
+             if value is not None and not isinstance(value, str):
+                 raise TypeError(f"annotation {index} {name} must be a string or None")
+@@ -103,6 +103,7 @@ def tokens_from_annotations(
+                             "pos": annotation.pos,
+                             "tag": annotation.tag,
+                             "lemma": annotation.lemma,
++                            "morph": annotation.morph,
+                         }.items()
+                         if value is not None
+                     }
+diff --git a/kokorog2p/types.py b/kokorog2p/types.py
+index 82772b6..eff0abc 100644
+--- a/kokorog2p/types.py
++++ b/kokorog2p/types.py
+@@ -87,6 +87,7 @@ class TokenAnnotationLike(Protocol):
+     tag: str | None
+     lemma: str | None
+     language: str | None
++    morph: str | None
+
+
+ @dataclass(frozen=True)
+@@ -106,6 +107,8 @@ class TokenAnnotation:
+     lemma: str | None = None
+     language: str | None = None
+
++    morph: str | None = None
++
+     def __post_init__(self) -> None:
+         if self.start < 0 or self.end <= self.start:
+             raise ValueError("token annotation must satisfy 0 <= start < end")
+diff --git a/tests/test_en_gold_contract.py b/tests/test_en_gold_contract.py
+index 0c7a2c6..f89772a 100644
+--- a/tests/test_en_gold_contract.py
++++ b/tests/test_en_gold_contract.py
+@@ -6,6 +6,7 @@ class TaggedValueLike:
+     def __init__(self, *items: tuple[str, object]) -> None:
+         self.items = items
+
++
+ def _valid_fixture() -> dict[str, object]:
+     entries: dict[str, object] = {
+         letter: "ˈA" for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+@@ -27,6 +28,7 @@ def test_gold_contract_accepts_g2lex_tagged_values() -> None:
+     assert select_source_value(tagged, "VBD") == ("jˈuzd", "DEFAULT")
+     assert audit_entries({**_valid_fixture(), "used": tagged}) == ()
+
++
+ def test_gold_contract_fixture_passes() -> None:
+     assert audit_entries(_valid_fixture()) == ()
+
+diff --git a/tests/test_en_subtokens.py b/tests/test_en_subtokens.py
+index 392aa95..d72555e 100644
+--- a/tests/test_en_subtokens.py
++++ b/tests/test_en_subtokens.py
+@@ -22,10 +22,7 @@ def test_split_delimiters_and_letter_digit_boundaries() -> None:
+         "Hub",
+         "style",
+     ]
+-    actual = [
+-        item.text
+-        for item in split_english_lexical_token("mixed_letter9_groups")
+-    ]
++    actual = [item.text for item in split_english_lexical_token("mixed_letter9_groups")]
+     assert actual == [
+         "mixed",
+         "letter",
+diff --git a/tests/test_prepared_core.py b/tests/test_prepared_core.py
+index 7513eb7..54fa226 100644
+--- a/tests/test_prepared_core.py
++++ b/tests/test_prepared_core.py
+@@ -50,12 +50,15 @@ def test_external_annotations_supply_pos_without_spacy() -> None:
+     result = phonemize_prepared(
+         "record",
+         language="en-us",
+-        annotations=[TokenAnnotation(0, 6, "record", pos="NOUN", tag="NN")],
++        annotations=[
++            TokenAnnotation(0, 6, "record", pos="NOUN", tag="NN", morph="Number=Sing")
++        ],
+         g2p=AnnotatedFakeG2P(),
+         return_ids=False,
+     )
+     assert result.phonemes == "noun"
+     assert result.tokens[0].meta["tag"] == "NN"
++    assert result.tokens[0].meta["morph"] == "Number=Sing"
+
+
+ def test_tokens_from_annotations_keeps_default_language_as_fallback() -> None:
+@@ -94,9 +97,10 @@ def test_annotation_validation_is_ordered_and_source_aligned() -> None:
+
+ def test_segment_annotations_are_rebased() -> None:
+     text = "record this"
+-    annotations = [TokenAnnotation(0, 6, "record", tag="NN")]
++    annotations = [TokenAnnotation(0, 6, "record", tag="NN", morph="Number=Sing")]
+     rebased = annotations_for_segment(0, 6, annotations, clean_text=text)
+     assert [(item.start, item.end, item.text) for item in rebased] == [(0, 6, "record")]
++    assert rebased[0].morph == "Number=Sing"
+     results = phonemize_segments(
+         text,
+         [Segment("record", 0, 6)],
+diff --git a/tools/audit_en_gold_misaki_contract.py b/tools/audit_en_gold_misaki_contract.py
+index de8cac3..ba6ef42 100644
+--- a/tools/audit_en_gold_misaki_contract.py
++++ b/tools/audit_en_gold_misaki_contract.py
+@@ -18,10 +18,12 @@ _LETTERS = tuple("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+ def _finding(stage: str, key: str, message: str) -> dict[str, str]:
+     return {"stage": stage, "key": key, "message": message}
+
++
+ def _valid_pronunciation(value: str) -> bool:
+     vocabulary = get_vocab()
+     return bool(value) and all(char in vocabulary for char in value)
+
++
+ def _selector_items(
+     value: object,
+ ) -> tuple[tuple[object, object], ...] | None:
+@@ -33,7 +35,6 @@ def _selector_items(
+     return tuple(items)
+
+
+-
+ def _audit_value(
+     key: str,
+     value: object,
+@@ -49,7 +50,6 @@ def _audit_value(
+     return []
+
+
+-
+ def audit_entries(entries: Mapping[str, object]) -> tuple[dict[str, str], ...]:
+     """Return stage-aware findings for one consolidated gold mapping."""
+     findings: list[dict[str, str]] = []
+@@ -117,9 +117,7 @@ def _load_fixture(path: Path) -> Mapping[str, object]:
+     payload = json.loads(path.read_text(encoding="utf-8"))
+     entries = payload.get("entries", payload) if isinstance(payload, Mapping) else None
+     if not isinstance(entries, Mapping):
+-        raise TypeError(
+-            "fixture must contain an object mapping lexical keys to values"
+-        )
++        raise TypeError("fixture must contain an object mapping lexical keys to values")
+     return entries

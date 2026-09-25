@@ -1,0 +1,79 @@
+{
+  "candidate_count": 3,
+  "candidates": [
+    {
+      "additions": 12,
+      "deletions": 0,
+      "patch_file": "40f656e.patch",
+      "patch_sha256": "3b209a3cdd8bcfc00e1b5018e6a7cc13c471357076537bcb8103d1b0a61942c0",
+      "paths": ["tests/test_espeak_backend.py"],
+      "sha": "40f656e01fc27d0e3714dae488b4cbedbd9a8b4b",
+      "short_sha": "40f656e",
+      "source_ref": "git:40f656e01fc27d0e3714dae488b4cbedbd9a8b4b"
+    },
+    {
+      "additions": 1147,
+      "deletions": 71,
+      "patch_file": "44b3233.patch",
+      "patch_sha256": "27b89a2f4e61a6359247f4aac7269d0d9a30f17ecbb7465ac43270853b56a382",
+      "paths": [
+        "benchmarks/reference/data/en_us_misaki_contract_v1.json",
+        "docs/api/english.md",
+        "docs/en/PROVENANCE.md",
+        "docs/lexicons.md",
+        "kokorog2p/en/g2p.py",
+        "kokorog2p/en/lexicon.py",
+        "kokorog2p/en/phoneme_codec.py",
+        "kokorog2p/en/realization.py",
+        "kokorog2p/en/subtokens.py",
+        "kokorog2p/lexicons/registry.py",
+        "tests/data/en_gold_contract_valid.json",
+        "tests/test_en_compound_stress.py",
+        "tests/test_en_frontend_finalize.py",
+        "tests/test_en_gold_contract.py",
+        "tests/test_en_lexicon.py",
+        "tests/test_en_misaki_contract.py",
+        "tests/test_en_subtokens.py",
+        "tests/test_lexicon_registry.py",
+        "tools/audit_en_gold_misaki_contract.py"
+      ],
+      "sha": "44b3233b873ea2cfc6b64191dc0b0f27ec43c6b8",
+      "short_sha": "44b3233",
+      "source_ref": "git:44b3233b873ea2cfc6b64191dc0b0f27ec43c6b8"
+    },
+    {
+      "additions": 322,
+      "deletions": 101,
+      "patch_file": "af4ee45.patch",
+      "patch_sha256": "4111ed510d44cfa7417756a2eb9217fee1e8b3fa4641ced70e3a2cee6d41f2dd",
+      "paths": [
+        "benchmarks/reference/data/en_us_misaki_contract_v1.json",
+        "docs/api/english.md",
+        "docs/en/PROVENANCE.md",
+        "docs/lexicons.md",
+        "kokorog2p/en/g2p.py",
+        "kokorog2p/en/lexicon.py",
+        "kokorog2p/en/phoneme_codec.py",
+        "kokorog2p/en/subtokens.py",
+        "kokorog2p/integrations.py",
+        "kokorog2p/tokenization.py",
+        "kokorog2p/types.py",
+        "tests/test_en_gold_contract.py",
+        "tests/test_en_subtokens.py",
+        "tests/test_prepared_core.py",
+        "tools/audit_en_gold_misaki_contract.py"
+      ],
+      "sha": "af4ee45995d648708ba6637965db61b272d79801",
+      "short_sha": "af4ee45",
+      "source_ref": "git:af4ee45995d648708ba6637965db61b272d79801"
+    }
+  ],
+  "git_base_ref": "3b14610e20822bfa77811c3e45c56eecbb7ad55f",
+  "git_base_sha": "3b14610e20822bfa77811c3e45c56eecbb7ad55f",
+  "git_head_ref": "af4ee45995d648708ba6637965db61b272d79801",
+  "git_head_sha": "af4ee45995d648708ba6637965db61b272d79801",
+  "include_merges": "nontrivial",
+  "object_type": "git_evidence_manifest",
+  "release_version": "0.9.14",
+  "schema_version": 1
+}

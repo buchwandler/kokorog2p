@@ -1,0 +1,93 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 1
+release_version: 0.9.14
+git_base_ref: v0.9.13
+git_base_sha: 3b14610e20822bfa77811c3e45c56eecbb7ad55f
+git_head_ref: HEAD
+git_head_sha: af4ee45995d648708ba6637965db61b272d79801
+git_range: 3b14610e20822bfa77811c3e45c56eecbb7ad55f..af4ee45995d648708ba6637965db61b272d79801
+commit_count: 3
+rows:
+  - sha: 40f656e01fc27d0e3714dae488b4cbedbd9a8b4b
+    source_ref: git:40f656e01fc27d0e3714dae488b4cbedbd9a8b4b
+    short_sha: 40f656e
+    changed_paths:
+      - tests/test_espeak_backend.py
+    stats:
+      files_changed: 1
+      insertions: 12
+      deletions: 0
+    inspected: false
+    inspected_paths: []
+    observed_behavior: ""
+    public_impact: unknown
+    decision: needs_review
+    stale: false
+    evidence_subject: "fix: espeak test"
+  - sha: 44b3233b873ea2cfc6b64191dc0b0f27ec43c6b8
+    source_ref: git:44b3233b873ea2cfc6b64191dc0b0f27ec43c6b8
+    short_sha: 44b3233
+    changed_paths:
+      - benchmarks/reference/data/en_us_misaki_contract_v1.json
+      - docs/api/english.md
+      - docs/en/PROVENANCE.md
+      - docs/lexicons.md
+      - kokorog2p/en/g2p.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/en/phoneme_codec.py
+      - kokorog2p/en/realization.py
+      - kokorog2p/en/subtokens.py
+      - kokorog2p/lexicons/registry.py
+      - tests/data/en_gold_contract_valid.json
+      - tests/test_en_compound_stress.py
+      - tests/test_en_frontend_finalize.py
+      - tests/test_en_gold_contract.py
+      - tests/test_en_lexicon.py
+      - tests/test_en_misaki_contract.py
+      - tests/test_en_subtokens.py
+      - tests/test_lexicon_registry.py
+      - tools/audit_en_gold_misaki_contract.py
+    stats:
+      files_changed: 19
+      insertions: 1147
+      deletions: 71
+    inspected: false
+    inspected_paths: []
+    observed_behavior: ""
+    public_impact: unknown
+    decision: needs_review
+    stale: false
+    evidence_subject: "feat: improve phoneme generation for english"
+  - sha: af4ee45995d648708ba6637965db61b272d79801
+    source_ref: git:af4ee45995d648708ba6637965db61b272d79801
+    short_sha: af4ee45
+    changed_paths:
+      - benchmarks/reference/data/en_us_misaki_contract_v1.json
+      - docs/api/english.md
+      - docs/en/PROVENANCE.md
+      - docs/lexicons.md
+      - kokorog2p/en/g2p.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/en/phoneme_codec.py
+      - kokorog2p/en/subtokens.py
+      - kokorog2p/integrations.py
+      - kokorog2p/tokenization.py
+      - kokorog2p/types.py
+      - tests/test_en_gold_contract.py
+      - tests/test_en_subtokens.py
+      - tests/test_prepared_core.py
+      - tools/audit_en_gold_misaki_contract.py
+    stats:
+      files_changed: 15
+      insertions: 322
+      deletions: 101
+    inspected: false
+    inspected_paths: []
+    observed_behavior: ""
+    public_impact: unknown
+    decision: needs_review
+    stale: false
+    evidence_subject: "feat: add morph parameter"

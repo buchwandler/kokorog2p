@@ -1,0 +1,51 @@
+schema: releaseledger.entry-batch.v1
+operation: create
+schema_version: 1
+object_type: release_entry_batch
+release_version: 0.9.14
+git_base_ref: 3b14610e20822bfa77811c3e45c56eecbb7ad55f
+git_base_sha: 3b14610e20822bfa77811c3e45c56eecbb7ad55f
+git_head_ref: af4ee45995d648708ba6637965db61b272d79801
+git_head_sha: af4ee45995d648708ba6637965db61b272d79801
+include_merges: nontrivial
+entries:
+  - kind: added
+    summary:
+      "Added selectable English LexHint IPA sources and improved pronunciation for
+      tagged words and lexical compounds"
+    status: accepted
+    source_refs:
+      - git:44b3233b873ea2cfc6b64191dc0b0f27ec43c6b8
+    paths:
+      - docs/api/english.md
+      - docs/lexicons.md
+      - docs/en/PROVENANCE.md
+      - kokorog2p/en/g2p.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/en/phoneme_codec.py
+      - kokorog2p/en/realization.py
+      - kokorog2p/en/subtokens.py
+      - kokorog2p/lexicons/registry.py
+    sources:
+      - git:44b3233b873ea2cfc6b64191dc0b0f27ec43c6b8
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"
+  - kind: added
+    summary:
+      "Added morphological metadata to token annotations and preserved it through
+      prepared-text segment rebasing"
+    status: accepted
+    source_refs:
+      - git:af4ee45995d648708ba6637965db61b272d79801
+    paths:
+      - kokorog2p/types.py
+      - kokorog2p/tokenization.py
+      - kokorog2p/integrations.py
+    sources:
+      - git:af4ee45995d648708ba6637965db61b272d79801
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"

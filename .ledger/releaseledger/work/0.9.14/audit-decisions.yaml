@@ -1,0 +1,74 @@
+rows:
+  - sha: 40f656e01fc27d0e3714dae488b4cbedbd9a8b4b
+    inspected: true
+    inspected_paths:
+      - tests/test_espeak_backend.py
+    observed_behavior:
+      "Added a runtime eSpeak smoke test asserting phonemization returns a result
+      without writing phonemes to stdout; no production code changed."
+    public_impact: public
+    decision: accepted
+    target_entry_key: null
+    target_entry_id: null
+    notes: "Test-only regression coverage retained as a release quality note."
+    stale: false
+  - sha: 44b3233b873ea2cfc6b64191dc0b0f27ec43c6b8
+    inspected: true
+    inspected_paths:
+      - benchmarks/reference/data/en_us_misaki_contract_v1.json
+      - docs/api/english.md
+      - docs/en/PROVENANCE.md
+      - docs/lexicons.md
+      - kokorog2p/en/g2p.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/en/phoneme_codec.py
+      - kokorog2p/en/realization.py
+      - kokorog2p/en/subtokens.py
+      - kokorog2p/lexicons/registry.py
+      - tests/data/en_gold_contract_valid.json
+      - tests/test_en_compound_stress.py
+      - tests/test_en_frontend_finalize.py
+      - tests/test_en_gold_contract.py
+      - tests/test_en_lexicon.py
+      - tests/test_en_misaki_contract.py
+      - tests/test_en_subtokens.py
+      - tests/test_lexicon_registry.py
+      - tools/audit_en_gold_misaki_contract.py
+    observed_behavior:
+      "Added selectable en-us:lexhint and en-gb:lexhint IPA sources through the shared
+      English decoder, with tag-aware selection, lexical subtoken resolution, compound
+      stress handling, and legacy-compatible finalization. Added a pinned compatibility
+      corpus and contract validation."
+    public_impact: public
+    decision: accepted
+    target_entry_key: null
+    target_entry_id: null
+    notes: "User-visible English pronunciation and lexicon-selection changes."
+    stale: false
+  - sha: af4ee45995d648708ba6637965db61b272d79801
+    inspected: true
+    inspected_paths:
+      - benchmarks/reference/data/en_us_misaki_contract_v1.json
+      - docs/api/english.md
+      - docs/en/PROVENANCE.md
+      - docs/lexicons.md
+      - kokorog2p/en/g2p.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/en/phoneme_codec.py
+      - kokorog2p/en/subtokens.py
+      - kokorog2p/integrations.py
+      - kokorog2p/tokenization.py
+      - kokorog2p/types.py
+      - tests/test_en_gold_contract.py
+      - tests/test_en_subtokens.py
+      - tests/test_prepared_core.py
+      - tools/audit_en_gold_misaki_contract.py
+    observed_behavior:
+      "Added a morph field to token annotation types and coercion; prepared token
+      metadata and rebased segment annotations now preserve this field."
+    public_impact: public
+    decision: accepted
+    target_entry_key: null
+    target_entry_id: null
+    notes: "Morphological metadata is now retained through prepared-text processing."
+    stale: false

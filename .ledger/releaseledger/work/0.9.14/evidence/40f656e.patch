@@ -1,0 +1,26 @@
+ tests/test_espeak_backend.py | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/tests/test_espeak_backend.py b/tests/test_espeak_backend.py
+index c74f1b7..76130bd 100644
+--- a/tests/test_espeak_backend.py
++++ b/tests/test_espeak_backend.py
+@@ -202,6 +202,18 @@ def test_real_runtime_auto_smoke():
+         backend.close()
+
+
++@pytest.mark.espeak
++def test_real_runtime_auto_phonemization_does_not_write_phonemes_to_stdout(capfd):
++    backend = EspeakBackend("en-us")
++    try:
++        result = backend.phonemize("words", convert_to_kokoro=False)
++    finally:
++        backend.close()
++    captured = capfd.readouterr()
++    assert result
++    assert captured.out == ""
++
++
+ @pytest.mark.espeak
+ def test_real_runtime_cli_smoke():
+     backend = EspeakBackend("en-us", use_cli=True)

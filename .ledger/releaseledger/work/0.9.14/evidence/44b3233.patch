@@ -1,0 +1,1550 @@
+ .../reference/data/en_us_misaki_contract_v1.json   |  65 +++++++
+ docs/api/english.md                                |  11 +-
+ docs/en/PROVENANCE.md                              |  80 +++++++++
+ docs/lexicons.md                                   |  23 +--
+ kokorog2p/en/g2p.py                                | 124 ++++++++++++-
+ kokorog2p/en/lexicon.py                            |  88 +++++-----
+ kokorog2p/en/phoneme_codec.py                      | 193 +++++++++++++++++++++
+ kokorog2p/en/realization.py                        |  72 ++++++++
+ kokorog2p/en/subtokens.py                          |  63 +++++++
+ kokorog2p/lexicons/registry.py                     |  22 ++-
+ tests/data/en_gold_contract_valid.json             |  35 ++++
+ tests/test_en_compound_stress.py                   |  36 ++++
+ tests/test_en_frontend_finalize.py                 |  24 +++
+ tests/test_en_gold_contract.py                     |  47 +++++
+ tests/test_en_lexicon.py                           |   8 +-
+ tests/test_en_misaki_contract.py                   | 106 +++++++++++
+ tests/test_en_subtokens.py                         |  42 +++++
+ tests/test_lexicon_registry.py                     |   6 +-
+ tools/audit_en_gold_misaki_contract.py             | 173 ++++++++++++++++++
+ 19 files changed, 1147 insertions(+), 71 deletions(-)
+
+diff --git a/benchmarks/reference/data/en_us_misaki_contract_v1.json b/benchmarks/reference/data/en_us_misaki_contract_v1.json
+new file mode 100644
+index 0000000..4b681c0
+--- /dev/null
++++ b/benchmarks/reference/data/en_us_misaki_contract_v1.json
+@@ -0,0 +1,65 @@
++{
++  "id": "en-us-misaki-contract-v1",
++  "revision": "1",
++  "generated": false,
++  "metadata": {
++    "language": "en-us",
++    "model": "1.0",
++    "provenance": "hexgrad/misaki misaki/en.py at fba1236595f2d2bf21d414ba6e57d25256afada3",
++    "frontend": "hexgrad-misaki-v1",
++    "stage_schema": [
++      "source_selection",
++      "source_decoding",
++      "derived_pronunciation",
++      "compound_stress",
++      "final_pronunciation"
++    ],
++    "comparison_policy": "diagnostic until reference outputs are refreshed"
++  },
++  "cases": [
++    {"id": "tag-live-001", "text": "I live here.", "policy": "diagnostic", "tags": ["tagged", "heteronym"]},
++    {"id": "tag-live-002", "text": "The live show starts now.", "policy": "diagnostic", "tags": ["tagged", "heteronym"]},
++    {"id": "tag-record-001", "text": "Please record this.", "policy": "diagnostic", "tags": ["tagged", "heteronym"]},
++    {"id": "tag-record-002", "text": "That is a record.", "policy": "diagnostic", "tags": ["tagged", "heteronym"]},
++    {"id": "tag-object-001", "text": "They object.", "policy": "diagnostic", "tags": ["tagged", "heteronym"]},
++    {"id": "tag-object-002", "text": "The object moved.", "policy": "diagnostic", "tags": ["tagged", "heteronym"]},
++    {"id": "tag-conduct-001", "text": "They conduct music.", "policy": "diagnostic", "tags": ["tagged", "heteronym"]},
++    {"id": "tag-conduct-002", "text": "His conduct changed.", "policy": "diagnostic", "tags": ["tagged", "heteronym"]},
++    {"id": "function-a-001", "text": "a dog", "policy": "diagnostic", "tags": ["function-word", "article"]},
++    {"id": "function-a-002", "text": "A letter", "policy": "diagnostic", "tags": ["function-word", "article", "capitalization"]},
++    {"id": "function-am-001", "text": "am I", "policy": "diagnostic", "tags": ["function-word", "context"]},
++    {"id": "function-am-002", "text": "I am here", "policy": "diagnostic", "tags": ["function-word", "context"]},
++    {"id": "function-an-001", "text": "an apple", "policy": "diagnostic", "tags": ["function-word", "article", "future-vowel"]},
++    {"id": "function-by-001", "text": "by then", "policy": "diagnostic", "tags": ["function-word", "context"]},
++    {"id": "function-to-001", "text": "to eat", "policy": "diagnostic", "tags": ["function-word", "future-vowel"]},
++    {"id": "function-to-002", "text": "to sleep", "policy": "diagnostic", "tags": ["function-word", "future-vowel"]},
++    {"id": "function-in-001", "text": "in order", "policy": "diagnostic", "tags": ["function-word", "future-vowel"]},
++    {"id": "function-in-002", "text": "in a room", "policy": "diagnostic", "tags": ["function-word", "context"]},
++    {"id": "function-the-001", "text": "the apple", "policy": "diagnostic", "tags": ["function-word", "future-vowel"]},
++    {"id": "function-the-002", "text": "the dog", "policy": "diagnostic", "tags": ["function-word", "future-vowel"]},
++    {"id": "function-used-001", "text": "used to", "policy": "diagnostic", "tags": ["function-word", "future-to"]},
++    {"id": "function-used-002", "text": "used equipment", "policy": "diagnostic", "tags": ["function-word", "context"]},
++    {"id": "function-versus-001", "text": "vs.", "policy": "diagnostic", "tags": ["function-word", "special-case"]},
++    {"id": "capitalization-001", "text": "word Word WORD", "policy": "diagnostic", "tags": ["capitalization", "stress"]},
++    {"id": "capitalization-002", "text": "A ABC USA CPU API", "policy": "diagnostic", "tags": ["capitalization", "spelling"]},
++    {"id": "morphology-s-001", "text": "cats", "policy": "diagnostic", "tags": ["morphology", "suffix-s"]},
++    {"id": "morphology-s-002", "text": "boxes", "policy": "diagnostic", "tags": ["morphology", "suffix-es"]},
++    {"id": "morphology-s-003", "text": "cities", "policy": "diagnostic", "tags": ["morphology", "suffix-ies"]},
++    {"id": "morphology-possessive-001", "text": "the dog's bowl", "policy": "diagnostic", "tags": ["morphology", "possessive"]},
++    {"id": "morphology-ed-001", "text": "walked", "policy": "diagnostic", "tags": ["morphology", "suffix-ed"]},
++    {"id": "morphology-ed-002", "text": "wanted", "policy": "diagnostic", "tags": ["morphology", "suffix-ed"]},
++    {"id": "morphology-ing-001", "text": "running", "policy": "diagnostic", "tags": ["morphology", "suffix-ing"]},
++    {"id": "compound-camel-001", "text": "CamelCase", "policy": "diagnostic", "tags": ["subtoken", "compound"]},
++    {"id": "compound-camel-002", "text": "ABCWord", "policy": "diagnostic", "tags": ["subtoken", "acronym"]},
++    {"id": "compound-camel-003", "text": "wordABC", "policy": "diagnostic", "tags": ["subtoken", "acronym"]},
++    {"id": "compound-delimited-001", "text": "GitHub-style forms", "policy": "diagnostic", "tags": ["subtoken", "hyphen"]},
++    {"id": "compound-delimited-002", "text": "mixed_letter9_groups", "policy": "diagnostic", "tags": ["subtoken", "underscore", "number"]},
++    {"id": "context-punctuation-001", "text": "the apple", "policy": "diagnostic", "tags": ["context", "future-vowel"]},
++    {"id": "context-punctuation-002", "text": "the, apple", "policy": "diagnostic", "tags": ["context", "boundary"]},
++    {"id": "context-punctuation-003", "text": "the. Apple", "policy": "diagnostic", "tags": ["context", "boundary", "capitalization"]},
++    {"id": "context-punctuation-004", "text": "to eat", "policy": "diagnostic", "tags": ["context", "future-vowel"]},
++    {"id": "context-punctuation-005", "text": "to, eat", "policy": "diagnostic", "tags": ["context", "boundary"]},
++    {"id": "finalization-001", "text": "butter", "policy": "diagnostic", "tags": ["finalization", "flap"]},
++    {"id": "finalization-002", "text": "button", "policy": "diagnostic", "tags": ["finalization", "glottal"]}
++  ]
++}
+diff --git a/docs/api/english.md b/docs/api/english.md
+index bd3858e..0d32c34 100644
+--- a/docs/api/english.md
++++ b/docs/api/english.md
+@@ -14,8 +14,8 @@ print(g2p.phonemize("Hello world"))
+ Install the selected asset before construction:
+
+ ```bash
+-lexphon data install en-us:gold en-gb:gold
+-lexphon data verify en-us:gold en-gb:gold
++lexphon data install en-us:gold en-us:lexhint en-gb:gold en-gb:lexhint
++lexphon data verify en-us:gold en-us:lexhint en-gb:gold en-gb:lexhint
+ ```
+
+ Use `get_g2p("en-us")` or `get_g2p("en-gb")` for factory construction. The frontend
+@@ -23,7 +23,8 @@ preserves supplied text and token offsets; semantic preparation belongs to the c
+
+ ## Lexicon controls
+
+-English exposes one logical `gold` selection backed by an external Lexphon asset. Use
+-`lexicons=()` for fallback-only operation. There is no English silver tier and no
+-runtime API for loading or selecting packaged dictionaries. `use_spacy` and explicit
++English exposes `gold` and an explicitly selected `lexhint` source. Gold values use the
++`kokoro-v1` encoding; LexHint values use IPA and pass through the same English realization
++profile after decoding. Use `lexicons=()` for fallback-only operation. There is no English
++silver tier or runtime API for loading packaged dictionaries. `use_spacy` and explicit
+ local model settings control optional POS-aware tokenization.
+diff --git a/docs/en/PROVENANCE.md b/docs/en/PROVENANCE.md
+new file mode 100644
+index 0000000..8ed3e8a
+--- /dev/null
++++ b/docs/en/PROVENANCE.md
+@@ -0,0 +1,80 @@
++# English Kokoro frontend provenance
++
++## Reference
++
++The English realization contract is based on `hexgrad/misaki`, specifically
++`misaki/en.py` at commit `fba1236595f2d2bf21d414ba6e57d25256afada3`, package
++version `0.9.4`, frontend `misaki.en.G2P`.
++
++The pinned implementation is the compatibility oracle for model-facing English
++phoneme behavior. The reference package is used only by isolated benchmark and
++review tooling. KokoroG2P does not import Misaki at runtime.
++
++## Ported semantic areas
++
++- POS parent selectors and tagged heteronym selection.
++- Context-sensitive function words and right-to-left future-vowel/future-to state.
++- Capitalization-derived stress.
++- Proper-noun and letter-name spelling.
++- Productive `-s`, `-ed`, and `-ing` morphology.
++- Unicode-aware lexical subtokenization and grouped resolution.
++- Compound stress balancing.
++- Legacy English frontend finalization.
++
++The realization order is:
++
++```text
++selected source value
++    -> source codec
++    -> lexical and morphological realization
++    -> subtoken/compound stress resolution
++    -> profile finalization
++    -> Kokoro inventory validation
++```
++
++`en-us:gold` stores `kokoro-v1` values. The logical gold asset represents the
++legacy gold and silver data after the G2Lex transform, including case aliases and
++gold precedence. Those dataset semantics belong to the G2Lex data layer and are
++not reconstructed in KokoroG2P.
++
++`en-us:lexhint` stores IPA values and uses the same realization path after the
++English IPA-to-Kokoro codec. The source encoding is therefore data metadata, not
++a second English frontend.
++
++## Intentional differences
++
++KokoroG2P intentionally differs from the reference architecture in these areas:
++
++- No runtime Misaki dependency.
++- External G2Lex resources with lazy shared leases.
++- Lexphon-owned fallback providers.
++- KokoroG2P's public `GToken` and debug/provenance model.
++- Prepared-text APIs keep written-to-spoken semantic expansion outside the core.
++- Consolidated gold/silver data is selected by the G2Lex transform.
++
++These differences are allowed only when they do not change the model-facing
++English realization contract. Any retained phoneme difference must be recorded
++in a regression test and explained here.
++
++## Compatibility profile
++
++The initial internal profile is `hexgrad-misaki-v1`. It enables compound stress
++resolution and uses the legacy finalization rewrites:
++
++```text
++ɾ -> T
++ʔ -> t
++```
++
++The profile is deliberately separate from KokoroG2P's public target-model
++`version` field. A target model version and a frontend compatibility version are
++independent concepts.
++
++## Contract corpus
++
++`benchmarks/reference/data/en_us_misaki_contract_v1.json` is the maintained
++review corpus. It covers tagged entries, function words, capitalization,
++morphology, compounds, punctuation context boundaries, proper-noun spelling,
++compound stress, and generated flap/glottal finalization. Cases are compared to
++the pinned reference with stage-aware diagnostics when the reference environment
++is available.
+diff --git a/docs/lexicons.md b/docs/lexicons.md
+index 3b43fd6..3bfa446 100644
+--- a/docs/lexicons.md
++++ b/docs/lexicons.md
+@@ -6,24 +6,27 @@ files.
+
+ ## English and French
+
+-English and French each expose one logical `gold` lexicon backed by an external asset:
++English exposes a default `gold` lexicon and an explicit `lexhint` source backed by external assets:
++the two sources use different encodings but share the KokoroG2P English realization layer.
+
+-| Language   | Lexphon ID   |
+-| ---------- | ------------ |
+-| US English | `en-us:gold` |
+-| GB English | `en-gb:gold` |
+-| French     | `fr-fr:gold` |
++| Language   | Lexphon ID      | Default | Encoding    |
++| ---------- | --------------- | ------- | ----------- |
++| US English | `en-us:gold`    | yes     | `kokoro-v1` |
++| US English | `en-us:lexhint` | no      | IPA         |
++| GB English | `en-gb:gold`    | yes     | `kokoro-v1` |
++| GB English | `en-gb:lexhint` | no      | IPA         |
++| French     | `fr-fr:gold`    | yes     | `kokoro-v1` |
+
+ Provision released data before using the default English or French dictionary path:
+
+ ```bash
+-lexphon data install en-us:gold en-gb:gold fr-fr:gold
+-lexphon data verify en-us:gold en-gb:gold fr-fr:gold
++lexphon data install en-us:gold en-us:lexhint en-gb:gold en-gb:lexhint fr-fr:gold
++lexphon data verify en-us:gold en-us:lexhint en-gb:gold en-gb:lexhint fr-fr:gold
+ ```
+
+ `get_g2p("en-us")`, `get_g2p("en-gb")`, and `get_g2p("fr-fr")` select `gold` by default.
+-Use `lexicons=()` for fallback-only operation. `silver` is not an English runtime
+-option.
++Use `lexicons="lexhint"` for the IPA source and `lexicons=()` for fallback-only operation.
++`silver` is not an English runtime option.
+
+ Runtime lookup is offline. KokoroG2P does not fetch catalogs, download assets, invoke
+ the Lexphon CLI, or rebuild source dictionaries during construction or lookup. Missing
+diff --git a/kokorog2p/en/g2p.py b/kokorog2p/en/g2p.py
+index 6311bdc..08a55f3 100644
+--- a/kokorog2p/en/g2p.py
++++ b/kokorog2p/en/g2p.py
+@@ -6,6 +6,9 @@ from kokorog2p._optional import load_spacy_model
+ from kokorog2p.base import G2PBase
+ from kokorog2p.en.lexicon import Lexicon, TokenContext
+ from kokorog2p.en.normalizer import EnglishNormalizer
++from kokorog2p.en.phoneme_codec import MISAKI_V1
++from kokorog2p.en.realization import finalize_english_phonemes, resolve_compound_stress
++from kokorog2p.en.subtokens import EnglishSubtoken, split_english_lexical_token
+ from kokorog2p.lexicons.evidence import LexiconEvidence
+ from kokorog2p.lexicons.lexphon_backend import LexphonBackend, provider_metadata
+ from kokorog2p.phonemes import from_espeak, from_goruut
+@@ -86,6 +89,7 @@ class EnglishG2P(G2PBase):
+         )
+
+         self.version = version
++        self.frontend_profile = MISAKI_V1
+         self.unk = unk
+         if use_spacy and (spacy_model is None or spacy_model.lower() == "auto"):
+             spacy_model = resolve_spacy_model(
+@@ -324,6 +328,70 @@ class EnglishG2P(G2PBase):
+             # Add as a special case (single token)
+             self._nlp.tokenizer.add_special_case(normalized, [{"ORTH": normalized}])  # type: ignore
+
++    def _lookup_subtokens(
++        self,
++        text: str,
++        tag: str | None,
++        ctx: TokenContext | None,
++    ) -> tuple[str | None, int | None, tuple[EnglishSubtoken, ...]]:
++        """Resolve lexical pieces before falling back for the source token."""
++        subtokens = split_english_lexical_token(text)
++        if len(subtokens) < 2:
++            return None, None, ()
++
++        def resolve(
++            start: int, end: int
++        ) -> tuple[list[EnglishSubtoken], list[int]] | None:
++            word = "".join(item.text for item in subtokens[start:end])
++            phonemes, rating = self.lexicon(word, tag, None, ctx)
++            if phonemes is not None:
++                first = subtokens[start]
++                last = subtokens[end - 1]
++                return [
++                    EnglishSubtoken(
++                        word,
++                        first.start,
++                        last.end,
++                        phonemes,
++                        "lexicon",
++                    )
++                ], [rating if rating is not None else 4]
++            if end - start == 1:
++                return None
++            for split in range(end - 1, start, -1):
++                left = resolve(start, split)
++                right = resolve(split, end)
++                if left is not None and right is not None:
++                    return left[0] + right[0], left[1] + right[1]
++            return None
++
++        resolved = resolve(0, len(subtokens))
++        if resolved is None:
++            return None, None, ()
++        children, ratings = resolved
++        resolve_compound_stress(children, british=self.is_british)
++        phonemes = "".join(item.phonemes or "" for item in children)
++        return phonemes, min(ratings), tuple(children)
++
++    @staticmethod
++    def _record_subtokens(
++        token: GToken, subtokens: tuple[EnglishSubtoken, ...]
++    ) -> None:
++        if subtokens:
++            token.set(
++                "subtokens",
++                [
++                    {
++                        "text": item.text,
++                        "start": item.start,
++                        "end": item.end,
++                        "phonemes": item.phonemes,
++                        "source": item.source,
++                    }
++                    for item in subtokens
++                ],
++            )
++
+     def __call__(self, text: str) -> list[GToken]:
+         """Convert text to a list of tokens with phonemes.
+
+@@ -354,20 +422,31 @@ class EnglishG2P(G2PBase):
+
+             # Try lexicon lookup
+             ps, rating = self.lexicon(token.text, token.tag, None, ctx)
++            subtokens: tuple[EnglishSubtoken, ...] = ()
++            if ps is None:
++                ps, rating, subtokens = self._lookup_subtokens(
++                    token.text, token.tag, ctx
++                )
+
+             if ps is not None:
+-                token.phonemes = ps
++                token.phonemes = finalize_english_phonemes(
++                    ps, profile=self.frontend_profile
++                )
+                 token.set("rating", rating)
++                token.set("frontend_profile", self.frontend_profile.id)
++                self._record_subtokens(token, subtokens)
+             elif self.fallback is not None:
+                 # Try espeak fallback
+                 ps, rating, metadata = self._fallback_result(token.text)
+                 if ps is not None:
+-                    token.phonemes = ps
++                    token.phonemes = finalize_english_phonemes(
++                        ps, profile=self.frontend_profile
++                    )
+                     token.set("rating", rating)
++                    token.set("frontend_profile", self.frontend_profile.id)
+                     if metadata is not None:
+                         for key, value in metadata.items():
+                             token.set(key, value)
+-
+             # Update context
+             ctx = self._update_context(ctx, token.phonemes, token)
+
+@@ -447,24 +526,49 @@ class EnglishG2P(G2PBase):
+
+             # Try lexicon lookup
+             ps, rating = self.lexicon(token.text, token.pos_tag, None, ctx)
++            subtokens: tuple[EnglishSubtoken, ...] = ()
++            if ps is None:
++                ps, rating, subtokens = self._lookup_subtokens(
++                    token.text, token.pos_tag, ctx
++                )
+
+             if ps is not None:
+-                token.phoneme = ps
++                token.phoneme = finalize_english_phonemes(
++                    ps, profile=self.frontend_profile
++                )
+                 token.phoneme_source = PhonemeSource.from_rating(rating)
+                 token.phoneme_rating = rating
++                token.language_metadata["frontend_profile"] = (
++                    self.frontend_profile.id
++                )
++                if subtokens:
++                    token.language_metadata["subtokens"] = [
++                        {
++                            "text": item.text,
++                            "start": item.start,
++                            "end": item.end,
++                            "phonemes": item.phonemes,
++                            "source": item.source,
++                        }
++                        for item in subtokens
++                    ]
+             elif self.fallback is not None:
+                 # Try fallback
+                 ps, rating, metadata = self._fallback_result(token.text)
+                 if ps is not None:
+-                    token.phoneme = ps
++                    token.phoneme = finalize_english_phonemes(
++                        ps, profile=self.frontend_profile
++                    )
+                     if self.use_goruut_fallback:
+                         token.phoneme_source = PhonemeSource.GORUUT
+                     else:
+                         token.phoneme_source = PhonemeSource.ESPEAK
+                     token.phoneme_rating = rating
++                    token.language_metadata["frontend_profile"] = (
++                        self.frontend_profile.id
++                    )
+                     if metadata is not None:
+                         token.language_metadata.update(metadata)
+-
+             # Update context
+             ctx = self._update_context(ctx, token.phoneme, None)
+
+@@ -671,7 +775,13 @@ class EnglishG2P(G2PBase):
+             Phoneme string or None if not found.
+         """
+         ps, _ = self.lexicon(word, tag, None, None)
+-        return ps
++        if ps is None:
++            ps, _, _ = self._lookup_subtokens(word, tag, None)
++        return (
++            None
++            if ps is None
++            else finalize_english_phonemes(ps, profile=self.frontend_profile)
++        )
+
+     def lexicon_evidence(
+         self, word: str, tag: str | None = None
+diff --git a/kokorog2p/en/lexicon.py b/kokorog2p/en/lexicon.py
+index 0e96fe5..493bd07 100644
+--- a/kokorog2p/en/lexicon.py
++++ b/kokorog2p/en/lexicon.py
+@@ -11,6 +11,7 @@ from typing import Any, Final
+
+ from lexphon import DataStore
+
++from kokorog2p.en.phoneme_codec import DecodedPronunciation, decode_hit
+ from kokorog2p.lexicons.runtime import LexiconHit, SelectedLexicons, open_selected
+
+ # =============================================================================
+@@ -21,7 +22,7 @@ from kokorog2p.lexicons.runtime import LexiconHit, SelectedLexicons, open_select
+ LEXICON_ORDS: Final[list[int]] = [39, 45, *range(65, 91), *range(97, 123)]
+
+ # Consonants
+-CONSONANTS: Final[frozenset[str]] = frozenset("bdfhjklmnpstvwzðŋɡɹɾʃʒʤʧθ")
++CONSONANTS: Final[frozenset[str]] = frozenset("bdfhjklmnpstTvwzðŋɡɹɾʃʒʤʧθ")
+
+ # Vowels
+ VOWELS: Final[frozenset[str]] = frozenset("AIOQWYaiuæɑɒɔəɛɜɪʊʌᵻ")
+@@ -195,18 +196,17 @@ class Lexicon:
+         """Return only an exact selected lexical-layer hit."""
+         return self._selected_hit(word)
+
++    def _decoded_hit(
++        self, hit: LexiconHit, tag: str | None = None
++    ) -> DecodedPronunciation | None:
++        return decode_hit(hit, tag, british=self.british)
++
+     def pronunciation_from_hit(
+         self, hit: LexiconHit, tag: str | None = None
+     ) -> str | None:
+         """Decode a selected hit without invoking fallback or spelling rules."""
+-        value = hit.value
+-        if isinstance(value, Mapping):
+-            selected_tag = tag if tag in value else self.get_parent_tag(tag)
+-            value = value.get(selected_tag, value.get("DEFAULT"))
+-        elif isinstance(value, tuple):
+-            value = value[0] if value else None
+-        return value if isinstance(value, str) else None
+-
++        decoded = self._decoded_hit(hit, tag)
++        return None if decoded is None else decoded.pronunciation
+     @staticmethod
+     def _grow_dictionary(d: dict[str, Any]) -> dict[str, Any]:
+         """Expand dictionary with capitalization variants.
+@@ -258,19 +258,24 @@ class Lexicon:
+
+     def get_NNP(self, word: str) -> tuple[str | None, int | None]:
+         """Get phonemes for a proper noun by spelling."""
+-        ps = [
+-            hit.value if (hit := self._get_hit(c.upper())) is not None else None
+-            for c in word
+-            if c.isalpha()
+-        ]
++        ps: list[str | None] = []
++        for char in word:
++            if not char.isalpha():
++                continue
++            hit = self._get_hit(char.upper())
++            decoded = (
++                None
++                if hit is None
++                else self._decoded_hit(hit, "CHARACTER") or self._decoded_hit(hit)
++            )
++            ps.append(None if decoded is None else decoded.pronunciation)
+         if None in ps:
+             return None, None
+-        ps_str = apply_stress("".join(str(p) for p in ps if isinstance(p, str)), 0)
++        ps_str = apply_stress("".join(str(p) for p in ps), 0)
+         if ps_str is None:
+             return None, None
+         parts = ps_str.rsplit(SECONDARY_STRESS, 1)
+         return PRIMARY_STRESS.join(parts), 3
+-
+     def lookup(
+         self,
+         word: str,
+@@ -295,24 +300,24 @@ class Lexicon:
+             is_NNP = tag == "NNP"
+
+         hit = self._get_hit(word)
+-        ps = hit.value if hit is not None else None
++        if (
++            hit is not None
++            and ctx
++            and ctx.future_vowel is None
++            and isinstance(hit.value, Mapping)
++            and "None" in hit.value
++        ):
++            tag = "None"
++        decoded = None if hit is None else self._decoded_hit(hit, tag)
++        ps = None if decoded is None else decoded.pronunciation
+         rating = hit.rating if hit is not None and hit.rating is not None else 4
+-        if isinstance(ps, Mapping):
+-            if ctx and ctx.future_vowel is None and "None" in ps:
+-                tag = "None"
+-            elif tag not in ps:
+-                tag = self.get_parent_tag(tag)
+-            ps = ps.get(tag, ps.get("DEFAULT"))
+-        elif isinstance(ps, tuple):
+-            ps = ps[0] if ps else None
+-
+-        if ps is None or (is_NNP and PRIMARY_STRESS not in (ps or "")):
++
++        if ps is None or (is_NNP and PRIMARY_STRESS not in ps):
+             ps, rating = self.get_NNP(word)
+             if ps is not None:
+                 return ps, rating
+
+         return apply_stress(ps, stress), rating
+-
+     def close(self) -> None:
+         self._selected.close()
+
+@@ -346,10 +351,9 @@ class Lexicon:
+                 or (stress and stress > 0)
+             ):
+                 hit = self._get_hit("am")
++                decoded = None if hit is None else self._decoded_hit(hit)
+                 return (
+-                    hit.value
+-                    if hit is not None and isinstance(hit.value, str)
+-                    else None,
++                    None if decoded is None else decoded.pronunciation,
+                     hit.rating if hit is not None else 4,
+                 )
+             return ("ɐm", 4)
+@@ -364,10 +368,9 @@ class Lexicon:
+         elif word in ("to", "To") or (word == "TO" and tag in ("TO", "IN")):
+             if ctx is None or ctx.future_vowel is None:
+                 hit = self._get_hit("to")
++                decoded = None if hit is None else self._decoded_hit(hit)
+                 return (
+-                    hit.value
+-                    if hit is not None and isinstance(hit.value, str)
+-                    else None,
++                    None if decoded is None else decoded.pronunciation,
+                     hit.rating if hit is not None else 4,
+                 )
+             return ("tʊ" if ctx.future_vowel else "tə", 4)
+@@ -384,13 +387,18 @@ class Lexicon:
+             return self.lookup("versus", None, None, ctx)
+         elif word in ("used", "Used", "USED"):
+             hit = self._get_hit("used")
+-            used_dict = hit.value if hit is not None else None
+-            if isinstance(used_dict, Mapping):
+-                if tag in ("VBD", "JJ") and ctx and ctx.future_to:
+-                    return (used_dict.get("VBD"), 4)
+-                return (used_dict.get("DEFAULT"), 4)
+-        return (None, None)
++            if hit is not None:
++                selected_tag = (
++                    "VBD"
++                    if tag in ("VBD", "JJ") and ctx and ctx.future_to
++                    else None
++                )
++                decoded = self._decoded_hit(hit, selected_tag)
++                if decoded is not None:
++                    rating = hit.rating if hit.rating is not None else 4
++                    return decoded.pronunciation, rating
+
++        return (None, None)
+     # ==========================================================================
+     # Suffix handling
+     # ==========================================================================
+diff --git a/kokorog2p/en/phoneme_codec.py b/kokorog2p/en/phoneme_codec.py
+new file mode 100644
+index 0000000..ebf1f77
+--- /dev/null
++++ b/kokorog2p/en/phoneme_codec.py
+@@ -0,0 +1,193 @@
++"""English source-phoneme decoding and frontend compatibility profiles."""
++
++from __future__ import annotations
++
++import unicodedata
++from collections.abc import Mapping
++from dataclasses import dataclass
++
++from kokorog2p.lexicons.runtime import LexiconHit
++from kokorog2p.vocab import get_english_vocab
++
++
++@dataclass(frozen=True, slots=True)
++class EnglishFrontendProfile:
++    """Model-facing English realization rules independent of target model version."""
++
++    id: str
++    resolve_compound_stress: bool = True
++    legacy_flap_token: str | None = "T"
++    glottal_rewrite: str | None = "t"
++
++
++MISAKI_V1 = EnglishFrontendProfile(
++    id="hexgrad-misaki-v1",
++    resolve_compound_stress=True,
++    legacy_flap_token="T",
++    glottal_rewrite="t",
++)
++
++
++def selector_candidates(tag: str | None) -> tuple[str, ...]:
++    """Return ordered exact and parent selectors for an English POS tag."""
++    if tag is None:
++        return ()
++    if tag == "None":
++        return ("None",)
++    if tag.startswith("NNP"):
++        return (tag, "PROPN", "NOUN")
++    if tag.startswith("VB"):
++        return (tag, "VERB")
++    if tag.startswith("NN"):
++        return (tag, "NOUN")
++    if tag.startswith(("ADV", "RB")):
++        return (tag, "ADV")
++    if tag.startswith(("ADJ", "JJ")):
++        return (tag, "ADJ")
++    parent_map = {
++        "DET": ("DET", "ARTICLE"),
++        "PRP": ("PRP", "PRON"),
++        "PRP$": ("PRP$", "PRON"),
++        "AUX": ("AUX", "VERB"),
++        "ADP": ("ADP", "PREP"),
++        "IN": ("IN", "ADP", "PREP"),
++        "TO": ("TO", "PART"),
++        "CC": ("CC", "CCONJ"),
++        "CONJ": ("CONJ", "CCONJ"),
++        "SCONJ": ("SCONJ",),
++        "PART": ("PART",),
++        "INTJ": ("INTJ",),
++        "NUM": ("NUM",),
++        "CHARACTER": ("CHARACTER",),
++    }
++    return parent_map.get(tag, (tag,))
++
++def _source_scalar(value: object) -> str | None:
++    if isinstance(value, str):
++        return value
++    if isinstance(value, tuple) and value:
++        selected = value[0]
++        return selected if isinstance(selected, str) else None
++    return None
++
++
++
++def _tagged_items(value: object) -> tuple[tuple[object, object], ...] | None:
++    items = getattr(value, "items", None)
++    if items is None or callable(items):
++        return None
++    return tuple(items)
++
++
++
++def select_source_value(
++    value: object, tag: str | None = None
++) -> tuple[str | None, str | None]:
++    """Select a scalar pronunciation and its selector from a stored value."""
++    if isinstance(value, Mapping):
++        values = tuple(value.items())
++    else:
++        values = _tagged_items(value)
++    if values is not None:
++        for selector in (*selector_candidates(tag), "DEFAULT"):
++            for stored_selector, stored_value in values:
++                if stored_selector == selector:
++                    selected = _source_scalar(stored_value)
++                    if selected is not None:
++                        return selected, selector
++                    break
++        return None, None
++    selected = _source_scalar(value)
++    return selected, None
++
++
++def _replace_ipa_symbols(value: str, *, british: bool) -> str:
++    """Convert standard English IPA spellings to Kokoro's compact inventory."""
++    result = unicodedata.normalize("NFC", value)
++    result = result.replace("͡", "").replace("͜", "")
++    replacements = (
++        ("tʃ", "ʧ"),
++        ("dʒ", "ʤ"),
++        ("eɪ", "A"),
++        ("aɪ", "I"),
++        ("aʊ", "W"),
++        ("ɔɪ", "Y"),
++        ("oʊ", "Q" if british else "O"),
++        ("əʊ", "Q" if british else "O"),
++        ("ɝ", "ɜɹ"),
++        ("ɚ", "əɹ"),
++    )
++    for old, new in replacements:
++        result = result.replace(old, new)
++    result = result.replace("ɫ", "l").replace("ɻ", "ɹ")
++    result = result.replace("ʍ", "w")
++    result = result.replace("g", "ɡ").replace("r", "ɹ")
++    result = result.replace("ɐ", "ə")
++    result = result.replace("e", "ɛ").replace("a", "ɑ").replace("o", "ɔ")
++    for separator in ".-/()[]{}~‿|":
++        result = result.replace(separator, "")
++    result = "".join(char for char in result if not unicodedata.combining(char))
++    for modifier in "ʰʷʲ˞ⁿˠˤˀ⁽⁾":
++        result = result.replace(modifier, "")
++    if not british:
++        result = result.replace("ɒ", "ɑ").replace("ː", "")
++    return result
++
++
++def ipa_to_kokoro(value: str, *, british: bool = False) -> str:
++    """Decode English IPA into Kokoro's model-facing phoneme alphabet."""
++    result = _replace_ipa_symbols(value, british=british)
++    result = "".join(char for char in result if not char.isspace())
++    invalid = sorted(
++        {char for char in result if char not in _english_inventory(british)}
++    )
++    if invalid:
++        raise ValueError(
++            f"English IPA contains unsupported symbols: {''.join(invalid)}"
++        )
++    return result
++
++
++def _english_inventory(british: bool) -> frozenset[str]:
++    return get_english_vocab(british) | frozenset({"T", "ɾ", "ʔ"})
++
++
++def decode_hit(
++    hit: LexiconHit, tag: str | None = None, *, british: bool = False
++) -> DecodedPronunciation | None:
++    """Select and decode one lexical hit for model-facing use."""
++    source, selector = select_source_value(hit.value, tag)
++    if source is None:
++        return None
++    if hit.phoneme_encoding == "kokoro-v1":
++        decoded = source
++    elif hit.phoneme_encoding == "ipa":
++        decoded = ipa_to_kokoro(source, british=british)
++    else:
++        raise ValueError(
++            f"Unsupported English phoneme encoding: {hit.phoneme_encoding!r}"
++        )
++    if not all(char in _english_inventory(british) for char in decoded):
++        raise ValueError(
++            f"Decoded English pronunciation is not model-valid: {decoded!r}"
++        )
++    return DecodedPronunciation(source, decoded, selector, hit.phoneme_encoding)
++
++
++@dataclass(frozen=True, slots=True)
++class DecodedPronunciation:
++    source_pronunciation: str
++    pronunciation: str
++    selector: str | None
++    source_encoding: str
++
++
++__all__ = [
++    "MISAKI_V1",
++    "DecodedPronunciation",
++    "EnglishFrontendProfile",
++    "decode_hit",
++    "ipa_to_kokoro",
++    "select_source_value",
++    "selector_candidates",
++]
+diff --git a/kokorog2p/en/realization.py b/kokorog2p/en/realization.py
+new file mode 100644
+index 0000000..58c1df3
+--- /dev/null
++++ b/kokorog2p/en/realization.py
+@@ -0,0 +1,72 @@
++"""Shared model-facing English realization helpers."""
++
++from __future__ import annotations
++
++from collections.abc import Sequence
++
++from kokorog2p.en.lexicon import PRIMARY_STRESS, SECONDARY_STRESS, stress_weight
++from kokorog2p.en.phoneme_codec import MISAKI_V1, EnglishFrontendProfile
++from kokorog2p.en.subtokens import EnglishSubtoken
++from kokorog2p.vocab import get_english_vocab
++
++_FINAL_PROFILE_SYMBOLS = frozenset({"T"})
++
++
++def _demote_primary_stress(phonemes: str) -> str:
++    return phonemes.replace(PRIMARY_STRESS, SECONDARY_STRESS, 1)
++
++
++def resolve_compound_stress(
++    tokens: Sequence[EnglishSubtoken],
++    *,
++    british: bool = False,
++    profile: EnglishFrontendProfile = MISAKI_V1,
++) -> None:
++    """Balance primary stress across realized lexical compound subtokens."""
++    if not profile.resolve_compound_stress or len(tokens) < 2:
++        return
++    stressed = [
++        (index, token)
++        for index, token in enumerate(tokens)
++        if token.phonemes and PRIMARY_STRESS in token.phonemes
++    ]
++    if len(stressed) < 2:
++        return
++
++    candidates = stressed
++    if tokens[0].is_letter_name and len(candidates) > 1:
++        candidates = [item for item in candidates if item[0] != 0]
++    anchor_index, _ = max(
++        candidates,
++        key=lambda item: (stress_weight(item[1].phonemes), -item[0]),
++    )
++    for index, token in stressed:
++        if index != anchor_index and token.phonemes is not None:
++            token.phonemes = _demote_primary_stress(token.phonemes)
++
++
++def finalize_english_phonemes(
++    phonemes: str,
++    *,
++    profile: EnglishFrontendProfile = MISAKI_V1,
++) -> str:
++    """Apply the selected legacy frontend's final model-facing rewrites."""
++    result = phonemes
++    if profile.legacy_flap_token is not None:
++        result = result.replace("ɾ", profile.legacy_flap_token)
++    if profile.glottal_rewrite is not None:
++        result = result.replace("ʔ", profile.glottal_rewrite)
++    return result
++
++
++def validate_final_english_phonemes(phonemes: str, *, british: bool = False) -> bool:
++    """Check final English output against the target model's English inventory."""
++    vocabulary = get_english_vocab(british) | _FINAL_PROFILE_SYMBOLS
++    return all(char in vocabulary or char.isspace() for char in phonemes)
++
++
++__all__ = [
++    "finalize_english_phonemes",
++    "resolve_compound_stress",
++    "validate_final_english_phonemes",
++]
+diff --git a/kokorog2p/en/subtokens.py b/kokorog2p/en/subtokens.py
+new file mode 100644
+index 0000000..8e1b43e
+--- /dev/null
++++ b/kokorog2p/en/subtokens.py
+@@ -0,0 +1,63 @@
++"""Unicode-aware lexical subtokenization for English frontend realization."""
++
++from __future__ import annotations
++
++import unicodedata
++from dataclasses import dataclass
++
++
++@dataclass(slots=True)
++class EnglishSubtoken:
++    """One lexical part of a whitespace-free English source token."""
++
++    text: str
++    start: int
++    end: int
++    phonemes: str | None = None
++    source: str | None = None
++
++    @property
++    def is_letter_name(self) -> bool:
++        return len(self.text) == 1 and self.text.isalpha()
++
++
++def _is_word_character(char: str) -> bool:
++    return char.isalnum() or unicodedata.category(char).startswith("L")
++
++
++def split_english_lexical_token(text: str) -> tuple[EnglishSubtoken, ...]:
++    """Split one token at Unicode, case, digit, and punctuation boundaries."""
++    result: list[EnglishSubtoken] = []
++    start: int | None = None
++
++    def flush(end: int) -> None:
++        nonlocal start
++        if start is not None and start < end:
++            result.append(EnglishSubtoken(text[start:end], start, end))
++        start = None
++
++    for index, char in enumerate(text):
++        if not _is_word_character(char):
++            flush(index)
++            continue
++        if start is None:
++            start = index
++            continue
++        previous = text[index - 1]
++        next_char = text[index + 1] if index + 1 < len(text) else ""
++        if (
++            char.isdigit() != previous.isdigit()
++            or (previous.islower() and char.isupper())
++            or (
++                previous.isupper()
++                and char.isupper()
++                and next_char.islower()
++            )
++        ):
++            flush(index)
++            start = index
++    flush(len(text))
++    return tuple(result)
++
++
++__all__ = ["EnglishSubtoken", "split_english_lexical_token"]
+diff --git a/kokorog2p/lexicons/registry.py b/kokorog2p/lexicons/registry.py
+index 9fc0071..99d8542 100644
+--- a/kokorog2p/lexicons/registry.py
++++ b/kokorog2p/lexicons/registry.py
+@@ -54,8 +54,26 @@ def _external_spec(
+
+
+ _EXTERNAL_SPECS_BY_LANGUAGE: dict[str, tuple[LexiconSpec, ...]] = {
+-    "en-us": (_external_spec("en-us", "gold", rating=4, phoneme_encoding="kokoro-v1"),),
+-    "en-gb": (_external_spec("en-gb", "gold", rating=4, phoneme_encoding="kokoro-v1"),),
++    "en-us": (
++        _external_spec("en-us", "gold", rating=4, phoneme_encoding="kokoro-v1"),
++        _external_spec(
++            "en-us",
++            "lexhint",
++            rating=None,
++            default_priority=None,
++            phoneme_encoding="ipa",
++        ),
++    ),
++    "en-gb": (
++        _external_spec("en-gb", "gold", rating=4, phoneme_encoding="kokoro-v1"),
++        _external_spec(
++            "en-gb",
++            "lexhint",
++            rating=None,
++            default_priority=None,
++            phoneme_encoding="ipa",
++        ),
++    ),
+     "fr-fr": (_external_spec("fr-fr", "gold", rating=4, phoneme_encoding="kokoro-v1"),),
+     "de-de": (
+         _external_spec("de-de", "gold", rating=4),
+diff --git a/tests/data/en_gold_contract_valid.json b/tests/data/en_gold_contract_valid.json
+new file mode 100644
+index 0000000..0b01da2
+--- /dev/null
++++ b/tests/data/en_gold_contract_valid.json
+@@ -0,0 +1,35 @@
++{
++  "entries": {
++    "A": "ˈA",
++    "B": "ˈA",
++    "C": "ˈA",
++    "D": "ˈA",
++    "E": "ˈA",
++    "F": "ˈA",
++    "G": "ˈA",
++    "H": "ˈA",
++    "I": "ˈA",
++    "J": "ˈA",
++    "K": "ˈA",
++    "L": "ˈA",
++    "M": "ˈA",
++    "N": "ˈA",
++    "O": "ˈA",
++    "P": "ˈA",
++    "Q": "ˈA",
++    "R": "ˈA",
++    "S": "ˈA",
++    "T": "ˈA",
++    "U": "ˈA",
++    "V": "ˈA",
++    "W": "ˈA",
++    "X": "ˈA",
++    "Y": "ˈA",
++    "Z": "ˈA",
++    "am": "əm",
++    "to": "tu",
++    "used": {"DEFAULT": "juzd", "VBD": "juzd"},
++    "versus": "vɜɹsəs",
++    "read": {"VERB": "ɹid", "DEFAULT": "ɹɛd"}
++  }
++}
+diff --git a/tests/test_en_compound_stress.py b/tests/test_en_compound_stress.py
+new file mode 100644
+index 0000000..6b30b4b
+--- /dev/null
++++ b/tests/test_en_compound_stress.py
+@@ -0,0 +1,36 @@
++from kokorog2p.en.realization import resolve_compound_stress
++from kokorog2p.en.subtokens import EnglishSubtoken
++
++
++def test_compound_keeps_strongest_primary_stress() -> None:
++    tokens = [
++        EnglishSubtoken("black", 0, 5, "ˈblæk"),
++        EnglishSubtoken("bird", 5, 9, "ˈbɜɹd"),
++    ]
++    resolve_compound_stress(tokens)
++    assert tokens[0].phonemes == "ˈblæk"
++    assert tokens[1].phonemes == "ˌbɜɹd"
++
++
++def test_single_letter_first_subtoken_is_not_compound_anchor() -> None:
++    tokens = [
++        EnglishSubtoken("A", 0, 1, "ˈA"),
++        EnglishSubtoken("Word", 1, 5, "ˈwɜɹd"),
++    ]
++    resolve_compound_stress(tokens)
++    assert tokens[0].phonemes == "ˌA"
++    assert tokens[1].phonemes == "ˈwɜɹd"
++
++
++def test_compound_resolution_is_profile_controlled() -> None:
++    from kokorog2p.en.phoneme_codec import EnglishFrontendProfile
++
++    tokens = [
++        EnglishSubtoken("black", 0, 5, "ˈblæk"),
++        EnglishSubtoken("bird", 5, 9, "ˈbɜɹd"),
++    ]
++    resolve_compound_stress(
++        tokens,
++        profile=EnglishFrontendProfile("disabled", resolve_compound_stress=False),
++    )
++    assert [token.phonemes for token in tokens] == ["ˈblæk", "ˈbɜɹd"]
+diff --git a/tests/test_en_frontend_finalize.py b/tests/test_en_frontend_finalize.py
+new file mode 100644
+index 0000000..776ea85
+--- /dev/null
++++ b/tests/test_en_frontend_finalize.py
+@@ -0,0 +1,24 @@
++from kokorog2p.en.phoneme_codec import MISAKI_V1, EnglishFrontendProfile
++from kokorog2p.en.realization import (
++    finalize_english_phonemes,
++    validate_final_english_phonemes,
++)
++
++
++def test_misaki_v1_finalization_rewrites_flap_and_glottal() -> None:
++    assert finalize_english_phonemes("ɹɾʔ", profile=MISAKI_V1) == "ɹTt"
++
++
++def test_finalization_profile_can_disable_legacy_rewrites() -> None:
++    profile = EnglishFrontendProfile(
++        "modern",
++        legacy_flap_token=None,
++        glottal_rewrite=None,
++    )
++    assert finalize_english_phonemes("ɹɾʔ", profile=profile) == "ɹɾʔ"
++
++
++def test_final_output_validation_includes_legacy_flap_token() -> None:
++    assert validate_final_english_phonemes("ˈlOɹdT")
++    assert not validate_final_english_phonemes("Q")
++    assert validate_final_english_phonemes("Q", british=True)
+diff --git a/tests/test_en_gold_contract.py b/tests/test_en_gold_contract.py
+new file mode 100644
+index 0000000..0c7a2c6
+--- /dev/null
++++ b/tests/test_en_gold_contract.py
+@@ -0,0 +1,47 @@
++from kokorog2p.en.phoneme_codec import select_source_value
++from tools.audit_en_gold_misaki_contract import audit_entries
++
++
++class TaggedValueLike:
++    def __init__(self, *items: tuple[str, object]) -> None:
++        self.items = items
++
++def _valid_fixture() -> dict[str, object]:
++    entries: dict[str, object] = {
++        letter: "ˈA" for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
++    }
++    entries.update(
++        {
++            "am": "əm",
++            "to": "tu",
++            "used": {"DEFAULT": "juːzd", "VBD": "juːzd"},
++            "versus": "vɜɹsəs",
++            "read": {"VERB": "ɹid", "DEFAULT": "ɹɛd"},
++        }
++    )
++    return entries
++
++
++def test_gold_contract_accepts_g2lex_tagged_values() -> None:
++    tagged = TaggedValueLike(("DEFAULT", "jˈuzd"), ("VBD", None))
++    assert select_source_value(tagged, "VBD") == ("jˈuzd", "DEFAULT")
++    assert audit_entries({**_valid_fixture(), "used": tagged}) == ()
++
++def test_gold_contract_fixture_passes() -> None:
++    assert audit_entries(_valid_fixture()) == ()
++
++
++def test_gold_contract_reports_stage_aware_findings() -> None:
++    entries = _valid_fixture()
++    del entries["A"]
++    entries["read"] = {"VERB": "ɹid"}
++    entries["broken"] = "hɛ§lo"
++    findings = audit_entries(entries)
++    assert {finding["stage"] for finding in findings} == {
++        "encoding",
++        "selector",
++        "spelling",
++    }
++    assert any(finding["key"] == "read" for finding in findings)
++    assert any(finding["key"] == "broken" for finding in findings)
++    assert any(finding["key"] == "A" for finding in findings)
+diff --git a/tests/test_en_lexicon.py b/tests/test_en_lexicon.py
+index c05197b..1bc0fa4 100644
+--- a/tests/test_en_lexicon.py
++++ b/tests/test_en_lexicon.py
+@@ -28,12 +28,12 @@ class FakeSelected:
+
+
+ def test_lookup_uses_one_external_gold_layer(monkeypatch) -> None:
+-    selected = FakeSelected({"hello": "hɛˈloʊ", "word": "wɝːd"})
++    selected = FakeSelected({"hello": "hɛˈlO", "word": "wɜɹd"})
+     monkeypatch.setattr(en_lexicon, "open_selected", lambda *args, **kwargs: selected)
+
+     lexicon = Lexicon(british=False, lexicons=("gold",))
+     assert lexicon.lexicons == ("gold",)
+-    assert lexicon.lookup("hello") == ("hɛˈloʊ", 4)
++    assert lexicon.lookup("hello") == ("hɛˈlO", 4)
+     assert lexicon.lookup("missing") == (None, None)
+     lexicon.close()
+
+@@ -55,10 +55,10 @@ def test_no_lexicon_selection_does_not_require_external_data(monkeypatch) -> Non
+
+
+ def test_mapping_values_support_tag_selection(monkeypatch) -> None:
+-    selected = FakeSelected({"read": {"VERB": "ɹiːd", "DEFAULT": "ɹɛd"}})
++    selected = FakeSelected({"read": {"VERB": "ɹid", "DEFAULT": "ɹɛd"}})
+     monkeypatch.setattr(en_lexicon, "open_selected", lambda *args, **kwargs: selected)
+
+     lexicon = Lexicon(lexicons=("gold",))
+-    assert lexicon.lookup("read", tag="VBP") == ("ɹiːd", 4)
++    assert lexicon.lookup("read", tag="VBP") == ("ɹid", 4)
+     assert lexicon.lookup("read", tag="NN") == ("ɹɛd", 4)
+     lexicon.close()
+diff --git a/tests/test_en_misaki_contract.py b/tests/test_en_misaki_contract.py
+new file mode 100644
+index 0000000..244e16c
+--- /dev/null
++++ b/tests/test_en_misaki_contract.py
+@@ -0,0 +1,106 @@
++import json
++from pathlib import Path
++
++import pytest
++
++from kokorog2p.en import EnglishG2P
++from kokorog2p.en import lexicon as en_lexicon
++from kokorog2p.lexicons.runtime import LexiconHit
++
++
++class FakeSelected:
++    def __init__(self, values: dict[str, object]) -> None:
++        self.values = values
++
++    def get_hit(self, word: str) -> LexiconHit | None:
++        if word not in self.values:
++            return None
++        return LexiconHit(
++            value=self.values[word],
++            name="lexhint",
++            rating=None,
++            kind="pronunciation",
++            phoneme_encoding="ipa",
++            lexicon_id="en-us:lexhint",
++            metadata={"id": "en-us:lexhint"},
++        )
++
++    def __contains__(self, word: object) -> bool:
++        return word in self.values
++
++    def close(self) -> None:
++        pass
++
++
++def _g2p(monkeypatch: pytest.MonkeyPatch) -> EnglishG2P:
++    selected = FakeSelected(
++        {
++            "apple": "ˈæpəl",
++            "eat": "iːt",
++            "hello": "həˈloʊ",
++            "camel": "ˈkæməl",
++            "aa": "ˈɑ.ɑ",
++            "case": "ˈkeɪs",
++            "A": {"CHARACTER": "eɪ", "DEFAULT": "eɪ"},
++            "B": {"CHARACTER": "bi", "DEFAULT": "bi"},
++            "to": "tu",
++        }
++    )
++    monkeypatch.setattr(en_lexicon, "open_selected", lambda *args, **kwargs: selected)
++    return EnglishG2P(
++        language="en-us",
++        lexicons=("lexhint",),
++        use_spacy=False,
++        use_espeak_fallback=False,
++    )
++
++
++def test_lexhint_uses_common_codec_and_compound_realizer(
++    monkeypatch: pytest.MonkeyPatch,
++) -> None:
++    g2p = _g2p(monkeypatch)
++    try:
++        assert g2p.lookup("hello") == "həˈlO"
++        assert g2p.lookup("aa") == "ˈɑɑ"
++        assert g2p.lookup("CamelCase") == "ˈkæməlˌkAs"
++        spelling = g2p.lexicon.get_NNP("AB")[0]
++        assert spelling is not None
++        assert "eɪ" not in spelling
++    finally:
++        g2p.close()
++
++
++def test_context_uses_decoded_phonemes_and_resets_at_punctuation(
++    monkeypatch: pytest.MonkeyPatch,
++) -> None:
++    g2p = _g2p(monkeypatch)
++    try:
++        assert [token.phonemes for token in g2p("the apple") if token.text.strip()] == [
++            "ði",
++            "ˈæpəl",
++        ]
++        actual = [token.phonemes for token in g2p("the, apple") if token.text.strip()]
++        assert actual == [
++            "ðə",
++            ",",
++            "ˈæpəl",
++        ]
++        assert [token.phonemes for token in g2p("to eat") if token.text.strip()] == [
++            "tʊ",
++            "it",
++        ]
++    finally:
++        g2p.close()
++
++
++def test_contract_corpus_contains_stage_schema() -> None:
++    path = Path("benchmarks/reference/data/en_us_misaki_contract_v1.json")
++    payload = json.loads(path.read_text(encoding="utf-8"))
++    assert payload["metadata"]["stage_schema"] == [
++        "source_selection",
++        "source_decoding",
++        "derived_pronunciation",
++        "compound_stress",
++        "final_pronunciation",
++    ]
++    assert len(payload["cases"]) >= 40
+diff --git a/tests/test_en_subtokens.py b/tests/test_en_subtokens.py
+new file mode 100644
+index 0000000..392aa95
+--- /dev/null
++++ b/tests/test_en_subtokens.py
+@@ -0,0 +1,42 @@
++from kokorog2p.en.subtokens import split_english_lexical_token
++
++
++def test_split_camel_case_and_acronym_boundaries() -> None:
++    assert [item.text for item in split_english_lexical_token("CamelCase")] == [
++        "Camel",
++        "Case",
++    ]
++    assert [item.text for item in split_english_lexical_token("ABCWord")] == [
++        "ABC",
++        "Word",
++    ]
++    assert [item.text for item in split_english_lexical_token("wordABC")] == [
++        "word",
++        "ABC",
++    ]
++
++
++def test_split_delimiters_and_letter_digit_boundaries() -> None:
++    assert [item.text for item in split_english_lexical_token("GitHub-style")] == [
++        "Git",
++        "Hub",
++        "style",
++    ]
++    actual = [
++        item.text
++        for item in split_english_lexical_token("mixed_letter9_groups")
++    ]
++    assert actual == [
++        "mixed",
++        "letter",
++        "9",
++        "groups",
++    ]
++
++
++def test_subtoken_offsets_are_source_offsets() -> None:
++    subtokens = split_english_lexical_token("A-B")
++    assert [(item.text, item.start, item.end) for item in subtokens] == [
++        ("A", 0, 1),
++        ("B", 2, 3),
++    ]
+diff --git a/tests/test_lexicon_registry.py b/tests/test_lexicon_registry.py
+index 0b558d8..83c3370 100644
+--- a/tests/test_lexicon_registry.py
++++ b/tests/test_lexicon_registry.py
+@@ -6,8 +6,8 @@ from kokorog2p.lexicons import (
+
+
+ def test_consolidated_english_and_french_registry() -> None:
+-    assert available_lexicons("en-us") == ("gold",)
+-    assert available_lexicons("en-gb") == ("gold",)
++    assert available_lexicons("en-us") == ("gold", "lexhint")
++    assert available_lexicons("en-gb") == ("gold", "lexhint")
+     assert available_lexicons("fr-fr") == ("gold",)
+     assert get_lexicon_spec("en-us", "gold").id == "en-us:gold"
+     assert get_lexicon_spec("en-gb", "gold").id == "en-gb:gold"
+@@ -39,7 +39,7 @@ def test_silver_is_not_an_english_option() -> None:
+         try:
+             normalize_lexicon_selection(language, "silver")
+         except ValueError as exc:
+-            assert "Available lexicons: gold" in str(exc)
++            assert "Available lexicons: gold, lexhint" in str(exc)
+         else:
+             raise AssertionError("silver was accepted")
+
+diff --git a/tools/audit_en_gold_misaki_contract.py b/tools/audit_en_gold_misaki_contract.py
+new file mode 100644
+index 0000000..de8cac3
+--- /dev/null
++++ b/tools/audit_en_gold_misaki_contract.py
+@@ -0,0 +1,173 @@
++#!/usr/bin/env python3
++"""Audit a consolidated English gold asset against the frontend contract."""
++
++from __future__ import annotations
++
++import argparse
++import json
++import sys
++from collections.abc import Mapping
++from pathlib import Path
++
++from kokorog2p.vocab import get_vocab
++
++_REQUIRED_BACKING_ENTRIES = ("am", "to", "used", "versus")
++_LETTERS = tuple("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
++
++
++def _finding(stage: str, key: str, message: str) -> dict[str, str]:
++    return {"stage": stage, "key": key, "message": message}
++
++def _valid_pronunciation(value: str) -> bool:
++    vocabulary = get_vocab()
++    return bool(value) and all(char in vocabulary for char in value)
++
++def _selector_items(
++    value: object,
++) -> tuple[tuple[object, object], ...] | None:
++    if isinstance(value, Mapping):
++        return tuple(value.items())
++    items = getattr(value, "items", None)
++    if items is None or callable(items):
++        return None
++    return tuple(items)
++
++
++
++def _audit_value(
++    key: str,
++    value: object,
++    selector: str = "DEFAULT",
++) -> list[dict[str, str]]:
++    if value is None:
++        return []
++    if not isinstance(value, str):
++        return [_finding("shape", key, f"{selector} value is not a string")]
++    if not _valid_pronunciation(value):
++        invalid = "".join(sorted({char for char in value if char not in get_vocab()}))
++        return [_finding("encoding", key, f"unsupported symbols: {invalid}")]
++    return []
++
++
++
++def audit_entries(entries: Mapping[str, object]) -> tuple[dict[str, str], ...]:
++    """Return stage-aware findings for one consolidated gold mapping."""
++    findings: list[dict[str, str]] = []
++    for key, value in entries.items():
++        if not isinstance(key, str) or not key:
++            findings.append(
++                _finding(
++                    "shape",
++                    str(key),
++                    "lexical key must be non-empty text",
++                )
++            )
++            continue
++        selector_items = _selector_items(value)
++        if selector_items is not None:
++            selectors = tuple(selector for selector, _ in selector_items)
++            if any(not isinstance(selector, str) for selector in selectors):
++                findings.append(
++                    _finding(
++                        "selector",
++                        key,
++                        "selector names must be strings",
++                    )
++                )
++            if "DEFAULT" not in selectors and len(key) != 1:
++                findings.append(
++                    _finding(
++                        "selector",
++                        key,
++                        "tagged entry has no usable DEFAULT",
++                    )
++                )
++            for selector, selected in selector_items:
++                findings.extend(_audit_value(key, selected, str(selector)))
++        elif isinstance(value, tuple):
++            if len(value) != 1:
++                findings.append(
++                    _finding(
++                        "shape",
++                        key,
++                        "tuple pronunciation must contain one value",
++                    )
++                )
++            else:
++                findings.extend(_audit_value(key, value[0]))
++        else:
++            findings.extend(_audit_value(key, value))
++
++    for key in _REQUIRED_BACKING_ENTRIES:
++        if key not in entries:
++            findings.append(
++                _finding(
++                    "special_case",
++                    key,
++                    "required special-case backing entry is missing",
++                )
++            )
++    for key in _LETTERS:
++        if key not in entries:
++            findings.append(_finding("spelling", key, "letter-name entry is missing"))
++    return tuple(findings)
++
++
++def _load_fixture(path: Path) -> Mapping[str, object]:
++    payload = json.loads(path.read_text(encoding="utf-8"))
++    entries = payload.get("entries", payload) if isinstance(payload, Mapping) else None
++    if not isinstance(entries, Mapping):
++        raise TypeError(
++            "fixture must contain an object mapping lexical keys to values"
++        )
++    return entries
++
++
++def _load_external(language: str) -> Mapping[str, object]:
++    from kokorog2p.en.lexicon import Lexicon
++
++    lexicon = Lexicon(british=language == "en-gb", lexicons=("gold",))
++    try:
++        entries = lexicon._selected.layer("gold")
++        if entries is None:
++            raise ValueError("selected gold layer is unavailable")
++        return dict(entries)
++    finally:
++        lexicon.close()
++
++
++def build_parser() -> argparse.ArgumentParser:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--language", choices=("en-us", "en-gb"), default="en-us")
++    parser.add_argument(
++        "--fixture",
++        type=Path,
++        help="JSON fixture containing an entries mapping",
++    )
++    return parser
++
++
++def main(argv: list[str] | None = None) -> int:
++    args = build_parser().parse_args(argv)
++    try:
++        entries = (
++            _load_fixture(args.fixture)
++            if args.fixture
++            else _load_external(args.language)
++        )
++        findings = audit_entries(entries)
++    except (OSError, ValueError, json.JSONDecodeError) as exc:
++        print(f"gold contract audit error: {exc}", file=sys.stderr)
++        return 2
++    print(
++        json.dumps(
++            {"language": args.language, "findings": findings},
++            ensure_ascii=False,
++            indent=2,
++        )
++    )
++    return 1 if findings else 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
