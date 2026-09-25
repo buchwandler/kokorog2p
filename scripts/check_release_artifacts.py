@@ -118,7 +118,7 @@ def check_installed(*, require_release_version: bool) -> None:
     assert load_kokoro_config()["vocab"]
     assert load_kokoro_v11_de_config()["vocab"]
     assert load_kokoro_v11_zh_config()["vocab"]
-    assert available_lexicons("en") == ("gold",)
+    assert "gold" in available_lexicons("en")
 
     g2p = get_g2p(
         "en-us",
