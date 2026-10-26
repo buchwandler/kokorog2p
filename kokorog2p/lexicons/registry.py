@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from types import MappingProxyType
 
 
@@ -18,6 +19,25 @@ class LexiconSpec:
     id: str
     default_priority: int | None
     backend: str
+
+
+@dataclass(frozen=True, slots=True)
+class NamedLexiconSource:
+    """A lexicon selected by its registered name."""
+
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
+class FileLexiconSource:
+    """A content-pinned or explicitly local G2Lex file source."""
+
+    path: str | Path
+    sha256: str | None = None
+    logical_sha256: str | None = None
+
+
+LexiconSource = NamedLexiconSource | FileLexiconSource
 
 
 def _external_spec(
@@ -213,7 +233,10 @@ def iter_lexicon_specs() -> tuple[LexiconSpec, ...]:
 
 
 __all__ = [
+    "FileLexiconSource",
+    "LexiconSource",
     "LexiconSpec",
+    "NamedLexiconSource",
     "available_lexicons",
     "get_lexicon_spec",
     "iter_lexicon_specs",

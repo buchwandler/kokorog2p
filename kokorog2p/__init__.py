@@ -136,7 +136,7 @@ _G2PCacheInfo = namedtuple("_G2PCacheInfo", "size maxsize policy")
 
 
 _FACTORY_KWARGS_BY_LANGUAGE = {
-    "en": frozenset({"unk", "store"}),
+    "en": frozenset({"unk", "store", "g2lex_files", "resolve_heteronyms"}),
     "fr": frozenset({"unk", "store"}),
     "de": frozenset({"use_lexicon", "strip_stress", "store"}),
     "cs": frozenset({"unk"}),
@@ -456,12 +456,13 @@ def get_g2p(  # noqa: C901
         kwargs_key,
     )
 
-    with _g2p_cache_lock:
-        cached = _g2p_cache.get(cache_key)
-        if cached is not None:
-            _g2p_cache.move_to_end(cache_key)
-            return cached
-
+    cacheable = not bool(kwargs.get("g2lex_files"))
+    if cacheable:
+        with _g2p_cache_lock:
+            cached = _g2p_cache.get(cache_key)
+            if cached is not None:
+                _g2p_cache.move_to_end(cache_key)
+                return cached
     # Create G2P instance based on language and backend
     g2p: G2PBase
     extra_kwargs: dict[str, Any] = (
@@ -729,18 +730,19 @@ def get_g2p(  # noqa: C901
             "Use 'espeak' or 'goruut' backend for more languages."
         )
 
-    with _g2p_cache_lock:
-        # A second lookup protects identity if another thread constructed the
-        # same key while this instance was being initialized.
-        cached = _g2p_cache.get(cache_key)
-        if cached is not None:
+    if cacheable:
+        with _g2p_cache_lock:
+            # A second lookup protects identity if another thread constructed the
+            # same key while this instance was being initialized.
+            cached = _g2p_cache.get(cache_key)
+            if cached is not None:
+                _g2p_cache.move_to_end(cache_key)
+                return cached
+            _g2p_cache[cache_key] = g2p
             _g2p_cache.move_to_end(cache_key)
-            return cached
-        _g2p_cache[cache_key] = g2p
-        _g2p_cache.move_to_end(cache_key)
-        while len(_g2p_cache) > _G2P_CACHE_MAXSIZE:
-            _evicted_key, evicted = _g2p_cache.popitem(last=False)
-            evicted.close()
+            while len(_g2p_cache) > _G2P_CACHE_MAXSIZE:
+                _evicted_key, evicted = _g2p_cache.popitem(last=False)
+                evicted.close()
 
     return g2p
 

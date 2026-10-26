@@ -207,6 +207,19 @@ def _build_gtoken_meta(token: "GToken") -> dict[str, object]:
     source_kind = token.get("source_kind")
     if source_kind:
         meta["source_kind"] = source_kind
+    for key in (
+        "pronunciation_source",
+        "pronunciation_provider",
+        "pronunciation_lexicon_id",
+        "pronunciation_source_details",
+        "pronunciation_requested_language",
+        "pronunciation_source_ipa",
+        "pronunciation_language_markers",
+        "heteronym_resolution",
+    ):
+        value = token.get(key)
+        if value is not None:
+            meta[key] = value
     meta["whitespace"] = token.whitespace
     return meta
 

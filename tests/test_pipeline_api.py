@@ -12,6 +12,7 @@ from kokorog2p.pipeline_api import (
     _phonemize_token_spans,
     phonemize_to_result,
 )
+from kokorog2p.token import GToken
 from kokorog2p.types import OverrideSpan, TokenAnnotation, TokenSpan
 
 
@@ -138,6 +139,68 @@ def test_prepared_linguistic_metadata_does_not_change_auto_route() -> None:
         ]
     )
     assert annotated.tokens[0].meta["tag"] == "NN"
+
+
+def test_prepared_live_heteronyms_use_supplied_verb_and_adjective_tags():
+    class TaggedLiveG2P(_EchoG2P):
+        def __init__(self):
+            super().__init__()
+            self.lookups = []
+
+        def __call__(self, text):
+            self.calls.append(text)
+            matches = list(re.finditer(r"\w+|[^\w\s]", text))
+            return [
+                GToken(
+                    text=match.group(),
+                    tag="WORD" if match.group().isalnum() else match.group(),
+                    whitespace=text[match.end() : matches[index + 1].start()]
+                    if index + 1 < len(matches)
+                    else "",
+                    phonemes=match.group().upper(),
+                )
+                for index, match in enumerate(matches)
+            ]
+
+        def lookup(self, word, tag=None):
+            self.lookups.append((word, tag))
+            return {"VBP": "lɪv", "JJ": "laɪv"}.get(tag)
+
+    g2p = TaggedLiveG2P()
+    cases = (
+        (
+            "I live here.",
+            TokenAnnotation(
+                2,
+                6,
+                "live",
+                pos="VERB",
+                tag="VBP",
+                lemma="live",
+                morph="Tense=Pres|VerbForm=Fin",
+            ),
+            "lɪv",
+        ),
+        (
+            "a live show",
+            TokenAnnotation(2, 6, "live", pos="ADJ", tag="JJ", lemma="live"),
+            "laɪv",
+        ),
+    )
+    for text, annotation, expected in cases:
+        result = phonemize_prepared(
+            text,
+            language="en-us",
+            annotations=[annotation],
+            g2p=g2p,
+            language_routing={"mode": "off", "languages": ("en-us",)},
+            return_ids=False,
+            use_spacy=False,
+        )
+        live = next(token for token in result.tokens if token.text == "live")
+        assert live.meta["tag"] == annotation.tag
+        assert live.meta["phonemes"] == expected
+        assert g2p.lookups[-1] == ("live", annotation.tag)
 
 
 @pytest.mark.parametrize("language", ["de", "en"])

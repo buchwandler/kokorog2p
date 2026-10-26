@@ -12,7 +12,12 @@ from typing import Any, Final
 from lexphon import DataStore
 
 from kokorog2p.en.phoneme_codec import DecodedPronunciation, decode_hit
-from kokorog2p.lexicons.runtime import LexiconHit, SelectedLexicons, open_selected
+from kokorog2p.lexicons.registry import FileLexiconSource, NamedLexiconSource
+from kokorog2p.lexicons.runtime import (
+    LexiconHit,
+    open_selected,
+    open_sources,
+)
 
 # =============================================================================
 # Constants
@@ -172,6 +177,7 @@ class Lexicon:
         skip_is_known: bool = False,
         store: DataStore | None = None,
         lexicons: Sequence[str] | None = None,
+        g2lex_files: Sequence[FileLexiconSource] | None = None,
     ) -> None:
         """Initialize the lexicon."""
         self.british = british
@@ -179,8 +185,14 @@ class Lexicon:
         self.cap_stresses = (0.5, 2)
         language = "en-gb" if british else "en-us"
         names = ("gold",) if lexicons is None else tuple(lexicons)
+        files = tuple(g2lex_files or ())
         self.lexicons = names
-        self._selected: SelectedLexicons = open_selected(language, names, store=store)
+        self.g2lex_files = files
+        if files:
+            sources = (*files, *(NamedLexiconSource(name) for name in names))
+            self._selected = open_sources(language, sources, store=store)
+        else:
+            self._selected = open_selected(language, names, store=store)
 
     def _selected_hit(self, word: str) -> LexiconHit | None:
         return self._selected.get_hit(word)

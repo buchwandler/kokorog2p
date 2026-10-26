@@ -1,16 +1,20 @@
 """English G2P (Grapheme-to-Phoneme) converter."""
 
+from collections.abc import Sequence
+
 from lexphon import DataStore, ProviderError
 
 from kokorog2p._optional import load_spacy_model
 from kokorog2p.base import G2PBase
+from kokorog2p.en.heteronyms import HeteronymDecision, resolve_english_heteronym
 from kokorog2p.en.lexicon import Lexicon, TokenContext
 from kokorog2p.en.normalizer import EnglishNormalizer
-from kokorog2p.en.phoneme_codec import MISAKI_V1
+from kokorog2p.en.phoneme_codec import MISAKI_V1, ipa_to_kokoro
 from kokorog2p.en.realization import finalize_english_phonemes, resolve_compound_stress
 from kokorog2p.en.subtokens import EnglishSubtoken, split_english_lexical_token
 from kokorog2p.lexicons.evidence import LexiconEvidence
 from kokorog2p.lexicons.lexphon_backend import LexphonBackend, provider_metadata
+from kokorog2p.lexicons.registry import FileLexiconSource
 from kokorog2p.phonemes import from_espeak, from_goruut
 from kokorog2p.pipeline.models import PhonemeSource, ProcessedText
 from kokorog2p.pipeline.tokenizer import RegexTokenizer, SpacyTokenizer
@@ -43,9 +47,11 @@ class EnglishG2P(G2PBase):
         phoneme_quotes: str = "curly",
         unk: str = "❓",
         lexicons: tuple[str, ...] | None = None,
+        g2lex_files: tuple[FileLexiconSource, ...] | None = None,
         store: DataStore | None = None,
         strict: bool = True,
         version: str = "1.0",
+        resolve_heteronyms: bool = True,
     ) -> None:
         """Initialize the English G2P converter.
 
@@ -55,6 +61,9 @@ class EnglishG2P(G2PBase):
             use_goruut_fallback: Whether to use goruut for OOV words.
             use_cli: Retained for direct backend compatibility. It does not select
                 the Lexphon-owned native fallback provider.
+            lexicons: Ordered registered named lexicons.
+            g2lex_files: Ordered local G2Lex references, taking precedence over named
+                lexicons.
             use_spacy: Whether to use spaCy for tokenization and POS tagging.
             spacy_model: spaCy English model package to load when use_spacy=True
                 (e.g., "en_core_web_sm", "en_core_web_md", "en_core_web_lg").
@@ -70,6 +79,8 @@ class EnglishG2P(G2PBase):
             version: Model version ("1.0" for multilingual model, "1.1" for
             Chinese model).
                 Defaults to "1.0".
+            resolve_heteronyms: Enable deterministic contextual readings for selected
+                English heteronyms. Explicit local G2Lex entries retain priority.
         Raises:
             ValueError: If both use_espeak_fallback and use_goruut_fallback are True.
         """
@@ -90,6 +101,7 @@ class EnglishG2P(G2PBase):
 
         self.version = version
         self.frontend_profile = MISAKI_V1
+        self.resolve_heteronyms = resolve_heteronyms
         self.unk = unk
         if use_spacy and (spacy_model is None or spacy_model.lower() == "auto"):
             spacy_model = resolve_spacy_model(
@@ -105,6 +117,7 @@ class EnglishG2P(G2PBase):
             british=self.is_british,
             store=store,
             lexicons=lexicons,
+            g2lex_files=g2lex_files,
         )
 
         # Initialize fallback (lazy)
@@ -392,6 +405,35 @@ class EnglishG2P(G2PBase):
                 ],
             )
 
+    def _record_lexicon_provenance(self, token: GToken, phonemes: str) -> None:
+        hit = self.lexicon.lookup_hit(token.text)
+        if hit is None:
+            return
+        selected = self.lexicon.pronunciation_from_hit(hit, token.tag or None)
+        if selected is None:
+            return
+        selected = finalize_english_phonemes(selected, profile=self.frontend_profile)
+        if selected != phonemes:
+            return
+        token.set(
+            "pronunciation_source",
+            "local-g2lex" if hit.source_kind == "file" else "named-lexicon",
+        )
+        token.set("pronunciation_provider", hit.source_kind)
+        token.set("pronunciation_lexicon_id", hit.lexicon_id)
+        token.set(
+            "pronunciation_source_details",
+            {
+                "source_kind": hit.source_kind,
+                "selector": hit.name,
+                "lexicon_id": hit.lexicon_id,
+                "source_path": hit.source_path,
+                "sha256": hit.sha256,
+                "logical_sha256": hit.logical_sha256,
+                "phoneme_encoding": hit.phoneme_encoding,
+            },
+        )
+
     def __call__(self, text: str) -> list[GToken]:
         """Convert text to a list of tokens with phonemes.
 
@@ -421,7 +463,22 @@ class EnglishG2P(G2PBase):
                 continue
 
             # Try lexicon lookup
-            ps, rating = self.lexicon(token.text, token.tag, None, ctx)
+            contextual = self.lookup_contextual(
+                token.text,
+                token.tag or None,
+                lemma=token.get("lemma"),
+                pos=token.get("pos"),
+                morph=token.get("morph"),
+                left_context=[item.text for item in tokens[max(0, i - 6) : i]],
+                right_context=[item.text for item in tokens[i + 1 : i + 7]],
+                sentence_context=text,
+            )
+            context_decision: HeteronymDecision | None = None
+            if contextual is None:
+                ps, rating = self.lexicon(token.text, token.tag, None, ctx)
+            else:
+                ps, context_decision = contextual
+                rating = 4
             subtokens: tuple[EnglishSubtoken, ...] = ()
             if ps is None:
                 ps, rating, subtokens = self._lookup_subtokens(
@@ -434,6 +491,11 @@ class EnglishG2P(G2PBase):
                 )
                 token.set("rating", rating)
                 token.set("frontend_profile", self.frontend_profile.id)
+                if context_decision is None:
+                    self._record_lexicon_provenance(token, token.phonemes)
+                if context_decision is not None:
+                    token.set("pronunciation_source", "contextual-heteronym")
+                    token.set("heteronym_resolution", context_decision.as_dict())
                 self._record_subtokens(token, subtokens)
             elif self.fallback is not None:
                 # Try espeak fallback
@@ -524,8 +586,24 @@ class EnglishG2P(G2PBase):
                 ctx = self._update_context(ctx, token.phoneme, None)
                 continue
 
-            # Try lexicon lookup
-            ps, rating = self.lexicon(token.text, token.pos_tag, None, ctx)
+            contextual = self.lookup_contextual(
+                token.text,
+                token.pos_tag or None,
+                lemma=token.language_metadata.get("lemma"),
+                pos=token.language_metadata.get("pos"),
+                morph=token.language_metadata.get("morph"),
+                left_context=[
+                    item.text for item in processing_tokens[max(0, i - 6) : i]
+                ],
+                right_context=[item.text for item in processing_tokens[i + 1 : i + 7]],
+                sentence_context=normalized_text,
+            )
+            context_decision: HeteronymDecision | None = None
+            if contextual is None:
+                ps, rating = self.lexicon(token.text, token.pos_tag, None, ctx)
+            else:
+                ps, context_decision = contextual
+                rating = 4
             subtokens: tuple[EnglishSubtoken, ...] = ()
             if ps is None:
                 ps, rating, subtokens = self._lookup_subtokens(
@@ -539,6 +617,14 @@ class EnglishG2P(G2PBase):
                 token.phoneme_source = PhonemeSource.from_rating(rating)
                 token.phoneme_rating = rating
                 token.language_metadata["frontend_profile"] = self.frontend_profile.id
+                if context_decision is not None:
+                    token.phoneme_source = PhonemeSource.RULE_BASED
+                    token.language_metadata["pronunciation_source"] = (
+                        "contextual-heteronym"
+                    )
+                    token.language_metadata["heteronym_resolution"] = (
+                        context_decision.as_dict()
+                    )
                 if subtokens:
                     token.language_metadata["subtokens"] = [
                         {
@@ -780,6 +866,46 @@ class EnglishG2P(G2PBase):
             if ps is None
             else finalize_english_phonemes(ps, profile=self.frontend_profile)
         )
+
+    def lookup_contextual(
+        self,
+        word: str,
+        tag: str | None = None,
+        *,
+        lemma: str | None = None,
+        pos: str | None = None,
+        morph: str | None = None,
+        left_context: str | Sequence[str] | None = None,
+        right_context: str | Sequence[str] | None = None,
+        sentence_context: str | None = None,
+    ) -> tuple[str, HeteronymDecision] | None:
+        """Return a contextual heteronym reading when a narrow rule applies.
+
+        Explicit local-file entries are intentional user overrides and therefore
+        remain ahead of automatic context inference.
+        """
+        if not self.resolve_heteronyms:
+            return None
+        decision = resolve_english_heteronym(
+            word,
+            lemma=lemma,
+            pos=pos,
+            tag=tag,
+            morph=morph,
+            left_context=left_context,
+            right_context=right_context,
+            sentence_context=sentence_context,
+        )
+        if decision is None:
+            return None
+        hit = self.lexicon.lookup_hit(word)
+        if hit is not None and hit.source_kind == "file":
+            return None
+        if hit is not None:
+            from dataclasses import replace
+
+            decision = replace(decision, lexicon_id=hit.lexicon_id)
+        return ipa_to_kokoro(decision.ipa, british=self.is_british), decision
 
     def lexicon_evidence(
         self, word: str, tag: str | None = None

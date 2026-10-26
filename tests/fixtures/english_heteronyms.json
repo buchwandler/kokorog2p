@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "language": "en-us",
+  "source": "01_voicerender_g2lex_selection_and_heteronym_resolution.md and ../audiobooks/readio/evaluation_english_eval.md",
+  "cases": [
+    {
+      "id": "T03",
+      "word": "read",
+      "context": "Clara had read the script twice that morning.",
+      "expected_ipa": "rɛd",
+      "classification": "exact-tag",
+      "expected_tag": "VBN"
+    },
+    {
+      "id": "T04",
+      "word": "read",
+      "context": "Jonah promised that he would read it once more.",
+      "expected_ipa": "riːd",
+      "classification": "exact-tag",
+      "expected_tag": "VB"
+    },
+    {
+      "id": "T19",
+      "word": "bass",
+      "context": "Although Jonah chose the bass, drums sounded from the room next door.",
+      "expected_ipa": "beɪs",
+      "classification": "sense-context"
+    },
+    {
+      "id": "T20",
+      "word": "minute",
+      "context": "A minute later, Clara noticed a minute crack in the wooden frame.",
+      "occurrence": 1,
+      "expected_ipa": "ˈmɪnɪt",
+      "classification": "context-recovery"
+    },
+    {
+      "id": "T21",
+      "word": "minute",
+      "context": "A minute later, Clara noticed a minute crack in the wooden frame.",
+      "occurrence": 2,
+      "expected_ipa": "maɪˈnuːt",
+      "classification": "context-recovery"
+    },
+    {
+      "id": "T22",
+      "word": "bow",
+      "context": "Jonah gave a polite bow, then pointed toward a hunting bow hanging on the wall.",
+      "occurrence": 1,
+      "expected_ipa": "baʊ",
+      "classification": "sense-context"
+    },
+    {
+      "id": "T23",
+      "word": "bow",
+      "context": "Jonah gave a polite bow, then pointed toward a hunting bow hanging on the wall.",
+      "occurrence": 2,
+      "expected_ipa": "boʊ",
+      "classification": "sense-context"
+    },
+    {
+      "id": "T27",
+      "word": "lead",
+      "context": "The lead actor had left a lead weight on the floor.",
+      "occurrence": 1,
+      "expected_ipa": "liːd",
+      "classification": "same-pos-sense"
+    },
+    {
+      "id": "T28",
+      "word": "lead",
+      "context": "The lead actor had left a lead weight on the floor.",
+      "occurrence": 2,
+      "expected_ipa": "lɛd",
+      "classification": "same-pos-sense"
+    },
+    {
+      "id": "T29",
+      "word": "bass",
+      "context": "The bass player had placed a drawing of a bass beside his chair.",
+      "occurrence": 1,
+      "expected_ipa": "beɪs",
+      "classification": "sense-context"
+    },
+    {
+      "id": "T30",
+      "word": "bass",
+      "context": "The bass player had placed a drawing of a bass beside his chair.",
+      "occurrence": 2,
+      "expected_ipa": "bæs",
+      "classification": "sense-context"
+    },
+    {
+      "id": "T42",
+      "word": "does",
+      "context": "Does that sound natural to you?",
+      "expected_ipa": "dʌz",
+      "classification": "context-recovery",
+      "expected_tag": "VBZ"
+    },
+    {
+      "id": "T43",
+      "word": "does",
+      "context": "Outside, several does cross the garden.",
+      "expected_ipa": "doʊz",
+      "classification": "context-recovery"
+    },
+    {
+      "id": "T45",
+      "word": "refuse",
+      "context": "Staff could refuse damaged produce.",
+      "expected_ipa": "rɪˈfjuːz",
+      "classification": "context-recovery",
+      "expected_tag": "VB"
+    },
+    {
+      "id": "T47",
+      "word": "refuse",
+      "context": "All refuse should be placed behind the building.",
+      "expected_ipa": "ˈrɛfjuːs",
+      "classification": "context-recovery"
+    },
+    {
+      "id": "T70",
+      "word": "learned",
+      "context": "Then a learned professor stepped inside carrying a worn leather bag.",
+      "expected_ipa": "ˈlɝnɪd",
+      "classification": "context-recovery"
+    },
+    {
+      "id": "T72",
+      "word": "learned",
+      "context": "She'd learned his name during an earlier lecture.",
+      "expected_ipa": "lɝnd",
+      "classification": "context-recovery",
+      "expected_tag": "VBN"
+    }
+  ]
+}

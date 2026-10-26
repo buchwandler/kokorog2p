@@ -602,6 +602,7 @@ def phonemize_to_result(  # noqa: C901
         g2p_resolver=resolve_explicit_language,
         fixed_target_model=fixed_target_model,
         strict_stress=strict_stress,
+        context_text=extended_text or clean_text,
     )
     warnings.extend(phonemize_warnings)
 
@@ -706,6 +707,43 @@ def _apply_token_stress(
     return apply_stress(phonemes, level, vowels=_stress_vowels(language)) or ""
 
 
+def _record_lexicon_provenance(
+    token: TokenSpan, g2p: Any, word: str, tag: str, phonemes: str
+) -> None:
+    evidence_lookup = getattr(g2p, "lexicon_evidence", None)
+    if not callable(evidence_lookup):
+        return
+    try:
+        evidence = evidence_lookup(word, tag)
+    except (AttributeError, TypeError, ValueError):
+        return
+    if (
+        evidence is None
+        or getattr(evidence, "kind", None) != "pronunciation"
+        or getattr(evidence, "pronunciation", None) != phonemes
+    ):
+        return
+    metadata = getattr(evidence, "metadata", None)
+    if not isinstance(metadata, Mapping):
+        metadata = {}
+    source_kind = metadata.get("source_kind", "named")
+    token.meta["pronunciation_source"] = (
+        "local-g2lex" if source_kind == "file" else "named-lexicon"
+    )
+    token.meta["pronunciation_provider"] = source_kind
+    token.meta["pronunciation_lexicon_id"] = evidence.lexicon_id
+    token.meta["pronunciation_source_details"] = {
+        "source_kind": source_kind,
+        "selector": evidence.lexicon_name or metadata.get("name"),
+        "lexicon_id": evidence.lexicon_id,
+        "source_path": metadata.get("path"),
+        "sha256": metadata.get("sha256"),
+        "logical_sha256": metadata.get("logical_sha256"),
+        "phoneme_encoding": evidence.phoneme_encoding
+        or metadata.get("phoneme_encoding"),
+    }
+
+
 def _phonemize_token_spans(  # noqa: C901
     token_spans: list[TokenSpan],
     g2p_token_spans: list[TokenSpan],
@@ -716,6 +754,7 @@ def _phonemize_token_spans(  # noqa: C901
     g2p_resolver: Callable[[str], "G2PBase"] | None = None,
     fixed_target_model: str | None = None,
     strict_stress: bool = False,
+    context_text: str | None = None,
 ) -> tuple[list[TokenSpan], list[str], str]:
     """Phonemize token spans, handling per-span language switching.
 
@@ -737,8 +776,7 @@ def _phonemize_token_spans(  # noqa: C901
     g2p_index = 0
     carry_alnum_end: int | None = None
 
-    for token in token_spans:
-        # Determine language for this token
+    for token_index, token in enumerate(token_spans):
         token_lang = normalize_language_code(token.lang or default_lang)
         token_start = token.meta.get("_extended_char_start", token.char_start)
         token_end = token.meta.get("_extended_char_end", token.char_end)
@@ -940,7 +978,47 @@ def _phonemize_token_spans(  # noqa: C901
 
             phonemes = "".join(mapped_parts)
             annotation_tag = token.meta.get("tag") or token.meta.get("pos")
-            if annotation_tag and not token_is_punct and "ph" not in token.meta:
+            contextual_decision = None
+            contextual_lookup = getattr(token_g2p, "lookup_contextual", None)
+            if callable(contextual_lookup) and not token_is_punct:
+                try:
+                    contextual = contextual_lookup(
+                        token.extended_text or token.text,
+                        (
+                            str(annotation_tag or mapped_tag)
+                            if annotation_tag or mapped_tag
+                            else None
+                        ),
+                        lemma=token.meta.get("lemma"),
+                        pos=token.meta.get("pos"),
+                        morph=token.meta.get("morph"),
+                        left_context=[
+                            span.extended_text or span.text
+                            for span in token_spans[
+                                max(0, token_index - 6) : token_index
+                            ]
+                        ],
+                        right_context=[
+                            span.extended_text or span.text
+                            for span in token_spans[token_index + 1 : token_index + 7]
+                        ],
+                        sentence_context=context_text
+                        or " ".join(
+                            span.extended_text or span.text for span in token_spans
+                        ),
+                    )
+                except (AttributeError, TypeError, ValueError):
+                    contextual = None
+                if contextual is not None:
+                    phonemes, contextual_decision = contextual
+                    token.meta["pronunciation_source"] = "contextual-heteronym"
+                    token.meta["heteronym_resolution"] = contextual_decision.as_dict()
+            if (
+                contextual_decision is None
+                and annotation_tag
+                and not token_is_punct
+                and "ph" not in token.meta
+            ):
                 try:
                     annotated = token_g2p.lookup(
                         token.extended_text or token.text, str(annotation_tag)
@@ -949,6 +1027,13 @@ def _phonemize_token_spans(  # noqa: C901
                     annotated = None
                 if annotated:
                     phonemes = annotated
+                    _record_lexicon_provenance(
+                        token,
+                        token_g2p,
+                        token.extended_text or token.text,
+                        str(annotation_tag),
+                        annotated,
+                    )
             if not phonemes and token.text.strip() and not _is_punctuation(token.text):
                 # fallback: re-phonemize token directly
                 try:
