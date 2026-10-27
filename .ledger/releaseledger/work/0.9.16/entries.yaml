@@ -1,0 +1,51 @@
+schema: releaseledger.entry-batch.v1
+operation: create
+schema_version: 1
+object_type: release_entry_batch
+release_version: 0.9.16
+git_base_ref: 69a0620b62f083be4b7533827c5e9c6458886c7a
+git_base_sha: 69a0620b62f083be4b7533827c5e9c6458886c7a
+git_head_ref: 45c208b51cea00d097ecaab9662cab3c730dfd82
+git_head_sha: 45c208b51cea00d097ecaab9662cab3c730dfd82
+include_merges: nontrivial
+entries:
+  - kind: added
+    summary:
+      "Added context-aware English heteronym resolution and local G2Lex sources with
+      traceable pronunciation provenance"
+    status: accepted
+    source_refs:
+      - git:2623b8dd991ad5449f18e3f52101338897a3b3d0
+    paths:
+      - kokorog2p/__init__.py
+      - kokorog2p/en/g2p.py
+      - kokorog2p/en/heteronyms.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/lexicons/__init__.py
+      - kokorog2p/lexicons/registry.py
+      - kokorog2p/lexicons/runtime.py
+      - kokorog2p/pipeline_api.py
+      - kokorog2p/tokenization.py
+      - tests/fixtures/english_heteronyms.json
+      - tests/test_en_heteronyms.py
+      - tests/test_local_g2lex_sources.py
+      - tests/test_pipeline_api.py
+    sources:
+      - git:2623b8dd991ad5449f18e3f52101338897a3b3d0
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"
+  - kind: fixed
+    summary: "Fixed Windows local G2Lex loading so source files can be replaced safely"
+    status: accepted
+    source_refs:
+      - git:45c208b51cea00d097ecaab9662cab3c730dfd82
+    paths:
+      - kokorog2p/lexicons/runtime.py
+    sources:
+      - git:45c208b51cea00d097ecaab9662cab3c730dfd82
+    prs: []
+    issues: []
+    contributors:
+      - "@holgern"

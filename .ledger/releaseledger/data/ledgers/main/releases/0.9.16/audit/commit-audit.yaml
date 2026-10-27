@@ -1,0 +1,80 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 3
+release_version: 0.9.16
+git_base_ref: v0.9.15
+git_base_sha: 69a0620b62f083be4b7533827c5e9c6458886c7a
+git_head_ref: HEAD
+git_head_sha: 45c208b51cea00d097ecaab9662cab3c730dfd82
+git_range: 69a0620b62f083be4b7533827c5e9c6458886c7a..45c208b51cea00d097ecaab9662cab3c730dfd82
+commit_count: 2
+rows:
+  - sha: 2623b8dd991ad5449f18e3f52101338897a3b3d0
+    source_ref: git:2623b8dd991ad5449f18e3f52101338897a3b3d0
+    short_sha: 2623b8d
+    changed_paths:
+      - kokorog2p/__init__.py
+      - kokorog2p/en/g2p.py
+      - kokorog2p/en/heteronyms.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/lexicons/__init__.py
+      - kokorog2p/lexicons/registry.py
+      - kokorog2p/lexicons/runtime.py
+      - kokorog2p/pipeline_api.py
+      - kokorog2p/tokenization.py
+      - tests/fixtures/english_heteronyms.json
+      - tests/test_en_heteronyms.py
+      - tests/test_local_g2lex_sources.py
+      - tests/test_pipeline_api.py
+    stats:
+      files_changed: 13
+      insertions: 1535
+      deletions: 86
+    inspected: true
+    inspected_paths:
+      - kokorog2p/__init__.py
+      - kokorog2p/en/g2p.py
+      - kokorog2p/en/heteronyms.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/lexicons/__init__.py
+      - kokorog2p/lexicons/registry.py
+      - kokorog2p/lexicons/runtime.py
+      - kokorog2p/pipeline_api.py
+      - kokorog2p/tokenization.py
+      - tests/fixtures/english_heteronyms.json
+      - tests/test_en_heteronyms.py
+      - tests/test_local_g2lex_sources.py
+      - tests/test_pipeline_api.py
+    observed_behavior:
+      English phonemization now resolves selected heteronyms from narrow context,
+      supports local G2Lex sources with precedence and hash-backed provenance, and
+      carries the resolution metadata through prepared pipeline results.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "feat: better heronyms handling"
+    target_entry_id: entry-0001
+    notes: ""
+  - sha: 45c208b51cea00d097ecaab9662cab3c730dfd82
+    source_ref: git:45c208b51cea00d097ecaab9662cab3c730dfd82
+    short_sha: 45c208b
+    changed_paths:
+      - kokorog2p/lexicons/runtime.py
+    stats:
+      files_changed: 1
+      insertions: 8
+      deletions: 1
+    inspected: true
+    inspected_paths:
+      - kokorog2p/lexicons/runtime.py
+    observed_behavior:
+      Windows local G2Lex loading now reads an in-memory snapshot, allowing the source
+      path to be replaced safely while preserving normal validation.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "fix: windows"
+    target_entry_id: entry-0002
+    notes: ""

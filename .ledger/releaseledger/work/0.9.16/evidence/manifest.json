@@ -1,0 +1,47 @@
+{
+  "candidate_count": 2,
+  "candidates": [
+    {
+      "additions": 1535,
+      "deletions": 86,
+      "patch_file": "2623b8d.patch",
+      "patch_sha256": "a03a2e9953afb6ea58998b4abe1c33091894c42aeb12d93d732dbc63598b0722",
+      "paths": [
+        "kokorog2p/__init__.py",
+        "kokorog2p/en/g2p.py",
+        "kokorog2p/en/heteronyms.py",
+        "kokorog2p/en/lexicon.py",
+        "kokorog2p/lexicons/__init__.py",
+        "kokorog2p/lexicons/registry.py",
+        "kokorog2p/lexicons/runtime.py",
+        "kokorog2p/pipeline_api.py",
+        "kokorog2p/tokenization.py",
+        "tests/fixtures/english_heteronyms.json",
+        "tests/test_en_heteronyms.py",
+        "tests/test_local_g2lex_sources.py",
+        "tests/test_pipeline_api.py"
+      ],
+      "sha": "2623b8dd991ad5449f18e3f52101338897a3b3d0",
+      "short_sha": "2623b8d",
+      "source_ref": "git:2623b8dd991ad5449f18e3f52101338897a3b3d0"
+    },
+    {
+      "additions": 8,
+      "deletions": 1,
+      "patch_file": "45c208b.patch",
+      "patch_sha256": "bc5f9e10dd24497ed0ecb9f2f882800ec01d5cd4e37e4c62c72b9518c08e908e",
+      "paths": ["kokorog2p/lexicons/runtime.py"],
+      "sha": "45c208b51cea00d097ecaab9662cab3c730dfd82",
+      "short_sha": "45c208b",
+      "source_ref": "git:45c208b51cea00d097ecaab9662cab3c730dfd82"
+    }
+  ],
+  "git_base_ref": "69a0620b62f083be4b7533827c5e9c6458886c7a",
+  "git_base_sha": "69a0620b62f083be4b7533827c5e9c6458886c7a",
+  "git_head_ref": "45c208b51cea00d097ecaab9662cab3c730dfd82",
+  "git_head_sha": "45c208b51cea00d097ecaab9662cab3c730dfd82",
+  "include_merges": "nontrivial",
+  "object_type": "git_evidence_manifest",
+  "release_version": "0.9.16",
+  "schema_version": 1
+}

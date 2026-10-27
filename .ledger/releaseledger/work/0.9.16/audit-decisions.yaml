@@ -1,0 +1,40 @@
+rows:
+  - sha: 2623b8dd991ad5449f18e3f52101338897a3b3d0
+    inspected: true
+    inspected_paths:
+      - kokorog2p/__init__.py
+      - kokorog2p/en/g2p.py
+      - kokorog2p/en/heteronyms.py
+      - kokorog2p/en/lexicon.py
+      - kokorog2p/lexicons/__init__.py
+      - kokorog2p/lexicons/registry.py
+      - kokorog2p/lexicons/runtime.py
+      - kokorog2p/pipeline_api.py
+      - kokorog2p/tokenization.py
+      - tests/fixtures/english_heteronyms.json
+      - tests/test_en_heteronyms.py
+      - tests/test_local_g2lex_sources.py
+      - tests/test_pipeline_api.py
+    observed_behavior:
+      "English phonemization now resolves selected heteronyms from narrow context,
+      supports local G2Lex sources with precedence and hash-backed provenance, and
+      carries the resolution metadata through prepared pipeline results."
+    public_impact: public
+    decision: accepted
+    target_entry_key: null
+    target_entry_id: null
+    notes: ""
+    stale: false
+  - sha: 45c208b51cea00d097ecaab9662cab3c730dfd82
+    inspected: true
+    inspected_paths:
+      - kokorog2p/lexicons/runtime.py
+    observed_behavior:
+      "Windows local G2Lex loading now reads an in-memory snapshot, allowing the source
+      path to be replaced safely while preserving normal validation."
+    public_impact: public
+    decision: accepted
+    target_entry_key: null
+    target_entry_id: null
+    notes: ""
+    stale: false

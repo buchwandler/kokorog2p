@@ -1,0 +1,2078 @@
+ kokorog2p/__init__.py                  |  38 ++--
+ kokorog2p/en/g2p.py                    | 134 +++++++++++-
+ kokorog2p/en/heteronyms.py             | 269 +++++++++++++++++++++++
+ kokorog2p/en/lexicon.py                |  16 +-
+ kokorog2p/lexicons/__init__.py         |   8 +
+ kokorog2p/lexicons/registry.py         |  23 ++
+ kokorog2p/lexicons/runtime.py          | 389 ++++++++++++++++++++++++++++-----
+ kokorog2p/pipeline_api.py              |  91 +++++++-
+ kokorog2p/tokenization.py              |  13 ++
+ tests/fixtures/english_heteronyms.json | 139 ++++++++++++
+ tests/test_en_heteronyms.py            | 178 +++++++++++++++
+ tests/test_local_g2lex_sources.py      | 260 ++++++++++++++++++++++
+ tests/test_pipeline_api.py             |  63 ++++++
+ 13 files changed, 1535 insertions(+), 86 deletions(-)
+
+diff --git a/kokorog2p/__init__.py b/kokorog2p/__init__.py
+index 247f2e8..1fc050c 100644
+--- a/kokorog2p/__init__.py
++++ b/kokorog2p/__init__.py
+@@ -136,7 +136,7 @@ _G2PCacheInfo = namedtuple("_G2PCacheInfo", "size maxsize policy")
+
+
+ _FACTORY_KWARGS_BY_LANGUAGE = {
+-    "en": frozenset({"unk", "store"}),
++    "en": frozenset({"unk", "store", "g2lex_files", "resolve_heteronyms"}),
+     "fr": frozenset({"unk", "store"}),
+     "de": frozenset({"use_lexicon", "strip_stress", "store"}),
+     "cs": frozenset({"unk"}),
+@@ -456,12 +456,13 @@ def get_g2p(  # noqa: C901
+         kwargs_key,
+     )
+
+-    with _g2p_cache_lock:
+-        cached = _g2p_cache.get(cache_key)
+-        if cached is not None:
+-            _g2p_cache.move_to_end(cache_key)
+-            return cached
+-
++    cacheable = not bool(kwargs.get("g2lex_files"))
++    if cacheable:
++        with _g2p_cache_lock:
++            cached = _g2p_cache.get(cache_key)
++            if cached is not None:
++                _g2p_cache.move_to_end(cache_key)
++                return cached
+     # Create G2P instance based on language and backend
+     g2p: G2PBase
+     extra_kwargs: dict[str, Any] = (
+@@ -729,18 +730,19 @@ def get_g2p(  # noqa: C901
+             "Use 'espeak' or 'goruut' backend for more languages."
+         )
+
+-    with _g2p_cache_lock:
+-        # A second lookup protects identity if another thread constructed the
+-        # same key while this instance was being initialized.
+-        cached = _g2p_cache.get(cache_key)
+-        if cached is not None:
++    if cacheable:
++        with _g2p_cache_lock:
++            # A second lookup protects identity if another thread constructed the
++            # same key while this instance was being initialized.
++            cached = _g2p_cache.get(cache_key)
++            if cached is not None:
++                _g2p_cache.move_to_end(cache_key)
++                return cached
++            _g2p_cache[cache_key] = g2p
+             _g2p_cache.move_to_end(cache_key)
+-            return cached
+-        _g2p_cache[cache_key] = g2p
+-        _g2p_cache.move_to_end(cache_key)
+-        while len(_g2p_cache) > _G2P_CACHE_MAXSIZE:
+-            _evicted_key, evicted = _g2p_cache.popitem(last=False)
+-            evicted.close()
++            while len(_g2p_cache) > _G2P_CACHE_MAXSIZE:
++                _evicted_key, evicted = _g2p_cache.popitem(last=False)
++                evicted.close()
+
+     return g2p
+
+diff --git a/kokorog2p/en/g2p.py b/kokorog2p/en/g2p.py
+index 3b609ad..8b03d4d 100644
+--- a/kokorog2p/en/g2p.py
++++ b/kokorog2p/en/g2p.py
+@@ -1,16 +1,20 @@
+ """English G2P (Grapheme-to-Phoneme) converter."""
+
++from collections.abc import Sequence
++
+ from lexphon import DataStore, ProviderError
+
+ from kokorog2p._optional import load_spacy_model
+ from kokorog2p.base import G2PBase
++from kokorog2p.en.heteronyms import HeteronymDecision, resolve_english_heteronym
+ from kokorog2p.en.lexicon import Lexicon, TokenContext
+ from kokorog2p.en.normalizer import EnglishNormalizer
+-from kokorog2p.en.phoneme_codec import MISAKI_V1
++from kokorog2p.en.phoneme_codec import MISAKI_V1, ipa_to_kokoro
+ from kokorog2p.en.realization import finalize_english_phonemes, resolve_compound_stress
+ from kokorog2p.en.subtokens import EnglishSubtoken, split_english_lexical_token
+ from kokorog2p.lexicons.evidence import LexiconEvidence
+ from kokorog2p.lexicons.lexphon_backend import LexphonBackend, provider_metadata
++from kokorog2p.lexicons.registry import FileLexiconSource
+ from kokorog2p.phonemes import from_espeak, from_goruut
+ from kokorog2p.pipeline.models import PhonemeSource, ProcessedText
+ from kokorog2p.pipeline.tokenizer import RegexTokenizer, SpacyTokenizer
+@@ -43,9 +47,11 @@ class EnglishG2P(G2PBase):
+         phoneme_quotes: str = "curly",
+         unk: str = "❓",
+         lexicons: tuple[str, ...] | None = None,
++        g2lex_files: tuple[FileLexiconSource, ...] | None = None,
+         store: DataStore | None = None,
+         strict: bool = True,
+         version: str = "1.0",
++        resolve_heteronyms: bool = True,
+     ) -> None:
+         """Initialize the English G2P converter.
+
+@@ -55,6 +61,9 @@ class EnglishG2P(G2PBase):
+             use_goruut_fallback: Whether to use goruut for OOV words.
+             use_cli: Retained for direct backend compatibility. It does not select
+                 the Lexphon-owned native fallback provider.
++            lexicons: Ordered registered named lexicons.
++            g2lex_files: Ordered local G2Lex references, taking precedence over named
++                lexicons.
+             use_spacy: Whether to use spaCy for tokenization and POS tagging.
+             spacy_model: spaCy English model package to load when use_spacy=True
+                 (e.g., "en_core_web_sm", "en_core_web_md", "en_core_web_lg").
+@@ -70,6 +79,8 @@ class EnglishG2P(G2PBase):
+             version: Model version ("1.0" for multilingual model, "1.1" for
+             Chinese model).
+                 Defaults to "1.0".
++            resolve_heteronyms: Enable deterministic contextual readings for selected
++                English heteronyms. Explicit local G2Lex entries retain priority.
+         Raises:
+             ValueError: If both use_espeak_fallback and use_goruut_fallback are True.
+         """
+@@ -90,6 +101,7 @@ class EnglishG2P(G2PBase):
+
+         self.version = version
+         self.frontend_profile = MISAKI_V1
++        self.resolve_heteronyms = resolve_heteronyms
+         self.unk = unk
+         if use_spacy and (spacy_model is None or spacy_model.lower() == "auto"):
+             spacy_model = resolve_spacy_model(
+@@ -105,6 +117,7 @@ class EnglishG2P(G2PBase):
+             british=self.is_british,
+             store=store,
+             lexicons=lexicons,
++            g2lex_files=g2lex_files,
+         )
+
+         # Initialize fallback (lazy)
+@@ -392,6 +405,35 @@ class EnglishG2P(G2PBase):
+                 ],
+             )
+
++    def _record_lexicon_provenance(self, token: GToken, phonemes: str) -> None:
++        hit = self.lexicon.lookup_hit(token.text)
++        if hit is None:
++            return
++        selected = self.lexicon.pronunciation_from_hit(hit, token.tag or None)
++        if selected is None:
++            return
++        selected = finalize_english_phonemes(selected, profile=self.frontend_profile)
++        if selected != phonemes:
++            return
++        token.set(
++            "pronunciation_source",
++            "local-g2lex" if hit.source_kind == "file" else "named-lexicon",
++        )
++        token.set("pronunciation_provider", hit.source_kind)
++        token.set("pronunciation_lexicon_id", hit.lexicon_id)
++        token.set(
++            "pronunciation_source_details",
++            {
++                "source_kind": hit.source_kind,
++                "selector": hit.name,
++                "lexicon_id": hit.lexicon_id,
++                "source_path": hit.source_path,
++                "sha256": hit.sha256,
++                "logical_sha256": hit.logical_sha256,
++                "phoneme_encoding": hit.phoneme_encoding,
++            },
++        )
++
+     def __call__(self, text: str) -> list[GToken]:
+         """Convert text to a list of tokens with phonemes.
+
+@@ -421,7 +463,22 @@ class EnglishG2P(G2PBase):
+                 continue
+
+             # Try lexicon lookup
+-            ps, rating = self.lexicon(token.text, token.tag, None, ctx)
++            contextual = self.lookup_contextual(
++                token.text,
++                token.tag or None,
++                lemma=token.get("lemma"),
++                pos=token.get("pos"),
++                morph=token.get("morph"),
++                left_context=[item.text for item in tokens[max(0, i - 6) : i]],
++                right_context=[item.text for item in tokens[i + 1 : i + 7]],
++                sentence_context=text,
++            )
++            context_decision: HeteronymDecision | None = None
++            if contextual is None:
++                ps, rating = self.lexicon(token.text, token.tag, None, ctx)
++            else:
++                ps, context_decision = contextual
++                rating = 4
+             subtokens: tuple[EnglishSubtoken, ...] = ()
+             if ps is None:
+                 ps, rating, subtokens = self._lookup_subtokens(
+@@ -434,6 +491,11 @@ class EnglishG2P(G2PBase):
+                 )
+                 token.set("rating", rating)
+                 token.set("frontend_profile", self.frontend_profile.id)
++                if context_decision is None:
++                    self._record_lexicon_provenance(token, token.phonemes)
++                if context_decision is not None:
++                    token.set("pronunciation_source", "contextual-heteronym")
++                    token.set("heteronym_resolution", context_decision.as_dict())
+                 self._record_subtokens(token, subtokens)
+             elif self.fallback is not None:
+                 # Try espeak fallback
+@@ -524,8 +586,24 @@ class EnglishG2P(G2PBase):
+                 ctx = self._update_context(ctx, token.phoneme, None)
+                 continue
+
+-            # Try lexicon lookup
+-            ps, rating = self.lexicon(token.text, token.pos_tag, None, ctx)
++            contextual = self.lookup_contextual(
++                token.text,
++                token.pos_tag or None,
++                lemma=token.language_metadata.get("lemma"),
++                pos=token.language_metadata.get("pos"),
++                morph=token.language_metadata.get("morph"),
++                left_context=[
++                    item.text for item in processing_tokens[max(0, i - 6) : i]
++                ],
++                right_context=[item.text for item in processing_tokens[i + 1 : i + 7]],
++                sentence_context=normalized_text,
++            )
++            context_decision: HeteronymDecision | None = None
++            if contextual is None:
++                ps, rating = self.lexicon(token.text, token.pos_tag, None, ctx)
++            else:
++                ps, context_decision = contextual
++                rating = 4
+             subtokens: tuple[EnglishSubtoken, ...] = ()
+             if ps is None:
+                 ps, rating, subtokens = self._lookup_subtokens(
+@@ -539,6 +617,14 @@ class EnglishG2P(G2PBase):
+                 token.phoneme_source = PhonemeSource.from_rating(rating)
+                 token.phoneme_rating = rating
+                 token.language_metadata["frontend_profile"] = self.frontend_profile.id
++                if context_decision is not None:
++                    token.phoneme_source = PhonemeSource.RULE_BASED
++                    token.language_metadata["pronunciation_source"] = (
++                        "contextual-heteronym"
++                    )
++                    token.language_metadata["heteronym_resolution"] = (
++                        context_decision.as_dict()
++                    )
+                 if subtokens:
+                     token.language_metadata["subtokens"] = [
+                         {
+@@ -781,6 +867,46 @@ class EnglishG2P(G2PBase):
+             else finalize_english_phonemes(ps, profile=self.frontend_profile)
+         )
+
++    def lookup_contextual(
++        self,
++        word: str,
++        tag: str | None = None,
++        *,
++        lemma: str | None = None,
++        pos: str | None = None,
++        morph: str | None = None,
++        left_context: str | Sequence[str] | None = None,
++        right_context: str | Sequence[str] | None = None,
++        sentence_context: str | None = None,
++    ) -> tuple[str, HeteronymDecision] | None:
++        """Return a contextual heteronym reading when a narrow rule applies.
++
++        Explicit local-file entries are intentional user overrides and therefore
++        remain ahead of automatic context inference.
++        """
++        if not self.resolve_heteronyms:
++            return None
++        decision = resolve_english_heteronym(
++            word,
++            lemma=lemma,
++            pos=pos,
++            tag=tag,
++            morph=morph,
++            left_context=left_context,
++            right_context=right_context,
++            sentence_context=sentence_context,
++        )
++        if decision is None:
++            return None
++        hit = self.lexicon.lookup_hit(word)
++        if hit is not None and hit.source_kind == "file":
++            return None
++        if hit is not None:
++            from dataclasses import replace
++
++            decision = replace(decision, lexicon_id=hit.lexicon_id)
++        return ipa_to_kokoro(decision.ipa, british=self.is_british), decision
++
+     def lexicon_evidence(
+         self, word: str, tag: str | None = None
+     ) -> LexiconEvidence | None:
+diff --git a/kokorog2p/en/heteronyms.py b/kokorog2p/en/heteronyms.py
+new file mode 100644
+index 0000000..a49b91a
+--- /dev/null
++++ b/kokorog2p/en/heteronyms.py
+@@ -0,0 +1,269 @@
++"""Deterministic, traceable context rules for a small set of English heteronyms."""
++
++from __future__ import annotations
++
++import re
++from collections.abc import Callable, Sequence
++from dataclasses import asdict, dataclass
++
++_TOKEN_RE = re.compile(r"[\w]+(?:['’][\w]+)*", re.UNICODE)
++ContextResult = tuple[str, str, str]
++
++
++@dataclass(frozen=True, slots=True)
++class HeteronymDecision:
++    """One contextual reading decision and the evidence used to make it."""
++
++    word: str
++    ipa: str
++    reason: str
++    context_rule: str
++    tag: str | None = None
++    pos: str | None = None
++    lemma: str | None = None
++    morph: str | None = None
++    context: str = ""
++    source: str = "english-context-resolver"
++    selector: str | None = None
++    lexicon_id: str | None = None
++
++    def as_dict(self) -> dict[str, object]:
++        """Return stable JSON-friendly decision metadata."""
++        return asdict(self)
++
++
++def _tokens(value: str | Sequence[str] | None) -> list[str]:
++    if value is None:
++        return []
++    pieces = (value,) if isinstance(value, str) else value
++    return [
++        match.group(0).casefold().replace("’", "'")
++        for piece in pieces
++        for match in _TOKEN_RE.finditer(str(piece))
++    ]
++
++
++def _minute(left: list[str], right: list[str]) -> ContextResult | None:
++    if right and right[0] in {"later", "ago", "after", "before", "past"}:
++        return (
++            "ˈmɪnɪt",
++            "A time adverbial selects the unit-of-time reading.",
++            "minute.time-unit",
++        )
++    if right and right[0] in {
++        "crack",
++        "difference",
++        "detail",
++        "amount",
++        "particle",
++        "fraction",
++        "trace",
++        "change",
++        "mark",
++    }:
++        return (
++            "maɪˈnuːt",
++            "A tiny-object noun selects the extremely-small adjective.",
++            "minute.tiny-adjective",
++        )
++    return None
++
++
++def _bow(left: list[str], right: list[str]) -> ContextResult | None:
++    if set(left[-4:]) & {"polite", "gesture", "courtesy"}:
++        return "baʊ", "Polite etiquette selects the gesture sense.", "bow.gesture"
++    if set(left[-5:]) & {"hunting", "archer's", "weapon"} or set(right[:5]) & {
++        "arrow",
++        "string",
++        "weapon",
++        "hunting",
++    }:
++        return (
++            "boʊ",
++            "Hunting or weapon context selects the archery sense.",
++            "bow.weapon",
++        )
++    return None
++
++
++def _bass(left: list[str], right: list[str]) -> ContextResult | None:
++    if set(left[-5:]) & {"drawing", "fish", "fishing", "caught", "river"} or set(
++        right[:5]
++    ) & {"fish", "swam", "caught", "river"}:
++        return "bæs", "Fish or fishing context selects the animal sense.", "bass.fish"
++    if set(right[:5]) & {"player", "guitar", "drums", "instrument", "music"} or set(
++        left[-5:]
++    ) & {"musical", "music", "band", "instrument"}:
++        return (
++            "beɪs",
++            "Music or instrument context selects the musical sense.",
++            "bass.music",
++        )
++    return None
++
++
++def _lead(left: list[str], right: list[str]) -> ContextResult | None:
++    if right and right[0] in {"weight", "pipe", "metal", "pencil", "bullet", "ingot"}:
++        return (
++            "lɛd",
++            "A metal-object complement selects the element pronunciation.",
++            "lead.metal",
++        )
++    if right and right[0] in {"actor", "role", "singer", "character", "performer"}:
++        return (
++            "liːd",
++            "A principal-role complement selects the leadership pronunciation.",
++            "lead.principal",
++        )
++    return None
++
++
++def _does(left: list[str], right: list[str]) -> ContextResult | None:
++    if left and left[-1] in {"several", "many", "few", "those", "these", "herd"}:
++        return (
++            "doʊz",
++            "A plural quantifier selects the female-deer reading.",
++            "does.deer",
++        )
++    if right and right[0] in {"that", "this", "he", "she", "it", "they", "you", "we"}:
++        return (
++            "dʌz",
++            "A following subject pronoun selects the auxiliary verb.",
++            "does.auxiliary",
++        )
++    return None
++
++
++def _refuse(left: list[str], right: list[str]) -> ContextResult | None:
++    if (left and left[-1] in {"all", "some", "the", "household", "industrial"}) or (
++        right
++        and right[0] in {"should", "must", "is", "was", "were", "behind", "everywhere"}
++    ):
++        return (
++            "ˈrɛfjuːs",
++            "Determiner or predicate context selects the waste noun.",
++            "refuse.waste-noun",
++        )
++    if left and left[-1] in {
++        "could",
++        "can",
++        "will",
++        "would",
++        "may",
++        "might",
++        "must",
++        "should",
++        "to",
++    }:
++        return (
++            "rɪˈfjuːz",
++            "A modal or infinitive marker selects the verb.",
++            "refuse.verb",
++        )
++    return None
++
++
++def _learned(left: list[str], right: list[str]) -> ContextResult | None:
++    if right and right[0] in {
++        "professor",
++        "scholar",
++        "expert",
++        "historian",
++        "student",
++        "colleague",
++        "reader",
++    }:
++        return (
++            "ˈlɝnɪd",
++            "A scholarly person noun selects the two-syllable adjective.",
++            "learned.scholarly-adjective",
++        )
++    contracted_had = left and left[-1] in {
++        "had",
++        "has",
++        "have",
++        "i'd",
++        "you'd",
++        "he'd",
++        "she'd",
++        "we'd",
++        "they'd",
++    }
++    split_contraction = (
++        len(left) > 1
++        and left[-1] in {"d", "'d"}
++        and left[-2] in {"i", "you", "he", "she", "we", "they"}
++    )
++    if contracted_had or split_contraction:
++        return (
++            "lɝnd",
++            "A perfect auxiliary selects the past participle.",
++            "learned.past-participle",
++        )
++    return None
++
++
++_CONTEXT_RULES: dict[str, Callable[[list[str], list[str]], ContextResult | None]] = {
++    "minute": _minute,
++    "bow": _bow,
++    "bass": _bass,
++    "lead": _lead,
++    "does": _does,
++    "refuse": _refuse,
++    "learned": _learned,
++}
++
++
++def resolve_english_heteronym(
++    surface: str,
++    *,
++    lemma: str | None = None,
++    pos: str | None = None,
++    tag: str | None = None,
++    morph: str | None = None,
++    left_context: str | Sequence[str] | None = None,
++    right_context: str | Sequence[str] | None = None,
++    sentence_context: str | None = None,
++) -> HeteronymDecision | None:
++    """Choose a target IPA reading from narrow lexical and contextual evidence.
++
++    The resolver deliberately does not infer a reading from POS alone. Unknown or
++    ambiguous contexts return ``None`` so exact-tag lexicon selection and normal
++    G2P fallback retain control.
++    """
++    word = surface.casefold().replace("’", "'")
++    rule = _CONTEXT_RULES.get(word)
++    if rule is None:
++        return None
++
++    left = _tokens(left_context)[-6:]
++    right = _tokens(right_context)[:6]
++    if not left and not right and sentence_context:
++        all_tokens = _tokens(sentence_context)
++        try:
++            index = all_tokens.index(word)
++        except ValueError:
++            index = -1
++        if index >= 0:
++            left = all_tokens[max(0, index - 6) : index]
++            right = all_tokens[index + 1 : index + 7]
++
++    result = rule(left, right)
++    if result is None:
++        return None
++    ipa, reason, context_rule = result
++    context = " ".join((*left[-4:], surface, *right[:4]))
++    return HeteronymDecision(
++        word=surface,
++        ipa=ipa,
++        reason=reason,
++        context_rule=context_rule,
++        tag=tag,
++        pos=pos,
++        lemma=lemma,
++        morph=morph,
++        context=context,
++    )
++
++
++__all__ = ["HeteronymDecision", "resolve_english_heteronym"]
+diff --git a/kokorog2p/en/lexicon.py b/kokorog2p/en/lexicon.py
+index 23a33fc..ccdff2d 100644
+--- a/kokorog2p/en/lexicon.py
++++ b/kokorog2p/en/lexicon.py
+@@ -12,7 +12,12 @@ from typing import Any, Final
+ from lexphon import DataStore
+
+ from kokorog2p.en.phoneme_codec import DecodedPronunciation, decode_hit
+-from kokorog2p.lexicons.runtime import LexiconHit, SelectedLexicons, open_selected
++from kokorog2p.lexicons.registry import FileLexiconSource, NamedLexiconSource
++from kokorog2p.lexicons.runtime import (
++    LexiconHit,
++    open_selected,
++    open_sources,
++)
+
+ # =============================================================================
+ # Constants
+@@ -172,6 +177,7 @@ class Lexicon:
+         skip_is_known: bool = False,
+         store: DataStore | None = None,
+         lexicons: Sequence[str] | None = None,
++        g2lex_files: Sequence[FileLexiconSource] | None = None,
+     ) -> None:
+         """Initialize the lexicon."""
+         self.british = british
+@@ -179,8 +185,14 @@ class Lexicon:
+         self.cap_stresses = (0.5, 2)
+         language = "en-gb" if british else "en-us"
+         names = ("gold",) if lexicons is None else tuple(lexicons)
++        files = tuple(g2lex_files or ())
+         self.lexicons = names
+-        self._selected: SelectedLexicons = open_selected(language, names, store=store)
++        self.g2lex_files = files
++        if files:
++            sources = (*files, *(NamedLexiconSource(name) for name in names))
++            self._selected = open_sources(language, sources, store=store)
++        else:
++            self._selected = open_selected(language, names, store=store)
+
+     def _selected_hit(self, word: str) -> LexiconHit | None:
+         return self._selected.get_hit(word)
+diff --git a/kokorog2p/lexicons/__init__.py b/kokorog2p/lexicons/__init__.py
+index f389764..8d37954 100644
+--- a/kokorog2p/lexicons/__init__.py
++++ b/kokorog2p/lexicons/__init__.py
+@@ -3,7 +3,10 @@
+ from .evidence import LexiconEvidence
+
+ from .registry import (
++    FileLexiconSource,
++    LexiconSource,
+     LexiconSpec,
++    NamedLexiconSource,
+     available_lexicons,
+     get_lexicon_spec,
+     normalize_lexicon_selection,
+@@ -13,18 +16,23 @@ from .runtime import (
+     SelectedLexicons,
+     clear_resource_cache,
+     open_selected,
++    open_sources,
+     resource_cache_info,
+ )
+
+ __all__ = [
++    "FileLexiconSource",
+     "LexiconEvidence",
+     "LexiconHit",
++    "LexiconSource",
+     "LexiconSpec",
++    "NamedLexiconSource",
+     "SelectedLexicons",
+     "available_lexicons",
+     "clear_resource_cache",
+     "get_lexicon_spec",
+     "normalize_lexicon_selection",
+     "open_selected",
++    "open_sources",
+     "resource_cache_info",
+ ]
+diff --git a/kokorog2p/lexicons/registry.py b/kokorog2p/lexicons/registry.py
+index 99d8542..a187e01 100644
+--- a/kokorog2p/lexicons/registry.py
++++ b/kokorog2p/lexicons/registry.py
+@@ -4,6 +4,7 @@ from __future__ import annotations
+
+ from collections.abc import Mapping, Sequence
+ from dataclasses import dataclass
++from pathlib import Path
+ from types import MappingProxyType
+
+
+@@ -20,6 +21,25 @@ class LexiconSpec:
+     backend: str
+
+
++@dataclass(frozen=True, slots=True)
++class NamedLexiconSource:
++    """A lexicon selected by its registered name."""
++
++    name: str
++
++
++@dataclass(frozen=True, slots=True)
++class FileLexiconSource:
++    """A content-pinned or explicitly local G2Lex file source."""
++
++    path: str | Path
++    sha256: str | None = None
++    logical_sha256: str | None = None
++
++
++LexiconSource = NamedLexiconSource | FileLexiconSource
++
++
+ def _external_spec(
+     language: str,
+     name: str,
+@@ -213,7 +233,10 @@ def iter_lexicon_specs() -> tuple[LexiconSpec, ...]:
+
+
+ __all__ = [
++    "FileLexiconSource",
++    "LexiconSource",
+     "LexiconSpec",
++    "NamedLexiconSource",
+     "available_lexicons",
+     "get_lexicon_spec",
+     "iter_lexicon_specs",
+diff --git a/kokorog2p/lexicons/runtime.py b/kokorog2p/lexicons/runtime.py
+index 418120c..9d6ce25 100644
+--- a/kokorog2p/lexicons/runtime.py
++++ b/kokorog2p/lexicons/runtime.py
+@@ -1,28 +1,39 @@
+-"""Read-only runtime access to externally provisioned G2Lex assets."""
++"""Read-only runtime access to named and local G2Lex sources."""
+
+ from __future__ import annotations
+
++import hashlib
++import re
+ import weakref
+ from collections import namedtuple
+ from collections.abc import Mapping, Sequence
+ from dataclasses import dataclass
++from pathlib import Path
+ from threading import RLock
+-from types import TracebackType
++from types import MappingProxyType, TracebackType
+ from typing import Any
+
+ import g2lex
+ from lexphon import DataStore, LexiconNotInstalledError
+
+-from .registry import LexiconSpec, get_lexicon_spec, normalize_language
++from .registry import (
++    FileLexiconSource,
++    LexiconSource,
++    LexiconSpec,
++    NamedLexiconSource,
++    get_lexicon_spec,
++    normalize_language,
++)
+
+
+ @dataclass(slots=True)
+ class _SharedLexiconResource:
+-    """One immutable external mapping with explicit consumer leases."""
++    """One immutable mapping with explicit consumer leases."""
+
+-    key: tuple[str, str]
++    key: tuple[str, ...]
+     handle: Any
+     mapping: Mapping[str, object]
++    metadata: Mapping[str, object]
+     leases: int = 0
+     evicted: bool = False
+     closed: bool = False
+@@ -37,7 +48,7 @@ class _SharedLexiconResource:
+
+
+ _RESOURCE_LOCK = RLock()
+-_RESOURCE_CACHE: dict[tuple[str, str], _SharedLexiconResource] = {}
++_RESOURCE_CACHE: dict[tuple[str, ...], _SharedLexiconResource] = {}
+ _RESOURCE_HITS = 0
+ _RESOURCE_MISSES = 0
+ _ResourceCacheInfo = namedtuple("ResourceCacheInfo", "hits misses maxsize currsize")
+@@ -56,13 +67,29 @@ def _missing_asset_error(spec: LexiconSpec) -> str:
+     )
+
+
++def _named_metadata(spec: LexiconSpec) -> Mapping[str, object]:
++    return MappingProxyType(
++        {
++            **dict(spec.metadata),
++            "id": spec.id,
++            "language": spec.language,
++            "name": spec.name,
++            "rating": spec.rating,
++            "kind": spec.kind,
++            "phoneme_encoding": spec.phoneme_encoding,
++            "source_kind": "named",
++            "backend": spec.backend,
++        }
++    )
++
++
+ def _acquire_resource(spec: LexiconSpec, store: DataStore) -> _SharedLexiconResource:
+-    """Acquire a lease on an externally installed lexicon."""
++    """Acquire a lease on an externally installed named lexicon."""
+     global _RESOURCE_HITS, _RESOURCE_MISSES
+     if spec.backend != "lexphon":
+         raise ValueError(f"lexicon {spec.id!r} is not externally Lexphon-backed")
+
+-    key = (_store_key(store), spec.id)
++    key = ("lexphon", _store_key(store), spec.id)
+     with _RESOURCE_LOCK:
+         resource = _RESOURCE_CACHE.get(key)
+         if resource is None:
+@@ -72,10 +99,162 @@ def _acquire_resource(spec: LexiconSpec, store: DataStore) -> _SharedLexiconReso
+             except LexiconNotInstalledError as exc:
+                 raise LexiconNotInstalledError(_missing_asset_error(spec)) from exc
+             handle = g2lex.open(path)
+-            resource = _SharedLexiconResource(key, handle, handle)
++            resource = _SharedLexiconResource(
++                key, handle, handle, _named_metadata(spec)
++            )
++            _RESOURCE_CACHE[key] = resource
++        else:
++            _RESOURCE_HITS += 1
++        resource.leases += 1
++        return resource
++
++
++def _file_sha256(path: Path) -> str:
++    digest = hashlib.sha256()
++    with path.open("rb") as stream:
++        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
++            digest.update(chunk)
++    return digest.hexdigest()
++
++
++def _normalize_sha256(value: str, *, label: str) -> str:
++    normalized = value.strip().lower()
++    normalized = normalized.removeprefix("sha256:")
++    if not re.fullmatch(r"[0-9a-f]{64}", normalized):
++        raise ValueError(f"{label} must be a 64-character SHA-256 hex digest")
++    return normalized
++
++
++def _source_metadata(
++    path: Path,
++    language: str,
++    manifest: Mapping[str, object],
++    content_sha256: str,
++) -> Mapping[str, object]:
++    requested_language = normalize_language(language)
++    declared_language = manifest.get("language") or manifest.get("locale")
++    if not isinstance(declared_language, str) or not declared_language.strip():
++        raise ValueError(
++            f"G2Lex file {path} has no language metadata; "
++            "include a language in its manifest"
++        )
++    source_language = normalize_language(declared_language)
++    if source_language != requested_language:
++        raise ValueError(
++            "G2Lex language metadata conflicts with the request:\n"
++            f"  language: {source_language}\n"
++            f"  request:  {requested_language}"
++        )
++
++    encoding = manifest.get("phoneme_encoding")
++    if not isinstance(encoding, str) or not encoding.strip():
++        raise ValueError(
++            f"G2Lex file {path} has no phoneme_encoding metadata; declare its encoding"
++        )
++
++    source_info = manifest.get("source")
++    source_info = source_info if isinstance(source_info, Mapping) else {}
++    display_name = manifest.get("display_name") or manifest.get("name") or path.name
++    source_id = (
++        manifest.get("id")
++        or manifest.get("asset_id")
++        or source_info.get("source_id")
++        or f"file:{content_sha256[:16]}"
++    )
++    logical_sha256 = manifest.get("logical_sha256")
++    if logical_sha256 is not None:
++        logical_sha256 = _normalize_sha256(
++            str(logical_sha256), label=f"G2Lex logical_sha256 in {path}"
++        )
++
++    return MappingProxyType(
++        {
++            **dict(manifest),
++            "id": str(source_id),
++            "name": str(display_name),
++            "display_name": str(display_name),
++            "language": source_language,
++            "phoneme_encoding": encoding.strip().lower(),
++            "kind": str(manifest.get("kind", "pronunciation")),
++            "rating": manifest.get("rating"),
++            "source_kind": "file",
++            "path": str(path),
++            "resolved_path": str(path),
++            "sha256": f"sha256:{content_sha256}",
++            "logical_sha256": logical_sha256,
++            "entry_count": manifest.get("entry_count"),
++        }
++    )
++
++
++def _acquire_file_resource(
++    language: str, source: FileLexiconSource
++) -> _SharedLexiconResource:
++    """Open and validate one local file, reusing only its exact content identity."""
++    global _RESOURCE_HITS, _RESOURCE_MISSES
++    raw_path = Path(source.path).expanduser()
++    try:
++        path = raw_path.resolve(strict=True)
++    except FileNotFoundError as exc:
++        raise FileNotFoundError(
++            f"Configured G2Lex file does not exist: {raw_path}"
++        ) from exc
++    if not path.is_file():
++        raise ValueError(f"Configured G2Lex path is not a file: {path}")
++
++    content_sha256 = _file_sha256(path)
++    if source.sha256 is not None:
++        expected = _normalize_sha256(source.sha256, label="expected G2Lex sha256")
++        if expected != content_sha256:
++            raise ValueError(
++                "Configured G2Lex file content hash does not match its pin.\n"
++                f"  path:     {path}\n"
++                f"  expected: sha256:{expected}\n"
++                f"  actual:   sha256:{content_sha256}"
++            )
++
++    key = ("file", str(path), content_sha256)
++    with _RESOURCE_LOCK:
++        resource = _RESOURCE_CACHE.get(key)
++        if resource is None:
++            _RESOURCE_MISSES += 1
++            try:
++                handle = g2lex.open(path)
++            except Exception as exc:
++                raise ValueError(f"Invalid G2Lex file {path}: {exc}") from exc
++            try:
++                if _file_sha256(path) != content_sha256:
++                    raise ValueError(
++                        f"G2Lex file changed while it was being opened: {path}"
++                    )
++                manifest = getattr(handle, "metadata", None)
++                if not isinstance(manifest, Mapping):
++                    raise TypeError(
++                        f"G2Lex file {path} has no readable manifest metadata"
++                    )
++                metadata = _source_metadata(path, language, manifest, content_sha256)
++                resource = _SharedLexiconResource(key, handle, handle, metadata)
++            except Exception:
++                close = getattr(handle, "close", None)
++                if close is not None:
++                    close()
++                raise
+             _RESOURCE_CACHE[key] = resource
+         else:
+             _RESOURCE_HITS += 1
++
++        if source.logical_sha256 is not None:
++            expected_logical = _normalize_sha256(
++                source.logical_sha256, label="expected G2Lex logical_sha256"
++            )
++            actual_logical = resource.metadata.get("logical_sha256")
++            if actual_logical != expected_logical:
++                raise ValueError(
++                    "Configured G2Lex logical hash does not match its pin.\n"
++                    f"  path:     {path}\n"
++                    f"  expected: {expected_logical}\n"
++                    f"  actual:   {actual_logical or 'unavailable'}"
++                )
+         resource.leases += 1
+         return resource
+
+@@ -106,7 +285,7 @@ def clear_resource_cache() -> None:
+
+
+ def resource_cache_info():
+-    """Return diagnostics for the shared external resource pool."""
++    """Return diagnostics for the shared lexicon resource pool."""
+     with _RESOURCE_LOCK:
+         return _ResourceCacheInfo(
+             _RESOURCE_HITS, _RESOURCE_MISSES, None, len(_RESOURCE_CACHE)
+@@ -115,7 +294,7 @@ def resource_cache_info():
+
+ @dataclass(frozen=True, slots=True)
+ class LexiconHit:
+-    """A selected value plus the metadata needed by its consumer."""
++    """A selected value plus pronunciation source metadata."""
+
+     value: object
+     name: str
+@@ -124,74 +303,162 @@ class LexiconHit:
+     phoneme_encoding: str
+     lexicon_id: str
+     metadata: Mapping[str, object]
++    source_kind: str = "named"
++    source_path: str | None = None
++    sha256: str | None = None
++    logical_sha256: str | None = None
++
++
++@dataclass(frozen=True, slots=True)
++class _SelectedLayer:
++    key: str
++    name: str
++    lexicon_id: str
++    rating: int | None
++    kind: str
++    phoneme_encoding: str
++    source_kind: str
++    source_path: str | None
++    sha256: str | None
++    logical_sha256: str | None
++    metadata: Mapping[str, object]
+
+
+ class SelectedLexicons:
+-    """An ordered collection of lazy external G2Lex mappings."""
++    """An ordered collection of lazy named or local G2Lex mappings."""
+
+     def __init__(
+         self,
+         language: str,
+-        names: Sequence[str],
++        names: Sequence[str] | None = None,
+         *,
++        sources: Sequence[LexiconSource] | None = None,
+         store: DataStore | None = None,
+     ) -> None:
++        if sources is not None and names is not None:
++            raise ValueError("pass either names or sources, not both")
++        selected_sources: tuple[LexiconSource, ...]
++        if sources is None:
++            selected_sources = tuple(NamedLexiconSource(name) for name in (names or ()))
++        else:
++            selected_sources = tuple(sources)
++
+         self.language = normalize_language(language)
+-        self.names = tuple(names)
+-        self.store = DataStore() if store is None else store
+-        self._specs: tuple[LexiconSpec, ...] = tuple(
+-            get_lexicon_spec(self.language, name) for name in self.names
++        self.sources = selected_sources
++        self.names = tuple(
++            source.name
++            for source in selected_sources
++            if isinstance(source, NamedLexiconSource)
+         )
++        self.store = DataStore() if store is None else store
+         self._layers: dict[str, Mapping[str, object]] = {}
++        self._closed = False
+         layer_records: list[g2lex.LexiconLayer] = []
++        layer_info: list[_SelectedLayer] = []
+         resources: list[_SharedLexiconResource] = []
++        seen: set[tuple[str, ...]] = set()
+         try:
+-            for spec in self._specs:
+-                resource = _acquire_resource(spec, self.store)
++            for source in selected_sources:
++                if isinstance(source, NamedLexiconSource):
++                    if not source.name or not isinstance(source.name, str):
++                        raise ValueError(
++                            "named lexicon source name must be a non-empty string"
++                        )
++                    spec = get_lexicon_spec(self.language, source.name)
++                    duplicate_key = ("named", spec.id)
++                    if duplicate_key in seen:
++                        raise ValueError(f"duplicate lexicon source: {source.name}")
++                    resource = _acquire_resource(spec, self.store)
++                    metadata = resource.metadata
++                    key = spec.name
++                elif isinstance(source, FileLexiconSource):
++                    resource = _acquire_file_resource(self.language, source)
++                    metadata = resource.metadata
++                    duplicate_key = ("file", str(metadata["sha256"]))
++                    if duplicate_key in seen:
++                        _release_resource(resource)
++                        raise ValueError(
++                            f"duplicate G2Lex file source: {metadata['path']}"
++                        )
++                    key = f"file:{str(metadata['sha256'])[-12:]}"
++                else:
++                    raise TypeError(
++                        f"unsupported lexicon source type: {type(source).__name__}"
++                    )
++
++                if duplicate_key in seen:
++                    _release_resource(resource)
++                    raise ValueError(f"duplicate lexicon source: {key}")
++                seen.add(duplicate_key)
+                 resources.append(resource)
+-                self._layers[spec.name] = resource.mapping
+                 layer_records.append(
+-                    g2lex.LexiconLayer(
+-                        spec.name,
+-                        resource.mapping,
+-                        {
+-                            **dict(spec.metadata),
+-                            "id": spec.id,
+-                            "rating": spec.rating,
+-                            "kind": spec.kind,
+-                            "phoneme_encoding": spec.phoneme_encoding,
+-                        },
++                    g2lex.LexiconLayer(key, resource.mapping, metadata)
++                )
++                self._layers[key] = resource.mapping
++                rating = metadata.get("rating")
++                layer_info.append(
++                    _SelectedLayer(
++                        key=key,
++                        name=str(
++                            metadata.get("display_name", metadata.get("name", key))
++                        ),
++                        lexicon_id=str(metadata.get("id", key)),
++                        rating=rating if isinstance(rating, int) else None,
++                        kind=str(metadata.get("kind", "pronunciation")),
++                        phoneme_encoding=str(metadata.get("phoneme_encoding", "")),
++                        source_kind=str(metadata.get("source_kind", "named")),
++                        source_path=(
++                            str(metadata["path"])
++                            if metadata.get("path") is not None
++                            else None
++                        ),
++                        sha256=(
++                            str(metadata["sha256"])
++                            if metadata.get("sha256") is not None
++                            else None
++                        ),
++                        logical_sha256=(
++                            str(metadata["logical_sha256"])
++                            if metadata.get("logical_sha256") is not None
++                            else None
++                        ),
++                        metadata=metadata,
+                     )
+                 )
+         except Exception:
+             _release_resources(tuple(reversed(resources)))
+             raise
++
+         self._resources = tuple(resources)
++        self._layer_info = tuple(layer_info)
+         self._layered = g2lex.LayeredLexicon(layer_records)
+-        self._closed = False
+         self._finalizer = weakref.finalize(self, _release_resources, self._resources)
+
+     def _ensure_open(self) -> None:
+         if self._closed:
+             raise ValueError("selected lexicons are closed")
+
++    def _hit(self, hit: Any) -> LexiconHit:
++        info = self._layer_info[hit.index]
++        return LexiconHit(
++            value=hit.value,
++            name=info.name,
++            rating=info.rating,
++            kind=info.kind,
++            phoneme_encoding=info.phoneme_encoding,
++            lexicon_id=info.lexicon_id,
++            metadata=dict(info.metadata),
++            source_kind=info.source_kind,
++            source_path=info.source_path,
++            sha256=info.sha256,
++            logical_sha256=info.logical_sha256,
++        )
++
+     def get_hit(self, word: str) -> LexiconHit | None:
+         """Return the first matching value according to configured precedence."""
+         self._ensure_open()
+         hit = self._layered.get_hit(word)
+-        if hit is None:
+-            return None
+-        metadata = dict(hit.metadata)
+-        spec = self._specs[hit.index]
+-        return LexiconHit(
+-            hit.value,
+-            hit.name,
+-            spec.rating,
+-            spec.kind,
+-            spec.phoneme_encoding,
+-            spec.id,
+-            metadata,
+-        )
++        return None if hit is None else self._hit(hit)
+
+     def lookup_hit(self, word: str) -> LexiconHit | None:
+         """Return only an exact hit from the configured selected stack."""
+@@ -201,24 +468,17 @@ class SelectedLexicons:
+         """Search selected layers for the first matching candidate."""
+         self._ensure_open()
+         hit = self._layered.get_hit_candidates(words)
+-        if hit is None:
+-            return None
+-        metadata = dict(hit.metadata)
+-        spec = self._specs[hit.index]
+-        return LexiconHit(
+-            hit.value,
+-            hit.name,
+-            spec.rating,
+-            spec.kind,
+-            spec.phoneme_encoding,
+-            spec.id,
+-            metadata,
+-        )
++        return None if hit is None else self._hit(hit)
+
+     def layer(self, name: str) -> Mapping[str, object] | None:
+-        """Return one selected lazy mapping, or ``None`` when not selected."""
++        """Return one selected mapping by layer key or display name."""
+         self._ensure_open()
+-        return self._layers.get(name)
++        if name in self._layers:
++            return self._layers[name]
++        for info in self._layer_info:
++            if info.name == name:
++                return self._layers[info.key]
++        return None
+
+     def __contains__(self, word: object) -> bool:
+         return isinstance(word, str) and self.get_hit(word) is not None
+@@ -257,10 +517,21 @@ def open_selected(
+     return SelectedLexicons(language, names, store=store)
+
+
++def open_sources(
++    language: str,
++    sources: Sequence[LexiconSource],
++    *,
++    store: DataStore | None = None,
++) -> SelectedLexicons:
++    """Open named and local G2Lex sources in their supplied precedence order."""
++    return SelectedLexicons(language, sources=sources, store=store)
++
++
+ __all__ = [
+     "LexiconHit",
+     "SelectedLexicons",
+     "clear_resource_cache",
+     "open_selected",
++    "open_sources",
+     "resource_cache_info",
+ ]
+diff --git a/kokorog2p/pipeline_api.py b/kokorog2p/pipeline_api.py
+index e4652e1..4e18b44 100644
+--- a/kokorog2p/pipeline_api.py
++++ b/kokorog2p/pipeline_api.py
+@@ -602,6 +602,7 @@ def phonemize_to_result(  # noqa: C901
+         g2p_resolver=resolve_explicit_language,
+         fixed_target_model=fixed_target_model,
+         strict_stress=strict_stress,
++        context_text=extended_text or clean_text,
+     )
+     warnings.extend(phonemize_warnings)
+
+@@ -706,6 +707,43 @@ def _apply_token_stress(
+     return apply_stress(phonemes, level, vowels=_stress_vowels(language)) or ""
+
+
++def _record_lexicon_provenance(
++    token: TokenSpan, g2p: Any, word: str, tag: str, phonemes: str
++) -> None:
++    evidence_lookup = getattr(g2p, "lexicon_evidence", None)
++    if not callable(evidence_lookup):
++        return
++    try:
++        evidence = evidence_lookup(word, tag)
++    except (AttributeError, TypeError, ValueError):
++        return
++    if (
++        evidence is None
++        or getattr(evidence, "kind", None) != "pronunciation"
++        or getattr(evidence, "pronunciation", None) != phonemes
++    ):
++        return
++    metadata = getattr(evidence, "metadata", None)
++    if not isinstance(metadata, Mapping):
++        metadata = {}
++    source_kind = metadata.get("source_kind", "named")
++    token.meta["pronunciation_source"] = (
++        "local-g2lex" if source_kind == "file" else "named-lexicon"
++    )
++    token.meta["pronunciation_provider"] = source_kind
++    token.meta["pronunciation_lexicon_id"] = evidence.lexicon_id
++    token.meta["pronunciation_source_details"] = {
++        "source_kind": source_kind,
++        "selector": evidence.lexicon_name or metadata.get("name"),
++        "lexicon_id": evidence.lexicon_id,
++        "source_path": metadata.get("path"),
++        "sha256": metadata.get("sha256"),
++        "logical_sha256": metadata.get("logical_sha256"),
++        "phoneme_encoding": evidence.phoneme_encoding
++        or metadata.get("phoneme_encoding"),
++    }
++
++
+ def _phonemize_token_spans(  # noqa: C901
+     token_spans: list[TokenSpan],
+     g2p_token_spans: list[TokenSpan],
+@@ -716,6 +754,7 @@ def _phonemize_token_spans(  # noqa: C901
+     g2p_resolver: Callable[[str], "G2PBase"] | None = None,
+     fixed_target_model: str | None = None,
+     strict_stress: bool = False,
++    context_text: str | None = None,
+ ) -> tuple[list[TokenSpan], list[str], str]:
+     """Phonemize token spans, handling per-span language switching.
+
+@@ -737,8 +776,7 @@ def _phonemize_token_spans(  # noqa: C901
+     g2p_index = 0
+     carry_alnum_end: int | None = None
+
+-    for token in token_spans:
+-        # Determine language for this token
++    for token_index, token in enumerate(token_spans):
+         token_lang = normalize_language_code(token.lang or default_lang)
+         token_start = token.meta.get("_extended_char_start", token.char_start)
+         token_end = token.meta.get("_extended_char_end", token.char_end)
+@@ -940,7 +978,47 @@ def _phonemize_token_spans(  # noqa: C901
+
+             phonemes = "".join(mapped_parts)
+             annotation_tag = token.meta.get("tag") or token.meta.get("pos")
+-            if annotation_tag and not token_is_punct and "ph" not in token.meta:
++            contextual_decision = None
++            contextual_lookup = getattr(token_g2p, "lookup_contextual", None)
++            if callable(contextual_lookup) and not token_is_punct:
++                try:
++                    contextual = contextual_lookup(
++                        token.extended_text or token.text,
++                        (
++                            str(annotation_tag or mapped_tag)
++                            if annotation_tag or mapped_tag
++                            else None
++                        ),
++                        lemma=token.meta.get("lemma"),
++                        pos=token.meta.get("pos"),
++                        morph=token.meta.get("morph"),
++                        left_context=[
++                            span.extended_text or span.text
++                            for span in token_spans[
++                                max(0, token_index - 6) : token_index
++                            ]
++                        ],
++                        right_context=[
++                            span.extended_text or span.text
++                            for span in token_spans[token_index + 1 : token_index + 7]
++                        ],
++                        sentence_context=context_text
++                        or " ".join(
++                            span.extended_text or span.text for span in token_spans
++                        ),
++                    )
++                except (AttributeError, TypeError, ValueError):
++                    contextual = None
++                if contextual is not None:
++                    phonemes, contextual_decision = contextual
++                    token.meta["pronunciation_source"] = "contextual-heteronym"
++                    token.meta["heteronym_resolution"] = contextual_decision.as_dict()
++            if (
++                contextual_decision is None
++                and annotation_tag
++                and not token_is_punct
++                and "ph" not in token.meta
++            ):
+                 try:
+                     annotated = token_g2p.lookup(
+                         token.extended_text or token.text, str(annotation_tag)
+@@ -949,6 +1027,13 @@ def _phonemize_token_spans(  # noqa: C901
+                     annotated = None
+                 if annotated:
+                     phonemes = annotated
++                    _record_lexicon_provenance(
++                        token,
++                        token_g2p,
++                        token.extended_text or token.text,
++                        str(annotation_tag),
++                        annotated,
++                    )
+             if not phonemes and token.text.strip() and not _is_punctuation(token.text):
+                 # fallback: re-phonemize token directly
+                 try:
+diff --git a/kokorog2p/tokenization.py b/kokorog2p/tokenization.py
+index 548b3f1..638a4fa 100644
+--- a/kokorog2p/tokenization.py
++++ b/kokorog2p/tokenization.py
+@@ -207,6 +207,19 @@ def _build_gtoken_meta(token: "GToken") -> dict[str, object]:
+     source_kind = token.get("source_kind")
+     if source_kind:
+         meta["source_kind"] = source_kind
++    for key in (
++        "pronunciation_source",
++        "pronunciation_provider",
++        "pronunciation_lexicon_id",
++        "pronunciation_source_details",
++        "pronunciation_requested_language",
++        "pronunciation_source_ipa",
++        "pronunciation_language_markers",
++        "heteronym_resolution",
++    ):
++        value = token.get(key)
++        if value is not None:
++            meta[key] = value
+     meta["whitespace"] = token.whitespace
+     return meta
+
+diff --git a/tests/fixtures/english_heteronyms.json b/tests/fixtures/english_heteronyms.json
+new file mode 100644
+index 0000000..5f8658b
+--- /dev/null
++++ b/tests/fixtures/english_heteronyms.json
+@@ -0,0 +1,139 @@
++{
++  "schema_version": 1,
++  "language": "en-us",
++  "source": "01_voicerender_g2lex_selection_and_heteronym_resolution.md and ../audiobooks/readio/evaluation_english_eval.md",
++  "cases": [
++    {
++      "id": "T03",
++      "word": "read",
++      "context": "Clara had read the script twice that morning.",
++      "expected_ipa": "rɛd",
++      "classification": "exact-tag",
++      "expected_tag": "VBN"
++    },
++    {
++      "id": "T04",
++      "word": "read",
++      "context": "Jonah promised that he would read it once more.",
++      "expected_ipa": "riːd",
++      "classification": "exact-tag",
++      "expected_tag": "VB"
++    },
++    {
++      "id": "T19",
++      "word": "bass",
++      "context": "Although Jonah chose the bass, drums sounded from the room next door.",
++      "expected_ipa": "beɪs",
++      "classification": "sense-context"
++    },
++    {
++      "id": "T20",
++      "word": "minute",
++      "context": "A minute later, Clara noticed a minute crack in the wooden frame.",
++      "occurrence": 1,
++      "expected_ipa": "ˈmɪnɪt",
++      "classification": "context-recovery"
++    },
++    {
++      "id": "T21",
++      "word": "minute",
++      "context": "A minute later, Clara noticed a minute crack in the wooden frame.",
++      "occurrence": 2,
++      "expected_ipa": "maɪˈnuːt",
++      "classification": "context-recovery"
++    },
++    {
++      "id": "T22",
++      "word": "bow",
++      "context": "Jonah gave a polite bow, then pointed toward a hunting bow hanging on the wall.",
++      "occurrence": 1,
++      "expected_ipa": "baʊ",
++      "classification": "sense-context"
++    },
++    {
++      "id": "T23",
++      "word": "bow",
++      "context": "Jonah gave a polite bow, then pointed toward a hunting bow hanging on the wall.",
++      "occurrence": 2,
++      "expected_ipa": "boʊ",
++      "classification": "sense-context"
++    },
++    {
++      "id": "T27",
++      "word": "lead",
++      "context": "The lead actor had left a lead weight on the floor.",
++      "occurrence": 1,
++      "expected_ipa": "liːd",
++      "classification": "same-pos-sense"
++    },
++    {
++      "id": "T28",
++      "word": "lead",
++      "context": "The lead actor had left a lead weight on the floor.",
++      "occurrence": 2,
++      "expected_ipa": "lɛd",
++      "classification": "same-pos-sense"
++    },
++    {
++      "id": "T29",
++      "word": "bass",
++      "context": "The bass player had placed a drawing of a bass beside his chair.",
++      "occurrence": 1,
++      "expected_ipa": "beɪs",
++      "classification": "sense-context"
++    },
++    {
++      "id": "T30",
++      "word": "bass",
++      "context": "The bass player had placed a drawing of a bass beside his chair.",
++      "occurrence": 2,
++      "expected_ipa": "bæs",
++      "classification": "sense-context"
++    },
++    {
++      "id": "T42",
++      "word": "does",
++      "context": "Does that sound natural to you?",
++      "expected_ipa": "dʌz",
++      "classification": "context-recovery",
++      "expected_tag": "VBZ"
++    },
++    {
++      "id": "T43",
++      "word": "does",
++      "context": "Outside, several does cross the garden.",
++      "expected_ipa": "doʊz",
++      "classification": "context-recovery"
++    },
++    {
++      "id": "T45",
++      "word": "refuse",
++      "context": "Staff could refuse damaged produce.",
++      "expected_ipa": "rɪˈfjuːz",
++      "classification": "context-recovery",
++      "expected_tag": "VB"
++    },
++    {
++      "id": "T47",
++      "word": "refuse",
++      "context": "All refuse should be placed behind the building.",
++      "expected_ipa": "ˈrɛfjuːs",
++      "classification": "context-recovery"
++    },
++    {
++      "id": "T70",
++      "word": "learned",
++      "context": "Then a learned professor stepped inside carrying a worn leather bag.",
++      "expected_ipa": "ˈlɝnɪd",
++      "classification": "context-recovery"
++    },
++    {
++      "id": "T72",
++      "word": "learned",
++      "context": "She'd learned his name during an earlier lecture.",
++      "expected_ipa": "lɝnd",
++      "classification": "context-recovery",
++      "expected_tag": "VBN"
++    }
++  ]
++}
+diff --git a/tests/test_en_heteronyms.py b/tests/test_en_heteronyms.py
+new file mode 100644
+index 0000000..20223c3
+--- /dev/null
++++ b/tests/test_en_heteronyms.py
+@@ -0,0 +1,178 @@
++"""Focused English contextual heteronym and provenance regressions."""
++
++from __future__ import annotations
++
++import json
++import re
++from pathlib import Path
++from types import SimpleNamespace
++
++import pytest
++
++from kokorog2p import TokenAnnotation, phonemize_prepared
++from kokorog2p.en.g2p import EnglishG2P
++from kokorog2p.en.heteronyms import resolve_english_heteronym
++from kokorog2p.en.phoneme_codec import ipa_to_kokoro
++from kokorog2p.en.realization import finalize_english_phonemes
++
++_FIXTURE = Path(__file__).parent / "fixtures" / "english_heteronyms.json"
++_CASES = json.loads(_FIXTURE.read_text(encoding="utf-8"))["cases"]
++_CONTEXT_CASES = [case for case in _CASES if case["classification"] != "exact-tag"]
++_WORD_RE = re.compile(r"[\w]+(?:['’][\w]+)*", re.UNICODE)
++
++
++def _context_windows(case: dict[str, object]) -> tuple[list[str], list[str]]:
++    context = str(case["context"])
++    word = str(case["word"]).casefold()
++    occurrence = int(case.get("occurrence", 1)) - 1
++    words = [match.group(0) for match in _WORD_RE.finditer(context)]
++    indices = [index for index, token in enumerate(words) if token.casefold() == word]
++    index = indices[occurrence]
++    return words[max(0, index - 6) : index], words[index + 1 : index + 7]
++
++
++@pytest.mark.parametrize("case", _CONTEXT_CASES, ids=lambda case: str(case["id"]))
++def test_context_resolver_covers_fixture_cases(case: dict[str, object]) -> None:
++    left, right = _context_windows(case)
++    decision = resolve_english_heteronym(
++        str(case["word"]),
++        tag=case.get("expected_tag"),
++        left_context=left,
++        right_context=right,
++        sentence_context=str(case["context"]),
++    )
++
++    assert decision is not None
++    assert decision.ipa == case["expected_ipa"]
++    assert decision.reason
++    assert decision.context_rule
++    assert decision.tag == case.get("expected_tag")
++    diagnostic = decision.as_dict()
++    assert diagnostic["source"] == "english-context-resolver"
++    assert diagnostic["context"]
++
++
++@pytest.mark.parametrize("case", _CONTEXT_CASES, ids=lambda case: str(case["id"]))
++def test_english_g2p_applies_and_traces_contextual_readings(
++    case: dict[str, object],
++) -> None:
++    g2p = EnglishG2P(
++        use_espeak_fallback=False,
++        use_spacy=False,
++        lexicons=(),
++        g2lex_files=(),
++    )
++    try:
++        tokens = g2p(str(case["context"]))
++        occurrences = [
++            token for token in tokens if token.text.casefold() == str(case["word"])
++        ]
++        token = occurrences[int(case.get("occurrence", 1)) - 1]
++        expected = finalize_english_phonemes(
++            ipa_to_kokoro(str(case["expected_ipa"])), profile=g2p.frontend_profile
++        )
++
++        assert token.phonemes == expected
++        diagnostic = token.get("heteronym_resolution")
++        assert diagnostic["reason"]
++        assert diagnostic["context_rule"]
++        assert token.get("pronunciation_source") == "contextual-heteronym"
++    finally:
++        g2p.close()
++
++
++@pytest.mark.parametrize("case", _CONTEXT_CASES, ids=lambda case: str(case["id"]))
++def test_prepared_context_overrides_misleading_annotations(
++    case: dict[str, object],
++) -> None:
++    context = str(case["context"])
++    word = str(case["word"])
++    occurrences = [
++        match
++        for match in _WORD_RE.finditer(context)
++        if match.group(0).casefold() == word
++    ]
++    span = occurrences[int(case.get("occurrence", 1)) - 1]
++    annotation = TokenAnnotation(
++        span.start(),
++        span.end(),
++        span.group(0),
++        pos="NOUN",
++        tag=str(case.get("expected_tag", "NN")),
++        lemma=word,
++        morph="Number=Sing",
++    )
++    g2p = EnglishG2P(
++        use_espeak_fallback=False,
++        use_spacy=False,
++        lexicons=(),
++        g2lex_files=(),
++    )
++    try:
++        result = phonemize_prepared(
++            context,
++            language="en-us",
++            annotations=[annotation],
++            g2p=g2p,
++            return_ids=False,
++            use_spacy=False,
++        )
++        token = next(
++            item
++            for item in result.tokens
++            if item.char_start == span.start() and item.text.casefold() == word
++        )
++        expected = finalize_english_phonemes(
++            ipa_to_kokoro(str(case["expected_ipa"])), profile=g2p.frontend_profile
++        )
++
++        assert token.meta["phonemes"] == expected
++        assert token.meta["heteronym_resolution"]["context_rule"]
++        assert token.meta["pronunciation_source"] == "contextual-heteronym"
++    finally:
++        g2p.close()
++
++
++def test_pos_alone_does_not_trigger_a_heteronym_decision() -> None:
++    assert resolve_english_heteronym("minute", pos="NOUN", tag="NN") is None
++    assert resolve_english_heteronym("does", pos="VERB", tag="VBZ") is None
++
++
++def test_local_file_hit_precedes_contextual_inference(
++    monkeypatch: pytest.MonkeyPatch,
++) -> None:
++    g2p = EnglishG2P(
++        use_espeak_fallback=False,
++        use_spacy=False,
++        lexicons=(),
++        g2lex_files=(),
++    )
++    try:
++        monkeypatch.setattr(
++            g2p.lexicon,
++            "lookup_hit",
++            lambda _word: SimpleNamespace(source_kind="file", lexicon_id="local:test"),
++        )
++        assert (
++            g2p.lookup_contextual("minute", left_context=["a"], right_context=["later"])
++            is None
++        )
++    finally:
++        g2p.close()
++
++
++def test_contextual_resolution_can_be_disabled() -> None:
++    g2p = EnglishG2P(
++        use_espeak_fallback=False,
++        use_spacy=False,
++        lexicons=(),
++        g2lex_files=(),
++        resolve_heteronyms=False,
++    )
++    try:
++        assert (
++            g2p.lookup_contextual("minute", left_context=["a"], right_context=["later"])
++            is None
++        )
++    finally:
++        g2p.close()
+diff --git a/tests/test_local_g2lex_sources.py b/tests/test_local_g2lex_sources.py
+new file mode 100644
+index 0000000..18b0b27
+--- /dev/null
++++ b/tests/test_local_g2lex_sources.py
+@@ -0,0 +1,260 @@
++import hashlib
++import json
++from pathlib import Path
++
++import g2lex
++import pytest
++
++from kokorog2p import TokenAnnotation, get_g2p, phonemize_prepared
++from kokorog2p.en.lexicon import Lexicon
++from kokorog2p.lexicons import (
++    FileLexiconSource,
++    NamedLexiconSource,
++    clear_resource_cache,
++    open_sources,
++    resource_cache_info,
++    runtime,
++)
++
++
++class FakeStore:
++    def __init__(self, root: Path) -> None:
++        self.root = root
++
++    def path(self, identifier: str) -> Path:
++        return self.root / f"{identifier.replace(':', '_')}.g2lex"
++
++
++def _write_g2lex(
++    tmp_path: Path,
++    name: str,
++    entries: dict[str, object],
++    *,
++    language: str = "en-us",
++    encoding: str = "ipa",
++) -> Path:
++    source = tmp_path / f"{name}.json"
++    output = tmp_path / f"{name}.g2lex"
++    source.write_text(json.dumps(entries), encoding="utf-8")
++    g2lex.pack_file(
++        source,
++        output,
++        input_format="kokoro-json",
++        metadata={
++            "id": f"fixture:{name}",
++            "name": name,
++            "language": language,
++            "phoneme_encoding": encoding,
++        },
++    )
++    return output
++
++
++@pytest.fixture(autouse=True)
++def _clear_runtime_cache():
++    clear_resource_cache()
++    yield
++    clear_resource_cache()
++
++
++def test_local_file_opens_with_content_and_manifest_provenance(tmp_path: Path) -> None:
++    path = _write_g2lex(tmp_path, "local", {"hello": "hɛˈloʊ"})
++
++    with open_sources("en-US", (FileLexiconSource(path),)) as selected:
++        hit = selected.get_hit("hello")
++        assert hit is not None
++        assert hit.value == "hɛˈloʊ"
++        assert hit.name == "local"
++        assert hit.lexicon_id == "fixture:local"
++        assert hit.source_kind == "file"
++        assert hit.source_path == str(path.resolve())
++        assert hit.sha256 == f"sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}"
++        assert hit.logical_sha256
++        assert hit.phoneme_encoding == "ipa"
++        assert hit.metadata["language"] == "en-us"
++
++
++def test_local_file_precedes_named_stack_and_named_stack_remains_ordered(
++    tmp_path: Path,
++) -> None:
++    local = _write_g2lex(tmp_path, "local", {"collision": "local", "local_only": "l"})
++    store_root = tmp_path / "store"
++    store_root.mkdir()
++    _write_g2lex(
++        store_root,
++        "en-us_gold",
++        {"collision": "named", "named_only": "named"},
++    )
++    store = FakeStore(store_root)
++
++    with open_sources(
++        "en-us",
++        (FileLexiconSource(local), NamedLexiconSource("gold")),
++        store=store,
++    ) as selected:
++        assert selected.get_hit("collision").value == "local"
++        assert selected.get_hit("collision").source_kind == "file"
++        assert selected.get_hit("named_only").value == "named"
++        assert selected.get_hit("named_only").source_kind == "named"
++
++    first = _write_g2lex(tmp_path, "first", {"collision": "first"})
++    second = _write_g2lex(tmp_path, "second", {"collision": "second"})
++    with open_sources(
++        "en-us", (FileLexiconSource(first), FileLexiconSource(second))
++    ) as selected:
++        assert selected.get_hit("collision").value == "first"
++
++
++def test_name_only_open_selected_remains_compatible(tmp_path: Path) -> None:
++    store_root = tmp_path / "store"
++    store_root.mkdir()
++    _write_g2lex(store_root, "en-us_gold", {"hello": "named"})
++
++    with runtime.open_selected(
++        "en-us", ("gold",), store=FakeStore(store_root)
++    ) as selected:
++        assert selected.names == ("gold",)
++        assert selected.get_hit("hello").value == "named"
++        assert selected.get_hit("hello").source_kind == "named"
++
++
++def test_exact_english_tag_selects_vbn_before_parent_and_default(
++    tmp_path: Path,
++) -> None:
++    path = _write_g2lex(
++        tmp_path,
++        "read",
++        {
++            "read": {
++                "DEFAULT": "riːd",
++                "VERB": "riːd",
++                "VB": "riːd",
++                "VBD": "rɛd",
++                "VBN": "rɛd",
++            }
++        },
++    )
++    lexicon = Lexicon(lexicons=(), g2lex_files=(FileLexiconSource(path),))
++    try:
++        assert lexicon.lookup("read", "VBN")[0] == "ɹɛd"
++        assert lexicon.lookup("read", "VB")[0] == "ɹid"
++    finally:
++        lexicon.close()
++
++
++def test_prepared_annotations_keep_exact_tag_for_local_lexicon(tmp_path: Path) -> None:
++    path = _write_g2lex(
++        tmp_path,
++        "prepared-read",
++        {"read": {"DEFAULT": "riːd", "VERB": "riːd", "VBN": "rɛd"}},
++    )
++    g2p = get_g2p(
++        "en-us",
++        lexicons=(),
++        g2lex_files=(FileLexiconSource(path),),
++        use_spacy=False,
++        use_espeak_fallback=False,
++    )
++    try:
++        result = phonemize_prepared(
++            "had read",
++            language="en-us",
++            annotations=[
++                TokenAnnotation(
++                    4,
++                    8,
++                    "read",
++                    pos="VERB",
++                    tag="VBN",
++                    lemma="read",
++                    morph="VerbForm=Part",
++                )
++            ],
++            g2p=g2p,
++            return_ids=False,
++        )
++        read_token = next(token for token in result.tokens if token.text == "read")
++        assert read_token.meta["phonemes"] == "ɹɛd"
++        assert read_token.meta["pronunciation_source"] == "local-g2lex"
++        source_details = read_token.meta["pronunciation_source_details"]
++        assert source_details["source_path"] == str(path.resolve())
++        assert source_details["sha256"] == (
++            f"sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}"
++        )
++    finally:
++        g2p.close()
++
++
++def test_file_hash_pin_and_logical_hash_are_verified(tmp_path: Path) -> None:
++    path = _write_g2lex(tmp_path, "pinned", {"hello": "hɛˈloʊ"})
++    content_hash = hashlib.sha256(path.read_bytes()).hexdigest()
++    with g2lex.open(path) as handle:
++        logical_hash = str(handle.metadata["logical_sha256"])
++
++    with open_sources(
++        "en-us",
++        (
++            FileLexiconSource(
++                path,
++                sha256=f"sha256:{content_hash}",
++                logical_sha256=logical_hash,
++            ),
++        ),
++    ) as selected:
++        assert selected.get_hit("hello") is not None
++
++    with pytest.raises(ValueError, match="content hash does not match"):
++        open_sources("en-us", (FileLexiconSource(path, sha256="0" * 64),))
++
++    with pytest.raises(ValueError, match="logical hash does not match"):
++        open_sources("en-us", (FileLexiconSource(path, logical_sha256="0" * 64),))
++
++
++def test_file_change_at_same_path_gets_a_fresh_resource(tmp_path: Path) -> None:
++    path = _write_g2lex(tmp_path, "mutable", {"word": "first"})
++    first = open_sources("en-us", (FileLexiconSource(path),))
++    try:
++        original_hash = first.get_hit("word").sha256
++        _write_g2lex(tmp_path, "replacement", {"word": "second"})
++        replacement = tmp_path / "replacement.g2lex"
++        replacement.replace(path)
++        with open_sources("en-us", (FileLexiconSource(path),)) as second:
++            assert second.get_hit("word").value == "second"
++            assert second.get_hit("word").sha256 != original_hash
++            assert first.get_hit("word").value == "first"
++            assert resource_cache_info().currsize == 2
++    finally:
++        first.close()
++
++
++def test_invalid_missing_and_incompatible_files_fail_actionably(tmp_path: Path) -> None:
++    missing = tmp_path / "missing.g2lex"
++    with pytest.raises(FileNotFoundError, match="does not exist"):
++        open_sources("en-us", (FileLexiconSource(missing),))
++
++    invalid = tmp_path / "invalid.g2lex"
++    invalid.write_bytes(b"not a G2Lex")
++    with pytest.raises(ValueError, match="Invalid G2Lex file"):
++        open_sources("en-us", (FileLexiconSource(invalid),))
++
++    wrong_language = _write_g2lex(
++        tmp_path, "wrong-language", {"hello": "hɛˈloʊ"}, language="de-de"
++    )
++    with pytest.raises(ValueError, match="language metadata conflicts"):
++        open_sources("en-us", (FileLexiconSource(wrong_language),))
++
++
++def test_duplicate_files_and_unsupported_english_encoding_fail(tmp_path: Path) -> None:
++    path = _write_g2lex(tmp_path, "duplicate", {"hello": "hɛˈloʊ"})
++    with pytest.raises(ValueError, match="duplicate G2Lex file source"):
++        open_sources("en-us", (FileLexiconSource(path), FileLexiconSource(path)))
++
++    unsupported = _write_g2lex(
++        tmp_path, "unsupported", {"hello": "hɛˈloʊ"}, encoding="x-unknown"
++    )
++    lexicon = Lexicon(lexicons=(), g2lex_files=(FileLexiconSource(unsupported),))
++    try:
++        with pytest.raises(ValueError, match="Unsupported English phoneme encoding"):
++            lexicon.lookup("hello")
++    finally:
++        lexicon.close()
+diff --git a/tests/test_pipeline_api.py b/tests/test_pipeline_api.py
+index 84319d6..b192381 100644
+--- a/tests/test_pipeline_api.py
++++ b/tests/test_pipeline_api.py
+@@ -12,6 +12,7 @@ from kokorog2p.pipeline_api import (
+     _phonemize_token_spans,
+     phonemize_to_result,
+ )
++from kokorog2p.token import GToken
+ from kokorog2p.types import OverrideSpan, TokenAnnotation, TokenSpan
+
+
+@@ -140,6 +141,68 @@ def test_prepared_linguistic_metadata_does_not_change_auto_route() -> None:
+     assert annotated.tokens[0].meta["tag"] == "NN"
+
+
++def test_prepared_live_heteronyms_use_supplied_verb_and_adjective_tags():
++    class TaggedLiveG2P(_EchoG2P):
++        def __init__(self):
++            super().__init__()
++            self.lookups = []
++
++        def __call__(self, text):
++            self.calls.append(text)
++            matches = list(re.finditer(r"\w+|[^\w\s]", text))
++            return [
++                GToken(
++                    text=match.group(),
++                    tag="WORD" if match.group().isalnum() else match.group(),
++                    whitespace=text[match.end() : matches[index + 1].start()]
++                    if index + 1 < len(matches)
++                    else "",
++                    phonemes=match.group().upper(),
++                )
++                for index, match in enumerate(matches)
++            ]
++
++        def lookup(self, word, tag=None):
++            self.lookups.append((word, tag))
++            return {"VBP": "lɪv", "JJ": "laɪv"}.get(tag)
++
++    g2p = TaggedLiveG2P()
++    cases = (
++        (
++            "I live here.",
++            TokenAnnotation(
++                2,
++                6,
++                "live",
++                pos="VERB",
++                tag="VBP",
++                lemma="live",
++                morph="Tense=Pres|VerbForm=Fin",
++            ),
++            "lɪv",
++        ),
++        (
++            "a live show",
++            TokenAnnotation(2, 6, "live", pos="ADJ", tag="JJ", lemma="live"),
++            "laɪv",
++        ),
++    )
++    for text, annotation, expected in cases:
++        result = phonemize_prepared(
++            text,
++            language="en-us",
++            annotations=[annotation],
++            g2p=g2p,
++            language_routing={"mode": "off", "languages": ("en-us",)},
++            return_ids=False,
++            use_spacy=False,
++        )
++        live = next(token for token in result.tokens if token.text == "live")
++        assert live.meta["tag"] == annotation.tag
++        assert live.meta["phonemes"] == expected
++        assert g2p.lookups[-1] == ("live", annotation.tag)
++
++
+ @pytest.mark.parametrize("language", ["de", "en"])
+ def test_prepared_explicit_language_still_controls_routing(language: str) -> None:
+     result = _prepared_routing_result(
