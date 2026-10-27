@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 import weakref
 from collections import namedtuple
@@ -219,7 +220,13 @@ def _acquire_file_resource(
         if resource is None:
             _RESOURCE_MISSES += 1
             try:
-                handle = g2lex.open(path)
+                # Windows keeps mmap-backed source handles from being replaced.
+                # Read a snapshot there so callers can atomically update the path.
+                handle = (
+                    g2lex.open_bytes(path.read_bytes())
+                    if os.name == "nt"
+                    else g2lex.open(path)
+                )
             except Exception as exc:
                 raise ValueError(f"Invalid G2Lex file {path}: {exc}") from exc
             try:
