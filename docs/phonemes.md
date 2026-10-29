@@ -543,6 +543,12 @@ kokoro = from_espeak(espeak_ipa, variant="gb")
 print(kokoro)  # hˈɛlO or similar
 ```
 
+Lexphon/eSpeak providers may mark tied diphthongs and affricates with U+200D ZERO WIDTH
+JOINER. `from_espeak()` accepts that spelling alongside U+0361 COMBINING DOUBLE INVERTED
+BREVE and the ASCII caret, normalizing ties before applying Kokoro mappings. For
+example, an eSpeak sequence such as `fˈe<U+200D>ɪlse<U+200D>ɪf` converts to `fˈAlsAf`;
+provider tie controls do not remain in the Kokoro phoneme string or model input IDs.
+
 ### Kokoro to espeak
 
 ```python

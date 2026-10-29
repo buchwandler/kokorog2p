@@ -1,4 +1,5 @@
 import inspect
+from types import SimpleNamespace
 
 import pytest
 
@@ -52,6 +53,37 @@ def test_phonemize_no_lexicon_mode() -> None:
     assert result.phonemes == "❓"
 
 
+def test_english_espeak_fallback_normalizes_zero_width_tied_diphthongs():
+    g2p = EnglishG2P(
+        language="en-us",
+        lexicons=(),
+        use_spacy=False,
+    )
+    token = SimpleNamespace(
+        known=True,
+        pronunciation="fˈe\u200dɪlse\u200dɪf",
+        provider="espeak",
+        requested_language="en-us",
+        variants=(),
+    )
+
+    class FakeFallback:
+        def lookup_token(self, word):
+            assert word == "failsafe"
+            return token
+
+        def close(self):
+            pass
+
+    g2p._fallback = FakeFallback()
+    try:
+        result = g2p.phonemize("failsafe")
+        assert result == "fˈAlsAf"
+        assert "\u200d" not in result
+    finally:
+        g2p.close()
+
+
 def test_fallback_only_were_regression() -> None:
     """Test that 'we're' uses corrected provider pronunciation.
 
@@ -65,7 +97,7 @@ def test_fallback_only_were_regression() -> None:
     )
     result = g2p.phonemize("we're")
     # Expected Kokoro-compatible scalar fallback form from corrected eSpeak provider
-    assert result == "wˈɪ\u200dɹ"
+    assert result == "wˈɪɹ"
     g2p.close()
 
 
@@ -96,7 +128,7 @@ def test_fallback_only_were_no_spacy() -> None:
         use_spacy=False,
     )
     result = g2p.phonemize("we're")
-    assert result == "wˈɪ\u200dɹ"
+    assert result == "wˈɪɹ"
     g2p.close()
 
 
@@ -110,7 +142,7 @@ def test_fallback_only_were_with_spacy() -> None:
             use_spacy=True,
         )
         result = g2p.phonemize("we're")
-        assert result == "wˈɪ\u200dɹ"
+        assert result == "wˈɪɹ"
         g2p.close()
     except Exception:
         pytest.skip("spaCy model not available")

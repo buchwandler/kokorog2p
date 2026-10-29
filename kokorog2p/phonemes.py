@@ -234,6 +234,14 @@ AFFRICATE_EXPANSIONS: Final[dict[str, str]] = {
 
 _ESPEAK_LANGUAGE_TAG_RE = re.compile(r"^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})*$")
 
+_ESPEAK_ZERO_WIDTH_TIE = "\u200d"
+_ESPEAK_CANONICAL_TIE = "\u0361"
+
+
+def _normalize_espeak_ties(value: str) -> str:
+    """Canonicalize provider tie characters to the mapping-table spelling."""
+    return value.replace(_ESPEAK_ZERO_WIDTH_TIE, _ESPEAK_CANONICAL_TIE)
+
 
 def strip_espeak_language_markers(phonemes: str) -> str:
     """Remove eSpeak language-switch controls from an IPA string.
@@ -281,7 +289,8 @@ def from_espeak(phonemes: str, british: bool = False) -> str:
     Convert espeak IPA output to Kokoro phonemes.
 
     Args:
-        phonemes: The espeak phoneme string (with tie character ^ or ͡).
+        phonemes: The eSpeak phoneme string. Tie spellings may be ^, ͡, or
+            U+200D ZERO WIDTH JOINER.
         british: Whether to use British English mappings.
 
     Returns:
@@ -291,7 +300,7 @@ def from_espeak(phonemes: str, british: bool = False) -> str:
         >>> from_espeak("mˈɜːt͡ʃənt͡ʃˌɪp", british=False)
         'mˈɜɹʧəntʃˌɪp'
     """
-    result = strip_espeak_language_markers(phonemes)
+    result = _normalize_espeak_ties(strip_espeak_language_markers(phonemes))
 
     # Apply standard mappings
     for old, new in FROM_ESPEAK:
@@ -325,7 +334,7 @@ def from_espeak(phonemes: str, british: bool = False) -> str:
 
     # ps = ps.replace('o', 'ɔ') # for espeak < 1.52
     # Remove tie characters (both Unicode and ASCII)
-    result = result.replace("͡", "").replace("^", "")
+    result = result.replace("͡", "").replace("^", "").replace("\u200d", "")
 
     return result
 

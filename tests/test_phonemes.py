@@ -1,5 +1,7 @@
 """Tests for phoneme vocabularies and conversion functions."""
 
+import unicodedata
+
 import pytest
 
 from kokorog2p.phonemes import (
@@ -114,6 +116,31 @@ class TestFromEspeak:
         """Test tie character removal."""
         result = from_espeak("t^ʃ")
         assert "^" not in result
+
+    def test_from_espeak_handles_zero_width_joiner_diphthongs(self):
+        raw = "fˈe\u200dɪlse\u200dɪf"
+        result = from_espeak(raw, british=False)
+
+        assert result == "fˈAlsAf"
+        assert "\u200d" not in result
+        assert "͡" not in result
+        assert "^" not in result
+        assert not any(unicodedata.category(char) == "Cf" for char in result)
+        assert validate_phonemes(result, british=False)
+
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            "fˈe͡ɪlse͡ɪf",
+            "fˈe^ɪlse^ɪf",
+            "fˈe\u200dɪlse\u200dɪf",
+        ],
+    )
+    def test_from_espeak_tie_variants_are_equivalent(self, raw):
+        assert from_espeak(raw, british=False) == "fˈAlsAf"
+
+    def test_from_espeak_handles_zero_width_joiner_affricates(self):
+        assert from_espeak("t\u200dʃd\u200dʒ") == "ʧʤ"
 
     def test_us_specific_conversion(self):
         """Test US-specific conversions."""

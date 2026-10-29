@@ -265,6 +265,43 @@ def test_prepared_mixed_de_en_morphology_routes_with_annotations() -> None:
         assert _route_signature(result) == route
 
 
+def test_prepared_pipeline_converts_provider_zero_width_ties_before_model_ids():
+    from types import SimpleNamespace
+
+    from kokorog2p.en import EnglishG2P
+    from kokorog2p.vocab import phonemes_to_ids
+
+    g2p = EnglishG2P(language="en-us", lexicons=(), use_spacy=False)
+    token = SimpleNamespace(
+        known=True,
+        pronunciation="fˈe\u200dɪlse\u200dɪf",
+        provider="espeak",
+        requested_language="en-us",
+        variants=(),
+    )
+
+    class FakeFallback:
+        def lookup_token(self, word):
+            assert word == "failsafe"
+            return token
+
+        def close(self):
+            pass
+
+    g2p._fallback = FakeFallback()
+    try:
+        result = phonemize_prepared("failsafe", language="en-us", g2p=g2p)
+
+        assert result.phonemes == "fˈAlsAf"
+        assert "\u200d" not in result.phonemes
+        assert not any(
+            warning.startswith("[VOCAB] invalid chars") for warning in result.warnings
+        )
+        assert result.token_ids == phonemes_to_ids("fˈAlsAf")
+    finally:
+        g2p.close()
+
+
 def test_prepared_pipeline_preserves_supplied_coordinate_space():
     text = "already spoken"
     result = phonemize_prepared(

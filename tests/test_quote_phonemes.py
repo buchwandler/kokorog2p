@@ -121,7 +121,7 @@ class TestQuotePhonemes:
         # Should have curly quotes by default
         assert "\u201c" in result or "\u201d" in result
         # And should have correct phonemes for we're
-        assert "wˈɪ\u200dɹ" in result
+        assert "wˈɪɹ" in result
 
     def test_original_bug_ascii(self, phoneme_backend):
         """Test original bug report with ASCII quotes."""
@@ -135,7 +135,7 @@ class TestQuotePhonemes:
         assert '"' in result
         assert "\u201c" not in result and "\u201d" not in result
         # And should have correct phonemes for we're
-        assert "wˈɪ\u200dɹ" in result
+        assert "wˈɪɹ" in result
 
     def test_original_bug_none(self, phoneme_backend):
         """Test original bug report with no quotes."""
@@ -150,7 +150,7 @@ class TestQuotePhonemes:
         assert "\u201c" not in result
         assert "\u201d" not in result
         # And should have correct phonemes for we're
-        assert "wˈɪ\u200dɹ" in result
+        assert "wˈɪɹ" in result
 
     def test_nested_quotes_curly(self, phoneme_backend):
         """Test nested quotes with curly setting."""
